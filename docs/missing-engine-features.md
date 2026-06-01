@@ -164,18 +164,27 @@ Resolved on branch `dev-missing-features`; covered by
 - [x] Fix the withdrawal line in `combat.gd` (`max(1, a_health - a_dmg + a_dmg)` was a
       no-op); the attacker now retreats without taking the fatal hit. *(§5.4)*
 
-### Tier 1 — High-impact systems with partial scaffolding
+### Tier 1 — High-impact systems with partial scaffolding — ✅ DONE
 
-- [ ] **Per-turn healing** (§5.6) — new settlement/territory-aware heal step; skip on
-      move/fight turns.
-- [ ] **Auto-promotion on XP threshold** (§5.5) — award a data-defined promotion when
-      experience crosses the next level; validate prereqs.
-- [ ] **Alliance shared research** (§6.3) — have `_apply_research()` draw from
-      `shared_research_store` instead of researching purely per-player.
-- [ ] **Belief founding** (§8) — call `Beliefs.try_found()` in the settlement/player
-      step when a founding prerequisite is first met; then spread becomes meaningful.
-- [ ] **Special-person production** (§6.5) — emit a special person when points cross the
-      threshold and implement at least one effect (settle bonus or grant tech).
+Resolved on branch `dev-missing-features`; covered by
+`tests/test_tier1_missing_features.gd` (15 tests).
+
+- [x] **Per-turn healing** (§5.6) — `TurnEngine._heal_unit()` heals stationary units by
+      location (settlement / friendly / allied / neutral / hostile rates from data) plus
+      promotion `healing_bonus`, capped at full; never on a move/fight turn.
+- [x] **Auto-promotion on XP threshold** (§5.5) — `SimFacade._award_promotions()` levels a
+      survivor up per `experience_thresholds` and grants the first eligible promotion
+      (prereqs + `applies_to` class/domain validated).
+- [x] **Alliance shared research** (§6.3) — multi-member alliances pool a donated share of
+      each member's research in `_advance_alliances()`; `_apply_research()` draws each
+      member's per-capita share. Solo alliances pool nothing, so per-player behavior is
+      unchanged (documented simplification: mild over-count of a member's own donation).
+- [x] **Belief founding** (§8) — `player_step` calls `Beliefs.try_found()`; founding now
+      requires a settlement to host the holy site, and an adopted belief feeds
+      contentment (`happiness_bonus`) and wellbeing (`health_bonus`).
+- [x] **Special-person production** (§6.5) — `_apply_special_person()` fires when points
+      cross the rising threshold: grants the in-progress technology, or settles for gold
+      when none. Tracked via new `Settlement.special_persons_produced` (serialized).
 
 ### Tier 2 — New subsystems
 

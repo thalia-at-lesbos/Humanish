@@ -6,13 +6,24 @@ class_name Beliefs
 # Called during the per-player turn when a founding condition is first met.
 static func try_found(player_id: int, game_state, rng: RNG) -> String:
 	var db: DataDB = game_state.db
+	var player: Player = game_state.get_player(player_id)
+	if player == null:
+		return ""
+	# A belief needs a settlement to become its principal site; without one the
+	# player cannot found yet (and no RNG is consumed).
+	var host: Settlement = null
+	for s in game_state.settlements:
+		if s.owner_player_id == player_id and s.belief_id == "":
+			host = s
+			break
+	if host == null:
+		return ""
 	var eligible := []
 	for belief_id in db.beliefs:
 		if game_state.founded_beliefs.has(belief_id):
 			continue
 		var belief: Dictionary = db.beliefs[belief_id]
 		var tech_req = belief.get("founding_tech", null)
-		var player: Player = game_state.get_player(player_id)
 		if tech_req != null and tech_req != "" and not player.has_tech(tech_req):
 			continue
 		eligible.append(belief_id)
@@ -22,11 +33,7 @@ static func try_found(player_id: int, game_state, rng: RNG) -> String:
 	var idx: int = rng.randi_range(0, eligible.size() - 1)
 	var chosen: String = eligible[idx]
 	game_state.founded_beliefs[chosen] = player_id
-	# Find a settlement of this player to host the principal site
-	for s in game_state.settlements:
-		if s.owner_player_id == player_id and s.belief_id == "":
-			s.belief_id = chosen
-			break
+	host.belief_id = chosen
 	return chosen
 
 # Spread beliefs to adjacent settlements each turn.

@@ -18,6 +18,8 @@
   "flanking_damage_fraction": 25,
   "withdrawal_min_health": 10,
   "score_weight_wonder": 5,
+  "alliance_research_share_pct": 50,
+  "special_person_settle_gold": 100,
   "upkeep_distance_scale": 1,
   "upkeep_size_scale": 1,
   "starting_techs": ["stone_age"],
