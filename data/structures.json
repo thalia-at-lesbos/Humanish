@@ -1,0 +1,49 @@
+{
+  "granary": {
+    "id": "granary",
+    "cost": 60,
+    "upkeep": 1,
+    "tech_required": null,
+    "output_delta": { "food": 2, "production": 0, "commerce": 0 },
+    "growth_bonus": 50,
+    "health_bonus": 1,
+    "happiness_bonus": 0,
+    "effects": { "food_carry_over": 50 }
+  },
+  "barracks": {
+    "id": "barracks",
+    "cost": 60,
+    "upkeep": 1,
+    "tech_required": null,
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
+    "effects": { "free_promotions": ["disciplined"], "heals_units": true }
+  },
+  "library": {
+    "id": "library",
+    "cost": 80,
+    "upkeep": 1,
+    "tech_required": "writing",
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
+    "science_bonus": 25,
+    "specialist_slots": { "scientist": 2 }
+  },
+  "market": {
+    "id": "market",
+    "cost": 100,
+    "upkeep": 1,
+    "tech_required": "currency",
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
+    "commerce_bonus": 25,
+    "happiness_bonus": 1,
+    "specialist_slots": { "merchant": 2 }
+  },
+  "walls": {
+    "id": "walls",
+    "cost": 60,
+    "upkeep": 1,
+    "tech_required": null,
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
+    "defence_bonus": 50,
+    "cultural_defence_bonus": 10
+  }
+}

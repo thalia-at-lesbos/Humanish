@@ -1,0 +1,42 @@
+{
+  "wheat": {
+    "id": "wheat",
+    "type": "food",
+    "output": { "food": 2, "production": 0, "commerce": 0 },
+    "allowed_terrains": ["grassland", "plains"],
+    "tech_required": null,
+    "improvement_required": "farm"
+  },
+  "iron": {
+    "id": "iron",
+    "type": "strategic",
+    "output": { "food": 0, "production": 3, "commerce": 0 },
+    "allowed_terrains": ["hills", "plains"],
+    "tech_required": "iron_working",
+    "improvement_required": "mine"
+  },
+  "horses": {
+    "id": "horses",
+    "type": "strategic",
+    "output": { "food": 1, "production": 1, "commerce": 0 },
+    "allowed_terrains": ["grassland", "plains"],
+    "tech_required": null,
+    "improvement_required": "pasture"
+  },
+  "gold": {
+    "id": "gold",
+    "type": "luxury",
+    "output": { "food": 0, "production": 0, "commerce": 6 },
+    "allowed_terrains": ["hills", "desert"],
+    "tech_required": "mining",
+    "improvement_required": "mine"
+  },
+  "fish": {
+    "id": "fish",
+    "type": "food",
+    "output": { "food": 3, "production": 0, "commerce": 0 },
+    "allowed_terrains": ["coast"],
+    "tech_required": null,
+    "improvement_required": "fishing_boats"
+  }
+}

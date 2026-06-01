@@ -1,0 +1,32 @@
+{
+  "traits": {
+    "industrious": {
+      "id": "industrious",
+      "name": "Industrious",
+      "production_bonus": 25,
+      "wonder_production_bonus": 50
+    },
+    "financial": {
+      "id": "financial",
+      "name": "Financial",
+      "commerce_bonus_per_2: ": 1
+    },
+    "aggressive": {
+      "id": "aggressive",
+      "name": "Aggressive",
+      "combat_strength_bonus": 10,
+      "free_promotions": ["combat1"]
+    },
+    "philosophical": {
+      "id": "philosophical",
+      "name": "Philosophical",
+      "great_person_rate_bonus": 100
+    },
+    "expansive": {
+      "id": "expansive",
+      "name": "Expansive",
+      "health_bonus": 2,
+      "worker_speed_bonus": 50
+    }
+  }
+}

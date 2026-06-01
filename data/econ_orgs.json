@@ -1,0 +1,9 @@
+{
+  "merchant_guild": {
+    "id": "merchant_guild",
+    "input_resources": ["gold"],
+    "output_delta": { "food": 0, "production": 0, "commerce": 4 },
+    "spread_cost": 200,
+    "spread_chance_base": 15
+  }
+}

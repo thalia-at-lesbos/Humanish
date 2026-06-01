@@ -1,0 +1,43 @@
+{
+  "farm": {
+    "id": "farm",
+    "output_delta": { "food": 1, "production": 0, "commerce": 0 },
+    "tech_required": null,
+    "allowed_landforms": ["flat"],
+    "build_turns": 5,
+    "pillage_value": 0
+  },
+  "mine": {
+    "id": "mine",
+    "output_delta": { "food": 0, "production": 1, "commerce": 0 },
+    "tech_required": "mining",
+    "allowed_landforms": ["hill", "flat"],
+    "build_turns": 8,
+    "pillage_value": 0
+  },
+  "pasture": {
+    "id": "pasture",
+    "output_delta": { "food": 1, "production": 0, "commerce": 1 },
+    "tech_required": null,
+    "allowed_landforms": ["flat"],
+    "build_turns": 5,
+    "pillage_value": 0
+  },
+  "fishing_boats": {
+    "id": "fishing_boats",
+    "output_delta": { "food": 1, "production": 0, "commerce": 1 },
+    "tech_required": null,
+    "allowed_landforms": ["water"],
+    "build_turns": 5,
+    "pillage_value": 0
+  },
+  "road": {
+    "id": "road",
+    "movement_cost_override": 34,
+    "output_delta": { "food": 0, "production": 0, "commerce": 1 },
+    "tech_required": null,
+    "allowed_landforms": ["flat", "hill"],
+    "build_turns": 3,
+    "pillage_value": 0
+  }
+}

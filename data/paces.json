@@ -1,0 +1,34 @@
+{
+  "quick": {
+    "id": "quick",
+    "growth_scale": 67,
+    "research_scale": 67,
+    "build_scale": 67,
+    "event_timer_scale": 67,
+    "max_turns": 330
+  },
+  "normal": {
+    "id": "normal",
+    "growth_scale": 100,
+    "research_scale": 100,
+    "build_scale": 100,
+    "event_timer_scale": 100,
+    "max_turns": 500
+  },
+  "epic": {
+    "id": "epic",
+    "growth_scale": 150,
+    "research_scale": 150,
+    "build_scale": 150,
+    "event_timer_scale": 150,
+    "max_turns": 750
+  },
+  "marathon": {
+    "id": "marathon",
+    "growth_scale": 300,
+    "research_scale": 300,
+    "build_scale": 300,
+    "event_timer_scale": 300,
+    "max_turns": 1500
+  }
+}

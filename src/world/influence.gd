@@ -1,0 +1,70 @@
+class_name Influence
+
+# Cultural influence accumulation and border ownership per §4.7.
+# Each turn settlements add influence to nearby tiles weighted by 1/distance.
+# The player with the most accumulated influence on a tile owns it.
+
+# Add one turn of cultural spread from a settlement.
+# cx, cy: settlement position
+# culture_output: how much culture the settlement produces this turn
+# range_rings: how many rings out influence spreads (from culture level thresholds)
+# player_id: owning player
+static func spread(map: WorldMap, cx: int, cy: int,
+		culture_output: int, range_rings: int, player_id: int,
+		db: DataDB) -> void:
+	var decay: int = db.get_constant("influence_distance_falloff", 2)
+	for ring in range(0, range_rings + 1):
+		var tiles: Array
+		if ring == 0:
+			tiles = [map.get_tile(cx, cy)] if map.is_valid(cx, cy) else []
+		else:
+			tiles = map.ring_at_distance(cx, cy, ring)
+		for tile in tiles:
+			if tile == null:
+				continue
+			# Influence = culture_output / (decay^ring), minimum 1 if ring==0
+			var amount: int
+			if ring == 0:
+				amount = culture_output
+			else:
+				amount = culture_output
+				for _i in range(ring):
+					amount = amount / decay
+				amount = max(1, amount) if culture_output > 0 else 0
+			if amount <= 0:
+				continue
+			if not tile.influence.has(player_id):
+				tile.influence[player_id] = 0
+			tile.influence[player_id] += amount
+
+# Recompute ownership of all tiles based on accumulated influence.
+# Tiles with no influence remain unowned (-1).
+# Ties keep the current owner (no change).
+static func resolve_ownership(map: WorldMap) -> void:
+	for tile in map.all_tiles():
+		if tile.influence.empty():
+			tile.owner_player_id = -1
+			continue
+		var best_player: int = -1
+		var best_val: int = 0
+		for pid in tile.influence:
+			var val: int = tile.influence[pid]
+			if val > best_val:
+				best_val = val
+				best_player = pid
+		if best_player >= 0:
+			tile.owner_player_id = best_player
+
+# Immediately claim a radius of tiles for a new settlement (founding).
+# This establishes the minimal initial border.
+static func found_claim(map: WorldMap, cx: int, cy: int,
+		player_id: int, radius: int, initial_influence: int) -> void:
+	for tile in map.tiles_in_range(cx, cy, radius):
+		if tile == null:
+			continue
+		var dist: int = map.distance(cx, cy, tile.x, tile.y)
+		var amount: int = max(1, initial_influence / max(1, dist + 1))
+		if not tile.influence.has(player_id):
+			tile.influence[player_id] = 0
+		tile.influence[player_id] += amount
+	resolve_ownership(map)

@@ -1,0 +1,15 @@
+{
+  "road": {
+    "id": "road",
+    "movement_cost_divisor": 3,
+    "commerce_bonus": 1,
+    "required_improvement": "road"
+  },
+  "railroad": {
+    "id": "railroad",
+    "movement_cost_divisor": 100,
+    "commerce_bonus": 2,
+    "required_improvement": "railroad",
+    "tech_required": "industrialism"
+  }
+}

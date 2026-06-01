@@ -1,0 +1,51 @@
+{
+  "combat1": {
+    "id": "combat1",
+    "name": "Combat I",
+    "prereqs": [],
+    "combat_strength_bonus": 10,
+    "applies_to": "all"
+  },
+  "combat2": {
+    "id": "combat2",
+    "name": "Combat II",
+    "prereqs": ["combat1"],
+    "combat_strength_bonus": 10,
+    "applies_to": "all"
+  },
+  "disciplined": {
+    "id": "disciplined",
+    "name": "Disciplined",
+    "prereqs": [],
+    "healing_bonus": 10,
+    "applies_to": "all"
+  },
+  "city_raider1": {
+    "id": "city_raider1",
+    "name": "City Raider I",
+    "prereqs": [],
+    "attack_vs_settlement": 20,
+    "applies_to": "melee"
+  },
+  "woodsman1": {
+    "id": "woodsman1",
+    "name": "Woodsman I",
+    "prereqs": [],
+    "combat_in_forest": 20,
+    "applies_to": "land"
+  },
+  "amphibious": {
+    "id": "amphibious",
+    "name": "Amphibious",
+    "prereqs": [],
+    "no_amphibious_penalty": true,
+    "applies_to": "land"
+  },
+  "withdrawal": {
+    "id": "withdrawal",
+    "name": "Withdrawal",
+    "prereqs": [],
+    "withdrawal_chance_bonus": 25,
+    "applies_to": "land"
+  }
+}

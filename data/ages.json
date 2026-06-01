@@ -1,0 +1,32 @@
+{
+  "ancient": {
+    "id": "ancient",
+    "growth_threshold_scale": 100,
+    "start_turn": 0
+  },
+  "classical": {
+    "id": "classical",
+    "growth_threshold_scale": 100,
+    "start_turn": 50
+  },
+  "medieval": {
+    "id": "medieval",
+    "growth_threshold_scale": 110,
+    "start_turn": 120
+  },
+  "renaissance": {
+    "id": "renaissance",
+    "growth_threshold_scale": 115,
+    "start_turn": 200
+  },
+  "industrial": {
+    "id": "industrial",
+    "growth_threshold_scale": 120,
+    "start_turn": 300
+  },
+  "modern": {
+    "id": "modern",
+    "growth_threshold_scale": 125,
+    "start_turn": 400
+  }
+}

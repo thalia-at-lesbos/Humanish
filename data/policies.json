@@ -1,0 +1,53 @@
+{
+  "categories": ["government", "legal", "labor", "economic"],
+  "policies": {
+    "despotism": {
+      "id": "despotism",
+      "category": "government",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "slider_min_research": 0,
+      "slider_increment": 10,
+      "anger_modifier": 5,
+      "transition_turns": 0
+    },
+    "monarchy": {
+      "id": "monarchy",
+      "category": "government",
+      "tech_required": null,
+      "upkeep_modifier": -10,
+      "slider_min_research": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3
+    },
+    "republic": {
+      "id": "republic",
+      "category": "government",
+      "tech_required": "writing",
+      "upkeep_modifier": -20,
+      "slider_min_research": 10,
+      "slider_increment": 10,
+      "anger_modifier": -5,
+      "transition_turns": 5
+    },
+    "slavery": {
+      "id": "slavery",
+      "category": "labor",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "rush_by_pop": true,
+      "anger_modifier": 5,
+      "transition_turns": 3
+    },
+    "serfdom": {
+      "id": "serfdom",
+      "category": "labor",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "worker_speed_bonus": 50,
+      "anger_modifier": 0,
+      "transition_turns": 3
+    }
+  }
+}

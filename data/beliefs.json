@@ -1,0 +1,20 @@
+{
+  "sun_faith": {
+    "id": "sun_faith",
+    "founding_prereq": null,
+    "founding_tech": null,
+    "happiness_bonus": 1,
+    "spread_chance_base": 20,
+    "holy_site_structure": "temple_of_sun",
+    "commerce_per_city": 1
+  },
+  "earth_covenant": {
+    "id": "earth_covenant",
+    "founding_prereq": null,
+    "founding_tech": null,
+    "health_bonus": 1,
+    "spread_chance_base": 20,
+    "holy_site_structure": "grove_sanctuary",
+    "commerce_per_city": 1
+  }
+}

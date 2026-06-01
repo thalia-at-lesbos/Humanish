@@ -1,0 +1,31 @@
+{
+  "last_standing": {
+    "id": "last_standing",
+    "type": "last_standing"
+  },
+  "dominance": {
+    "id": "dominance",
+    "type": "dominance",
+    "land_share_required": 60,
+    "population_share_required": 60
+  },
+  "endgame_project": {
+    "id": "endgame_project",
+    "type": "endgame_project",
+    "stages_required": 3
+  },
+  "cultural": {
+    "id": "cultural",
+    "type": "cultural",
+    "cities_at_max_culture": 5
+  },
+  "diplomatic": {
+    "id": "diplomatic",
+    "type": "diplomatic",
+    "vote_share_required": 67
+  },
+  "time": {
+    "id": "time",
+    "type": "time"
+  }
+}

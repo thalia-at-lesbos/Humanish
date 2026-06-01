@@ -1,0 +1,68 @@
+class_name IDs
+
+# Movement domains
+enum Domain { LAND = 0, SEA = 1, AIR = 2, IMMOBILE = 3 }
+
+# Landform categories
+enum Landform { FLAT = 0, HILL = 1, PEAK = 2, WATER = 3, DEEP_WATER = 4 }
+
+# Output vector indices
+enum Output { FOOD = 0, PRODUCTION = 1, COMMERCE = 2, COUNT = 3 }
+
+# Unit tactical classifications
+enum UnitClass { MELEE = 0, RANGED = 1, CAVALRY = 2, NAVAL = 3, AIR = 4, CIVILIAN = 5, SIEGE = 6 }
+
+# Command types sent by players through the API
+enum CommandType {
+    FOUND_SETTLEMENT = 0,
+    MOVE_STACK = 1,
+    SET_SLIDERS = 2,
+    SET_PRODUCTION = 3,
+    SET_RESEARCH = 4,
+    SET_POLICY = 5,
+    END_TURN = 6,
+    DECLARE_WAR = 7,
+    MAKE_PEACE = 8,
+    PROPOSE_TRADE = 9,
+    ACCEPT_TRADE = 10,
+    REJECT_TRADE = 11,
+    RUSH_PRODUCTION = 12,
+    ASSIGN_WORKERS = 13,
+    PILLAGE = 14,
+    BUILD_IMPROVEMENT = 15,
+    SPREAD_BELIEF = 16,
+    JOIN_SETTLEMENT = 17
+}
+
+# Win condition types
+enum WinType { LAST_STANDING = 0, DOMINANCE = 1, ENDGAME_PROJECT = 2, CULTURAL = 3, DIPLOMATIC = 4, TIME = 5 }
+
+# Phase flags for hooks
+enum Phase {
+    WORLD_RESOLVE_TRADES = 0,
+    WORLD_ADVANCE_ALLIANCES = 1,
+    WORLD_TILE_UPKEEP = 2,
+    WORLD_SPAWN_WILD = 3,
+    WORLD_ENVIRONMENTAL = 4,
+    WORLD_ASSIGN_SITES = 5,
+    WORLD_ASSEMBLY = 6,
+    WORLD_INCREMENT_TURN = 7,
+    WORLD_ACTIVATE_PLAYER = 8,
+    WORLD_CHECK_WIN = 9,
+    PLAYER_BOOKKEEPING = 10,
+    PLAYER_ASSIGN_WORKERS = 11,
+    PLAYER_TREASURY = 12,
+    PLAYER_RESEARCH = 13,
+    PLAYER_INTELLIGENCE = 14,
+    PLAYER_SETTLEMENTS = 15,
+    PLAYER_TICK_STATES = 16,
+    PLAYER_VALIDATE_POLICIES = 17,
+    PLAYER_EVENTS = 18,
+    SETTLEMENT_GROWTH = 19,
+    SETTLEMENT_PRODUCTION = 20,
+    SETTLEMENT_CULTURE = 21,
+    SETTLEMENT_BELIEFS = 22,
+    SETTLEMENT_DECAY = 23,
+    SETTLEMENT_SPECIALISTS = 24,
+    SETTLEMENT_MAINTENANCE = 25
+}

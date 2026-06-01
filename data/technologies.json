@@ -1,0 +1,52 @@
+{
+  "mining": {
+    "id": "mining",
+    "cost": 80,
+    "prereqs_all": [],
+    "prereqs_any": [],
+    "unlocks_units": [],
+    "unlocks_structures": [],
+    "unlocks_improvements": ["mine"],
+    "age": "ancient"
+  },
+  "writing": {
+    "id": "writing",
+    "cost": 100,
+    "prereqs_all": [],
+    "prereqs_any": [],
+    "unlocks_units": [],
+    "unlocks_structures": ["library"],
+    "unlocks_improvements": [],
+    "age": "ancient"
+  },
+  "iron_working": {
+    "id": "iron_working",
+    "cost": 150,
+    "prereqs_all": ["mining"],
+    "prereqs_any": [],
+    "unlocks_units": ["swordsman"],
+    "unlocks_structures": [],
+    "unlocks_improvements": [],
+    "age": "ancient"
+  },
+  "currency": {
+    "id": "currency",
+    "cost": 200,
+    "prereqs_all": ["writing"],
+    "prereqs_any": [],
+    "unlocks_units": [],
+    "unlocks_structures": ["market"],
+    "unlocks_improvements": [],
+    "age": "classical"
+  },
+  "industrialism": {
+    "id": "industrialism",
+    "cost": 1500,
+    "prereqs_all": [],
+    "prereqs_any": ["currency"],
+    "unlocks_units": ["factory_worker"],
+    "unlocks_structures": [],
+    "unlocks_improvements": ["railroad"],
+    "age": "industrial"
+  }
+}

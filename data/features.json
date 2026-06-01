@@ -1,0 +1,42 @@
+{
+  "forest": {
+    "id": "forest",
+    "allowed_landforms": ["flat", "hill"],
+    "output_delta": { "food": 1, "production": 1, "commerce": 0 },
+    "movement_cost_add": 50,
+    "defence_bonus": 25,
+    "health_bonus": 1
+  },
+  "jungle": {
+    "id": "jungle",
+    "allowed_landforms": ["flat", "hill"],
+    "output_delta": { "food": 2, "production": 0, "commerce": 0 },
+    "movement_cost_add": 100,
+    "defence_bonus": 25,
+    "health_penalty": 1
+  },
+  "marsh": {
+    "id": "marsh",
+    "allowed_landforms": ["flat"],
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
+    "movement_cost_add": 100,
+    "defence_bonus": 0,
+    "health_penalty": 1
+  },
+  "flood_plains": {
+    "id": "flood_plains",
+    "allowed_landforms": ["flat"],
+    "output_delta": { "food": 3, "production": 0, "commerce": 0 },
+    "movement_cost_add": 0,
+    "defence_bonus": 0,
+    "health_penalty": 1
+  },
+  "oasis": {
+    "id": "oasis",
+    "allowed_landforms": ["flat"],
+    "output_delta": { "food": 3, "production": 0, "commerce": 1 },
+    "movement_cost_add": 0,
+    "defence_bonus": 0,
+    "health_bonus": 1
+  }
+}

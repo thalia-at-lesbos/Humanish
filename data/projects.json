@@ -1,0 +1,23 @@
+{
+  "space_ship_hull": {
+    "id": "space_ship_hull",
+    "cost": 3000,
+    "tech_required": "industrialism",
+    "win_condition": "endgame_project",
+    "stage": 1
+  },
+  "space_ship_engine": {
+    "id": "space_ship_engine",
+    "cost": 2000,
+    "tech_required": "industrialism",
+    "win_condition": "endgame_project",
+    "stage": 2
+  },
+  "space_ship_life_support": {
+    "id": "space_ship_life_support",
+    "cost": 1500,
+    "tech_required": "industrialism",
+    "win_condition": "endgame_project",
+    "stage": 3
+  }
+}

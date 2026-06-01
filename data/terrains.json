@@ -1,0 +1,75 @@
+{
+  "grassland": {
+    "id": "grassland",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 2, "production": 1, "commerce": 0 },
+    "defence_bonus": 0
+  },
+  "plains": {
+    "id": "plains",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 1, "production": 1, "commerce": 1 },
+    "defence_bonus": 0
+  },
+  "desert": {
+    "id": "desert",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 0, "production": 1, "commerce": 0 },
+    "defence_bonus": 0
+  },
+  "tundra": {
+    "id": "tundra",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 1, "production": 0, "commerce": 0 },
+    "defence_bonus": 0
+  },
+  "snow": {
+    "id": "snow",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 0, "production": 0, "commerce": 0 },
+    "defence_bonus": 0
+  },
+  "coast": {
+    "id": "coast",
+    "landform": "water",
+    "domain": "sea",
+    "movement_cost": 100,
+    "base_output": { "food": 1, "production": 0, "commerce": 2 },
+    "defence_bonus": 0
+  },
+  "ocean": {
+    "id": "ocean",
+    "landform": "deep_water",
+    "domain": "sea",
+    "movement_cost": 100,
+    "base_output": { "food": 1, "production": 0, "commerce": 1 },
+    "defence_bonus": 0
+  },
+  "hills": {
+    "id": "hills",
+    "landform": "hill",
+    "domain": "land",
+    "movement_cost": 150,
+    "base_output": { "food": 1, "production": 2, "commerce": 0 },
+    "defence_bonus": 25
+  },
+  "mountain": {
+    "id": "mountain",
+    "landform": "peak",
+    "domain": "land",
+    "movement_cost": 0,
+    "base_output": { "food": 0, "production": 1, "commerce": 0 },
+    "defence_bonus": 50,
+    "impassable": true
+  }
+}

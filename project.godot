@@ -1,0 +1,219 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=4
+
+_global_script_classes=[ {
+"base": "Reference",
+"class": "Alliance",
+"language": "GDScript",
+"path": "res://src/sim/alliance.gd"
+}, {
+"base": "Reference",
+"class": "Beliefs",
+"language": "GDScript",
+"path": "res://src/sim/beliefs.gd"
+}, {
+"base": "Reference",
+"class": "Combat",
+"language": "GDScript",
+"path": "res://src/sim/combat.gd"
+}, {
+"base": "Reference",
+"class": "Commands",
+"language": "GDScript",
+"path": "res://src/api/commands.gd"
+}, {
+"base": "Reference",
+"class": "DataDB",
+"language": "GDScript",
+"path": "res://src/core/data_db.gd"
+}, {
+"base": "Reference",
+"class": "EconOrgs",
+"language": "GDScript",
+"path": "res://src/sim/econ_orgs.gd"
+}, {
+"base": "Reference",
+"class": "Events",
+"language": "GDScript",
+"path": "res://src/sim/events.gd"
+}, {
+"base": "Reference",
+"class": "Fixed",
+"language": "GDScript",
+"path": "res://src/core/fixed.gd"
+}, {
+"base": "Reference",
+"class": "GameState",
+"language": "GDScript",
+"path": "res://src/sim/game_state.gd"
+}, {
+"base": "Reference",
+"class": "GutHookScript",
+"language": "GDScript",
+"path": "res://addons/gut/hook_script.gd"
+}, {
+"base": "Node",
+"class": "GutTest",
+"language": "GDScript",
+"path": "res://addons/gut/test.gd"
+}, {
+"base": "Reference",
+"class": "Hooks",
+"language": "GDScript",
+"path": "res://src/sim/hooks.gd"
+}, {
+"base": "Reference",
+"class": "IDs",
+"language": "GDScript",
+"path": "res://src/core/ids.gd"
+}, {
+"base": "Reference",
+"class": "Influence",
+"language": "GDScript",
+"path": "res://src/world/influence.gd"
+}, {
+"base": "Reference",
+"class": "Pathfinding",
+"language": "GDScript",
+"path": "res://src/sim/pathfinding.gd"
+}, {
+"base": "Reference",
+"class": "Player",
+"language": "GDScript",
+"path": "res://src/sim/player.gd"
+}, {
+"base": "Reference",
+"class": "Pollution",
+"language": "GDScript",
+"path": "res://src/sim/pollution.gd"
+}, {
+"base": "Reference",
+"class": "RNG",
+"language": "GDScript",
+"path": "res://src/core/rng.gd"
+}, {
+"base": "Reference",
+"class": "Regions",
+"language": "GDScript",
+"path": "res://src/world/regions.gd"
+}, {
+"base": "Reference",
+"class": "Research",
+"language": "GDScript",
+"path": "res://src/sim/research.gd"
+}, {
+"base": "Reference",
+"class": "SaveLoad",
+"language": "GDScript",
+"path": "res://src/api/save_load.gd"
+}, {
+"base": "Reference",
+"class": "Scoring",
+"language": "GDScript",
+"path": "res://src/sim/scoring.gd"
+}, {
+"base": "Reference",
+"class": "Settlement",
+"language": "GDScript",
+"path": "res://src/sim/settlement.gd"
+}, {
+"base": "Reference",
+"class": "SimFacade",
+"language": "GDScript",
+"path": "res://src/api/sim_facade.gd"
+}, {
+"base": "Reference",
+"class": "Stack",
+"language": "GDScript",
+"path": "res://src/sim/stack.gd"
+}, {
+"base": "Reference",
+"class": "Tile",
+"language": "GDScript",
+"path": "res://src/world/tile.gd"
+}, {
+"base": "Reference",
+"class": "TileOutput",
+"language": "GDScript",
+"path": "res://src/world/tile_output.gd"
+}, {
+"base": "Reference",
+"class": "TurnEngine",
+"language": "GDScript",
+"path": "res://src/sim/turn_engine.gd"
+}, {
+"base": "Reference",
+"class": "Unit",
+"language": "GDScript",
+"path": "res://src/sim/unit.gd"
+}, {
+"base": "Reference",
+"class": "WildForces",
+"language": "GDScript",
+"path": "res://src/sim/wild_forces.gd"
+}, {
+"base": "Reference",
+"class": "WinConditions",
+"language": "GDScript",
+"path": "res://src/sim/win_conditions.gd"
+}, {
+"base": "Reference",
+"class": "WorldMap",
+"language": "GDScript",
+"path": "res://src/world/world_map.gd"
+} ]
+_global_script_class_icons={
+"Alliance": "",
+"Beliefs": "",
+"Combat": "",
+"Commands": "",
+"DataDB": "",
+"EconOrgs": "",
+"Events": "",
+"Fixed": "",
+"GameState": "",
+"GutHookScript": "",
+"GutTest": "",
+"Hooks": "",
+"IDs": "",
+"Influence": "",
+"Pathfinding": "",
+"Player": "",
+"Pollution": "",
+"RNG": "",
+"Regions": "",
+"Research": "",
+"SaveLoad": "",
+"Scoring": "",
+"Settlement": "",
+"SimFacade": "",
+"Stack": "",
+"Tile": "",
+"TileOutput": "",
+"TurnEngine": "",
+"Unit": "",
+"WildForces": "",
+"WinConditions": "",
+"WorldMap": ""
+}
+
+[application]
+
+config/name="Humanish"
+config/description="Turn-based 4X strategy simulation engine — headless core"
+config/version="0.1.0"
+
+[physics]
+
+common/enable_pause_on_focus_loss=false
+
+[rendering]
+
+quality/intended_usage/framebuffer_allocation=0

@@ -1,0 +1,18 @@
+# Godot-generated files
+.import/
+export.cfg
+export_presets.cfg
+
+# Godot 3 editor settings
+.godot/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Editor temp files
+*.tmp
+*.bak
+
+# User data (GUT test output)
+user://
