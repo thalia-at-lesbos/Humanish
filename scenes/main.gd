@@ -1,29 +1,33 @@
 extends Node
 
-# Root scene. Bootstraps DataDB + SimFacade, wires all child systems,
-# and routes SimFacade signals to the appropriate scene nodes.
+# Root scene. Wires all child systems and routes SimFacade signals.
+# Call init_with_facade(facade, db) before adding to the tree to supply a
+# pre-configured game; otherwise _ready() falls back to a default 2-player game.
 
 var _facade
 var _db
 
-func _ready() -> void:
-	_db = load("res://src/core/data_db.gd").new()
-	if not _db.load_all():
-		push_error("DataDB load failed: " + str(_db.get_errors()))
-		return
+func init_with_facade(facade, db) -> void:
+	_facade = facade
+	_db = db
 
-	_facade = load("res://src/api/sim_facade.gd").new()
+func _ready() -> void:
+	if _facade == null:
+		_db = load("res://src/core/data_db.gd").new()
+		if not _db.load_all():
+			push_error("DataDB load failed: " + str(_db.get_errors()))
+			return
+		_facade = load("res://src/api/sim_facade.gd").new()
+		_facade.setup(_db, randi(), "tiny", "normal", "warlord",
+			[
+				{"name": "Player 1", "leader_id": "", "traits": [], "starting_gold": 100},
+				{"name": "Player 2", "leader_id": "", "traits": [], "starting_gold": 100}
+			],
+			["last_standing", "dominance", "time"])
+
 	_facade.connect("game_won", self, "_on_game_won")
 	_facade.connect("player_turn_started", self, "_on_player_turn_started")
 	_facade.connect("screen_requested", self, "_on_screen_requested")
-
-	# Default 2-player tiny game for the prototype
-	_facade.setup(_db, randi(), "tiny", "normal", "warlord",
-		[
-			{"name": "Player 1", "leader_id": "", "traits": [], "starting_gold": 100},
-			{"name": "Player 2", "leader_id": "", "traits": [], "starting_gold": 100}
-		],
-		["last_standing", "dominance", "time"])
 
 	var world_view = get_node_or_null("WorldView")
 	if world_view != null:
