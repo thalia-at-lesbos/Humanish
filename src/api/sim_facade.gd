@@ -60,6 +60,8 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 
 	# Create players and alliances
 	var difficulty: Dictionary = db.get_difficulty(difficulty_id)
+	var starting_techs: Array = db.constants.get("starting_techs", [])
+	var default_research: String = str(db.constants.get("default_research", ""))
 	for cfg in player_configs:
 		var p := Player.new()
 		p.id = _gs.next_player_id()
@@ -68,6 +70,12 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		p.traits = cfg.get("traits", []).duplicate()
 		p.free_early_wins = int(difficulty.get("free_early_wins", 0))
 		p.treasury = int(cfg.get("starting_gold", 100))
+
+		# Seed the player's known techs and pick a default research target so the
+		# tech tree (data/technologies.json) is usable from turn one.
+		p.technologies = starting_techs.duplicate()
+		if default_research != "" and Research.can_research(default_research, p, db):
+			p.current_research_id = default_research
 
 		# Each player starts in their own alliance
 		var a := Alliance.new()

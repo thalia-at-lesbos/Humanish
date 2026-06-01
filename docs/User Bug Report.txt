@@ -1,0 +1,15 @@
+User Bug Report
+
+June 1, 3:16pm EDT
+-- Start Game works even though "No Society" is selected for a player
+-- End turn does not appear to advance to the next turn (even though the message "Pass the device to Player X" appears
+-- OK button under "Pass the device to Player X" doesn't appear to work
+-- Players do not appear to have initial units
+-- Societies do not appear to have any units. Ensure there are at least Settlers, Workers, Scouts, Warriors, and Archers
+-- There is no map generation (either static or dynamic). Create a simple but varied sample map to be used for testing
+-- Every time "End Turn" is pressed, more small light grey squares appear on the screen
+-- Button beneath Finance/Research/Culture/Intel percentages appear to randomly change the values. Each of these 
+-- Currently there is no tech tree. Create a simple 4 progression tech tree based on stone, bronze, iron, silicon
+-- Currently there are no civics. Create a simple 4 item civic system Communism, Anarcho-communism, Anarcho Capitalism, and Fascism
+
+

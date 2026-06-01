@@ -1,4 +1,49 @@
 {
+  "stone_age": {
+    "id": "stone_age",
+    "name": "Stone Age",
+    "cost": 30,
+    "prereqs_all": [],
+    "prereqs_any": [],
+    "unlocks_units": ["warrior", "scout", "worker", "settler"],
+    "unlocks_structures": [],
+    "unlocks_improvements": ["farm"],
+    "age": "stone"
+  },
+  "bronze_age": {
+    "id": "bronze_age",
+    "name": "Bronze Age",
+    "cost": 120,
+    "prereqs_all": ["stone_age"],
+    "prereqs_any": [],
+    "unlocks_units": ["archer"],
+    "unlocks_structures": ["barracks"],
+    "unlocks_improvements": ["mine"],
+    "age": "bronze"
+  },
+  "iron_age": {
+    "id": "iron_age",
+    "name": "Iron Age",
+    "cost": 350,
+    "prereqs_all": ["bronze_age"],
+    "prereqs_any": [],
+    "unlocks_units": ["swordsman"],
+    "unlocks_structures": ["walls"],
+    "unlocks_improvements": [],
+    "age": "iron"
+  },
+  "silicon_age": {
+    "id": "silicon_age",
+    "name": "Silicon Age",
+    "cost": 900,
+    "prereqs_all": ["iron_age"],
+    "prereqs_any": [],
+    "unlocks_units": ["factory_worker"],
+    "unlocks_structures": ["market"],
+    "unlocks_improvements": ["railroad"],
+    "age": "silicon"
+  },
+
   "mining": {
     "id": "mining",
     "cost": 80,
