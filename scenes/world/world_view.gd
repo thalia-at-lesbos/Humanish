@@ -20,6 +20,11 @@ const TERRAIN_COLORS: Dictionary = {
 }
 const DEFAULT_TERRAIN_COLOR: Color = Color(0.3, 0.3, 0.3)
 
+# Wild/raider forces (owner id -2) — a deliberate charcoal so they read as
+# hostile barbarians rather than rendering glitches.
+const WILD_OWNER_ID: int = -2
+const WILD_COLOR: Color = Color(0.22, 0.20, 0.24)
+
 # Player colors (indexed by player slot 0–7)
 const PLAYER_COLORS: Array = [
 	Color(1.0, 0.2, 0.2),   # 0 red
@@ -148,6 +153,8 @@ func _draw_unit(u, gs) -> void:
 		draw_rect(bar_rect, Color.green)
 
 func _player_color(player_id: int, gs) -> Color:
+	if player_id == WILD_OWNER_ID:
+		return WILD_COLOR
 	for i in range(gs.players.size()):
 		if gs.players[i].id == player_id:
 			return PLAYER_COLORS[i % PLAYER_COLORS.size()]

@@ -267,3 +267,33 @@ func test_slider_rebalance_takes_from_following_sliders_first() -> void:
 	var out = SM.rebalance([40, 40, 10, 10], 0, 60)
 	assert_eq(out, [60, 20, 10, 10],
 		"Increase should be absorbed by the immediately following slider first")
+
+# ── Bug 7: wild forces no longer flood the map each turn ───────────────────────
+
+func test_wild_units_are_capped_over_many_turns() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 4242, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+
+	# Run a number of world steps by cycling end-turns.
+	for _t in range(20):
+		for p in gs.players:
+			gs.current_player_id = p.id
+			facade.apply_command(Commands.end_turn(p.id))
+
+	# Count land tiles and wild units; the cap is land/wild_land_per_unit.
+	var land = 0
+	for tile in gs.map.all_tiles():
+		if db.get_terrain(tile.terrain_id).get("domain", "land") == "land":
+			land += 1
+	var wild = 0
+	for u in gs.units:
+		if u.is_wild:
+			wild += 1
+	var cap = land / int(db.constants.get("wild_land_per_unit", 80))
+	assert_true(wild <= cap + 1,
+		"Wild units (%d) must stay near the land-based cap (%d), not flood" % [wild, cap])
