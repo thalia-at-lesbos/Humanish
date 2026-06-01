@@ -209,18 +209,33 @@ Resolved on branch `dev-missing-features`; covered by
       `cargo`/`transported_by` (capacity-checked); carried units ride with their
       transport and are excluded from the independent moving stack.
 
-### Tier 3 — Breadth & depth (larger or lower-frequency)
+### Tier 3 — Breadth & depth (larger or lower-frequency) — ✅ DONE
 
-- [ ] **Assemblies / voting bodies** (§3.7) — unblocks diplomatic victory.
-- [ ] **Scripted/random events + exploration rewards** (§9) — load event content; wire
-      `exploration_reward()` to an investigate action.
-- [ ] **Zones of control & 8-direction movement** (§1.2, §5.2).
-- [ ] **Air units** — range, basing, interception, air strikes (§5.2).
-- [ ] **Subordination / tributaries** (§7).
-- [ ] **Upkeep scaling** (distance/count/size) + **insolvency** sell/disband (§6.1).
-- [ ] **Slider policy constraints** (increments, minimums, research cap) (§6.2).
-- [ ] **Contentment & wellbeing breadth** (§4.5/§4.6) — remaining sentiment sources.
-- [ ] **Culture channel fix** — use the culture slice of the split, not raw commerce
-      (§4.7/§6.2).
-- [ ] **Per-tile upkeep** (§3.3) and **pollution** breadth (area strikes, flooding)
-      (§11).
+Resolved on branch `dev-missing-features`, one commit per item; covered by
+`tests/test_tier3_missing_features.gd` (31 tests).
+
+- [x] **Assemblies / voting bodies** (§3.7) — `_resolve_assembly()` tallies votes by
+      governed population each world step, unblocking the diplomatic win.
+- [x] **Scripted events + exploration rewards** (§9) — `data/events.json` loads into
+      DataDB; `process_player_events()` fires turn/tech-gated once-only events;
+      entering a `Tile.has_discovery` site triggers `exploration_reward()`.
+- [x] **Zones of control & 8-direction movement** (§1.2, §5.2) — pathfinding uses
+      `neighbours8`; entering a tile adjacent to a hostile unit ends movement.
+- [x] **Air units** (§5.2) — data-driven `fighter`; range-limited air strikes that
+      don't advance, with interceptors; range-limited airlift.
+- [x] **Subordination / tributaries** (§7) — `set_subordination` command + world-step
+      `_collect_tribute()`; tributaries inherit the overlord's wars.
+- [x] **Upkeep scaling + insolvency** (§6.1) — settlement upkeep scales by
+      distance-from-capital and size, less policy modifier; insolvency sells/disbands
+      after `insolvency_grace_turns`.
+- [x] **Slider policy constraints** (§6.2) — `_cmd_set_sliders` enforces policy
+      increment, min research, and an optional max-research cap.
+- [x] **Contentment & wellbeing breadth** (§4.5/§4.6) — garrison comfort, overcrowding
+      anger, fresh-water wellbeing.
+- [x] **Culture channel fix** (§4.7/§6.2) — culture accrues from the culture slice of
+      the split, not raw commerce.
+- [x] **Per-tile upkeep + pollution flooding** (§3.3, §11) — improvement maintenance in
+      `_tile_upkeep()`; polluted flat tiles beside water flood to coast.
+
+> Remaining known simplification: area-effect strikes (a pollution/contamination
+> source) are not modelled, as no area-strike action exists yet.

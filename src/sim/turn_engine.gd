@@ -745,8 +745,18 @@ static func _advance_alliances(gs: GameState) -> void:
 			alliance.shared_research_store += Fixed.scale(research_contrib, share_pct)
 
 static func _tile_upkeep(gs: GameState) -> void:
-	# Tile-level upkeep (improvement maintenance) — currently stub
-	pass
+	# Improvement maintenance (§3.3): each owned, improved tile charges its owner
+	# the improvement's upkeep.
+	var db: DataDB = gs.db
+	for tile in gs.map.all_tiles():
+		if tile.owner_player_id < 0 or tile.improvement_id == "":
+			continue
+		var cost: int = int(db.get_improvement(tile.improvement_id).get("upkeep", 0))
+		if cost <= 0:
+			continue
+		var p: Player = gs.get_player(tile.owner_player_id)
+		if p != null:
+			p.treasury -= cost
 
 static func _set_next_active_player(gs: GameState) -> void:
 	if gs.players.empty():

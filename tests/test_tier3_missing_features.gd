@@ -340,3 +340,39 @@ func test_zero_culture_slider_accrues_nothing() -> void:
 	p.slider_finance = 60; p.slider_research = 40; p.slider_culture = 0; p.slider_intel = 0
 	TurnEngine._settlement_culture(gs, s, p)
 	assert_eq(s.culture_total, 0, "No culture accrues when the culture slider is zero")
+
+# ── Item 10: Per-tile upkeep + pollution flooding (§3.3, §11) ──────────────────
+
+func test_improvement_upkeep_charged() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 10
+	var tile = gs.map.get_tile(5, 5)
+	tile.owner_player_id = 1
+	tile.improvement_id = "road"  # upkeep 1
+	TurnEngine._tile_upkeep(gs)
+	assert_eq(p.treasury, 9, "Owned improvements charge their upkeep")
+
+func test_unowned_improvement_not_charged() -> void:
+	var gs = _make_gs()
+	gs.get_player(1).treasury = 10
+	var tile = gs.map.get_tile(5, 5)
+	tile.owner_player_id = -1
+	tile.improvement_id = "road"
+	TurnEngine._tile_upkeep(gs)
+	assert_eq(gs.get_player(1).treasury, 10, "Unowned improvements charge nobody")
+
+func test_polluted_flat_tile_floods_beside_water() -> void:
+	var gs = _make_gs()
+	gs.map.get_tile(6, 5).terrain_id = "coast"  # adjacent water
+	var tile = gs.map.get_tile(5, 5)
+	tile.terrain_id = "grassland"; tile.feature_id = ""
+	Pollution._degrade_tile(gs, tile, gs.db)
+	assert_eq(tile.terrain_id, "coast", "A polluted flat tile beside water floods to coast")
+
+func test_inland_flat_tile_degrades_not_floods() -> void:
+	var gs = _make_gs()
+	var tile = gs.map.get_tile(5, 5)
+	tile.terrain_id = "grassland"; tile.feature_id = ""
+	Pollution._degrade_tile(gs, tile, gs.db)
+	assert_eq(tile.terrain_id, "plains", "An inland flat tile degrades toward barren, not water")

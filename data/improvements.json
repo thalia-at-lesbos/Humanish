@@ -38,6 +38,7 @@
     "tech_required": null,
     "allowed_landforms": ["flat", "hill"],
     "build_turns": 3,
-    "pillage_value": 0
+    "pillage_value": 0,
+    "upkeep": 1
   }
 }

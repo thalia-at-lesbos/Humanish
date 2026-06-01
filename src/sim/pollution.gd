@@ -27,20 +27,33 @@ static func degrade(game_state, rng: RNG) -> void:
 		if not rng.rand_bool_percent(chance):
 			continue
 		# Degrade: strip feature (vegetation), or shift terrain toward barren
-		_degrade_tile(tile, db)
+		_degrade_tile(game_state, tile, db)
 
-static func _degrade_tile(tile: Tile, db: DataDB) -> void:
+static func _degrade_tile(game_state, tile: Tile, db: DataDB) -> void:
 	if tile.feature_id != "":
 		# Strip vegetation feature first
 		tile.feature_id = ""
 		return
-	# Shift terrain toward desert/barren based on current terrain
 	var ter: Dictionary = db.get_terrain(tile.terrain_id)
 	var domain: String = ter.get("domain", "land")
 	if domain != "land":
 		return
-	# Simple degradation chain
+	# Flooding (§11): a heavily polluted flat tile beside water can flood and
+	# become coast. Flat tiles are those not classed as hill/peak/mountain.
+	var landform: String = str(ter.get("landform", "flat"))
+	if landform == "flat" and _adjacent_to_water(game_state, tile, db):
+		tile.terrain_id = "coast"
+		tile.improvement_id = ""
+		tile.owner_player_id = -1
+		return
+	# Otherwise shift terrain toward desert/barren
 	match tile.terrain_id:
 		"grassland": tile.terrain_id = "plains"
 		"plains":    tile.terrain_id = "desert"
 		"tundra":    tile.terrain_id = "snow"
+
+static func _adjacent_to_water(game_state, tile: Tile, db: DataDB) -> bool:
+	for nb in game_state.map.neighbours8(tile.x, tile.y):
+		if db.get_terrain(nb.terrain_id).get("domain", "land") != "land":
+			return true
+	return false
