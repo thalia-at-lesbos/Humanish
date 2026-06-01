@@ -35,6 +35,11 @@ _global_script_classes=[ {
 "path": "res://src/core/data_db.gd"
 }, {
 "base": "Reference",
+"class": "DirtyFlags",
+"language": "GDScript",
+"path": "res://src/api/dirty_flags.gd"
+}, {
+"base": "Reference",
 "class": "EconOrgs",
 "language": "GDScript",
 "path": "res://src/sim/econ_orgs.gd"
@@ -120,6 +125,11 @@ _global_script_classes=[ {
 "path": "res://src/sim/scoring.gd"
 }, {
 "base": "Reference",
+"class": "SelectionState",
+"language": "GDScript",
+"path": "res://src/api/selection_state.gd"
+}, {
+"base": "Reference",
 "class": "Settlement",
 "language": "GDScript",
 "path": "res://src/sim/settlement.gd"
@@ -133,6 +143,11 @@ _global_script_classes=[ {
 "class": "Stack",
 "language": "GDScript",
 "path": "res://src/sim/stack.gd"
+}, {
+"base": "Reference",
+"class": "TextGen",
+"language": "GDScript",
+"path": "res://src/api/text_gen.gd"
 }, {
 "base": "Reference",
 "class": "Tile",
@@ -175,6 +190,7 @@ _global_script_class_icons={
 "Combat": "",
 "Commands": "",
 "DataDB": "",
+"DirtyFlags": "",
 "EconOrgs": "",
 "Events": "",
 "Fixed": "",
@@ -192,9 +208,11 @@ _global_script_class_icons={
 "Research": "",
 "SaveLoad": "",
 "Scoring": "",
+"SelectionState": "",
 "Settlement": "",
 "SimFacade": "",
 "Stack": "",
+"TextGen": "",
 "Tile": "",
 "TileOutput": "",
 "TurnEngine": "",
@@ -207,8 +225,9 @@ _global_script_class_icons={
 [application]
 
 config/name="Humanish"
-config/description="Turn-based 4X strategy simulation engine — headless core"
-config/version="0.1.0"
+config/description="Turn-based 4X strategy game — headless engine + flat-color prototype UI"
+config/version="0.2.0"
+run/main_scene="res://scenes/main.tscn"
 
 [physics]
 

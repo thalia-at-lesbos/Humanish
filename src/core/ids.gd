@@ -31,11 +31,86 @@ enum CommandType {
     PILLAGE = 14,
     BUILD_IMPROVEMENT = 15,
     SPREAD_BELIEF = 16,
-    JOIN_SETTLEMENT = 17
+    JOIN_SETTLEMENT = 17,
+    # Unit commands (§3.2)
+    UNIT_WAKE = 18,
+    UNIT_SLEEP = 19,
+    UNIT_FORTIFY = 20,
+    UNIT_CANCEL_ORDERS = 21,
+    UNIT_DISBAND = 22,
+    UNIT_UPGRADE = 23,
+    UNIT_PROMOTE = 24,
+    # Unit missions (§3.3)
+    MISSION_MOVE_TO = 25,
+    MISSION_BUILD_ROAD = 26,
+    MISSION_SKIP_TURN = 27,
+    MISSION_PILLAGE = 28,
+    MISSION_BOMBARD = 29,
+    MISSION_AIRLIFT = 30,
+    # UI controls (§3.1)
+    DO_CONTROL = 31
 }
 
 # Win condition types
 enum WinType { LAST_STANDING = 0, DOMINANCE = 1, ENDGAME_PROJECT = 2, CULTURAL = 3, DIPLOMATIC = 4, TIME = 5 }
+
+# Independently-invalidated display regions (§2 of ui design)
+enum DirtyRegion { WORLD = 0, HUD_GROUPS = 1, DATA_PANES = 2, FULL_SCREENS = 3, ALL = 4 }
+
+# Widget type tags for {type, data1, data2} uniform dispatch (§4)
+enum WidgetType {
+    UNIT_LIST = 0, CITY_SCROLLER = 1, TRAIN_UNIT = 2, CONSTRUCT_BUILDING = 3,
+    CREATE_PROJECT = 4, RUSH_PRODUCTION = 5, CHANGE_SPECIALIST = 6,
+    RESEARCH = 7, TECH_NODE = 8, CHANGE_SLIDER = 9,
+    ACTION = 10, GENERIC_BUTTON = 11, CLOSE_SCREEN = 12,
+    CONTACT_LEADER = 13, CANCEL_DEAL = 14, DIPLOMACY_RESPONSE = 15,
+    UNIT_MODEL = 16, FLAG = 17, MINIMAP_HIGHLIGHT = 18,
+    HELP_MAINTENANCE = 19, HELP_DEFENSE = 20, HELP_WELLBEING = 21,
+    HELP_CONTENTMENT = 22, HELP_PRODUCTION = 23, HELP_CULTURE = 24,
+    HELP_FINANCE = 25, HELP_PROMOTION = 26,
+    ENCYCLOPEDIA = 27, BACK = 28, FORWARD = 29,
+    SCRIPTABLE = 30
+}
+
+# Map-targeting modes: changes what a tile-click means (§5)
+enum InterfaceMode {
+    SELECTION = 0, PLACE_PING = 1, PLACE_SIGN = 2,
+    GO_TO = 3, GO_TO_ALL = 4, ROUTE_TO = 5,
+    RANGED_ATTACK = 6, AREA_BOMBARD = 7, PARADROP = 8, AIRLIFT = 9
+}
+
+# Popup kinds for the serialized dialog queue (§6)
+enum PopupType {
+    TEXT_NOTICE = 0, MAIN_MENU = 1, CONFIRM = 2, DECLARE_WAR_CONFIRM = 3,
+    LOAD_UNIT = 4, CHOOSE_TECH = 5, RAZE_CITY = 6, CHOOSE_PRODUCTION = 7,
+    CHANGE_POLICY = 8, CHOOSE_ELECTION = 9, ALARM = 10, DEAL_CANCELLED = 11,
+    DIPLOMACY = 12, FOUND_BELIEF = 13, EVENT = 14, GAME_DETAILS = 15
+}
+
+# Global/UI-level command vocabulary bound to buttons and hotkeys (§3.1)
+enum ControlType {
+    CENTER_ON_SELECTION = 0, SELECT_ALL_TYPE = 1, NEXT_CITY = 2, PREV_CITY = 3,
+    NEXT_UNIT = 4, PREV_UNIT = 5, NEXT_IDLE_UNIT = 6, NEXT_IDLE_WORKER = 7,
+    END_TURN = 8, FORCE_END_TURN = 9,
+    TOGGLE_GRID = 10, TOGGLE_YIELDS = 11, TOGGLE_RESOURCES = 12,
+    OPEN_TECH = 13, OPEN_POLICY = 14, OPEN_DIPLOMACY = 15, OPEN_FINANCE = 16,
+    OPEN_MILITARY = 17, OPEN_ESPIONAGE = 18, OPEN_ENCYCLOPEDIA = 19,
+    OPEN_CITY_SCREEN = 20, OPEN_SAVE_LOAD = 21,
+    QUICK_SAVE = 22, QUICK_LOAD = 23
+}
+
+# Direct, immediate unit orders (§3.2)
+enum UnitCmd {
+    WAKE = 0, SLEEP = 1, FORTIFY = 2, CANCEL_ORDERS = 3,
+    DISBAND = 4, UPGRADE = 5, PROMOTE = 6, AUTOMATE = 7, STOP_AUTOMATE = 8
+}
+
+# Queued unit missions executed over subsequent turns (§3.3)
+enum UnitMission {
+    MOVE_TO = 0, ROUTE_TO = 1, SKIP_TURN = 2, PILLAGE = 3,
+    FOUND_SETTLEMENT = 4, BUILD_IMPROVEMENT = 5, BUILD_ROAD = 6,
+    RANGED_ATTACK = 7, BOMBARD = 8, AIRLIFT = 9, PARADROP = 10
+}
 
 # Phase flags for hooks
 enum Phase {

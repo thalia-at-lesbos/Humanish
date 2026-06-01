@@ -12,10 +12,19 @@ signal unit_created(unit_id)
 signal settlement_founded(settlement_id)
 signal technology_completed(player_id, tech_id)
 signal combat_resolved(result_dict)
+signal player_turn_started(player_id)
+signal screen_requested(screen_id)
 
 var _gs: GameState
 var _hooks: Hooks
 var _db: DataDB
+
+# UI state (not part of simulation; not serialized)
+var _dirty: DirtyFlags
+var _selection: SelectionState
+var _interface_mode: int = 0    # IDs.InterfaceMode.SELECTION
+var _popup_queue: Array = []
+var _notifications: Array = []
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -24,6 +33,11 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		enabled_win_conditions: Array) -> void:
 	_db = db
 	_hooks = Hooks.new()
+	_dirty = load("res://src/api/dirty_flags.gd").new()
+	_selection = load("res://src/api/selection_state.gd").new()
+	_interface_mode = IDs.InterfaceMode.SELECTION
+	_popup_queue = []
+	_notifications = []
 
 	_gs = GameState.new()
 	_gs.db = db
@@ -122,6 +136,17 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_rush_production(cmd)
 		IDs.CommandType.BUILD_IMPROVEMENT:
 			return _cmd_build_improvement(cmd)
+		IDs.CommandType.UNIT_WAKE, IDs.CommandType.UNIT_SLEEP, \
+		IDs.CommandType.UNIT_FORTIFY, IDs.CommandType.UNIT_CANCEL_ORDERS, \
+		IDs.CommandType.UNIT_DISBAND, IDs.CommandType.UNIT_UPGRADE, \
+		IDs.CommandType.UNIT_PROMOTE:
+			return _cmd_unit_command(cmd)
+		IDs.CommandType.MISSION_MOVE_TO, IDs.CommandType.MISSION_BUILD_ROAD, \
+		IDs.CommandType.MISSION_SKIP_TURN, IDs.CommandType.MISSION_PILLAGE, \
+		IDs.CommandType.MISSION_BOMBARD, IDs.CommandType.MISSION_AIRLIFT:
+			return _cmd_mission(cmd)
+		IDs.CommandType.DO_CONTROL:
+			return _cmd_do_control(cmd)
 	return false
 
 # ── Command handlers ──────────────────────────────────────────────────────────
@@ -133,16 +158,21 @@ func _cmd_end_turn(player_id: int) -> bool:
 
 	TurnEngine.player_step(_gs, player_id, _hooks)
 
-	# Check if all players have ended their turn
+	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
 	if next_idx == 0 or next_idx < 0:
-		# World step
 		TurnEngine.world_step(_gs, _hooks)
+		_add_notification("Turn " + str(_gs.turn_number) + " begins.", "info")
 		emit_signal("turn_advanced", _gs.turn_number)
 		if _gs.winning_alliance_id >= 0:
 			emit_signal("game_won", _gs.winning_alliance_id)
 
-	var next_id: int = _gs.current_player_id
+	# Advance to next active player
+	if not _gs.players.empty() and next_idx >= 0 and next_idx < _gs.players.size():
+		_gs.current_player_id = _gs.players[next_idx].id
+		emit_signal("player_turn_started", _gs.current_player_id)
+
+	_dirty.mark_all()
 	return true
 
 func _cmd_move_stack(cmd: Dictionary) -> bool:
@@ -188,6 +218,8 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			if not result["attacker_survived"]:
 				break
 
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
 func _cmd_found_settlement(cmd: Dictionary) -> bool:
@@ -223,7 +255,10 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	# Remove the settler unit
 	Stack.remove_unit(_gs.units, unit_id)
 
+	_add_notification(s.name + " founded.", "major")
 	emit_signal("settlement_founded", s.id)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
 func _cmd_set_sliders(cmd: Dictionary) -> bool:
@@ -240,6 +275,7 @@ func _cmd_set_sliders(cmd: Dictionary) -> bool:
 		return false
 	p.slider_finance = f; p.slider_research = r
 	p.slider_culture = c; p.slider_intel = i
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
 func _cmd_set_production(cmd: Dictionary) -> bool:
@@ -247,6 +283,7 @@ func _cmd_set_production(cmd: Dictionary) -> bool:
 	if s == null or s.owner_player_id != int(cmd["player_id"]):
 		return false
 	s.production_queue = cmd.get("queue", []).duplicate(true)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
 func _cmd_set_research(cmd: Dictionary) -> bool:
@@ -257,6 +294,7 @@ func _cmd_set_research(cmd: Dictionary) -> bool:
 	if not Research.can_research(tech_id, p, _db):
 		return false
 	p.current_research_id = tech_id
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
 func _cmd_set_policy(cmd: Dictionary) -> bool:
@@ -275,6 +313,8 @@ func _cmd_set_policy(cmd: Dictionary) -> bool:
 	p.policies[cat] = pol_id
 	if transition > 0:
 		p.transition_turns = transition
+	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
 func _cmd_declare_war(cmd: Dictionary) -> bool:
@@ -388,3 +428,375 @@ func _get_next_player_index(current_player_id: int) -> int:
 		if _gs.players[i].id == current_player_id:
 			return (i + 1) % _gs.players.size()
 	return 0
+
+# ── New command handlers ───────────────────────────────────────────────────────
+
+func _cmd_unit_command(cmd: Dictionary) -> bool:
+	var player_id: int = int(cmd["player_id"])
+	var unit_id: int = int(cmd.get("unit_id", -1))
+	var u: Unit = _gs.get_unit(unit_id)
+	if u == null or u.owner_player_id != player_id:
+		return false
+
+	var ctype: int = int(cmd.get("type", -1))
+	match ctype:
+		IDs.CommandType.UNIT_WAKE:
+			u.is_fortified = false
+			u.has_moved = false
+			u.movement_left = u.movement_total
+		IDs.CommandType.UNIT_SLEEP:
+			u.is_fortified = true
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.UNIT_FORTIFY:
+			u.is_fortified = true
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.UNIT_CANCEL_ORDERS:
+			u.building_improvement = ""
+			u.build_turns_left = 0
+			u.has_moved = false
+			u.movement_left = u.movement_total
+		IDs.CommandType.UNIT_DISBAND:
+			Stack.remove_unit(_gs.units, unit_id)
+		IDs.CommandType.UNIT_PROMOTE:
+			var promo_id: String = str(cmd.get("promotion_id", ""))
+			if promo_id == "" or promo_id in u.promotions:
+				return false
+			u.promotions.append(promo_id)
+		IDs.CommandType.UNIT_UPGRADE:
+			var udata: Dictionary = _db.get_unit(u.unit_type_id)
+			var upgrades_to: String = str(udata.get("upgrades_to", ""))
+			if upgrades_to == "":
+				return false
+			var new_udata: Dictionary = _db.get_unit(upgrades_to)
+			if new_udata.empty():
+				return false
+			var cost: int = int(new_udata.get("cost", 0)) - int(udata.get("cost", 0))
+			var p: Player = _gs.get_player(player_id)
+			if p == null or p.treasury < cost:
+				return false
+			p.treasury -= cost
+			u.unit_type_id = upgrades_to
+			u.base_strength = int(new_udata.get("base_strength", u.base_strength))
+		_:
+			return false
+
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	return true
+
+func _cmd_mission(cmd: Dictionary) -> bool:
+	var player_id: int = int(cmd["player_id"])
+	var unit_id: int = int(cmd.get("unit_id", -1))
+	var u: Unit = _gs.get_unit(unit_id)
+	if u == null or u.owner_player_id != player_id:
+		return false
+
+	var ctype: int = int(cmd.get("type", -1))
+	match ctype:
+		IDs.CommandType.MISSION_SKIP_TURN:
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_MOVE_TO:
+			var mc: Dictionary = {
+				"type": IDs.CommandType.MOVE_STACK,
+				"player_id": player_id,
+				"from_x": u.x, "from_y": u.y,
+				"to_x": int(cmd.get("target_x", u.x)),
+				"to_y": int(cmd.get("target_y", u.y))
+			}
+			return _cmd_move_stack(mc)
+		IDs.CommandType.MISSION_BUILD_ROAD:
+			if not _db.get_unit(u.unit_type_id).get("can_build", false):
+				return false
+			var road: Dictionary = _db.get_improvement("road")
+			if road.empty():
+				return false
+			u.building_improvement = "road"
+			u.build_turns_left = int(road.get("build_turns", 3))
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_PILLAGE:
+			var tile: Tile = _gs.map.get_tile(u.x, u.y)
+			if tile == null or tile.improvement_id == "":
+				return false
+			tile.improvement_id = ""
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_BOMBARD:
+			var tx: int = int(cmd.get("target_x", -1))
+			var ty: int = int(cmd.get("target_y", -1))
+			var target: Unit = Stack.get_defender(_gs.units, tx, ty, player_id, _gs)
+			if target == null:
+				return false
+			var result: Dictionary = Combat.resolve(u, target, _gs, _gs.rng)
+			_apply_combat_result(u, target, result)
+			emit_signal("combat_resolved", result)
+			u.has_moved = true
+		IDs.CommandType.MISSION_AIRLIFT:
+			var tx2: int = int(cmd.get("target_x", u.x))
+			var ty2: int = int(cmd.get("target_y", u.y))
+			u.x = tx2; u.y = ty2
+			u.has_moved = true
+			u.movement_left = 0
+		_:
+			return false
+
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	return true
+
+func _cmd_do_control(cmd: Dictionary) -> bool:
+	var ctrl_type: int = int(cmd.get("ctrl_type", -1))
+	match ctrl_type:
+		IDs.ControlType.NEXT_IDLE_UNIT:
+			cycle_idle_units(false)
+		IDs.ControlType.NEXT_IDLE_WORKER:
+			cycle_idle_units(true)
+		IDs.ControlType.NEXT_CITY:
+			cycle_cities(true)
+		IDs.ControlType.PREV_CITY:
+			cycle_cities(false)
+		IDs.ControlType.END_TURN, IDs.ControlType.FORCE_END_TURN:
+			return _cmd_end_turn(int(cmd.get("player_id", _gs.current_player_id)))
+		IDs.ControlType.OPEN_TECH, IDs.ControlType.OPEN_POLICY, \
+		IDs.ControlType.OPEN_DIPLOMACY, IDs.ControlType.OPEN_FINANCE, \
+		IDs.ControlType.OPEN_MILITARY, IDs.ControlType.OPEN_ESPIONAGE, \
+		IDs.ControlType.OPEN_ENCYCLOPEDIA, IDs.ControlType.OPEN_CITY_SCREEN, \
+		IDs.ControlType.OPEN_SAVE_LOAD:
+			emit_signal("screen_requested", ctrl_type)
+	return true
+
+# ── UI state queries ───────────────────────────────────────────────────────────
+
+func get_dirty() -> DirtyFlags:
+	return _dirty
+
+func get_selection() -> SelectionState:
+	return _selection
+
+func select_unit(unit_id: int, do_clear: bool = true, toggle: bool = false) -> void:
+	_selection.select_unit(unit_id, do_clear, toggle)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+
+func select_city(city_id: int, raise_screen: bool = false) -> void:
+	_selection.select_city(city_id, raise_screen)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+
+func clear_selection() -> void:
+	_selection.clear()
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+func cycle_idle_units(workers_only: bool = false) -> void:
+	var idle: Array = []
+	for u in _gs.units:
+		if u.owner_player_id != _gs.current_player_id:
+			continue
+		if u.has_moved or u.is_fortified:
+			continue
+		if workers_only and not _db.get_unit(u.unit_type_id).get("can_build", false):
+			continue
+		idle.append(u.id)
+	if idle.empty():
+		return
+	var head: int = _selection.head_unit()
+	var start_idx: int = 0
+	if head >= 0:
+		var idx: int = idle.find(head)
+		if idx >= 0:
+			start_idx = (idx + 1) % idle.size()
+	_selection.select_unit(idle[start_idx], true, false)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+
+func cycle_cities(forward: bool = true) -> void:
+	var owned: Array = []
+	for s in _gs.settlements:
+		if s.owner_player_id == _gs.current_player_id:
+			owned.append(s.id)
+	if owned.empty():
+		return
+	var head: int = _selection.head_city()
+	var start_idx: int = 0
+	if head >= 0:
+		var idx: int = owned.find(head)
+		if idx >= 0:
+			var delta: int = 1 if forward else -1
+			start_idx = (idx + delta + owned.size()) % owned.size()
+	_selection.select_city(owned[start_idx], false)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+
+# ── Interface mode (§5) ───────────────────────────────────────────────────────
+
+func get_interface_mode() -> int:
+	return _interface_mode
+
+func can_enter_mode(mode: int) -> bool:
+	if mode == IDs.InterfaceMode.SELECTION:
+		return true
+	return _selection.head_unit() >= 0
+
+func enter_interface_mode(mode: int) -> void:
+	_interface_mode = mode
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+
+func exit_interface_mode() -> void:
+	_interface_mode = IDs.InterfaceMode.SELECTION
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+
+func get_mode_tile_validity(x: int, y: int) -> int:
+	if _gs.map == null:
+		return 0
+	if not _gs.map.is_valid(x, y):
+		return 0
+	match _interface_mode:
+		IDs.InterfaceMode.SELECTION:
+			return 1
+		IDs.InterfaceMode.GO_TO, IDs.InterfaceMode.GO_TO_ALL, IDs.InterfaceMode.ROUTE_TO:
+			return 1   # detailed reachability uses pathfinding at move time
+		_:
+			return 1
+
+# ── Popup queue (§6) ──────────────────────────────────────────────────────────
+
+func push_popup(descriptor: Dictionary) -> void:
+	_popup_queue.append(descriptor)
+
+func get_pending_popup() -> Dictionary:
+	if _popup_queue.empty():
+		return {}
+	return _popup_queue[0]
+
+func resolve_popup(result: Dictionary) -> void:
+	if _popup_queue.empty():
+		return
+	_popup_queue.pop_front()
+
+# ── Capability queries (§3, §10) ─────────────────────────────────────────────
+
+func can_do_control(ctrl_type: int) -> bool:
+	match ctrl_type:
+		IDs.ControlType.END_TURN, IDs.ControlType.FORCE_END_TURN:
+			return _gs.current_player_id >= 0
+		IDs.ControlType.CENTER_ON_SELECTION:
+			return _selection.head_unit() >= 0 or _selection.head_city() >= 0
+		IDs.ControlType.NEXT_UNIT, IDs.ControlType.PREV_UNIT, \
+		IDs.ControlType.NEXT_IDLE_UNIT, IDs.ControlType.NEXT_IDLE_WORKER:
+			for u in _gs.units:
+				if u.owner_player_id == _gs.current_player_id:
+					return true
+			return false
+		IDs.ControlType.NEXT_CITY, IDs.ControlType.PREV_CITY:
+			for s in _gs.settlements:
+				if s.owner_player_id == _gs.current_player_id:
+					return true
+			return false
+	return true  # screen toggles, hotkeys, etc. are always allowed
+
+func can_handle_action(action_id: int, target_x: int, target_y: int) -> bool:
+	if _selection.head_unit() < 0 and _selection.head_city() < 0:
+		return false
+	if _interface_mode != IDs.InterfaceMode.SELECTION:
+		return false
+	return true
+
+# ── Display-gating queries (§10) ──────────────────────────────────────────────
+
+func get_end_turn_state() -> int:
+	# 0 = ready, 1 = waiting on others, 2 = idle units prompt
+	if _gs.current_player_id < 0:
+		return 1
+	for u in _gs.units:
+		if u.owner_player_id == _gs.current_player_id and not u.has_moved and not u.is_fortified:
+			return 2
+	return 0
+
+func get_hud_visibility() -> Dictionary:
+	return {
+		"show_research": not _gs.players.empty(),
+		"show_flag": not _gs.players.empty(),
+		"show_minimap_center": _selection.head_unit() >= 0 or _selection.head_city() >= 0
+	}
+
+func get_tile_highlights() -> Dictionary:
+	var highlights: Dictionary = {}
+	var head_id: int = _selection.head_unit()
+	if head_id < 0:
+		return highlights
+	var u: Unit = _gs.get_unit(head_id)
+	if u == null:
+		return highlights
+	highlights[str(u.x) + "," + str(u.y)] = 0xFFFFFF
+	return highlights
+
+func get_flyout_menu(x: int, y: int) -> Array:
+	var items: Array = []
+	for u in _gs.units:
+		if u.x == x and u.y == y and u.owner_player_id == _gs.current_player_id:
+			if not u.has_moved:
+				items.append({
+					"action_id": IDs.UnitCmd.WAKE,
+					"label": "Skip Turn",
+					"target_x": x, "target_y": y
+				})
+			if not u.is_fortified:
+				items.append({
+					"action_id": IDs.UnitCmd.FORTIFY,
+					"label": "Fortify",
+					"target_x": x, "target_y": y
+				})
+			break
+	for s in _gs.settlements:
+		if s.x == x and s.y == y and s.owner_player_id == _gs.current_player_id:
+			items.append({
+				"action_id": IDs.ControlType.OPEN_CITY_SCREEN,
+				"label": "Open City",
+				"target_x": x, "target_y": y
+			})
+			break
+	return items
+
+# ── Widget dispatch (§4) ──────────────────────────────────────────────────────
+
+func widget_help(widget: Dictionary) -> String:
+	return TextGen.widget_help(widget, _gs, _db)
+
+func widget_action(widget: Dictionary) -> bool:
+	var wtype: int = int(widget.get("type", -1))
+	match wtype:
+		IDs.WidgetType.RESEARCH:
+			var tech_id: String = str(widget.get("tech_id", ""))
+			return apply_command(Commands.set_research(_gs.current_player_id, tech_id))
+		IDs.WidgetType.RUSH_PRODUCTION:
+			var city_id: int = int(widget.get("data1", -1))
+			var method: String = str(widget.get("method", "treasury"))
+			return apply_command(Commands.rush_production(_gs.current_player_id, city_id, method))
+		IDs.WidgetType.CLOSE_SCREEN:
+			emit_signal("screen_requested", -1)
+			return true
+	return false
+
+func widget_alt_action(widget: Dictionary) -> bool:
+	return false  # context-dependent; default no-op for Phase 6
+
+func widget_is_link(widget: Dictionary) -> bool:
+	var wtype: int = int(widget.get("type", -1))
+	match wtype:
+		IDs.WidgetType.ENCYCLOPEDIA, IDs.WidgetType.BACK, IDs.WidgetType.FORWARD:
+			return true
+	return false
+
+# ── Notifications (§8) ────────────────────────────────────────────────────────
+
+func get_notification_queue() -> Array:
+	return _notifications
+
+func _add_notification(text: String, category: String = "info") -> void:
+	_notifications.append({"text": text, "category": category, "turn": _gs.turn_number})
+	if _notifications.size() > 100:
+		_notifications.pop_front()
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)

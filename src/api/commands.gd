@@ -92,3 +92,82 @@ static func build_improvement(player_id: int, unit_id: int,
 		"unit_id": unit_id,
 		"improvement_id": improvement_id
 	}
+
+# ── Unit commands (§3.2) ──────────────────────────────────────────────────────
+
+static func unit_wake(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_WAKE, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_sleep(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_SLEEP, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_fortify(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_FORTIFY, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_cancel_orders(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_CANCEL_ORDERS, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_disband(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_DISBAND, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_upgrade(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.UNIT_UPGRADE, "player_id": player_id, "unit_id": unit_id}
+
+static func unit_promote(player_id: int, unit_id: int, promotion_id: String) -> Dictionary:
+	return {
+		"type": IDs.CommandType.UNIT_PROMOTE,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"promotion_id": promotion_id
+	}
+
+# ── Unit missions (§3.3) ──────────────────────────────────────────────────────
+
+static func mission_move_to(player_id: int, unit_id: int,
+		target_x: int, target_y: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.MISSION_MOVE_TO,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"target_x": target_x, "target_y": target_y
+	}
+
+static func mission_build_road(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_BUILD_ROAD, "player_id": player_id, "unit_id": unit_id}
+
+static func mission_skip_turn(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_SKIP_TURN, "player_id": player_id, "unit_id": unit_id}
+
+static func mission_pillage(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_PILLAGE, "player_id": player_id, "unit_id": unit_id}
+
+static func mission_bombard(player_id: int, unit_id: int,
+		target_x: int, target_y: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.MISSION_BOMBARD,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"target_x": target_x, "target_y": target_y
+	}
+
+static func mission_airlift(player_id: int, unit_id: int,
+		target_x: int, target_y: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.MISSION_AIRLIFT,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"target_x": target_x, "target_y": target_y
+	}
+
+# ── Controls (§3.1) ───────────────────────────────────────────────────────────
+
+static func do_control(player_id: int, ctrl_type: int,
+		data: Dictionary = {}) -> Dictionary:
+	var cmd: Dictionary = {
+		"type": IDs.CommandType.DO_CONTROL,
+		"player_id": player_id,
+		"ctrl_type": ctrl_type
+	}
+	for key in data:
+		cmd[key] = data[key]
+	return cmd

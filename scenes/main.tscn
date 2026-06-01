@@ -1,0 +1,23 @@
+[gd_scene load_steps=7 format=2]
+
+[ext_resource path="res://scenes/main.gd" type="Script" id=1]
+[ext_resource path="res://scenes/world/world_view.tscn" type="PackedScene" id=2]
+[ext_resource path="res://scenes/hud/hud.tscn" type="PackedScene" id=3]
+[ext_resource path="res://scenes/input/input_router.gd" type="Script" id=4]
+[ext_resource path="res://scenes/hotseat/hotseat_manager.gd" type="Script" id=5]
+[ext_resource path="res://scenes/hotseat/pass_device_screen.tscn" type="PackedScene" id=6]
+
+[node name="Main" type="Node"]
+script = ExtResource( 1 )
+
+[node name="WorldView" parent="." instance=ExtResource( 2 )]
+
+[node name="HUD" parent="." instance=ExtResource( 3 )]
+
+[node name="InputRouter" type="Node" parent="."]
+script = ExtResource( 4 )
+
+[node name="HotseatManager" type="Node" parent="."]
+script = ExtResource( 5 )
+
+[node name="PassDeviceScreen" parent="." instance=ExtResource( 6 )]

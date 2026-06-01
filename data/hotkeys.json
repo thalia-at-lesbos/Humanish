@@ -1,0 +1,12 @@
+{
+  "69":  {"shift": false, "ctrl": false, "action": 8},
+  "78":  {"shift": false, "ctrl": false, "action": 6},
+  "66":  {"shift": false, "ctrl": false, "action": 7},
+  "67":  {"shift": false, "ctrl": false, "action": 0},
+  "16777244": {"shift": false, "ctrl": false, "action": 19},
+  "16777245": {"shift": false, "ctrl": false, "action": 13},
+  "16777246": {"shift": false, "ctrl": false, "action": 14},
+  "16777247": {"shift": false, "ctrl": false, "action": 15},
+  "16777248": {"shift": false, "ctrl": false, "action": 22},
+  "16777257": {"shift": false, "ctrl": false, "action": 23}
+}
