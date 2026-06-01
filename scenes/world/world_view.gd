@@ -49,6 +49,9 @@ func init(facade) -> void:
 	_facade.connect("combat_resolved", self, "_on_combat_resolved")
 	_facade.connect("turn_advanced", self, "_on_turn_advanced")
 	_facade.connect("settlement_founded", self, "_on_settlement_founded")
+	var fog = get_node_or_null("FogLayer")
+	if fog != null and fog.has_method("sync_camera"):
+		fog.sync_camera(_zoom, _offset)
 
 func _process(delta: float) -> void:
 	if _facade == null:
@@ -173,29 +176,37 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == BUTTON_WHEEL_UP and event.pressed:
 			_zoom = min(_zoom * 1.1, 4.0)
-			update()
+			_camera_changed()
 		elif event.button_index == BUTTON_WHEEL_DOWN and event.pressed:
 			_zoom = max(_zoom / 1.1, 0.25)
-			update()
+			_camera_changed()
 	elif event is InputEventKey and event.pressed:
 		var step: float = TILE_SIZE * _zoom
 		if event.scancode == KEY_LEFT:
 			_offset.x += step
-			update()
+			_camera_changed()
 		elif event.scancode == KEY_RIGHT:
 			_offset.x -= step
-			update()
+			_camera_changed()
 		elif event.scancode == KEY_UP:
 			_offset.y += step
-			update()
+			_camera_changed()
 		elif event.scancode == KEY_DOWN:
 			_offset.y -= step
-			update()
+			_camera_changed()
 
 func pan_to_tile(tx: int, ty: int) -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	_offset = vp * 0.5 - Vector2(tx * TILE_SIZE, ty * TILE_SIZE) * _zoom
+	_camera_changed()
+
+# Redraw the world and keep the fog overlay locked to the same camera, so fog
+# stays pinned to the map instead of drifting when the view pans or zooms.
+func _camera_changed() -> void:
 	update()
+	var fog = get_node_or_null("FogLayer")
+	if fog != null and fog.has_method("sync_camera"):
+		fog.sync_camera(_zoom, _offset)
 
 # ── Signal handlers ───────────────────────────────────────────────────────────
 
