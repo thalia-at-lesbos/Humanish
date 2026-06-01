@@ -249,3 +249,40 @@ func test_insolvency_sells_structure_before_disbanding() -> void:
 		_unit(gs, "warrior", 1, i, 1)
 	TurnEngine._update_treasury(gs, p)
 	assert_true(s.structures.empty(), "A structure is sold during insolvency")
+
+# ── Item 7: Slider policy constraints (§6.2) ───────────────────────────────────
+
+func test_sliders_unconstrained_without_policy() -> void:
+	var gs = _make_gs()
+	var f = _facade(gs)
+	gs.current_player_id = 1
+	assert_true(f.apply_command(Commands.set_sliders(1, 37, 33, 20, 10)),
+		"Without a governing policy any 100-sum split is allowed")
+
+func test_policy_increment_enforced() -> void:
+	var gs = _make_gs()
+	var f = _facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).policies = {"government": "republic"}  # increment 10
+	assert_false(f.apply_command(Commands.set_sliders(1, 35, 35, 20, 10)),
+		"Off-increment sliders are rejected")
+	assert_true(f.apply_command(Commands.set_sliders(1, 40, 30, 20, 10)),
+		"On-increment sliders are accepted")
+
+func test_policy_min_research_enforced() -> void:
+	var gs = _make_gs()
+	var f = _facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).policies = {"government": "republic"}  # min_research 10
+	assert_false(f.apply_command(Commands.set_sliders(1, 100, 0, 0, 0)),
+		"Research below the policy minimum is rejected")
+
+func test_policy_max_research_cap_enforced() -> void:
+	var gs = _make_gs()
+	var f = _facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).policies = {"civic": "communism"}  # max_research 50
+	assert_false(f.apply_command(Commands.set_sliders(1, 10, 90, 0, 0)),
+		"Research above the policy cap is rejected")
+	assert_true(f.apply_command(Commands.set_sliders(1, 50, 50, 0, 0)),
+		"Research at the cap is accepted")

@@ -60,6 +60,7 @@
       "production_modifier": 15,
       "commerce_modifier": -10,
       "slider_min_research": 0,
+      "slider_max_research": 50,
       "slider_increment": 10,
       "anger_modifier": 5,
       "transition_turns": 4
