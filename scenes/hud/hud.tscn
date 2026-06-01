@@ -18,24 +18,31 @@ margin_left = 4.0
 margin_top = 4.0
 margin_right = -4.0
 margin_bottom = -4.0
+mouse_filter = 2
 
 [node name="TurnScoreBar" type="HBoxContainer" parent="VBox"]
+mouse_filter = 2
 script = ExtResource( 7 )
 
 [node name="ResearchBar" type="HBoxContainer" parent="VBox"]
+mouse_filter = 2
 script = ExtResource( 4 )
 
 [node name="SliderPanel" type="HBoxContainer" parent="VBox"]
+mouse_filter = 2
 script = ExtResource( 3 )
 
 [node name="Spacer" type="Control" parent="VBox"]
 size_flags_vertical = 3
+mouse_filter = 2
 
 [node name="SelectionPanel" type="VBoxContainer" parent="VBox"]
+mouse_filter = 2
 script = ExtResource( 2 )
 
 [node name="MessageLog" type="ScrollContainer" parent="VBox"]
 rect_min_size = Vector2( 0, 80 )
+mouse_filter = 2
 script = ExtResource( 6 )
 
 [node name="EndTurnButton" type="Button" parent="VBox"]

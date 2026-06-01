@@ -635,16 +635,19 @@ func get_selection() -> SelectionState:
 
 func select_unit(unit_id: int, do_clear: bool = true, toggle: bool = false) -> void:
 	_selection.select_unit(unit_id, do_clear, toggle)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 
 func select_city(city_id: int, raise_screen: bool = false) -> void:
 	_selection.select_city(city_id, raise_screen)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 
 func clear_selection() -> void:
 	_selection.clear()
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 
 func cycle_idle_units(workers_only: bool = false) -> void:
