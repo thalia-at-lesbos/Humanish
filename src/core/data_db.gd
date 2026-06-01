@@ -24,6 +24,7 @@ var world_sizes: Dictionary = {}
 var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
+var events: Dictionary = {}
 
 var _errors: Array = []
 
@@ -49,6 +50,7 @@ func load_all() -> bool:
 	leaders_traits = _load_json("res://data/leaders_traits.json")
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
+	events       = _load_json("res://data/events.json")
 	_validate()
 	return _errors.empty()
 

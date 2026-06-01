@@ -20,6 +20,9 @@ var owner_player_id: int = -1  # -1 = unowned
 # Environmental state
 var pollution: int = 0
 
+# Exploration: an undiscovered site that yields a reward when first entered (§9)
+var has_discovery: bool = false
+
 # Improvement construction progress (turns remaining)
 var improvement_turns_left: int = 0
 
@@ -41,7 +44,8 @@ func serialize() -> Dictionary:
 		"influence": influence.duplicate(),
 		"owner_player_id": owner_player_id,
 		"pollution": pollution,
-		"improvement_turns_left": improvement_turns_left
+		"improvement_turns_left": improvement_turns_left,
+		"has_discovery": has_discovery
 	}
 
 static func deserialize(d: Dictionary):
@@ -57,4 +61,5 @@ static func deserialize(d: Dictionary):
 	t.owner_player_id = int(d.get("owner_player_id", -1))
 	t.pollution = int(d.get("pollution", 0))
 	t.improvement_turns_left = int(d.get("improvement_turns_left", 0))
+	t.has_discovery = bool(d.get("has_discovery", false))
 	return t

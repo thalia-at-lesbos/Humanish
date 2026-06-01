@@ -314,6 +314,15 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 				if carried != null:
 					carried.x = sx; carried.y = sy
 
+		# Exploration: the first unit to enter a discovery site claims its
+		# reward, then the site is consumed (§9).
+		var entered: Tile = _gs.map.get_tile(sx, sy)
+		if entered != null and entered.has_discovery:
+			entered.has_discovery = false
+			var reward: Dictionary = Events.exploration_reward(lead, _gs, _gs.rng)
+			_add_notification("Discovery: " + str(reward.get("type", "")), "major")
+			emit_signal("event_emitted", reward)
+
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true

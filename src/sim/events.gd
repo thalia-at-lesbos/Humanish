@@ -3,11 +3,24 @@ class_name Events
 # Scripted/random event processing per §9.
 # Events are defined in external content data (none loaded yet; stub for Phase 5).
 
-# Process events for the active player.
+# Process scripted events for the active player. Each event in data/events.json
+# fires once per player when its `min_turn` is reached and any prereq tech is
+# held, applying simple effects (treasury). Returns the fired event Dictionaries.
 static func process_player_events(player: Player, game_state, rng: RNG) -> Array:
-	# Returns Array of event result Dictionaries (empty until content data added).
+	var db: DataDB = game_state.db
 	var fired := []
-	# TODO: load event definitions from db when content data is added
+	for event_id in db.events:
+		if event_id in player.events_fired:
+			continue
+		var ev: Dictionary = db.events[event_id]
+		if game_state.turn_number < int(ev.get("min_turn", 0)):
+			continue
+		var tech_req = ev.get("tech_required", null)
+		if tech_req != null and tech_req != "" and not player.has_tech(tech_req):
+			continue
+		player.events_fired.append(event_id)
+		player.treasury += int(ev.get("treasury", 0))
+		fired.append(ev)
 	return fired
 
 # Exploration reward when a unit investigates a discovery site.

@@ -44,6 +44,10 @@ var is_eliminated: bool = false
 # Active celebration turns
 var celebration_turns: int = 0
 
+# IDs of scripted events already fired for this player (so once-only events
+# do not repeat).
+var events_fired: Array = []
+
 func has_tech(tech_id: String) -> bool:
 	return tech_id in technologies
 
@@ -74,7 +78,8 @@ func serialize() -> Dictionary:
 		"transition_turns": transition_turns,
 		"score": score,
 		"is_eliminated": is_eliminated,
-		"celebration_turns": celebration_turns
+		"celebration_turns": celebration_turns,
+		"events_fired": events_fired.duplicate()
 	}
 
 static func deserialize(d: Dictionary):
@@ -99,4 +104,5 @@ static func deserialize(d: Dictionary):
 	p.score = int(d.get("score", 0))
 	p.is_eliminated = bool(d.get("is_eliminated", false))
 	p.celebration_turns = int(d.get("celebration_turns", 0))
+	p.events_fired = d.get("events_fired", []).duplicate()
 	return p

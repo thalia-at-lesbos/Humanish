@@ -84,3 +84,36 @@ func test_no_diplomatic_win_when_split() -> void:
 	_settlement(gs, 2, 9, 9, 5)
 	TurnEngine.world_step(gs, _hooks())
 	assert_eq(gs.winning_alliance_id, -1, "An even split elects no one")
+
+# ── Item 2: Events + exploration rewards (§9) ──────────────────────────────────
+
+func test_events_table_loads() -> void:
+	var db = _make_db()
+	assert_true(db.events.has("ancient_windfall"), "events.json loads into DataDB")
+	assert_true(db.get_errors().empty(), "DataDB still loads cleanly with events table")
+
+func test_scripted_event_fires_once_after_min_turn() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 0
+	gs.turn_number = 10  # >= min_turn 8
+	var fired = Events.process_player_events(p, gs, gs.rng)
+	assert_eq(fired.size(), 1, "Event fires when its min_turn is reached")
+	assert_eq(p.treasury, 50, "Event treasury effect applied")
+	Events.process_player_events(p, gs, gs.rng)
+	assert_eq(p.treasury, 50, "A once-fired event does not repeat")
+
+func test_scripted_event_held_before_min_turn() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	gs.turn_number = 2  # < min_turn 8
+	var fired = Events.process_player_events(p, gs, gs.rng)
+	assert_true(fired.empty(), "Event does not fire before its min_turn")
+
+func test_entering_discovery_site_yields_reward() -> void:
+	var gs = _make_gs()
+	var f = _facade(gs)
+	gs.map.get_tile(6, 5).has_discovery = true
+	var u = _unit(gs, "warrior", 1, 5, 5)
+	f._cmd_move_stack({"player_id": 1, "from_x": 5, "from_y": 5, "to_x": 6, "to_y": 5})
+	assert_false(gs.map.get_tile(6, 5).has_discovery, "Discovery site is consumed on entry")

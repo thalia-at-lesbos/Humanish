@@ -1,0 +1,8 @@
+{
+  "ancient_windfall": {
+    "id": "ancient_windfall",
+    "min_turn": 8,
+    "treasury": 50,
+    "notice": "Prospectors uncover an ancient cache of gold."
+  }
+}
