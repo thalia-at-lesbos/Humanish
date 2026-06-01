@@ -49,6 +49,7 @@ var econ_org_id: String = ""
 # Special person progress
 var special_person_points: int = 0
 var special_person_threshold: int = 100
+var special_persons_produced: int = 0
 
 # Rushing penalty turns
 var rush_anger_turns: int = 0
@@ -86,6 +87,7 @@ func serialize() -> Dictionary:
 		"belief_id": belief_id, "econ_org_id": econ_org_id,
 		"special_person_points": special_person_points,
 		"special_person_threshold": special_person_threshold,
+		"special_persons_produced": special_persons_produced,
 		"rush_anger_turns": rush_anger_turns,
 		"garrison_turns": garrison_turns,
 		"defence_value": defence_value
@@ -119,6 +121,7 @@ static func deserialize(d: Dictionary):
 	s.econ_org_id = str(d.get("econ_org_id", ""))
 	s.special_person_points = int(d.get("special_person_points", 0))
 	s.special_person_threshold = int(d.get("special_person_threshold", 100))
+	s.special_persons_produced = int(d.get("special_persons_produced", 0))
 	s.rush_anger_turns = int(d.get("rush_anger_turns", 0))
 	s.garrison_turns = int(d.get("garrison_turns", 0))
 	s.defence_value = int(d.get("defence_value", 0))

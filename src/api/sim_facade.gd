@@ -479,6 +479,12 @@ func _apply_combat_result(attacker: Unit, defender: Unit,
 	attacker.experience += int(result["attacker_xp_gain"])
 	defender.experience += int(result["defender_xp_gain"])
 
+	# Auto-promote survivors that crossed an experience threshold (§5.5).
+	if result["attacker_survived"]:
+		_award_promotions(attacker)
+	if result["defender_survived"]:
+		_award_promotions(defender)
+
 	if not result["attacker_survived"]:
 		Stack.remove_unit(_gs.units, attacker.id)
 	if not result["defender_survived"]:
@@ -503,6 +509,40 @@ func _apply_combat_result(attacker: Unit, defender: Unit,
 				u.health = max(0, u.health - int(result["flanking_damage"]))
 				if u.health <= 0:
 					Stack.remove_unit(_gs.units, u.id)
+
+# Grant promotions for each experience level newly reached (§5.5). Levels are the
+# data-defined experience_thresholds; each new level awards one eligible promotion.
+func _award_promotions(u: Unit) -> void:
+	var thresholds: Array = _db.constants.get("experience_thresholds", [])
+	while u.experience_level + 1 < thresholds.size() \
+			and u.experience >= int(thresholds[u.experience_level + 1]):
+		u.experience_level += 1
+		var promo: String = _pick_promotion(u)
+		if promo == "":
+			break  # nothing eligible left; stop awarding
+		u.promotions.append(promo)
+
+# First promotion (in data order) whose prereqs are met, that applies to this
+# unit's class/domain, and that it does not already hold. "" if none qualifies.
+func _pick_promotion(u: Unit) -> String:
+	var udata: Dictionary = _db.get_unit(u.unit_type_id)
+	var cls: String = str(udata.get("classification", ""))
+	var dom: String = str(udata.get("domain", "land"))
+	for pid in _db.promotions:
+		if pid in u.promotions:
+			continue
+		var promo: Dictionary = _db.promotions[pid]
+		var applies: String = str(promo.get("applies_to", "all"))
+		if applies != "all" and applies != cls and applies != dom:
+			continue
+		var ok: bool = true
+		for pr in promo.get("prereqs", []):
+			if not (pr in u.promotions):
+				ok = false
+				break
+		if ok:
+			return pid
+	return ""
 
 func _get_next_player_index(current_player_id: int) -> int:
 	for i in range(_gs.players.size()):

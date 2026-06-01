@@ -97,9 +97,13 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
 		Events.process_player_events(player, gs, gs.rng)
 
-	# Grow entrenchment for units that held position, then reset movement/action
-	# flags for next turn. Moving or attacking resets entrenchment to 0 at the
-	# command site, so only genuinely stationary units accumulate it here (§5.3).
+	# Found a belief if this player has newly become eligible for one (§8). No-op
+	# (and no RNG draw) once every eligible belief is founded.
+	Beliefs.try_found(player_id, gs, gs.rng)
+
+	# Units that held position grow entrenchment and heal (§5.3, §5.6); a unit
+	# does neither on a turn it moves or fights. Moving/attacking resets
+	# entrenchment to 0 at the command site. Then reset flags for next turn.
 	var ent_cap: int = gs.db.get_constant("entrenchment_cap", 25)
 	var ent_per: int = gs.db.get_constant("entrenchment_per_turn", 5)
 	for u in gs.units:
@@ -109,6 +113,7 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 			u.stationary_turns += 1
 			var ent: int = u.stationary_turns * ent_per
 			u.entrenchment = ent_cap if ent > ent_cap else ent
+			_heal_unit(gs, u, player)
 		u.movement_left = u.movement_total
 		u.has_moved = false
 		u.has_attacked = false
@@ -212,6 +217,9 @@ static func _update_wellbeing(s: Settlement, db: DataDB) -> void:
 		var struct: Dictionary = db.get_structure(struct_id)
 		pos += int(struct.get("health_bonus", 0))
 		neg += int(struct.get("health_penalty", 0))
+	# Adopted belief wellbeing (§8)
+	if s.belief_id != "":
+		pos += int(db.beliefs.get(s.belief_id, {}).get("health_bonus", 0))
 	s.wellbeing_positive = pos
 	s.wellbeing_negative = neg
 	s.wellbeing_deficit = max(0, neg - pos)
@@ -227,6 +235,10 @@ static func _update_contentment(s: Settlement, player: Player, db: DataDB) -> vo
 	for struct_id in s.structures:
 		var struct: Dictionary = db.get_structure(struct_id)
 		pos += int(struct.get("happiness_bonus", 0))
+
+	# Adopted belief comfort (§8)
+	if s.belief_id != "":
+		pos += int(db.beliefs.get(s.belief_id, {}).get("happiness_bonus", 0))
 
 	# Policy anger
 	for cat in player.policies:
@@ -340,14 +352,65 @@ static func _special_person_progress(gs: GameState, s: Settlement) -> void:
 	# Accumulate special person points from specialists
 	var points: int = 0
 	for spec_type in s.specialists:
-		points += s.specialists[spec_type]
+		points += int(s.specialists[spec_type])
 	s.special_person_points += points
 
-	# When threshold is crossed, emit event (handled by facade)
-	# Threshold increases with each produced special person (stub rising threshold)
+	# When the rising threshold is crossed, produce a special person and apply
+	# its effect. The threshold then grows for the next one (§6.5).
 	if s.special_person_points >= s.special_person_threshold:
 		s.special_person_points -= s.special_person_threshold
 		s.special_person_threshold = Fixed.scale_up(s.special_person_threshold, 25)
+		s.special_persons_produced += 1
+		_apply_special_person(gs, s)
+
+# A produced special person grants an instant technology to its owner if one is
+# being researched; otherwise it settles for a one-off economic bonus (§6.5).
+static func _apply_special_person(gs: GameState, s: Settlement) -> void:
+	var player: Player = gs.get_player(s.owner_player_id)
+	if player == null:
+		return
+	if player.current_research_id != "" and not player.has_tech(player.current_research_id):
+		player.technologies.append(player.current_research_id)
+		player.current_research_id = ""
+		player.research_store = 0
+	else:
+		player.treasury += gs.db.get_constant("special_person_settle_gold", 100)
+
+# Per-turn healing for a stationary unit, by location and healing promotions
+# (§5.6). Caps at full health; never heals on a turn the unit moved or fought
+# (the caller already gates on that).
+static func _heal_unit(gs: GameState, u: Unit, player: Player) -> void:
+	if u.health >= 100:
+		return
+	var db: DataDB = gs.db
+	var rate: int = _healing_rate(gs, u, player)
+	for promo_id in u.promotions:
+		rate += int(db.get_promotion(promo_id).get("healing_bonus", 0))
+	if rate <= 0:
+		return
+	u.health = 100 if u.health + rate > 100 else u.health + rate
+
+static func _healing_rate(gs: GameState, u: Unit, player: Player) -> int:
+	var db: DataDB = gs.db
+	# Garrisoned inside one of the player's own settlements heals fastest.
+	var settlement = gs.get_settlement_at(u.x, u.y)
+	if settlement != null and settlement.owner_player_id == player.id:
+		return db.get_constant("healing_in_settlement", 30)
+	var tile: Tile = gs.map.get_tile(u.x, u.y)
+	if tile == null:
+		return db.get_constant("healing_neutral_territory", 5)
+	var owner: int = tile.owner_player_id
+	if owner == player.id:
+		return db.get_constant("healing_friendly_territory", 20)
+	if owner < 0:
+		return db.get_constant("healing_neutral_territory", 5)
+	if gs.are_at_war(player.id, owner):
+		return db.get_constant("healing_hostile_territory", 0)
+	var other: Player = gs.get_player(owner)
+	if other != null and other.alliance_id == player.alliance_id:
+		return db.get_constant("healing_friendly_territory", 20)
+	# Met but not hostile: peaceful/allied territory.
+	return db.get_constant("healing_allied_territory", 15)
 
 static func _update_treasury(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db
@@ -390,6 +453,17 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		research_income += split[1]  # research
 
 	player.research_store += research_income
+
+	# Alliance shared research (§6.3): draw this member's per-capita share of the
+	# pool its allies contributed during the previous world step. Solo alliances
+	# pool nothing (see _advance_alliances), so their behavior is unchanged.
+	var alliance: Alliance = gs.get_player_alliance(player.id)
+	if alliance != null and alliance.member_player_ids.size() >= 2 \
+			and alliance.shared_research_store > 0:
+		var members: int = alliance.member_player_ids.size()
+		var share: int = alliance.shared_research_store / members
+		player.research_store += share
+		alliance.shared_research_store -= share
 
 	# Known by others count for discount
 	var known_by_others: Dictionary = {}
@@ -494,18 +568,24 @@ static func _resolve_trades(gs: GameState) -> void:
 
 static func _advance_alliances(gs: GameState) -> void:
 	for alliance in gs.alliances:
+		# Nothing to share in an alliance of one; this also keeps solo players
+		# (the default) on the pure per-player research path with no double count.
+		if alliance.member_player_ids.size() < 2:
+			continue
+		var share_pct: int = gs.db.get_constant("alliance_research_share_pct", 50)
 		for pid in alliance.member_player_ids:
 			var p: Player = gs.get_player(pid)
 			if p == null:
 				continue
-			# Shared research: each member contributes to the pool
+			# Each member donates a configurable share of its research output to
+			# the alliance pool; members draw their per-capita share next turn.
 			var research_contrib: int = 0
 			for s in gs.settlements:
 				if s.owner_player_id != pid:
 					continue
 				var split: Array = p.split_commerce(s.output_commerce)
 				research_contrib += split[1]
-			alliance.shared_research_store += research_contrib / max(1, alliance.member_player_ids.size())
+			alliance.shared_research_store += Fixed.scale(research_contrib, share_pct)
 
 static func _tile_upkeep(gs: GameState) -> void:
 	# Tile-level upkeep (improvement maintenance) — currently stub
