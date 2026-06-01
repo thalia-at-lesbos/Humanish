@@ -605,3 +605,67 @@ func test_movement_is_bounded_by_class() -> void:
 	var scout_dist = _move_distance_for("scout", 5, 5, 20, 5)
 	assert_eq(scout_dist, 3, "Scout should advance exactly 3 tiles per turn")
 	assert_true(scout_dist > warrior_dist, "Scout should out-range the warrior")
+
+# ── Bug: units could not attack each other ─────────────────────────────────────
+
+func test_pathfinding_allows_attacking_an_enemy_destination() -> void:
+	var db = _db()
+	var map = load("res://src/world/world_map.gd").new()
+	map.init(8, 8, false, false)
+	for tile in map.all_tiles():
+		tile.terrain_id = "grassland"
+	var attacker = load("res://src/sim/unit.gd").new()
+	attacker.id = 1; attacker.unit_type_id = "warrior"; attacker.owner_player_id = 0
+	attacker.x = 2; attacker.y = 2
+	var enemy = load("res://src/sim/unit.gd").new()
+	enemy.id = 2; enemy.unit_type_id = "warrior"; enemy.owner_player_id = 1
+	enemy.x = 3; enemy.y = 2
+
+	# A path INTO the enemy's tile (the destination) must be found...
+	var into = Pathfinding.find_path(map, 2, 2, 3, 2, attacker, db, [attacker, enemy], 0)
+	assert_false(into.empty(), "Should be able to path into an enemy destination (attack)")
+	var last = into[into.size() - 1]
+	assert_eq([int(last[0]), int(last[1])], [3, 2], "Attack path ends on the enemy tile")
+
+	# ...but you still cannot path THROUGH an enemy to a tile beyond it on a 1-wide
+	# corridor. Here the only route from (2,2) to (4,2) on open land goes around,
+	# so a path exists but never steps onto the blocked (3,2).
+	var through = Pathfinding.find_path(map, 2, 2, 4, 2, attacker, db, [attacker, enemy], 0)
+	for step in through:
+		assert_false(int(step[0]) == 3 and int(step[1]) == 2,
+			"A through-route must not pass over the enemy-occupied tile")
+
+func test_unit_can_attack_adjacent_enemy() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 5, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var p0 = gs.players[0].id
+	var p1 = gs.players[1].id
+	gs.current_player_id = p0
+
+	var a = load("res://src/sim/unit.gd").new()
+	a.id = gs.next_unit_id(); a.unit_type_id = "warrior"; a.owner_player_id = p0
+	a.x = 5; a.y = 5; a.base_strength = 100; a.health = 100
+	a.movement_total = 200; a.movement_left = 200
+	gs.units.append(a)
+	var d = load("res://src/sim/unit.gd").new()
+	d.id = gs.next_unit_id(); d.unit_type_id = "warrior"; d.owner_player_id = p1
+	d.x = 6; d.y = 5; d.base_strength = 1; d.health = 100
+	gs.units.append(d)
+
+	watch_signals(facade)
+	var ok = facade.apply_command(Commands.move_stack(p0, 5, 5, 6, 5))
+	assert_true(ok, "Attack-move onto an adjacent enemy should be accepted")
+	assert_signal_emitted(facade, "combat_resolved",
+		"Moving onto an enemy must resolve combat")
+	# An overwhelmingly strong attacker should win and take the tile.
+	assert_null(gs.get_unit(d.id), "The weak defender should be destroyed")
+	var av = gs.get_unit(a.id)
+	assert_not_null(av, "The strong attacker should survive")
+	assert_eq([av.x, av.y], [6, 5], "The victorious attacker advances onto the captured tile")

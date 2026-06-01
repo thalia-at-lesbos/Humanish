@@ -51,7 +51,10 @@ static func find_path(map: WorldMap, from_x: int, from_y: int,
 			if not _domain_legal(nb, domain, db):
 				continue
 			if _has_enemy(nb.x, nb.y, all_units, owner_player_id):
-				continue  # cannot pass through enemies (simplification)
+				# Cannot pass THROUGH enemies, but the destination may hold one —
+				# entering it is an attack, resolved by the move command.
+				if not (nb.x == to_x and nb.y == to_y):
+					continue
 			var new_cost: int = cost + step_cost
 			var nk: String = _key(nb.x, nb.y)
 			if new_cost < dist.get(nk, 999999):

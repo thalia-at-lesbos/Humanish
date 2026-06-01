@@ -261,6 +261,23 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			break
 
 		var sx: int = int(step[0]); var sy: int = int(step[1])
+
+		# If the next tile holds an enemy, attack INTO it rather than moving on
+		# first. Combat is resolved here; the attacker only advances onto the
+		# tile if it wins (handled in _apply_combat_result). Attacking ends the
+		# stack's movement for the turn.
+		var enemy: Unit = Stack.get_defender(
+			_gs.units, sx, sy, player_id, _gs)
+		if enemy != null:
+			var result: Dictionary = Combat.resolve(lead, enemy, _gs, _gs.rng)
+			_apply_combat_result(lead, enemy, result)
+			emit_signal("combat_resolved", result)
+			for u in moving_units:
+				u.movement_left = 0
+				u.has_moved = true
+			lead.has_attacked = true
+			break
+
 		var step_cost: int = Pathfinding._move_cost(
 			_gs.map.get_tile(sx, sy), _db,
 			_db.get_unit(lead.unit_type_id).get("domain", "land"))
@@ -271,16 +288,6 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			u.has_moved = true
 			u.stationary_turns = 0
 			u.entrenchment = 0
-
-		# Check for combat upon entry
-		var enemy: Unit = Stack.get_defender(
-			_gs.units, sx, sy, player_id, _gs)
-		if enemy != null:
-			var result: Dictionary = Combat.resolve(lead, enemy, _gs, _gs.rng)
-			_apply_combat_result(lead, enemy, result)
-			emit_signal("combat_resolved", result)
-			if not result["attacker_survived"]:
-				break
 
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
