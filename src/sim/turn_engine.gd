@@ -457,15 +457,72 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		var udata: Dictionary = db.get_unit(u.unit_type_id)
 		upkeep += int(udata.get("upkeep", 0))
 
+	# Settlement upkeep scales with distance from the capital and settlement size
+	# (§6.1). The capital is the player's earliest-founded settlement.
+	var capital: Settlement = _find_capital(gs, player.id)
+	var dist_scale: int = db.get_constant("upkeep_distance_scale", 1)
+	var size_scale: int = db.get_constant("upkeep_size_scale", 1)
+	for s in gs.settlements:
+		if s.owner_player_id != player.id:
+			continue
+		var dist: int = 0
+		if capital != null:
+			dist = gs.map.distance(capital.x, capital.y, s.x, s.y)
+		upkeep += dist * dist_scale + (s.population * size_scale) / 4
+
+	# Policy upkeep modifier (percentage; negative = administrative discount).
+	var policy_mod: int = 0
+	for cat in player.policies:
+		var pol: Dictionary = db.policies.get("policies", {}).get(player.policies[cat], {})
+		policy_mod += int(pol.get("upkeep_modifier", 0))
+	if policy_mod != 0:
+		upkeep += Fixed.scale(upkeep, policy_mod)
+	if upkeep < 0:
+		upkeep = 0
+
 	player.treasury += income - upkeep
 
-	# Insolvency: force research down if broke
+	# Insolvency (§6.1): force research down immediately; only sell/disband as an
+	# extreme measure once the player stays broke past the grace period.
 	if player.treasury < 0:
-		player.treasury = 0
 		if player.slider_research > 0:
 			player.slider_research = max(0, player.slider_research - 10)
-			var freed: int = 10
-			player.slider_finance += freed
+			player.slider_finance += 10
+		player.insolvent_turns += 1
+		if player.insolvent_turns > db.get_constant("insolvency_grace_turns", 1):
+			var guard: int = 0
+			while player.treasury < 0 and guard < 100 and _sell_or_disband(gs, player):
+				guard += 1
+		if player.treasury < 0:
+			player.treasury = 0
+	else:
+		player.insolvent_turns = 0
+
+# The player's capital: the surviving settlement with the lowest id (earliest
+# founded). Null if the player has no settlements.
+static func _find_capital(gs: GameState, player_id: int) -> Settlement:
+	var capital: Settlement = null
+	for s in gs.settlements:
+		if s.owner_player_id != player_id:
+			continue
+		if capital == null or s.id < capital.id:
+			capital = s
+	return capital
+
+# Sell the newest structure (salvage refund) or, failing that, disband a unit to
+# relieve insolvency. Returns true if something was sold/disbanded.
+static func _sell_or_disband(gs: GameState, player: Player) -> bool:
+	for s in gs.settlements:
+		if s.owner_player_id == player.id and not s.structures.empty():
+			var sid: String = s.structures[s.structures.size() - 1]
+			s.structures.remove(s.structures.size() - 1)
+			player.treasury += int(gs.db.get_structure(sid).get("cost", 0)) / 4
+			return true
+	for u in gs.units:
+		if u.owner_player_id == player.id:
+			Stack.remove_unit(gs.units, u.id)
+			return true
+	return false
 
 static func _apply_research(gs: GameState, player: Player) -> void:
 	if player.current_research_id == "":

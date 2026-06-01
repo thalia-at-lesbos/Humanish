@@ -206,3 +206,46 @@ func test_tribute_transfers_treasury() -> void:
 	var pct: int = gs.db.get_constant("tribute_pct", 10)
 	assert_eq(gs.get_player(2).treasury, 100 - 10, "Tributary pays tribute")
 	assert_eq(gs.get_player(1).treasury, 10, "Overlord receives the tribute")
+
+# ── Item 6: Upkeep scaling + insolvency (§6.1) ─────────────────────────────────
+
+func test_distant_settlement_costs_more_upkeep() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	# Capital at (1,1); a far settlement costs distance-scaled upkeep.
+	_settlement(gs, 1, 1, 1, 1)
+	p.treasury = 1000
+	TurnEngine._update_treasury(gs, p)
+	var near_treasury: int = p.treasury
+	var gs2 = _make_gs()
+	var p2 = gs2.get_player(1)
+	_settlement(gs2, 1, 1, 1, 1)
+	_settlement(gs2, 1, 18, 18, 1)  # far from capital
+	p2.treasury = 1000
+	TurnEngine._update_treasury(gs2, p2)
+	assert_lt(p2.treasury, near_treasury, "A distant second settlement raises upkeep")
+
+func test_insolvency_disbands_units() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 0
+	p.insolvent_turns = 5  # already past the grace period
+	for i in range(10):
+		_unit(gs, "warrior", 1, i, 0)
+	var before: int = gs.units.size()
+	TurnEngine._update_treasury(gs, p)
+	assert_true(gs.units.size() < before, "Insolvency disbands units to cover upkeep")
+	assert_true(p.treasury >= 0, "Treasury is non-negative after insolvency handling")
+
+func test_insolvency_sells_structure_before_disbanding() -> void:
+	var gs = _make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 0
+	p.insolvent_turns = 5  # already past the grace period
+	var s = _settlement(gs, 1, 5, 5, 1)
+	s.structures = ["granary"]
+	_unit(gs, "warrior", 1, 6, 6)
+	for i in range(20):
+		_unit(gs, "warrior", 1, i, 1)
+	TurnEngine._update_treasury(gs, p)
+	assert_true(s.structures.empty(), "A structure is sold during insolvency")

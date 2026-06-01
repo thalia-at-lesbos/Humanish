@@ -48,6 +48,10 @@ var celebration_turns: int = 0
 # do not repeat).
 var events_fired: Array = []
 
+# Consecutive turns the player has been insolvent; selling/disbanding only kicks
+# in once this passes the grace period (§6.1).
+var insolvent_turns: int = 0
+
 func has_tech(tech_id: String) -> bool:
 	return tech_id in technologies
 
@@ -79,7 +83,8 @@ func serialize() -> Dictionary:
 		"score": score,
 		"is_eliminated": is_eliminated,
 		"celebration_turns": celebration_turns,
-		"events_fired": events_fired.duplicate()
+		"events_fired": events_fired.duplicate(),
+		"insolvent_turns": insolvent_turns
 	}
 
 static func deserialize(d: Dictionary):
@@ -105,4 +110,5 @@ static func deserialize(d: Dictionary):
 	p.is_eliminated = bool(d.get("is_eliminated", false))
 	p.celebration_turns = int(d.get("celebration_turns", 0))
 	p.events_fired = d.get("events_fired", []).duplicate()
+	p.insolvent_turns = int(d.get("insolvent_turns", 0))
 	return p

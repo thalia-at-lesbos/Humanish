@@ -113,6 +113,7 @@ func test_flanking_damages_stacked_unit() -> void:
 
 func test_entrenchment_grows_while_stationary() -> void:
 	var gs = _make_gs()
+	gs.get_player(1).treasury = 100000  # stay solvent so the unit is not disbanded
 	var u = _make_warrior(gs, 1, 5, 5)
 	u.entrenchment = 0; u.stationary_turns = 0
 	var per: int = gs.db.get_constant("entrenchment_per_turn", 5)
@@ -123,6 +124,7 @@ func test_entrenchment_grows_while_stationary() -> void:
 
 func test_entrenchment_capped() -> void:
 	var gs = _make_gs()
+	gs.get_player(1).treasury = 100000  # stay solvent so the unit is not disbanded
 	var u = _make_warrior(gs, 1, 5, 5)
 	var cap: int = gs.db.get_constant("entrenchment_cap", 25)
 	for _i in range(20):
