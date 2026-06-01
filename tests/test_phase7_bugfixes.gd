@@ -375,3 +375,75 @@ func test_found_city_not_offered_for_warrior() -> void:
 	for it in facade.get_flyout_menu(7, 7):
 		assert_true(int(it.get("action_id", -1)) != IDs.UnitMission.FOUND_SETTLEMENT,
 			"A warrior must not be offered Found City")
+
+# ── Bug F: city view builds full info from a real settlement ───────────────────
+
+func test_city_view_builds_from_settlement() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 71, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+
+	var s = load("res://src/sim/settlement.gd").new()
+	s.id = gs.next_settlement_id(); s.name = "Testopolis"; s.owner_player_id = pid
+	s.x = 5; s.y = 5; s.population = 3
+	s.output_food = 4; s.output_production = 3; s.output_commerce = 6
+	s.structures = ["granary"]
+	s.production_queue = [{"type": "unit", "id": "warrior"}]
+	s.worked_tiles = [[5, 5], [5, 6]]
+	gs.settlements.append(s)
+	gs.map.get_tile(5, 6).terrain_id = "grassland"
+
+	var screen = load("res://scenes/screens/city_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	# Call _build directly to bypass rebuild()'s idle-frame yield.
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	assert_true(screen.get_child_count() > 0,
+		"City screen must build content (background + info) from the settlement")
+
+func test_city_view_add_to_production_queues_item() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 72, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = load("res://src/sim/settlement.gd").new()
+	s.id = gs.next_settlement_id(); s.name = "Buildtown"; s.owner_player_id = pid
+	s.x = 4; s.y = 4; s.population = 2
+	gs.settlements.append(s)
+
+	var screen = load("res://scenes/screens/city_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_build("structure", "granary")
+	assert_eq(s.production_queue.size(), 1, "Build button should queue one item")
+	assert_eq(str(s.production_queue[0].get("id", "")), "granary",
+		"The queued item should be the chosen structure")
+
+# ── Scene smoke test: the whole main scene boots and is wired ───────────────────
+
+func test_main_scene_boots_and_wires_overlays() -> void:
+	var main = load("res://scenes/main.tscn").instance()
+	add_child_autofree(main)
+	# _ready ran the default 2-player fallback game.
+	assert_not_null(main.get_facade(), "main should have a facade after _ready")
+	assert_not_null(main.get_node_or_null("WorldView"), "world view present")
+	assert_not_null(main.get_node_or_null("Screens/CityScreen"), "city screen wired")
+	assert_not_null(main.get_node_or_null("Screens/TechChooser"), "tech chooser wired")
+	assert_not_null(main.get_node_or_null("Screens/PolicyScreen"), "policy screen wired")
+	# The fallback game gives both players their default opening units.
+	assert_true(main.get_facade().get_state().units.size() > 0,
+		"the booted game should have starting units")
+	get_tree().paused = false  # safety in case an overlay toggled pause

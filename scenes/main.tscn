@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=2]
+[gd_scene load_steps=10 format=2]
 
 [ext_resource path="res://scenes/main.gd" type="Script" id=1]
 [ext_resource path="res://scenes/world/world_view.tscn" type="PackedScene" id=2]
@@ -6,6 +6,9 @@
 [ext_resource path="res://scenes/input/input_router.gd" type="Script" id=4]
 [ext_resource path="res://scenes/hotseat/hotseat_manager.gd" type="Script" id=5]
 [ext_resource path="res://scenes/hotseat/pass_device_screen.tscn" type="PackedScene" id=6]
+[ext_resource path="res://scenes/screens/city_screen.gd" type="Script" id=7]
+[ext_resource path="res://scenes/screens/tech_chooser.gd" type="Script" id=8]
+[ext_resource path="res://scenes/screens/policy_screen.gd" type="Script" id=9]
 
 [node name="Main" type="Node"]
 script = ExtResource( 1 )
@@ -19,5 +22,23 @@ script = ExtResource( 4 )
 
 [node name="HotseatManager" type="Node" parent="."]
 script = ExtResource( 5 )
+
+[node name="Screens" type="CanvasLayer" parent="."]
+layer = 64
+
+[node name="CityScreen" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 7 )
+
+[node name="TechChooser" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 8 )
+
+[node name="PolicyScreen" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 9 )
 
 [node name="PassDeviceScreen" parent="." instance=ExtResource( 6 )]

@@ -22,6 +22,13 @@ func rebuild() -> void:
 	if p == null:
 		return
 
+	# Opaque backdrop so the map is not visible behind the screen.
+	var bg: ColorRect = ColorRect.new()
+	bg.anchor_right = 1.0
+	bg.anchor_bottom = 1.0
+	bg.color = Color(0.10, 0.10, 0.13, 1.0)
+	add_child(bg)
+
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.anchor_right = 1.0
 	scroll.anchor_bottom = 1.0

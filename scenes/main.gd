@@ -51,6 +51,14 @@ func _ready() -> void:
 		_init_node("HUD/VBox/MessageLog", [_facade])
 		_init_node("HUD/VBox/EndTurnButton", [_facade])
 
+	# Wire full-screen overlays (city / tech / policy)
+	var screens = get_node_or_null("Screens")
+	if screens != null:
+		for sname in ["CityScreen", "TechChooser", "PolicyScreen"]:
+			var sc = screens.get_node_or_null(sname)
+			if sc != null and sc.has_method("init"):
+				sc.init(_facade)
+
 	# Wire input router
 	var input_router = get_node_or_null("InputRouter")
 	if input_router != null:
@@ -94,16 +102,16 @@ func _on_player_turn_started(player_id: int) -> void:
 func _on_screen_requested(screen_id: int) -> void:
 	match screen_id:
 		IDs.ControlType.OPEN_CITY_SCREEN:
-			var city_screen = get_node_or_null("CityScreen")
+			var city_screen = get_node_or_null("Screens/CityScreen")
 			if city_screen != null:
 				var sel = _facade.get_selection()
 				city_screen.show_city(sel.head_city())
 		IDs.ControlType.OPEN_TECH:
-			var tech = get_node_or_null("TechChooser")
+			var tech = get_node_or_null("Screens/TechChooser")
 			if tech != null:
 				tech.show_screen()
 		IDs.ControlType.OPEN_POLICY:
-			var policy = get_node_or_null("PolicyScreen")
+			var policy = get_node_or_null("Screens/PolicyScreen")
 			if policy != null:
 				policy.show_screen()
 		IDs.ControlType.OPEN_DIPLOMACY:
