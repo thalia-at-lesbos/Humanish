@@ -38,9 +38,9 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.WORLD_ASSIGN_SITES, gs):
 		pass
 
-	# 7. Resolve assembly/voting bodies (stub)
+	# 7. Resolve assembly/voting bodies
 	if not hooks.run(IDs.Phase.WORLD_ASSEMBLY, gs):
-		pass
+		_resolve_assembly(gs)
 
 	# 8. Increment turn counter
 	if not hooks.run(IDs.Phase.WORLD_INCREMENT_TURN, gs):
@@ -595,6 +595,17 @@ static func _resolve_trades(gs: GameState) -> void:
 				expired.append(i)
 		for i in range(expired.size() - 1, -1, -1):
 			alliance.pending_trades.remove(expired[i])
+
+# Diplomatic assembly (§3.7): each alliance's voting weight is the population it
+# governs. The tally feeds the diplomatic win condition (§10).
+static func _resolve_assembly(gs: GameState) -> void:
+	var votes := {}
+	for s in gs.settlements:
+		var p: Player = gs.get_player(s.owner_player_id)
+		if p == null:
+			continue
+		votes[p.alliance_id] = int(votes.get(p.alliance_id, 0)) + s.population
+	gs.diplomatic_votes = votes
 
 static func _advance_alliances(gs: GameState) -> void:
 	for alliance in gs.alliances:
