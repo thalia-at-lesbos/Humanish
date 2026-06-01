@@ -323,3 +323,55 @@ func test_bug3_pass_device_overlay_wiring() -> void:
 	assert_false(get_tree().paused, "OK resumes the game so the next turn proceeds")
 
 	get_tree().paused = false  # safety: never leave the test tree paused
+
+# ── Bug E: a settler can found a city from the flyout menu ──────────────────────
+
+func test_found_city_action_offered_and_works() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 31, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+
+	# Place a settler on a known land tile.
+	gs.map.get_tile(6, 6).terrain_id = "grassland"
+	var u = load("res://src/sim/unit.gd").new()
+	u.id = gs.next_unit_id(); u.unit_type_id = "settler"
+	u.owner_player_id = pid; u.x = 6; u.y = 6
+	u.movement_total = 200; u.movement_left = 200
+	gs.units.append(u)
+
+	# The flyout must offer a Found City action for the settler.
+	var menu = facade.get_flyout_menu(6, 6)
+	var found_item = {}
+	for it in menu:
+		if int(it.get("action_id", -1)) == IDs.UnitMission.FOUND_SETTLEMENT:
+			found_item = it
+			break
+	assert_false(found_item.empty(), "Flyout should offer Found City for a settler")
+
+	var before = gs.settlements.size()
+	var ok = facade.apply_command(Commands.found_settlement(pid, int(found_item.get("unit_id", u.id))))
+	assert_true(ok, "Found settlement command should succeed")
+	assert_eq(gs.settlements.size(), before + 1, "A new settlement should exist")
+	assert_null(gs.get_unit(u.id), "The founding settler should be consumed")
+
+func test_found_city_not_offered_for_warrior() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 32, "small", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var u = load("res://src/sim/unit.gd").new()
+	u.id = gs.next_unit_id(); u.unit_type_id = "warrior"
+	u.owner_player_id = pid; u.x = 7; u.y = 7
+	gs.units.append(u)
+	for it in facade.get_flyout_menu(7, 7):
+		assert_true(int(it.get("action_id", -1)) != IDs.UnitMission.FOUND_SETTLEMENT,
+			"A warrior must not be offered Found City")

@@ -316,6 +316,8 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	emit_signal("settlement_founded", s.id)
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	# The founding settler is gone; refresh the selection/action panel.
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
 func _cmd_set_sliders(cmd: Dictionary) -> bool:
@@ -797,6 +799,14 @@ func get_flyout_menu(x: int, y: int) -> Array:
 	var items: Array = []
 	for u in _gs.units:
 		if u.x == x and u.y == y and u.owner_player_id == _gs.current_player_id:
+			# Settlers can found a city here.
+			if _db.get_unit(u.unit_type_id).get("can_found", false):
+				items.append({
+					"action_id": IDs.UnitMission.FOUND_SETTLEMENT,
+					"label": "Found City",
+					"unit_id": u.id,
+					"target_x": x, "target_y": y
+				})
 			if not u.has_moved:
 				items.append({
 					"action_id": IDs.UnitCmd.WAKE,

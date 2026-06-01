@@ -149,7 +149,11 @@ func _on_flyout_item(id: int, items: Array, tx: int, ty: int) -> void:
 	var uid: int = sel.head_unit()
 	var aid: int = int(item.get("action_id", -1))
 
-	if aid == IDs.UnitCmd.FORTIFY and uid >= 0:
+	if aid == IDs.UnitMission.FOUND_SETTLEMENT:
+		var settler_id: int = int(item.get("unit_id", uid))
+		if settler_id >= 0:
+			_facade.apply_command(Commands.found_settlement(pid, settler_id))
+	elif aid == IDs.UnitCmd.FORTIFY and uid >= 0:
 		_facade.apply_command(Commands.unit_fortify(pid, uid))
 	elif aid == IDs.UnitCmd.WAKE and uid >= 0:
 		_facade.apply_command(Commands.mission_skip_turn(pid, uid))

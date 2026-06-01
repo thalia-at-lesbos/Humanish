@@ -86,7 +86,9 @@ func _on_action_pressed(item: Dictionary) -> void:
 		return
 	var pid: int = gs.current_player_id
 	var aid: int = int(item.get("action_id", -1))
-	if aid == IDs.UnitCmd.FORTIFY:
+	if aid == IDs.UnitMission.FOUND_SETTLEMENT:
+		_facade.apply_command(Commands.found_settlement(pid, int(item.get("unit_id", uid))))
+	elif aid == IDs.UnitCmd.FORTIFY:
 		_facade.apply_command(Commands.unit_fortify(pid, uid))
 	elif aid == IDs.UnitCmd.WAKE:
 		_facade.apply_command(Commands.mission_skip_turn(pid, uid))
