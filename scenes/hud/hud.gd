@@ -26,6 +26,7 @@ func _process(_delta: float) -> void:
 		d.clear(IDs.DirtyRegion.DATA_PANES)
 
 func _rebuild_node(name: String) -> void:
-	var node = get_node_or_null(name)
+	# The HUD panels live under the VBox container, not directly under the HUD.
+	var node = get_node_or_null("VBox/" + name)
 	if node != null and node.has_method("rebuild"):
 		node.rebuild()

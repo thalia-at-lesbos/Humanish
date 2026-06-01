@@ -15,5 +15,7 @@ func rebuild() -> void:
 	var gs = _facade.get_state()
 	var p = gs.get_player(gs.current_player_id)
 	var score_str: String = str(p.score) if p != null else "0"
-	_label.text = "Turn: " + str(gs.turn_number) + "/" + str(gs.max_turns) + \
-		"   Score: " + score_str
+	var who: String = p.name if p != null else "—"
+	# turn_number is 0-based internally; show it 1-based for players.
+	_label.text = "Turn: " + str(gs.turn_number + 1) + "/" + str(gs.max_turns) + \
+		"   " + who + "   Score: " + score_str

@@ -1,6 +1,6 @@
 User Bug Report
 
-June 1, 3:16pm EDT
+June 1, 2026, 3:16pm EDT (Currently fixed, do not investigate)
 -- Start Game works even though "No Society" is selected for a player
 -- End turn does not appear to advance to the next turn (even though the message "Pass the device to Player X" appears
 -- OK button under "Pass the device to Player X" doesn't appear to work
@@ -11,5 +11,13 @@ June 1, 3:16pm EDT
 -- Button beneath Finance/Research/Culture/Intel percentages appear to randomly change the values. Each of these 
 -- Currently there is no tech tree. Create a simple 4 progression tech tree based on stone, bronze, iron, silicon
 -- Currently there are no civics. Create a simple 4 item civic system Communism, Anarcho-communism, Anarcho Capitalism, and Fascism
+
+June 1, 2026, 4:11pm EDT
+-- The overall map is shown to the players before they start their turns, remove this
+-- The turn counter doesn't advance
+-- the arrow keys cause the fog of war to move separately from the map, but fog of war should be fixed to map
+-- Clicking on blue squares does nothing, are these units?
+-- No apparent way to settle a city
+-- If there is no "city view", we need to add one with all relevant city info (resources used, buildings, finance/research/cultured/intel output, current production, etc)
 
 
