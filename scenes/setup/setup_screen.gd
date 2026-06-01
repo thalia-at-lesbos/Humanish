@@ -47,17 +47,25 @@ func _build_ui() -> void:
 	count_row.add_child(_player_count_spin)
 	vbox.add_child(count_row)
 
-	# Player name rows (up to 4)
+	# Player name + society rows (up to 4)
+	var societies: Dictionary = _db.get_societies()
+	var society_ids: Array = societies.keys()
 	for i in range(4):
 		var row: HBoxContainer = HBoxContainer.new()
 		var lbl: Label = Label.new()
 		lbl.text = "Player " + str(i + 1) + ":"
 		var edit: LineEdit = LineEdit.new()
 		edit.text = "Player " + str(i + 1)
-		edit.rect_min_size = Vector2(120, 0)
+		edit.rect_min_size = Vector2(100, 0)
+		var society_btn: OptionButton = OptionButton.new()
+		society_btn.add_item("— No Society —")
+		for sid in society_ids:
+			society_btn.add_item(societies[sid].get("name", sid))
 		row.add_child(lbl)
 		row.add_child(edit)
-		_player_rows.append({"row": row, "name_edit": edit})
+		row.add_child(society_btn)
+		_player_rows.append({"row": row, "name_edit": edit, "society_btn": society_btn,
+				"society_ids": society_ids})
 		vbox.add_child(row)
 		row.visible = i < 2
 
@@ -122,11 +130,23 @@ func _on_start_pressed() -> void:
 	var count: int = int(_player_count_spin.value)
 	var player_configs: Array = []
 	for i in range(count):
+		var row_data: Dictionary = _player_rows[i]
+		var society_btn: OptionButton = row_data["society_btn"]
+		var society_idx: int = society_btn.selected - 1  # 0 = "No Society"
+		var leader_id: String = ""
+		var traits: Array = []
+		var starting_gold: int = 100
+		if society_idx >= 0:
+			var sid: String = row_data["society_ids"][society_idx]
+			var society: Dictionary = _db.get_society(sid)
+			leader_id = society.get("leader_id", "")
+			traits = society.get("traits", []).duplicate()
+			starting_gold = int(society.get("starting_gold", 100))
 		player_configs.append({
-			"name": _player_rows[i]["name_edit"].text,
-			"leader_id": "",
-			"traits": [],
-			"starting_gold": 100
+			"name": row_data["name_edit"].text,
+			"leader_id": leader_id,
+			"traits": traits,
+			"starting_gold": starting_gold
 		})
 
 	var world_size_id: String = _world_size_btn.get_item_text(_world_size_btn.selected)

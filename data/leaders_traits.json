@@ -28,5 +28,43 @@
       "health_bonus": 2,
       "worker_speed_bonus": 50
     }
+  },
+  "societies": {
+    "annunaki": {
+      "id": "annunaki",
+      "name": "The Annunaki",
+      "leader_id": "enlil",
+      "leader_name": "Enlil",
+      "description": "The great sky council of ancient Mesopotamia, divine arbiters of fate and keepers of the Tablets of Destiny.",
+      "traits": ["philosophical", "aggressive"],
+      "starting_gold": 120
+    },
+    "heavenly_bureaucracy": {
+      "id": "heavenly_bureaucracy",
+      "name": "The Heavenly Bureaucracy",
+      "leader_id": "jade_emperor",
+      "leader_name": "The Jade Emperor",
+      "description": "The celestial court of the Jade Emperor governs all realms through meticulous administration and divine mandate.",
+      "traits": ["industrious", "financial"],
+      "starting_gold": 150
+    },
+    "yoruba_orishas": {
+      "id": "yoruba_orishas",
+      "name": "The Yoruba Orishas",
+      "leader_id": "oduduwa",
+      "leader_name": "Oduduwa",
+      "description": "Oduduwa descended from the heavens to create the earth and father the Yoruba people, guided by the living wisdom of the Orishas.",
+      "traits": ["expansive", "philosophical"],
+      "starting_gold": 100
+    },
+    "aztec_creators": {
+      "id": "aztec_creators",
+      "name": "The Aztec Four Principle Creators",
+      "leader_id": "quetzalcoatl",
+      "leader_name": "Quetzalcoatl",
+      "description": "The four Tezcatlipocas — Quetzalcoatl, Tezcatlipoca, Huitzilopochtli, and Xipe Totec — sacrificed themselves to birth each successive sun and all life.",
+      "traits": ["aggressive", "industrious"],
+      "starting_gold": 100
+    }
   }
 }

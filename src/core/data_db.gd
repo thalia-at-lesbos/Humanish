@@ -91,6 +91,12 @@ func get_world_size(id: String) -> Dictionary:
 func get_promotion(id: String) -> Dictionary:
 	return promotions.get(id, {})
 
+func get_societies() -> Dictionary:
+	return leaders_traits.get("societies", {})
+
+func get_society(id: String) -> Dictionary:
+	return get_societies().get(id, {})
+
 # ── internals ─────────────────────────────────────────────────────────────────
 
 func _load_json(path: String) -> Dictionary:
