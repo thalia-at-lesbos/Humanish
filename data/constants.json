@@ -17,6 +17,7 @@
   "entrenchment_per_turn": 5,
   "flanking_damage_fraction": 25,
   "withdrawal_min_health": 10,
+  "score_weight_wonder": 5,
   "upkeep_distance_scale": 1,
   "upkeep_size_scale": 1,
   "starting_techs": ["stone_age"],

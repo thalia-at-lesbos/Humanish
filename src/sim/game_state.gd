@@ -29,6 +29,11 @@ var founded_econ_orgs: Dictionary = {} # org_id -> founder player_id
 # Endgame project stages completed per alliance
 var endgame_project_stages: Dictionary = {}  # alliance_id -> int
 
+# Diplomatic assembly tally: votes cast for each alliance's candidate.
+# Populated by the assembly/voting phase (§3 world-step 7); read by the
+# diplomatic win condition (§10). Empty until assemblies are implemented.
+var diplomatic_votes: Dictionary = {}  # alliance_id -> int votes
+
 # Auto-incrementing IDs
 var _next_unit_id: int = 1
 var _next_settlement_id: int = 1
@@ -138,6 +143,7 @@ func serialize() -> Dictionary:
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
 		"endgame_project_stages": endgame_project_stages.duplicate(),
+		"diplomatic_votes": diplomatic_votes.duplicate(),
 		"_next_unit_id": _next_unit_id,
 		"_next_settlement_id": _next_settlement_id,
 		"_next_alliance_id": _next_alliance_id,
@@ -168,6 +174,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
 	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()
+	gs.diplomatic_votes = d.get("diplomatic_votes", {}).duplicate()
 	gs._next_unit_id = int(d.get("_next_unit_id", 1))
 	gs._next_settlement_id = int(d.get("_next_settlement_id", 1))
 	gs._next_alliance_id = int(d.get("_next_alliance_id", 1))

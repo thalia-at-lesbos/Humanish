@@ -147,17 +147,22 @@ can never occur:
 Ordered by **impact ÷ effort**. The first tier are correctness bugs / one-liners where
 the supporting code already exists; later tiers are whole systems.
 
-### Tier 0 — Quick wins (code already exists; wire it up / fix the bug)
+### Tier 0 — Quick wins (code already exists; wire it up / fix the bug) — ✅ DONE
 
-- [ ] Add the `"diplomatic"` case to `WinConditions._check_one()` (or document it as
-      intentionally deferred). *(§10)*
-- [ ] Apply `flanking_damage` in `SimFacade._apply_combat_result()`, mirroring the
+Resolved on branch `dev-missing-features`; covered by
+`tests/test_tier0_missing_features.gd` (10 tests).
+
+- [x] Add the `"diplomatic"` case to `WinConditions._check_one()`, reading an
+      assembly tally from new `GameState.diplomatic_votes` (serialized). Returns no
+      winner until the assembly phase casts votes. *(§10)*
+- [x] Apply `flanking_damage` in `SimFacade._apply_combat_result()`, mirroring the
       existing `spillover_damage` loop. *(§5.4)*
-- [ ] Increment `stationary_turns` / grow `entrenchment` (up to the data cap) for units
-      that neither moved nor attacked, in the player-step movement-reset loop. *(§5.3)*
-- [ ] Include wonders in `Scoring.compute_all()`. *(§10)*
-- [ ] Fix the withdrawal health line in `combat.gd`
-      (`max(1, a_health - a_dmg + a_dmg)` is a no-op). *(§5.4)*
+- [x] Grow `entrenchment` / `stationary_turns` (up to the data cap) for units that
+      neither moved nor attacked, in the player-step movement-reset loop. *(§5.3)*
+- [x] Count wonders in `Scoring.compute_all()` via a data-driven `is_wonder` structure
+      flag and `score_weight_wonder` constant. *(§10)*
+- [x] Fix the withdrawal line in `combat.gd` (`max(1, a_health - a_dmg + a_dmg)` was a
+      no-op); the attacker now retreats without taking the fatal hit. *(§5.4)*
 
 ### Tier 1 — High-impact systems with partial scaffolding
 

@@ -488,11 +488,19 @@ func _apply_combat_result(attacker: Unit, defender: Unit,
 			attacker.x = defender.x
 			attacker.y = defender.y
 
-	# Spillover to stacked units
+	# Spillover to stacked units (siege attackers)
 	if result["spillover_damage"] > 0:
 		for u in Stack.at(_gs.units, defender.x, defender.y, defender.owner_player_id):
 			if u.id != defender.id:
 				u.health = max(0, u.health - int(result["spillover_damage"]))
+				if u.health <= 0:
+					Stack.remove_unit(_gs.units, u.id)
+
+	# Flanking: fast attackers damage part of the defeated defender's stack (§5.4).
+	if result["flanking_damage"] > 0:
+		for u in Stack.at(_gs.units, defender.x, defender.y, defender.owner_player_id):
+			if u.id != defender.id:
+				u.health = max(0, u.health - int(result["flanking_damage"]))
 				if u.health <= 0:
 					Stack.remove_unit(_gs.units, u.id)
 

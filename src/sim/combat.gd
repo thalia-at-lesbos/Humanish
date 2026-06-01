@@ -83,8 +83,10 @@ static func resolve(attacker: Unit, defender: Unit,
 			# Defender wins round, attacker takes a hit
 			if a_health - a_dmg <= 0 and a_withdrawal > 0:
 				if rng.rand_bool_percent(a_withdrawal):
+					# The fatal hit is avoided; the attacker retreats intact rather
+					# than taking the blow. (Previous code added and subtracted the
+					# same damage, a no-op that left this comment misleading.)
 					a_withdrew = true
-					a_health = max(1, a_health - a_dmg + a_dmg)  # retreats at current health
 					break
 			a_health -= a_dmg
 

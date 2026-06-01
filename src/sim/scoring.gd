@@ -17,10 +17,12 @@ static func compute_all(game_state) -> void:
 		var land: int = _count_land(p.id, game_state)
 		var pop: int  = _count_pop(p.id, game_state)
 		var techs: int = p.technologies.size()
+		var wonders: int = _count_wonders(p.id, game_state)
 		var land_score: int = (land * 100) / max(1, total_land)
 		var pop_score: int  = (pop * 100) / max(1, max(1, total_pop))
 		var tech_score: int = techs * 2
-		score_by_player[p.id] = land_score + pop_score + tech_score
+		var wonder_score: int = wonders * game_state.db.get_constant("score_weight_wonder", 5)
+		score_by_player[p.id] = land_score + pop_score + tech_score + wonder_score
 
 	# Write back
 	for p in game_state.players:
@@ -54,3 +56,16 @@ static func _count_pop(player_id: int, game_state) -> int:
 		if s.owner_player_id == player_id:
 			total += s.population
 	return total
+
+# Count wonders the player owns. A structure is a wonder when its data entry
+# carries "is_wonder": true, keeping the rule data-driven (§12).
+static func _count_wonders(player_id: int, game_state) -> int:
+	var db = game_state.db
+	var count: int = 0
+	for s in game_state.settlements:
+		if s.owner_player_id != player_id:
+			continue
+		for struct_id in s.structures:
+			if db.get_structure(struct_id).get("is_wonder", false):
+				count += 1
+	return count

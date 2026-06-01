@@ -97,12 +97,21 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
 		Events.process_player_events(player, gs, gs.rng)
 
-	# Reset unit movement and action flags
+	# Grow entrenchment for units that held position, then reset movement/action
+	# flags for next turn. Moving or attacking resets entrenchment to 0 at the
+	# command site, so only genuinely stationary units accumulate it here (§5.3).
+	var ent_cap: int = gs.db.get_constant("entrenchment_cap", 25)
+	var ent_per: int = gs.db.get_constant("entrenchment_per_turn", 5)
 	for u in gs.units:
-		if u.owner_player_id == player_id:
-			u.movement_left = u.movement_total
-			u.has_moved = false
-			u.has_attacked = false
+		if u.owner_player_id != player_id:
+			continue
+		if not u.has_moved and not u.has_attacked:
+			u.stationary_turns += 1
+			var ent: int = u.stationary_turns * ent_per
+			u.entrenchment = ent_cap if ent > ent_cap else ent
+		u.movement_left = u.movement_total
+		u.has_moved = false
+		u.has_attacked = false
 
 # ── Per-settlement step ───────────────────────────────────────────────────────
 
