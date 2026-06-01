@@ -231,3 +231,39 @@ func test_bug1_blocks_start_until_every_player_picks_a_society() -> void:
 	screen._on_start_pressed()
 	assert_true(_bug1_started,
 		"Start proceeds once all players have chosen a society")
+
+# ── Bug 8: slider redistribution keeps a predictable sum of 100 ────────────────
+
+func _sum(a):
+	var s = 0
+	for v in a:
+		s += int(v)
+	return s
+
+func test_slider_rebalance_always_sums_to_100() -> void:
+	var SM = load("res://src/api/slider_math.gd")
+	# Try moving each slider to each step value from a few starting splits.
+	var starts = [[40, 40, 10, 10], [25, 25, 25, 25], [100, 0, 0, 0], [70, 10, 10, 10]]
+	for st in starts:
+		for idx in range(4):
+			for target in [0, 10, 30, 50, 70, 100]:
+				var out = SM.rebalance(st, idx, target)
+				assert_eq(_sum(out), 100,
+					"sum must stay 100 for start %s idx %d -> %d (got %s)" % [st, idx, target, out])
+				assert_eq(int(out[idx]), target,
+					"the moved slider must hold its new value")
+				for v in out:
+					assert_true(int(v) >= 0 and int(v) <= 100, "each value within [0,100]")
+
+func test_slider_rebalance_is_deterministic() -> void:
+	var SM = load("res://src/api/slider_math.gd")
+	var a = SM.rebalance([40, 40, 10, 10], 0, 70)
+	var b = SM.rebalance([40, 40, 10, 10], 0, 70)
+	assert_eq(a, b, "Same input must give the same redistribution every time")
+
+func test_slider_rebalance_takes_from_following_sliders_first() -> void:
+	var SM = load("res://src/api/slider_math.gd")
+	# Finance 40 -> 60: the +20 is pulled from research (next index) first.
+	var out = SM.rebalance([40, 40, 10, 10], 0, 60)
+	assert_eq(out, [60, 20, 10, 10],
+		"Increase should be absorbed by the immediately following slider first")

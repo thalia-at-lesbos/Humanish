@@ -9,6 +9,7 @@ var _labels: Array = []
 var _updating: bool = false
 
 const SLIDER_NAMES: Array = ["Finance", "Research", "Culture", "Intel"]
+const SliderMath = preload("res://src/api/slider_math.gd")
 
 func init(facade) -> void:
 	_facade = facade
@@ -55,39 +56,15 @@ func _on_slider_changed(value: float, changed_idx: int) -> void:
 		return
 	_updating = true
 
-	var vals: Array = [
+	var cur: Array = [
 		int(_sliders[0].value),
 		int(_sliders[1].value),
 		int(_sliders[2].value),
 		int(_sliders[3].value)
 	]
-	vals[changed_idx] = int(value)
-
-	# Distribute remainder among the other sliders proportionally
-	var total: int = 0
-	for v in vals:
-		total += v
-	var diff: int = total - 100
-	if diff != 0:
-		# Adjust the first other slider that can absorb it
-		for i in range(4):
-			if i == changed_idx:
-				continue
-			var new_val: int = vals[i] - diff
-			if new_val >= 0 and new_val <= 100:
-				vals[i] = new_val
-				break
-
-	# Ensure sum == 100 (clamp residual onto last flexible slot)
-	var sum: int = 0
-	for v in vals:
-		sum += v
-	if sum != 100:
-		for i in range(4):
-			if i == changed_idx:
-				continue
-			vals[i] = max(0, vals[i] + (100 - sum))
-			break
+	# Predictably take the difference from the other sliders so the four always
+	# sum to exactly 100 (see slider_math.gd).
+	var vals: Array = SliderMath.rebalance(cur, changed_idx, int(value))
 
 	for i in range(4):
 		_sliders[i].value = vals[i]
