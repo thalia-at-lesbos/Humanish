@@ -255,6 +255,25 @@ func pan_to_tile(tx: int, ty: int) -> void:
 	_offset = vp * 0.5 - Vector2(tx * TILE_SIZE, ty * TILE_SIZE) * _zoom
 	_camera_changed()
 
+# Center the camera on one of the given player's units, so each turn opens
+# looking at something the player owns. Falls back to a settlement if they have
+# no units left. Returns true if it found something to center on.
+func center_on_player(player_id: int) -> bool:
+	if _facade == null:
+		return false
+	var gs = _facade.get_state()
+	if gs == null:
+		return false
+	for u in gs.units:
+		if u.owner_player_id == player_id:
+			pan_to_tile(u.x, u.y)
+			return true
+	for s in gs.settlements:
+		if s.owner_player_id == player_id:
+			pan_to_tile(s.x, s.y)
+			return true
+	return false
+
 # Redraw the world and keep the fog overlay locked to the same camera, so fog
 # stays pinned to the map instead of drifting when the view pans or zooms.
 func _camera_changed() -> void:

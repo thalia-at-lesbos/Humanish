@@ -82,6 +82,10 @@ func _ready() -> void:
 		var start_fog = world_view.get_node_or_null("FogLayer")
 		if start_fog != null:
 			start_fog.rebuild(_facade.get_state().current_player_id)
+		# player_turn_started is not emitted for the opening player, so center the
+		# map on one of their units here at game start.
+		if world_view.has_method("center_on_player"):
+			world_view.center_on_player(_facade.get_state().current_player_id)
 
 func _init_node(path: String, args: Array) -> void:
 	var node = get_node_or_null(path)

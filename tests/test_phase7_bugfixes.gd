@@ -753,6 +753,70 @@ func test_owned_units_at_ignores_enemy_units() -> void:
 	assert_eq(ir._owned_units_at(3, 3, gs), [mine.id],
 		"Only the current player's units are selectable on a shared tile")
 
+# ── Bug (June 2): the view centers on the current player's unit each turn ───────
+
+func test_view_centers_on_current_players_unit() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 1515, "standard", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var u = load("res://src/sim/unit.gd").new()
+	u.id = gs.next_unit_id(); u.unit_type_id = "warrior"; u.owner_player_id = pid
+	u.x = 12; u.y = 9
+	gs.units.append(u)
+
+	var wv = load("res://scenes/world/world_view.tscn").instance()
+	add_child_autofree(wv)
+	wv.init(facade)
+
+	assert_true(wv.center_on_player(pid), "Centering should find the player's unit")
+	# At default zoom, the screen centre must map back to the unit's tile.
+	var vp = wv.get_viewport_rect().size
+	var t = wv.screen_to_tile(vp * 0.5)
+	assert_eq([int(t.x), int(t.y)], [12, 9],
+		"The camera should be centred on the current player's unit tile")
+
+func test_view_centers_on_settlement_when_no_units() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 1616, "standard", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = load("res://src/sim/settlement.gd").new()
+	s.id = gs.next_settlement_id(); s.name = "Cap"; s.owner_player_id = pid
+	s.x = 7; s.y = 8; s.population = 1
+	gs.settlements.append(s)
+
+	var wv = load("res://scenes/world/world_view.tscn").instance()
+	add_child_autofree(wv)
+	wv.init(facade)
+
+	assert_true(wv.center_on_player(pid),
+		"With no units, centering should fall back to a settlement")
+	var vp = wv.get_viewport_rect().size
+	var t = wv.screen_to_tile(vp * 0.5)
+	assert_eq([int(t.x), int(t.y)], [7, 8],
+		"The camera should fall back to centring on the player's city")
+
+func test_center_on_player_returns_false_with_nothing_owned() -> void:
+	var db = _db()
+	var facade = load("res://src/api/sim_facade.gd").new()
+	facade.setup(db, 1717, "standard", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["time"])
+	var wv = load("res://scenes/world/world_view.tscn").instance()
+	add_child_autofree(wv)
+	wv.init(facade)
+	assert_false(wv.center_on_player(facade.get_state().players[0].id),
+		"Centering reports false when the player owns nothing to look at")
+
 # ── Bug (June 2): fog of war is fully opaque (no transparency) ──────────────────
 
 func test_fog_color_is_fully_opaque() -> void:

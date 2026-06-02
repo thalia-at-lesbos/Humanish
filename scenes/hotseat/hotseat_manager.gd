@@ -23,11 +23,14 @@ func _on_player_turn_started(player_id: int) -> void:
 	var p = gs.get_player(player_id)
 	var player_name: String = p.name if p != null else "Player"
 
-	# Rebuild fog for the new active player
+	# Rebuild fog for the new active player and center the map on one of their
+	# units so the turn opens looking at something they own.
 	if _world_view != null:
 		var fog = _world_view.get_node_or_null("FogLayer")
 		if fog != null:
 			fog.rebuild(player_id)
+		if _world_view.has_method("center_on_player"):
+			_world_view.center_on_player(player_id)
 
 	# Show pass-device overlay
 	if _pass_screen != null and _pass_screen.has_method("show_for_player"):
