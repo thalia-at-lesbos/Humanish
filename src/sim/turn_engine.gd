@@ -191,6 +191,14 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		spec_count += int(s.specialists[spec_type])
 	total_commerce += spec_count * db.get_constant("specialist_commerce", 3)
 
+	# Golden Age: every worked tile yields +1 food/production/commerce (§14.4).
+	var ga_bonus: int = GreatPeople.golden_age_tile_bonus(gs, player)
+	if ga_bonus > 0:
+		var worked: int = s.worked_tiles.size()
+		total_food     += worked * ga_bonus
+		total_prod     += worked * ga_bonus
+		total_commerce += worked * ga_bonus
+
 	s.output_food       = total_food
 	s.output_production = total_prod
 	s.output_commerce   = total_commerce
@@ -419,11 +427,18 @@ static func _special_person_progress(gs: GameState, s: Settlement) -> void:
 		s.special_persons_produced += 1
 		_apply_special_person(gs, s)
 
-# A produced special person grants an instant technology to its owner if one is
-# being researched; otherwise it settles for a one-off economic bonus (§6.5).
+# A produced special person becomes a Great Person unit of the city's dominant
+# specialist type when one applies (§14.1/§14.3) — the player then directs it via
+# a GP action. With no typed specialists it falls back to the abstract bonus:
+# an instant technology if researching, else a seeded org, else gold (§6.5).
 static func _apply_special_person(gs: GameState, s: Settlement) -> void:
 	var player: Player = gs.get_player(s.owner_player_id)
 	if player == null:
+		return
+	# Typed specialists yield an actual Great Person unit at the city.
+	var gen_type: String = GreatPeople.dominant_specialist(s)
+	if gen_type != "" and GreatPeople.gp_unit_for_type(gs.db, gen_type) != "":
+		GreatPeople.birth_from_settlement(gs, s)
 		return
 	if player.current_research_id != "" and not player.has_tech(player.current_research_id):
 		player.technologies.append(player.current_research_id)
@@ -621,6 +636,8 @@ static func _tick_states(gs: GameState, player: Player) -> void:
 		player.transition_turns -= 1
 	if player.celebration_turns > 0:
 		player.celebration_turns -= 1
+	# A running Golden Age counts down one turn (§14.4).
+	GreatPeople.tick_golden_age(player)
 	for s in gs.settlements:
 		if s.owner_player_id != player.id:
 			continue

@@ -52,6 +52,21 @@ var events_fired: Array = []
 # in once this passes the grace period (§6.1).
 var insolvent_turns: int = 0
 
+# Golden Age state (§14.4). golden_age_turns counts down each turn while active;
+# golden_age_count is how many have been started (escalates the GP cost of the
+# next); pending_golden_age_gp accumulates Great Persons sacrificed toward the
+# next/extended Golden Age.
+var golden_age_turns: int = 0
+var golden_age_count: int = 0
+var pending_golden_age_gp: int = 0
+
+# Great General accumulation from combat (§14.2). Points come from combat
+# victories; when they cross the rising threshold a Great General is born in the
+# field. great_general_threshold == 0 means "use the data default on first use".
+var great_general_points: int = 0
+var great_general_threshold: int = 0
+var great_generals_produced: int = 0
+
 func has_tech(tech_id: String) -> bool:
 	return tech_id in technologies
 
@@ -84,7 +99,13 @@ func serialize() -> Dictionary:
 		"is_eliminated": is_eliminated,
 		"celebration_turns": celebration_turns,
 		"events_fired": events_fired.duplicate(),
-		"insolvent_turns": insolvent_turns
+		"insolvent_turns": insolvent_turns,
+		"golden_age_turns": golden_age_turns,
+		"golden_age_count": golden_age_count,
+		"pending_golden_age_gp": pending_golden_age_gp,
+		"great_general_points": great_general_points,
+		"great_general_threshold": great_general_threshold,
+		"great_generals_produced": great_generals_produced
 	}
 
 static func deserialize(d: Dictionary):
@@ -111,4 +132,10 @@ static func deserialize(d: Dictionary):
 	p.celebration_turns = int(d.get("celebration_turns", 0))
 	p.events_fired = d.get("events_fired", []).duplicate()
 	p.insolvent_turns = int(d.get("insolvent_turns", 0))
+	p.golden_age_turns = int(d.get("golden_age_turns", 0))
+	p.golden_age_count = int(d.get("golden_age_count", 0))
+	p.pending_golden_age_gp = int(d.get("pending_golden_age_gp", 0))
+	p.great_general_points = int(d.get("great_general_points", 0))
+	p.great_general_threshold = int(d.get("great_general_threshold", 0))
+	p.great_generals_produced = int(d.get("great_generals_produced", 0))
 	return p

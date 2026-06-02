@@ -191,32 +191,35 @@ func test_belief_adds_happiness() -> void:
 
 # ── 5. Special-person production ───────────────────────────────────────────────
 
-func test_special_person_grants_instant_tech() -> void:
+func test_special_person_births_typed_great_person() -> void:
+	# Typed specialists now yield an actual Great Person unit of that type (§14.3),
+	# which the player then directs via a GP action.
 	var gs = _make_gs()
-	var p = gs.get_player(1)
-	p.current_research_id = "mining"
 	var s = _settlement(gs, 1, 5, 5)
 	s.special_person_threshold = 10
 	s.specialists = {"scientist": 12}  # 12 points >= threshold 10
 	TurnEngine._special_person_progress(gs, s)
 	assert_eq(s.special_persons_produced, 1, "A special person is produced")
-	assert_true(p.has_tech("mining"), "Special person grants the in-progress technology")
-	assert_eq(p.current_research_id, "", "Research target cleared after the grant")
+	var found := false
+	for u in gs.units:
+		if u.owner_player_id == 1 and u.unit_type_id == "great_scientist" \
+				and u.x == 5 and u.y == 5:
+			found = true
+	assert_true(found, "Dominant scientist specialists birth a Great Scientist at the city")
 
-func test_special_person_settles_for_gold_when_no_research() -> void:
+func test_special_person_births_match_dominant_specialist() -> void:
+	# The dominant specialist type decides which Great Person is born.
 	var gs = _make_gs()
-	var p = gs.get_player(1)
-	p.current_research_id = ""
-	p.treasury = 0
-	# Pre-found every econ org so the special person falls through to the gold path.
-	for org_id in gs.db.econ_orgs:
-		gs.founded_econ_orgs[org_id] = 99
 	var s = _settlement(gs, 1, 5, 5)
 	s.special_person_threshold = 10
-	s.specialists = {"merchant": 12}
+	s.specialists = {"merchant": 12, "scientist": 3}
 	TurnEngine._special_person_progress(gs, s)
 	assert_eq(s.special_persons_produced, 1, "A special person is produced")
-	assert_gt(p.treasury, 0, "With no research and all orgs founded, the special person settles for gold")
+	var found := false
+	for u in gs.units:
+		if u.owner_player_id == 1 and u.unit_type_id == "great_merchant":
+			found = true
+	assert_true(found, "More merchant than scientist specialists births a Great Merchant")
 
 func test_special_person_threshold_rises() -> void:
 	var gs = _make_gs()

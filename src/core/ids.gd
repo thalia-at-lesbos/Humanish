@@ -54,7 +54,9 @@ enum CommandType {
     ESPIONAGE_MISSION = 33,
     LOAD_UNIT = 34,
     UNLOAD_UNIT = 35,
-    SET_SUBORDINATION = 36
+    SET_SUBORDINATION = 36,
+    # Great Person actions (§14)
+    GP_ACTION = 37
 }
 
 # Win condition types

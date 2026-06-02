@@ -67,5 +67,18 @@
   "growth_threshold_per_pop": 2,
   "cultural_legendary_threshold": 50000,
   "golden_age_base_turns": 8,
-  "golden_age_tile_bonus": 1
+  "golden_age_tile_bonus": 1,
+  "golden_age_gp_base_cost": 2,
+  "golden_age_gp_cost_increment": 1,
+  "mausoleum_golden_age_pct": 50,
+  "great_general_first_cost": 30,
+  "great_general_cost_growth_pct": 50,
+  "great_general_points_per_xp_pct": 100,
+  "imperialistic_great_general_pct": 50,
+  "great_wall_great_general_pct": 100,
+  "gp_super_specialist_count": 1,
+  "gp_great_work_culture": 4000,
+  "gp_hurry_production_hammers": 500,
+  "gp_trade_mission_gold": 2000,
+  "gp_infiltration_espionage": 3000
 }

@@ -220,6 +220,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_unload_unit(cmd)
 		IDs.CommandType.SET_SUBORDINATION:
 			return _cmd_set_subordination(cmd)
+		IDs.CommandType.GP_ACTION:
+			return _cmd_gp_action(cmd)
 	return false
 
 # ── Command handlers ──────────────────────────────────────────────────────────
@@ -656,6 +658,27 @@ func _cmd_assign_specialist(cmd: Dictionary) -> bool:
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
+# ── Great Person actions (§14) ────────────────────────────────────────────────
+
+# Direct a Great Person unit to perform one of its data-defined actions. Extra
+# command keys (settlement_id, target_alliance_id, tech_id, org_id) are passed
+# through as params; the GreatPeople module validates the action against the
+# unit's own "actions" list.
+func _cmd_gp_action(cmd: Dictionary) -> bool:
+	var player_id: int = int(cmd["player_id"])
+	var u: Unit = _gs.get_unit(int(cmd.get("unit_id", -1)))
+	if u == null or u.owner_player_id != player_id:
+		return false
+	var action: String = str(cmd.get("action", ""))
+	var params: Dictionary = {}
+	for k in cmd:
+		if k != "type" and k != "player_id" and k != "unit_id" and k != "action":
+			params[k] = cmd[k]
+	if not GreatPeople.perform_action(_gs, u, action, params):
+		return false
+	_dirty.mark_all()
+	return true
+
 # ── Espionage (§7) ────────────────────────────────────────────────────────────
 
 func _cmd_espionage_mission(cmd: Dictionary) -> bool:
@@ -800,6 +823,18 @@ func _apply_combat_result(attacker: Unit, defender: Unit,
 				if u.health <= 0:
 					Stack.remove_unit(_gs.units, u.id)
 
+	# Great General accrues from combat victories (§14.2): the surviving victor's
+	# owner gains points and may produce a Great General in the field.
+	if result["attacker_survived"] != result["defender_survived"]:
+		if result["attacker_survived"]:
+			GreatPeople.award_combat_points(_gs,
+				_gs.get_player(attacker.owner_player_id),
+				attacker.x, attacker.y, int(result["attacker_xp_gain"]))
+		else:
+			GreatPeople.award_combat_points(_gs,
+				_gs.get_player(defender.owner_player_id),
+				defender.x, defender.y, int(result["defender_xp_gain"]))
+
 # Grant promotions for each experience level newly reached (§5.5). Levels are the
 # data-defined experience_thresholds; each new level awards one eligible promotion.
 func _award_promotions(u: Unit) -> void:
@@ -843,6 +878,9 @@ func _accrue_war_fatigue(loser: Unit, winner: Unit) -> void:
 		return
 	var la: Alliance = _gs.get_alliance(lp.alliance_id)
 	if la == null:
+		return
+	# War Weariness does not increase for a player enjoying a Golden Age (§14.4).
+	if GreatPeople.is_in_golden_age(lp):
 		return
 	var amt: int = _db.get_constant("war_fatigue_per_loss", 5)
 	la.war_fatigue[wp.alliance_id] = int(la.war_fatigue.get(wp.alliance_id, 0)) + amt

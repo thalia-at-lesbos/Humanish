@@ -228,6 +228,23 @@ static func unload_unit(player_id: int, unit_id: int,
 		"target_x": target_x, "target_y": target_y
 	}
 
+# ── Great Person actions (§14) ────────────────────────────────────────────────
+
+# `action` is one of the strings in the unit's data "actions" list (e.g.
+# "join_city", "start_golden_age", "discover_technology"). `params` carries
+# optional targeting: settlement_id, target_alliance_id, tech_id, org_id.
+static func gp_action(player_id: int, unit_id: int, action: String,
+		params: Dictionary = {}) -> Dictionary:
+	var cmd: Dictionary = {
+		"type": IDs.CommandType.GP_ACTION,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"action": action
+	}
+	for key in params:
+		cmd[key] = params[key]
+	return cmd
+
 # ── Controls (§3.1) ───────────────────────────────────────────────────────────
 
 static func do_control(player_id: int, ctrl_type: int,
