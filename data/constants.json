@@ -54,5 +54,18 @@
   "healing_neutral_territory": 5,
   "healing_hostile_territory": 0,
   "healing_in_settlement": 30,
-  "supply_range": 3
+  "supply_range": 3,
+  "max_hp": 100,
+  "min_damage_per_hit": 1,
+  "collateral_cap": 35,
+  "first_strike_round_advantage": 1,
+  "max_xp_from_barbarians": 10,
+  "river_crossing_attack_penalty": 25,
+  "amphibious_attack_penalty": 50,
+  "food_per_citizen": 2,
+  "growth_threshold_base": 18,
+  "growth_threshold_per_pop": 2,
+  "cultural_legendary_threshold": 50000,
+  "golden_age_base_turns": 8,
+  "golden_age_tile_bonus": 1
 }

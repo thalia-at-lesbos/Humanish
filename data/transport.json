@@ -10,6 +10,6 @@
     "movement_cost_divisor": 100,
     "commerce_bonus": 2,
     "required_improvement": "railroad",
-    "tech_required": "industrialism"
+    "tech_required": "railroad"
   }
 }
