@@ -1,34 +1,8 @@
 {
-  "tiny": {
-    "id": "tiny",
-    "width": 40,
-    "height": 24,
-    "wrap_x": true,
-    "wrap_y": false,
-    "players_suggested": 2
-  },
-  "small": {
-    "id": "small",
-    "width": 52,
-    "height": 32,
-    "wrap_x": true,
-    "wrap_y": false,
-    "players_suggested": 4
-  },
-  "standard": {
-    "id": "standard",
-    "width": 80,
-    "height": 48,
-    "wrap_x": true,
-    "wrap_y": false,
-    "players_suggested": 6
-  },
-  "large": {
-    "id": "large",
-    "width": 104,
-    "height": 64,
-    "wrap_x": true,
-    "wrap_y": false,
-    "players_suggested": 8
-  }
+  "duel":     { "id": "duel",     "name": "Duel",     "width": 40,  "height": 24,  "wrap_x": true, "wrap_y": false, "players_suggested": 2 },
+  "tiny":     { "id": "tiny",     "name": "Tiny",     "width": 56,  "height": 36,  "wrap_x": true, "wrap_y": false, "players_suggested": 3 },
+  "small":    { "id": "small",    "name": "Small",    "width": 72,  "height": 44,  "wrap_x": true, "wrap_y": false, "players_suggested": 4 },
+  "standard": { "id": "standard", "name": "Standard", "width": 96,  "height": 60,  "wrap_x": true, "wrap_y": false, "players_suggested": 6 },
+  "large":    { "id": "large",    "name": "Large",    "width": 128, "height": 80,  "wrap_x": true, "wrap_y": false, "players_suggested": 8 },
+  "huge":     { "id": "huge",     "name": "Huge",     "width": 160, "height": 100, "wrap_x": true, "wrap_y": false, "players_suggested": 10 }
 }

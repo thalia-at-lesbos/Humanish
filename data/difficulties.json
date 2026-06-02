@@ -1,42 +1,11 @@
 {
-  "settler": {
-    "id": "settler",
-    "free_early_wins": 5,
-    "growth_bonus": 25,
-    "health_bonus": 2,
-    "happiness_bonus": 2,
-    "combat_bonus_vs_wild": 30
-  },
-  "chieftain": {
-    "id": "chieftain",
-    "free_early_wins": 3,
-    "growth_bonus": 10,
-    "health_bonus": 1,
-    "happiness_bonus": 1,
-    "combat_bonus_vs_wild": 15
-  },
-  "warlord": {
-    "id": "warlord",
-    "free_early_wins": 1,
-    "growth_bonus": 0,
-    "health_bonus": 0,
-    "happiness_bonus": 0,
-    "combat_bonus_vs_wild": 0
-  },
-  "prince": {
-    "id": "prince",
-    "free_early_wins": 0,
-    "growth_bonus": 0,
-    "health_bonus": 0,
-    "happiness_bonus": 0,
-    "combat_bonus_vs_wild": 0
-  },
-  "deity": {
-    "id": "deity",
-    "free_early_wins": 0,
-    "growth_bonus": -10,
-    "health_bonus": -1,
-    "happiness_bonus": -1,
-    "combat_bonus_vs_wild": -15
-  }
+  "settler":   { "id": "settler",   "name": "Settler",   "free_early_wins": 5, "growth_bonus": 25,  "health_bonus": 2,  "happiness_bonus": 2,  "combat_bonus_vs_wild": 30,  "ai_bonus": 0 },
+  "chieftain": { "id": "chieftain", "name": "Chieftain", "free_early_wins": 3, "growth_bonus": 10,  "health_bonus": 1,  "happiness_bonus": 1,  "combat_bonus_vs_wild": 15,  "ai_bonus": 0 },
+  "warlord":   { "id": "warlord",   "name": "Warlord",   "free_early_wins": 1, "growth_bonus": 0,   "health_bonus": 0,  "happiness_bonus": 0,  "combat_bonus_vs_wild": 0,   "ai_bonus": 5 },
+  "noble":     { "id": "noble",     "name": "Noble",     "free_early_wins": 0, "growth_bonus": 0,   "health_bonus": 0,  "happiness_bonus": 0,  "combat_bonus_vs_wild": 0,   "ai_bonus": 0 },
+  "prince":    { "id": "prince",    "name": "Prince",    "free_early_wins": 0, "growth_bonus": 0,   "health_bonus": 0,  "happiness_bonus": 0,  "combat_bonus_vs_wild": 0,   "ai_bonus": 10 },
+  "monarch":   { "id": "monarch",   "name": "Monarch",   "free_early_wins": 0, "growth_bonus": -5,  "health_bonus": 0,  "happiness_bonus": 0,  "combat_bonus_vs_wild": -5,  "ai_bonus": 20 },
+  "emperor":   { "id": "emperor",   "name": "Emperor",   "free_early_wins": 0, "growth_bonus": -10, "health_bonus": -1, "happiness_bonus": -1, "combat_bonus_vs_wild": -10, "ai_bonus": 35 },
+  "immortal":  { "id": "immortal",  "name": "Immortal",  "free_early_wins": 0, "growth_bonus": -15, "health_bonus": -1, "happiness_bonus": -1, "combat_bonus_vs_wild": -12, "ai_bonus": 50 },
+  "deity":     { "id": "deity",     "name": "Deity",     "free_early_wins": 0, "growth_bonus": -20, "health_bonus": -2, "happiness_bonus": -2, "combat_bonus_vs_wild": -15, "ai_bonus": 70 }
 }

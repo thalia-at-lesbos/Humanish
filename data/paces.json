@@ -1,6 +1,7 @@
 {
   "quick": {
     "id": "quick",
+    "name": "Quick",
     "growth_scale": 67,
     "research_scale": 67,
     "build_scale": 67,
@@ -9,6 +10,7 @@
   },
   "normal": {
     "id": "normal",
+    "name": "Normal",
     "growth_scale": 100,
     "research_scale": 100,
     "build_scale": 100,
@@ -17,6 +19,7 @@
   },
   "epic": {
     "id": "epic",
+    "name": "Epic",
     "growth_scale": 150,
     "research_scale": 150,
     "build_scale": 150,
@@ -25,6 +28,7 @@
   },
   "marathon": {
     "id": "marathon",
+    "name": "Marathon",
     "growth_scale": 300,
     "research_scale": 300,
     "build_scale": 300,
