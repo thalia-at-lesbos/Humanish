@@ -56,6 +56,7 @@ scenes/main.tscn               (wires WorldView, HUD, InputRouter, HotseatManage
 |---|---|
 | `GameState` | Root aggregate; the single source of truth. All sim state lives here. |
 | `TurnEngine` | Implements §3 pipeline as static methods; calls into every other sim module. |
+| `GreatPeople` | §14 Great Person subsystem: type-aware birth, Golden Ages, the Great General from combat, and GP action dispatch (`perform_action`). Pure static; reads types/actions from `data/units.json`. |
 | `SimFacade` | Public API; validates commands, routes to `TurnEngine`, emits signals. |
 | `DataDB` | Loads/validates all JSON tables; provides typed getters including `get_societies()`. |
 | `Fixed` | All integer math helpers (scale, proportion, movement conversion). |
@@ -78,6 +79,7 @@ scenes/main.tscn               (wires WorldView, HUD, InputRouter, HotseatManage
 
 - **New unit/structure/tech/etc.**: add a JSON entry to the relevant file in `data/`. No code change required unless the entry introduces a mechanic not yet modelled.
 - **New society**: add an entry to the `"societies"` block in `data/leaders_traits.json` with `id`, `name`, `leader_id`, `leader_name`, `description`, `traits` (array of trait IDs), and `starting_gold`. It will appear automatically in the `SetupScreen` society picker.
-- **New trait**: add an entry to the `"traits"` block in `data/leaders_traits.json`. Wire its effects in the relevant sim module (e.g. `TurnEngine`, `Combat`).
+- **New trait**: add an entry to the `"traits"` block in `data/leaders_traits.json`. Wire its effects in the relevant sim module (e.g. `TurnEngine`, `Combat`, `GreatPeople`).
+- **New Great Person type (§14)**: add a `unit` entry to `data/units.json` with `"classification": "great_person"`, a `generated_by` (the specialist type that produces it, or `combat_xp` for the Great General), and an `actions` array. `GreatPeople` reads these directly — `gp_unit_for_type()` maps the specialist to the unit and `perform_action()` validates against the `actions` list, so no new command is needed. A brand-new action *verb* needs a handler added to `GreatPeople.perform_action()`; `build_<structure_id>` verbs are already handled generically. Magnitudes (gold, hammers, culture, GP/Golden-Age costs) live in `data/constants.json`.
 - **New rule / phase override**: register via `facade.get_hooks().register(IDs.Phase.X, obj, "method")`. The method receives `(game_state, args: Dictionary)` and returns `bool`.
 - **New command**: add a factory to `Commands`, add a case to `SimFacade.apply_command()`, implement a `_cmd_*` handler.

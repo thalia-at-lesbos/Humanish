@@ -197,7 +197,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 4. Research: accumulate research slice of commerce against current tech cost
 5. Intelligence accumulation
 6. Settlement steps (iterates `settlement_step` for all owned settlements)
-7. Tick down timed states (transition, rush anger, celebration)
+7. Tick down timed states (transition, rush anger, celebration, Golden Age)
 8. Validate policies; update war fatigue
 9. Random events (`Events`)
 10. Reset unit movement/action flags
@@ -209,11 +209,11 @@ Implements §3 as three static functions called in sequence. Every phase first c
 - Production: accumulate construction capacity → complete queue items (units, structures, projects)
 - Culture: accumulate total culture → ring expansion → `Influence.spread()`
 - Beliefs: `Beliefs.spread_all()` on each turn
-- Specialist special-person progress
+- Specialist progress: at a city's threshold a Great Person unit of the dominant specialist type is born (`GreatPeople.birth_from_settlement`); with no typed specialists the legacy abstract bonus (instant tech / seeded org / gold) applies
 - Structure upkeep charged to treasury
 
 ### `Player`
-Per-player economic and research state. The four allocation sliders (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the sliders.
+Per-player economic and research state. The four allocation sliders (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the sliders. Also holds Golden Age state (`golden_age_turns` / `golden_age_count` / `pending_golden_age_gp`) and Great General accumulation (`great_general_points` / `great_general_threshold` / `great_generals_produced`) — all serialized.
 
 ### `Settlement`
 Holds all per-city state: population, food store, production queue and store, culture total and border ring, contentment/wellbeing breakdowns, specialist assignments, and a list of built structure IDs. `effective_workers()` = `population − discontented`.
@@ -243,8 +243,9 @@ Dijkstra over `WorldMap.neighbours4`. Movement cost per tile = terrain base + fe
 Tracks war state (`at_war_with`), contacts, subordination, shared research store, war fatigue, and pending trades. War and peace are declared at the alliance level, not the player level.
 
 ### Other sim modules
+- **`GreatPeople`** — §14 subsystem (pure static): maps specialists → great-person units, type-aware birth, Golden Ages (worked-tile bonus in `_settlement_growth`, war-weariness freeze, tick-down in `_tick_states`), the Great General accrued from combat, and the `GP_ACTION` action dispatch (`perform_action`) validated against each unit's data `actions` list. Types/actions are defined entirely in `data/units.json`; magnitudes in `data/constants.json`
 - **`Beliefs`** — founding (first-eligible random draw), passive spread within range each turn
-- **`EconOrgs`** — founded by special person; spread like beliefs but costs treasury
+- **`EconOrgs`** — founded by special person or a Great Merchant; spread like beliefs but costs treasury
 - **`WildForces`** — per-tile RNG spawn on unclaimed land tiles; raider settlements
 - **`Pollution`** — per-settlement accumulation each turn; per-tile RNG degradation chain
 - **`WinConditions`** — stateless evaluation against `gs`; returns winning `alliance_id` or −1
@@ -332,5 +333,6 @@ SimFacade._cmd_move_stack
             ├─ Fixed.proportion(a_str, total, 1000) → odds
             └─ rng.randi_range(0, 999) × rounds → health deltas, XP, spillover
        └─ SimFacade._apply_combat_result    → unit.health, removes dead units
+            └─ GreatPeople.award_combat_points → Great General points/birth (§14.2)
        └─ emit_signal("combat_resolved", result)
 ```
