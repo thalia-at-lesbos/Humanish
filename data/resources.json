@@ -1,42 +1,36 @@
 {
-  "wheat": {
-    "id": "wheat",
-    "type": "food",
-    "output": { "food": 2, "production": 0, "commerce": 0 },
-    "allowed_terrains": ["grassland", "plains"],
-    "tech_required": null,
-    "improvement_required": "farm"
-  },
-  "iron": {
-    "id": "iron",
-    "type": "strategic",
-    "output": { "food": 0, "production": 3, "commerce": 0 },
-    "allowed_terrains": ["hills", "plains"],
-    "tech_required": "iron_working",
-    "improvement_required": "mine"
-  },
-  "horses": {
-    "id": "horses",
-    "type": "strategic",
-    "output": { "food": 1, "production": 1, "commerce": 0 },
-    "allowed_terrains": ["grassland", "plains"],
-    "tech_required": null,
-    "improvement_required": "pasture"
-  },
-  "gold": {
-    "id": "gold",
-    "type": "luxury",
-    "output": { "food": 0, "production": 0, "commerce": 6 },
-    "allowed_terrains": ["hills", "desert"],
-    "tech_required": "mining",
-    "improvement_required": "mine"
-  },
-  "fish": {
-    "id": "fish",
-    "type": "food",
-    "output": { "food": 3, "production": 0, "commerce": 0 },
-    "allowed_terrains": ["coast"],
-    "tech_required": null,
-    "improvement_required": "fishing_boats"
-  }
+  "coal":     { "id": "coal",     "name": "Coal",     "type": "strategic", "output": { "food": 0, "production": 1, "commerce": 0 }, "allowed_terrains": ["hills", "plains", "grassland"], "tech_required": "mining",        "improve_tech": "assembly_line", "improvement_required": "mine" },
+  "copper":   { "id": "copper",   "name": "Copper",   "type": "strategic", "output": { "food": 0, "production": 1, "commerce": 0 }, "allowed_terrains": ["hills", "plains", "grassland"], "tech_required": "mining",        "improve_tech": "bronze_working", "improvement_required": "mine" },
+  "horse":    { "id": "horse",    "name": "Horse",    "type": "strategic", "output": { "food": 0, "production": 2, "commerce": 1 }, "allowed_terrains": ["grassland", "plains"],          "tech_required": "animal_husbandry", "improve_tech": "animal_husbandry", "improvement_required": "pasture" },
+  "iron":     { "id": "iron",     "name": "Iron",     "type": "strategic", "output": { "food": 0, "production": 1, "commerce": 0 }, "allowed_terrains": ["hills", "plains", "grassland"], "tech_required": "mining",        "improve_tech": "iron_working", "improvement_required": "mine" },
+  "marble":   { "id": "marble",   "name": "Marble",   "type": "strategic", "output": { "food": 0, "production": 1, "commerce": 2 }, "allowed_terrains": ["hills", "plains", "grassland"], "tech_required": "masonry",       "improve_tech": "masonry", "improvement_required": "quarry", "wonder_production_bonus": true },
+  "stone":    { "id": "stone",    "name": "Stone",    "type": "strategic", "output": { "food": 0, "production": 2, "commerce": 0 }, "allowed_terrains": ["hills", "plains", "grassland", "desert", "tundra"], "tech_required": "masonry", "improve_tech": "masonry", "improvement_required": "quarry", "wonder_production_bonus": true },
+  "oil":      { "id": "oil",      "name": "Oil",      "type": "strategic", "output": { "food": 0, "production": 2, "commerce": 1 }, "allowed_terrains": ["desert", "plains", "tundra", "coast", "ocean"], "tech_required": "combustion", "improve_tech": "combustion", "improvement_required": "well" },
+  "aluminum": { "id": "aluminum", "name": "Aluminum", "type": "strategic", "output": { "food": 0, "production": 1, "commerce": 1 }, "allowed_terrains": ["hills", "desert"],             "tech_required": "mining",        "improve_tech": "industrialism", "improvement_required": "mine" },
+  "uranium":  { "id": "uranium",  "name": "Uranium",  "type": "strategic", "output": { "food": 0, "production": 0, "commerce": 3 }, "allowed_terrains": ["hills", "tundra", "desert"],    "tech_required": "fission",       "improve_tech": "fission", "improvement_required": "mine" },
+
+  "dye":      { "id": "dye",      "name": "Dye",      "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["grassland", "plains"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "fur":      { "id": "fur",      "name": "Fur",      "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["tundra", "grassland", "plains"], "tech_required": "hunting", "improvement_required": "camp" },
+  "gems":     { "id": "gems",     "name": "Gems",     "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 4 }, "happiness": 1, "allowed_terrains": ["hills"], "tech_required": "mining", "improvement_required": "mine" },
+  "gold":     { "id": "gold",     "name": "Gold",     "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 6 }, "happiness": 1, "allowed_terrains": ["hills", "desert"], "tech_required": "mining", "improvement_required": "mine" },
+  "incense":  { "id": "incense",  "name": "Incense",  "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["desert", "plains"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "ivory":    { "id": "ivory",    "name": "Ivory",    "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": "hunting", "improvement_required": "camp", "obsoleted_by": "industrialism" },
+  "silk":     { "id": "silk",     "name": "Silk",     "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["grassland", "plains"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "silver":   { "id": "silver",   "name": "Silver",   "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 4 }, "happiness": 1, "allowed_terrains": ["hills", "tundra"], "tech_required": "mining", "improvement_required": "mine" },
+  "spices":   { "id": "spices",   "name": "Spices",   "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["grassland", "plains"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "sugar":    { "id": "sugar",    "name": "Sugar",    "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["grassland", "plains", "desert"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "whale":    { "id": "whale",    "name": "Whale",    "type": "luxury", "output": { "food": 1, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["ocean", "coast"], "tech_required": "sailing", "improve_tech": "compass", "improvement_required": "whaling_boats", "obsoleted_by": "combustion" },
+  "wine":     { "id": "wine",     "name": "Wine",     "type": "luxury", "output": { "food": 0, "production": 0, "commerce": 1 }, "happiness": 1, "allowed_terrains": ["grassland", "plains"], "tech_required": "pottery", "improve_tech": "monarchy", "improvement_required": "winery" },
+
+  "banana":   { "id": "banana",   "name": "Banana",   "type": "food", "output": { "food": 2, "production": 0, "commerce": 0 }, "health": 1, "allowed_terrains": ["grassland", "plains"], "tech_required": "calendar", "improvement_required": "plantation" },
+  "clam":     { "id": "clam",     "name": "Clam",     "type": "food", "output": { "food": 1, "production": 0, "commerce": 1 }, "health": 1, "allowed_terrains": ["coast"], "tech_required": null, "improvement_required": "fishing_boats" },
+  "corn":     { "id": "corn",     "name": "Corn",     "type": "food", "output": { "food": 2, "production": 0, "commerce": 0 }, "health": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": null, "improvement_required": "farm" },
+  "cow":      { "id": "cow",      "name": "Cow",      "type": "food", "output": { "food": 1, "production": 1, "commerce": 0 }, "health": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": "animal_husbandry", "improvement_required": "pasture" },
+  "crab":     { "id": "crab",     "name": "Crab",     "type": "food", "output": { "food": 1, "production": 1, "commerce": 0 }, "health": 1, "allowed_terrains": ["coast"], "tech_required": null, "improvement_required": "fishing_boats" },
+  "deer":     { "id": "deer",     "name": "Deer",     "type": "food", "output": { "food": 1, "production": 1, "commerce": 0 }, "health": 1, "allowed_terrains": ["tundra"], "tech_required": "hunting", "improvement_required": "camp" },
+  "fish":     { "id": "fish",     "name": "Fish",     "type": "food", "output": { "food": 2, "production": 0, "commerce": 0 }, "health": 1, "allowed_terrains": ["coast", "ocean"], "tech_required": null, "improvement_required": "fishing_boats" },
+  "pig":      { "id": "pig",      "name": "Pig",      "type": "food", "output": { "food": 1, "production": 1, "commerce": 0 }, "health": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": "animal_husbandry", "improvement_required": "pasture" },
+  "rice":     { "id": "rice",     "name": "Rice",     "type": "food", "output": { "food": 2, "production": 0, "commerce": 0 }, "health": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": null, "improvement_required": "farm" },
+  "sheep":    { "id": "sheep",    "name": "Sheep",    "type": "food", "output": { "food": 1, "production": 0, "commerce": 1 }, "health": 1, "allowed_terrains": ["plains", "grassland", "hills"], "tech_required": "animal_husbandry", "improvement_required": "pasture" },
+  "wheat":    { "id": "wheat",    "name": "Wheat",    "type": "food", "output": { "food": 2, "production": 0, "commerce": 0 }, "health": 1, "allowed_terrains": ["plains", "grassland"], "tech_required": null, "improvement_required": "farm" }
 }
