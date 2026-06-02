@@ -1,75 +1,99 @@
 {
   "grassland": {
     "id": "grassland",
+    "name": "Grassland",
     "landform": "flat",
     "domain": "land",
     "movement_cost": 100,
     "base_output": { "food": 2, "production": 1, "commerce": 0 },
-    "defence_bonus": 0
+    "defence_bonus": 0,
+    "river_commerce_bonus": 1,
+    "notes": "+1 Commerce adjacent to river"
   },
   "plains": {
     "id": "plains",
+    "name": "Plains",
     "landform": "flat",
     "domain": "land",
     "movement_cost": 100,
-    "base_output": { "food": 1, "production": 1, "commerce": 1 },
-    "defence_bonus": 0
+    "base_output": { "food": 1, "production": 1, "commerce": 0 },
+    "defence_bonus": 0,
+    "river_commerce_bonus": 1,
+    "notes": "+1 Commerce adjacent to river"
   },
   "desert": {
     "id": "desert",
-    "landform": "flat",
-    "domain": "land",
-    "movement_cost": 100,
-    "base_output": { "food": 0, "production": 1, "commerce": 0 },
-    "defence_bonus": 0
-  },
-  "tundra": {
-    "id": "tundra",
-    "landform": "flat",
-    "domain": "land",
-    "movement_cost": 100,
-    "base_output": { "food": 1, "production": 0, "commerce": 0 },
-    "defence_bonus": 0
-  },
-  "snow": {
-    "id": "snow",
+    "name": "Desert",
     "landform": "flat",
     "domain": "land",
     "movement_cost": 100,
     "base_output": { "food": 0, "production": 0, "commerce": 0 },
-    "defence_bonus": 0
+    "defence_bonus": 0,
+    "improvement_time_penalty": 25,
+    "notes": "Improvements take 25% longer; requires water for most"
+  },
+  "tundra": {
+    "id": "tundra",
+    "name": "Tundra",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 1, "production": 0, "commerce": 0 },
+    "defence_bonus": 0,
+    "improvement_time_penalty": 25,
+    "notes": "Improvements take 25% longer"
+  },
+  "snow": {
+    "id": "snow",
+    "name": "Snow",
+    "landform": "flat",
+    "domain": "land",
+    "movement_cost": 100,
+    "base_output": { "food": 0, "production": 0, "commerce": 0 },
+    "defence_bonus": 0,
+    "no_improvements": true,
+    "notes": "No improvements possible"
   },
   "coast": {
     "id": "coast",
+    "name": "Coast",
     "landform": "water",
     "domain": "sea",
     "movement_cost": 100,
     "base_output": { "food": 1, "production": 0, "commerce": 2 },
-    "defence_bonus": 0
+    "defence_bonus": 10,
+    "notes": "Shallow water; +10% defense"
   },
   "ocean": {
     "id": "ocean",
+    "name": "Ocean",
     "landform": "deep_water",
     "domain": "sea",
     "movement_cost": 100,
     "base_output": { "food": 1, "production": 0, "commerce": 1 },
-    "defence_bonus": 0
+    "defence_bonus": 0,
+    "notes": "Deep water; restricted early access"
   },
   "hills": {
     "id": "hills",
+    "name": "Hills",
     "landform": "hill",
     "domain": "land",
     "movement_cost": 150,
     "base_output": { "food": 1, "production": 2, "commerce": 0 },
-    "defence_bonus": 25
+    "defence_bonus": 25,
+    "sight_bonus": 1,
+    "notes": "-1 Food, +1 Production; +25% defense; +1 sight range"
   },
   "mountain": {
     "id": "mountain",
+    "name": "Mountain",
     "landform": "peak",
     "domain": "land",
     "movement_cost": 0,
     "base_output": { "food": 0, "production": 1, "commerce": 0 },
     "defence_bonus": 50,
-    "impassable": true
+    "impassable": true,
+    "notes": "Peak; cannot be entered by land units"
   }
 }
