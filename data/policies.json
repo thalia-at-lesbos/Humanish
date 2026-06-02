@@ -1,8 +1,9 @@
 {
-  "categories": ["government", "legal", "labor", "economic", "civic"],
+  "categories": ["government", "legal", "labor", "economic", "religion", "civic"],
   "policies": {
     "despotism": {
       "id": "despotism",
+      "name": "Despotism",
       "category": "government",
       "tech_required": null,
       "upkeep_modifier": 0,
@@ -10,6 +11,18 @@
       "slider_increment": 10,
       "anger_modifier": 5,
       "transition_turns": 0
+    },
+    "hereditary_rule": {
+      "id": "hereditary_rule",
+      "name": "Hereditary Rule",
+      "category": "government",
+      "tech_required": "monarchy",
+      "upkeep_modifier": -10,
+      "slider_min_research": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "happiness_per_garrison": 1 }
     },
     "monarchy": {
       "id": "monarchy",
@@ -31,6 +44,108 @@
       "anger_modifier": -5,
       "transition_turns": 5
     },
+    "universal_suffrage": {
+      "id": "universal_suffrage",
+      "name": "Universal Suffrage",
+      "category": "government",
+      "tech_required": "democracy",
+      "upkeep_modifier": 0,
+      "slider_min_research": 10,
+      "slider_increment": 10,
+      "anger_modifier": -5,
+      "transition_turns": 5,
+      "effects": { "town_production": 1, "can_rush_with_gold": true }
+    },
+    "representation": {
+      "id": "representation",
+      "name": "Representation",
+      "category": "government",
+      "tech_required": "constitution",
+      "upkeep_modifier": 0,
+      "slider_min_research": 10,
+      "slider_increment": 10,
+      "anger_modifier": -5,
+      "transition_turns": 5,
+      "effects": { "science_per_scientist": 3, "happiness_largest_cities": 1 }
+    },
+    "police_state": {
+      "id": "police_state",
+      "name": "Police State",
+      "category": "government",
+      "tech_required": "fascism",
+      "upkeep_modifier": 10,
+      "slider_min_research": 0,
+      "slider_increment": 10,
+      "anger_modifier": -10,
+      "transition_turns": 5,
+      "effects": { "military_production": 25, "war_anger_reduction": 50 }
+    },
+
+    "barbarism": {
+      "id": "barbarism",
+      "name": "Barbarism",
+      "category": "legal",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 0
+    },
+    "vassalage": {
+      "id": "vassalage",
+      "name": "Vassalage",
+      "category": "legal",
+      "tech_required": "feudalism",
+      "upkeep_modifier": 10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "new_unit_xp": 2, "free_units_per_city": 2 }
+    },
+    "bureaucracy": {
+      "id": "bureaucracy",
+      "name": "Bureaucracy",
+      "category": "legal",
+      "tech_required": "civil_service",
+      "upkeep_modifier": 10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "capital_commerce": 50, "capital_production": 50 }
+    },
+    "nationhood": {
+      "id": "nationhood",
+      "name": "Nationhood",
+      "category": "legal",
+      "tech_required": "nationalism",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "barracks_happiness": 1, "can_draft": true, "espionage": 4 }
+    },
+    "free_speech": {
+      "id": "free_speech",
+      "name": "Free Speech",
+      "category": "legal",
+      "tech_required": "liberalism",
+      "upkeep_modifier": -10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "town_commerce": 1, "culture_all_cities": 100 }
+    },
+
+    "tribalism": {
+      "id": "tribalism",
+      "name": "Tribalism",
+      "category": "labor",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 0
+    },
     "slavery": {
       "id": "slavery",
       "category": "labor",
@@ -48,6 +163,138 @@
       "worker_speed_bonus": 50,
       "anger_modifier": 0,
       "transition_turns": 3
+    },
+    "caste_system": {
+      "id": "caste_system",
+      "name": "Caste System",
+      "category": "labor",
+      "tech_required": "code_of_laws",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "unlimited_specialists": true, "workshop_production": 1 }
+    },
+    "emancipation": {
+      "id": "emancipation",
+      "name": "Emancipation",
+      "category": "labor",
+      "tech_required": "democracy",
+      "upkeep_modifier": -10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "faster_cottage_growth": true }
+    },
+
+    "decentralization": {
+      "id": "decentralization",
+      "name": "Decentralization",
+      "category": "economic",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 0
+    },
+    "mercantilism": {
+      "id": "mercantilism",
+      "name": "Mercantilism",
+      "category": "economic",
+      "tech_required": "banking",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "free_specialist_per_city": 1, "no_foreign_trade_routes": true }
+    },
+    "free_market": {
+      "id": "free_market",
+      "name": "Free Market",
+      "category": "economic",
+      "tech_required": "economics",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "trade_route_per_city": 1, "corporation_maintenance_reduction": 50 }
+    },
+    "state_property": {
+      "id": "state_property",
+      "name": "State Property",
+      "category": "economic",
+      "tech_required": "communism",
+      "upkeep_modifier": -10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "no_distance_maintenance": true, "watermill_farm_production": 1 }
+    },
+    "environmentalism": {
+      "id": "environmentalism",
+      "name": "Environmentalism",
+      "category": "economic",
+      "tech_required": "medicine",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "health_empire": 6, "happiness_per_forest": 1, "windmill_commerce": 1 }
+    },
+
+    "paganism": {
+      "id": "paganism",
+      "name": "Paganism",
+      "category": "religion",
+      "tech_required": null,
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 0
+    },
+    "organized_religion": {
+      "id": "organized_religion",
+      "name": "Organized Religion",
+      "category": "religion",
+      "tech_required": "monotheism",
+      "upkeep_modifier": 10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "religious_building_production": 1, "missionary_without_monastery": true }
+    },
+    "theocracy": {
+      "id": "theocracy",
+      "name": "Theocracy",
+      "category": "religion",
+      "tech_required": "theology",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": -5,
+      "transition_turns": 3,
+      "effects": { "state_religion_unit_xp": 2, "blocks_nonstate_spread": true }
+    },
+    "pacifism": {
+      "id": "pacifism",
+      "name": "Pacifism",
+      "category": "religion",
+      "tech_required": "philosophy",
+      "upkeep_modifier": 0,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "great_person_rate": 100, "production_per_military_unit": -1 }
+    },
+    "free_religion": {
+      "id": "free_religion",
+      "name": "Free Religion",
+      "category": "religion",
+      "tech_required": "liberalism",
+      "upkeep_modifier": -10,
+      "slider_increment": 10,
+      "anger_modifier": 0,
+      "transition_turns": 3,
+      "effects": { "happiness_per_religion": 1, "science_output": 10 }
     },
 
     "communism": {
