@@ -51,13 +51,18 @@ func _ready() -> void:
 		_init_node("HUD/VBox/MessageLog", [_facade])
 		_init_node("HUD/VBox/EndTurnButton", [_facade])
 
-	# Wire full-screen overlays (city / tech / policy)
+	# Wire full-screen overlays (city / tech / policy / save-load)
 	var screens = get_node_or_null("Screens")
 	if screens != null:
-		for sname in ["CityScreen", "TechChooser", "PolicyScreen"]:
+		for sname in ["CityScreen", "TechChooser", "PolicyScreen", "SaveLoadScreen", "PauseMenu"]:
 			var sc = screens.get_node_or_null(sname)
 			if sc != null and sc.has_method("init"):
 				sc.init(_facade)
+		# The pause menu delegates Save/Load to the shared SaveLoadScreen.
+		var pause = screens.get_node_or_null("PauseMenu")
+		var save_load = screens.get_node_or_null("SaveLoadScreen")
+		if pause != null and save_load != null and pause.has_method("set_save_load_screen"):
+			pause.set_save_load_screen(save_load)
 
 	# Wire input router
 	var input_router = get_node_or_null("InputRouter")
@@ -122,10 +127,21 @@ func _on_screen_requested(screen_id: int) -> void:
 			var diplo = get_node_or_null("DiplomacyScreen")
 			if diplo != null:
 				diplo.show_screen()
-		IDs.ControlType.OPEN_SAVE_LOAD, IDs.ControlType.QUICK_SAVE, \
-		IDs.ControlType.QUICK_LOAD:
-			var sl = get_node_or_null("SaveLoadScreen")
+		IDs.ControlType.OPEN_SAVE_LOAD:
+			var sl = get_node_or_null("Screens/SaveLoadScreen")
 			if sl != null:
 				sl.show_screen()
+		IDs.ControlType.QUICK_SAVE:
+			var sl = get_node_or_null("Screens/SaveLoadScreen")
+			if sl != null:
+				sl.quick_save()
+		IDs.ControlType.QUICK_LOAD:
+			var sl = get_node_or_null("Screens/SaveLoadScreen")
+			if sl != null:
+				sl.quick_load()
+		IDs.ControlType.OPEN_MENU:
+			var pause = get_node_or_null("Screens/PauseMenu")
+			if pause != null:
+				pause.toggle()
 		-1:  # close current screen
 			pass

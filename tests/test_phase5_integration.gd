@@ -131,3 +131,23 @@ func test_save_load_roundtrip_fidelity() -> void:
 	facade.load_save(save1)
 	var h2: int = facade.state_hash()
 	assert_eq(h1, h2, "Hash identical after save→load roundtrip")
+
+# The start-menu "Load Game" path: a brand-new facade is scaffolded with
+# init_for_load() (no setup()) and then fed a save string.
+func test_init_for_load_loads_into_fresh_facade() -> void:
+	var facade = _make_facade(700)
+	_run_turns(facade, 2)
+	var save_str: String = facade.save()
+	var orig_hash: int = facade.state_hash()
+
+	var db = load("res://src/core/data_db.gd").new()
+	db.load_all()
+	var fresh = load("res://src/api/sim_facade.gd").new()
+	fresh.init_for_load(db)
+	assert_true(fresh.load_save(save_str), "load_save succeeds on a fresh facade")
+	assert_eq(fresh.state_hash(), orig_hash,
+		"Fresh facade matches the saved state hash")
+	# Scaffolding the presentation layer relies on must exist post-load.
+	assert_not_null(fresh.get_dirty(), "dirty flags initialized")
+	assert_not_null(fresh.get_selection(), "selection state initialized")
+	assert_not_null(fresh.get_state(), "game state populated")

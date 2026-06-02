@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://scenes/main.gd" type="Script" id=1]
 [ext_resource path="res://scenes/world/world_view.tscn" type="PackedScene" id=2]
@@ -9,6 +9,8 @@
 [ext_resource path="res://scenes/screens/city_screen.gd" type="Script" id=7]
 [ext_resource path="res://scenes/screens/tech_chooser.gd" type="Script" id=8]
 [ext_resource path="res://scenes/screens/policy_screen.gd" type="Script" id=9]
+[ext_resource path="res://scenes/screens/save_load_screen.gd" type="Script" id=10]
+[ext_resource path="res://scenes/screens/pause_menu.gd" type="Script" id=11]
 
 [node name="Main" type="Node"]
 script = ExtResource( 1 )
@@ -40,5 +42,15 @@ script = ExtResource( 8 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 9 )
+
+[node name="SaveLoadScreen" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 10 )
+
+[node name="PauseMenu" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 11 )
 
 [node name="PassDeviceScreen" parent="." instance=ExtResource( 6 )]

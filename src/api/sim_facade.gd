@@ -96,6 +96,18 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# the engine stays generic and society→unit mapping lives in the caller.
 	_place_all_starting_units(player_configs)
 
+# Initialize only the non-serialized scaffolding (db, hooks, UI state) so a save
+# can be loaded into a fresh facade without running setup(). load_save() then
+# supplies the GameState. Used by the start menu's "Load Game" path.
+func init_for_load(db: DataDB) -> void:
+	_db = db
+	_hooks = Hooks.new()
+	_dirty = load("res://src/api/dirty_flags.gd").new()
+	_selection = load("res://src/api/selection_state.gd").new()
+	_interface_mode = IDs.InterfaceMode.SELECTION
+	_popup_queue = []
+	_notifications = []
+
 func _place_all_starting_units(player_configs: Array) -> void:
 	var starts: Array = MapGen.find_start_positions(_gs.map, _db, _gs.players.size())
 	for i in range(_gs.players.size()):
@@ -1082,7 +1094,8 @@ func _cmd_do_control(cmd: Dictionary) -> bool:
 		IDs.ControlType.OPEN_DIPLOMACY, IDs.ControlType.OPEN_FINANCE, \
 		IDs.ControlType.OPEN_MILITARY, IDs.ControlType.OPEN_ESPIONAGE, \
 		IDs.ControlType.OPEN_ENCYCLOPEDIA, IDs.ControlType.OPEN_CITY_SCREEN, \
-		IDs.ControlType.OPEN_SAVE_LOAD:
+		IDs.ControlType.OPEN_SAVE_LOAD, IDs.ControlType.QUICK_SAVE, \
+		IDs.ControlType.QUICK_LOAD, IDs.ControlType.OPEN_MENU:
 			emit_signal("screen_requested", ctrl_type)
 	return true
 

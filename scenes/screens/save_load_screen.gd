@@ -3,12 +3,16 @@ extends Control
 # Save/Load screen. Saves to user://saves/ and loads from there.
 
 const SAVE_DIR: String = "user://saves/"
+const QUICK_SAVE_NAME: String = "quicksave.sav"
 
 var _facade
 
 func init(facade) -> void:
 	_facade = facade
 	visible = false
+	_ensure_dir()
+
+func _ensure_dir() -> void:
 	var dir: Directory = Directory.new()
 	if not dir.dir_exists(SAVE_DIR):
 		dir.make_dir(SAVE_DIR)
@@ -69,28 +73,50 @@ func rebuild() -> void:
 	close_btn.connect("pressed", self, "_on_close")
 	vbox.add_child(close_btn)
 
+# Immediate save to the quicksave slot, without opening the screen (F5).
+func quick_save() -> void:
+	_write_save(QUICK_SAVE_NAME)
+
+# Immediate load of the quicksave slot, without opening the screen (F9).
+func quick_load() -> void:
+	_load_file(QUICK_SAVE_NAME)
+
 func _on_save() -> void:
 	if _facade == null:
 		return
-	var json_str: String = _facade.save()
 	var gs = _facade.get_state()
-	var filename: String = "turn" + str(gs.turn_number) + ".sav"
+	_write_save("turn" + str(gs.turn_number) + ".sav")
+	rebuild()
+
+func _on_load(filename: String) -> void:
+	_load_file(filename)
+	visible = false
+
+# Write the current game state to SAVE_DIR + filename. Returns true on success.
+func _write_save(filename: String) -> bool:
+	if _facade == null:
+		return false
+	_ensure_dir()
+	var json_str: String = _facade.save()
 	var file: File = File.new()
 	if file.open(SAVE_DIR + filename, File.WRITE) == OK:
 		file.store_string(json_str)
 		file.close()
-	rebuild()
+		return true
+	return false
 
-func _on_load(filename: String) -> void:
+# Load game state from SAVE_DIR + filename. Returns true on success.
+func _load_file(filename: String) -> bool:
 	if _facade == null:
-		return
+		return false
 	var file: File = File.new()
 	if file.open(SAVE_DIR + filename, File.READ) == OK:
 		var json_str: String = file.get_as_text()
 		file.close()
-		_facade.load_save(json_str)
-		_facade.get_dirty().mark_all()
-	visible = false
+		if _facade.load_save(json_str):
+			_facade.get_dirty().mark_all()
+			return true
+	return false
 
 func _on_close() -> void:
 	visible = false
