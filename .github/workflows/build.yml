@@ -24,7 +24,7 @@ jobs:
       # Gate the build on the headless GUT suite (same command as CLAUDE.md, but
       # the container's binary is `godot`, not `godot3`).
       - name: Run tests
-        run: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+        run: godot -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 
       # Godot refuses to export into a directory that does not exist.
       - name: Prepare output directories
@@ -32,9 +32,9 @@ jobs:
 
       - name: Export builds
         run: |
-          godot --headless --export "Linux/X11"      build/linux/Humanish.x86_64
-          godot --headless --export "Windows Desktop" build/windows/Humanish.exe
-          godot --headless --export "Mac OSX"         build/macos/Humanish.zip
+          godot --export "Linux/X11"      build/linux/Humanish.x86_64
+          godot --export "Windows Desktop" build/windows/Humanish.exe
+          godot --export "Mac OSX"         build/macos/Humanish.zip
           (cd build && sha256sum linux/* windows/* macos/* > SHA256SUMS)
 
       # Downloadable from every workflow run (Actions tab).
