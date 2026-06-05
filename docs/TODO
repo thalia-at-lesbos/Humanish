@@ -1,19 +1,25 @@
 User generated TODO list
 
 Achieve base game parity with Civ IV
-unit stacks
-city work selections (units, worked tiles, specialists)
-city info panel ()
-foreign city and unit labels when selected
-auto selections (for city work, science, civics, etc)
-auto unit selections
-technology tree selector?
-various info screens
-Revealed map should keep previous state until city or unit vision updates it
 
+Minor
+-unit stacks
+-city work selections (production, worked tiles, specialists)
+-city info panel (money, culture, science, espionage)
+-foreign city and unit labels when selected
+-auto selections (for city work, science, civics, etc)
+-auto unit selections
+-unit stack selections
+-technology tree selector
+-various info screens
+-Revealed map should keep previous state until city or unit vision updates it
+- add about menu (to start and pause)
 
+Major
+add debug mode (only enabled in debug build, extra logging, special debug menu showing debug log and allow modifying game values)
 Add map generation
 Add player AI [DONE — simple version: PlayerAI in src/api/player_ai.gd; per-player AI toggle in the setup screen; cheapest-first production/research, latest civics, 50% garrison / 50% random units. Future: smarter strategy, diplomacy, combat targeting.]
+Add advanced player AI (and remove simple AI)
 Add remote multiplayer
 Add mod support??
 Maximize accessibility (visual - simple, readable, audio - extra but not necessary feedback, tactile - both keyboard only or pointer only or both)
