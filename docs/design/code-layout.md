@@ -26,9 +26,13 @@ scenes/
                             diplomacy_screen, save_load_screen, pause_menu
   input/                    input_router.gd, hotkey_map.gd
   hotseat/                  hotseat_manager.gd, pass_device_screen.tscn/.gd
+  debug/                    debug_overlay.gd ('~' menu), terminal_console.gd
+                            (debug-build-only tools; see docs/design/debug.md)
 tests/                      GUT 7.4.3 headless suites, organised by functional area
                             (core/ world/ sim/ api/ scenes/) mirroring src/;
-                            support/sim_fixture.gd holds the shared scaffolding
+                            support/sim_fixture.gd holds the shared scaffolding;
+                            integration/ holds the end-to-end playthrough gate
+                            (run after the unit suites — see run_tests.sh)
 addons/gut/                 Test framework (vendored)
 docs/                       This file, the engine-core plan, and the full game-rules spec
 ```

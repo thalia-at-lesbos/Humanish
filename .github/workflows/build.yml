@@ -21,14 +21,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Gate the build on the headless GUT suite. NOTE: no `--no-window` here.
-      # The CI image's `godot` is a headless build that does not consume that
-      # flag, so (unlike the local `godot3` editor binary, which swallows it) it
-      # would reach OS.get_cmdline_args(); GUT's optparse then reports it as an
-      # "Unrecognized option" and exits 1 before any test runs. The binary is
-      # already windowless, so the flag is unnecessary as well as harmful.
-      - name: Run tests
-        run: godot -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+      # Gate the build on the headless GUT suite, run in two phases: the unit
+      # suites first, then the integration playthrough as a final gate (mirrors
+      # run_tests.sh). NOTE: no `--no-window` here. The CI image's `godot` is a
+      # headless build that does not consume that flag, so (unlike the local
+      # `godot3` editor binary, which swallows it) it would reach
+      # OS.get_cmdline_args(); GUT's optparse then reports it as an "Unrecognized
+      # option" and exits 1 before any test runs. The binary is already
+      # windowless, so the flag is unnecessary as well as harmful.
+      - name: Run unit tests
+        run: >-
+          godot -s addons/gut/gut_cmdln.gd
+          -gdir=res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes
+          -ginclude_subdirs -gexit
+
+      - name: Run integration playthrough
+        run: godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/integration -ginclude_subdirs -gexit
 
       # The godot-ci image ships the export templates under the image build
       # user's HOME (/root), but GitHub Actions container jobs reset HOME to

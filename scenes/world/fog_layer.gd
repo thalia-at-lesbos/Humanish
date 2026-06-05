@@ -50,6 +50,19 @@ func rebuild(player_id: int) -> void:
 
 	update()
 
+# Debug helper: mark every tile visible (the '~' console's `reveal` command).
+# Not used in normal play; lifts the fog without altering game state.
+func reveal_all() -> void:
+	if _facade == null:
+		return
+	var gs = _facade.get_state()
+	if gs == null or gs.map == null:
+		return
+	for y in range(gs.map.height):
+		for x in range(gs.map.width):
+			_visible_tiles[str(x) + "," + str(y)] = true
+	update()
+
 func _add_visible_range(cx: int, cy: int, radius: int, wmap) -> void:
 	for dy in range(-radius, radius + 1):
 		for dx in range(-radius, radius + 1):

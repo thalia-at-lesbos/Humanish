@@ -16,7 +16,7 @@ Minor
 - add about menu (to start and pause)
 
 Major
-add debug mode (only enabled in debug build, extra logging, special debug menu showing debug log and allow modifying game values)
+add debug mode (only enabled in debug build, extra logging, special debug menu showing debug log and allow modifying game values) [DONE — DebugLog (src/core) + DebugConsole (src/api) drive a terminal console and a '~' in-game overlay (scenes/debug); facade signals mirrored to the log; all gated to interactive debug builds. See docs/design/debug.md.]
 Add map generation
 Add player AI [DONE — simple version: PlayerAI in src/api/player_ai.gd; per-player AI toggle in the setup screen; cheapest-first production/research, latest civics, 50% garrison / 50% random units. Future: smarter strategy, diplomacy, combat targeting.]
 Add advanced player AI (and remove simple AI)

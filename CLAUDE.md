@@ -5,8 +5,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run all tests (headless) — -ginclude_subdirs recurses into tests/{core,world,sim,api,scenes}
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
+# Run everything in order: unit suites, then the integration playthrough gate.
+./run_tests.sh                       # override engine with GODOT=… (default: godot3)
+
+# Unit suites only — note tests/integration is excluded by listing the unit dirs
+godot3 --no-window -s addons/gut/gut_cmdln.gd \
+  -gdir=res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes \
+  -ginclude_subdirs -gexit
+
+# Integration playthrough only (the final gate)
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests/integration -ginclude_subdirs -gexit
 
 # Run a single test file
 godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat.gd -gexit
@@ -15,7 +23,9 @@ godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat
 godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat.gd -gunit_test_name=test_combat_same_seed_identical_outcome -gexit
 ```
 
-The test framework is **GUT 7.4.3** (Godot 3.x). Test suites are organised by functional area, mirroring the source layout: `tests/core/`, `tests/world/`, `tests/sim/`, `tests/api/`, `tests/scenes/` — one file per module/subsystem (e.g. `combat.gd` → `tests/sim/test_combat.gd`). New tests go in the file for the subsystem they exercise; a brand-new subsystem gets a new `test_<name>.gd` under the matching layer.
+> Heads-up: `-gdir=res://tests -ginclude_subdirs` would recurse into **all** of `tests/`, including `tests/integration`. To keep the unit run separate from the final integration gate, run them as two phases (use `./run_tests.sh`, which encodes the ordering and is mirrored by `.github/workflows/build.yml`).
+
+The test framework is **GUT 7.4.3** (Godot 3.x). Test suites are organised by functional area, mirroring the source layout: `tests/core/`, `tests/world/`, `tests/sim/`, `tests/api/`, `tests/scenes/` — one file per module/subsystem (e.g. `combat.gd` → `tests/sim/test_combat.gd`). New tests go in the file for the subsystem they exercise; a brand-new subsystem gets a new `test_<name>.gd` under the matching layer. `tests/integration/` holds end-to-end **playthrough** suites that drive a whole game through `SimFacade` (most interaction families in one scenario); they run as the final gate **after** the unit suites, never mixed into them.
 
 Most suites extend the shared fixture `"res://tests/support/sim_fixture.gd"` (which itself extends GUT's `test.gd`) for the common scaffolding — `make_db()`, `make_gs(num_players, seed)`, `make_unit/make_warrior/make_settlement/make_gp`, `bare_facade(gs)`, `setup_facade(...)`, `hooks()`, `run_turns(...)`. Pure-math/data suites with no game state (e.g. `test_fixed`, `test_slider_math`) extend `"res://addons/gut/test.gd"` directly. The fixture file is **not** collected as a suite — GUT only picks up files named `test_*`. Each `test_*` method is one test case.
 
@@ -70,10 +80,16 @@ scenes/main.tscn               (wires WorldView, HUD, InputRouter, HotseatManage
 | `StartMenu` | Entry-point scene; loads `DataDB`, routes to `SetupScreen` or quits. |
 | `SetupScreen` | Collects new-game parameters (players, society, per-player human/AI toggle, world size, pace, difficulty) and calls back with a ready `SimFacade`. |
 | `PlayerAI` | Simple deterministic computer player; a facade *client* (like the UI) that drives a flagged player's whole turn via `apply_command`. Pure static; lives in `src/api/`. |
+| `DebugConsole` | Advanced-debugging command engine (`src/api/`); a facade *client* (like `PlayerAI`) that inspects and modifies game values. Shared by the terminal reader and the `~` overlay. Debug-build-only. |
+| `DebugLog` | Pure capped ring buffer of debug log lines (`src/core/`) with a stdout mirror; fed by mirrored `SimFacade` signals. Debug-build-only. |
 
 ### Computer players (`PlayerAI`)
 
 `Player.is_ai` marks a player as computer-controlled (serialized; default `false`; set from each player config's `is_ai` in `SimFacade.setup()`, toggled per-player by the `SetupScreen` row checkboxes). `PlayerAI` (`src/api/player_ai.gd`) is **not** part of `sim/` — it is a *client* of `SimFacade`, exactly like the human UI: it only mutates state through `apply_command`, and it draws every random choice from the shared `gs.rng` (never its own generator), so an AI turn is reproducible and is captured by save/load. `PlayerAI.take_turn(facade, player_id)` runs the whole turn then ends it; the decision logic is deliberately simple — cheapest researchable tech, latest-unlocked policy per civic category, each city's queue refilled with every buildable unit/structure cheapest-first (replanned only when empty), and ~50% of units garrisoning their nearest city while the rest wander and pick random actions. In the scene layer, `HotseatManager` watches `player_turn_started` and `call_deferred`s `PlayerAI.take_turn` for `is_ai` players, chaining through consecutive AI players until a human's turn opens the pass-device screen. Like any new `class_name`, `PlayerAI` is registered in `project.godot`'s `_global_script_classes`.
+
+### Advanced debugging (debug-build-only)
+
+A developer debugging subsystem, **gated to interactive debug builds** — it is inert under release exports and under the headless/GUT runner (detected in `scenes/main.gd:_debug_active()` and `terminal_console.gd:_is_interactive_debug()` via `OS.is_debug_build()` plus a `--no-window`/`gut_cmdln` cmdline check), so it never affects shipped play or CI. Two pure classes do the work: `DebugLog` (`src/core/`, a capped ring buffer with a stdout mirror) and `DebugConsole` (`src/api/`, the command engine and a facade *client* like `PlayerAI` — read commands query `facade.get_state()`, write commands mutate `GameState` directly then `get_dirty().mark_all()`). Two thin scene nodes (`scenes/debug/`) surface it: `terminal_console.gd` reads stdin on a worker thread and `call_deferred`s each line to the engine on the main thread, and `debug_overlay.gd` is the `~`-toggled (Escape-to-close) in-game menu with a live info pane + an embedded console running the same engine plus GUI-only `reveal`/`fog` view helpers. `scenes/main.gd:_wire_debug()` builds one shared `DebugLog`+`DebugConsole`, hands them to both surfaces, and mirrors `SimFacade` signals into the log as the "extra logging". `sim/`/`world/` never reference any of it. Full reference: `docs/design/debug.md`.
 
 ### Godot 3 GDScript constraints to remember
 
@@ -92,3 +108,4 @@ scenes/main.tscn               (wires WorldView, HUD, InputRouter, HotseatManage
 - **New civic / civic effect (§8)**: add a policy entry to `data/policies.json` (one of the five categories). The mechanical fields (`upkeep_modifier`, `slider_increment`, `slider_min_research`, `anger_modifier`, `transition_turns`) are read directly by `SimFacade`/`TurnEngine`. Headline gameplay bonuses go in the per-civic `effects` dictionary (or, for a lone flag, a bare top-level key) and are read through `PolicyEffects.sum_int`/`has_flag`; a *new* effect key needs wiring into the relevant sim site (e.g. `_update_contentment`, `_settlement_growth`, `_policy_production_delta`, `_update_treasury`, `_cmd_rush_production`). See `docs/planning/designgaps.md` §2 for the effects already wired and the few still blocked on unbuilt subsystems.
 - **New rule / phase override**: register via `facade.get_hooks().register(IDs.Phase.X, obj, "method")`. The method receives `(game_state, args: Dictionary)` and returns `bool`.
 - **New command**: add a factory to `Commands`, add a case to `SimFacade.apply_command()`, implement a `_cmd_*` handler.
+- **New debug console command**: add a `case` to `DebugConsole._dispatch()` and a line to `_help()` (read commands query `facade.get_state()`; write commands mutate state then call `_refresh()`), and a test in `tests/api/test_debug_console.gd`. A presentation-only helper (camera/fog) goes in `debug_overlay.gd:_run()` instead, before delegating to the shared engine. See `docs/design/debug.md` §8.
