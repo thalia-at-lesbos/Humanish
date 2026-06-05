@@ -185,7 +185,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 **`world_step(gs, hooks)`** — runs once after all players end their turn:
 1. Resolve/expire trades
 2. Advance shared alliance research stores
-3. Per-tile upkeep (stub)
+3. Per-tile upkeep (`_tile_upkeep` — charges each owned, improved tile's improvement maintenance)
 4. Spawn wild/raider forces (`WildForces`)
 5. Environmental degradation (`Pollution`)
 6. Assign special sites (stub)
