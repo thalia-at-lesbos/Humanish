@@ -83,6 +83,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		p.traits = cfg.get("traits", []).duplicate()
 		p.free_early_wins = int(difficulty.get("free_early_wins", 0))
 		p.treasury = int(cfg.get("starting_gold", 100))
+		p.is_ai = bool(cfg.get("is_ai", false))
 
 		# Seed the player's known techs and pick a default research target so the
 		# tech tree (data/technologies.json) is usable from turn one.

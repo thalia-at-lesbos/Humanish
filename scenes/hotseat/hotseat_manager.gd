@@ -33,6 +33,14 @@ func _on_player_turn_started(player_id: int) -> void:
 	var p = gs.get_player(player_id)
 	var player_name: String = p.name if p != null else "Player"
 
+	# Computer players take their whole turn automatically. Defer it so the command
+	# that started this turn finishes unwinding first; the AI's end-turn then fires
+	# player_turn_started again for whoever is next (chaining through further AI
+	# players until a human's turn opens the pass-device screen below).
+	if p != null and p.is_ai:
+		call_deferred("_run_ai_turn", player_id)
+		return
+
 	# Rebuild fog for the new active player and center the map on one of their
 	# units so the turn opens looking at something they own.
 	if _world_view != null:
@@ -45,6 +53,15 @@ func _on_player_turn_started(player_id: int) -> void:
 	# Show pass-device overlay
 	if _pass_screen != null and _pass_screen.has_method("show_for_player"):
 		_pass_screen.show_for_player(player_name, player_id)
+
+func _run_ai_turn(player_id: int) -> void:
+	if _facade == null:
+		return
+	var gs = _facade.get_state()
+	# Bail if the game ended or the turn moved on while this deferred call waited.
+	if gs.winning_alliance_id >= 0 or gs.current_player_id != player_id:
+		return
+	PlayerAI.take_turn(_facade, player_id)
 
 func _on_game_won(alliance_id: int) -> void:
 	if _pass_screen != null and _pass_screen.has_method("show_game_over"):

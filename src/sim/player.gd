@@ -51,6 +51,9 @@ var score: int = 0
 # Is the player eliminated?
 var is_eliminated: bool = false
 
+# Is this player driven by the computer (PlayerAI) rather than a human?
+var is_ai: bool = false
+
 # Active celebration turns
 var celebration_turns: int = 0
 
@@ -107,6 +110,7 @@ func serialize() -> Dictionary:
 		"transition_turns": transition_turns,
 		"score": score,
 		"is_eliminated": is_eliminated,
+		"is_ai": is_ai,
 		"celebration_turns": celebration_turns,
 		"events_fired": events_fired.duplicate(),
 		"insolvent_turns": insolvent_turns,
@@ -139,6 +143,7 @@ static func deserialize(d: Dictionary):
 	p.transition_turns = int(d.get("transition_turns", 0))
 	p.score = int(d.get("score", 0))
 	p.is_eliminated = bool(d.get("is_eliminated", false))
+	p.is_ai = bool(d.get("is_ai", false))
 	p.celebration_turns = int(d.get("celebration_turns", 0))
 	p.events_fired = d.get("events_fired", []).duplicate()
 	p.insolvent_turns = int(d.get("insolvent_turns", 0))
