@@ -5,17 +5,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Run all tests (headless)
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
+# Run all tests (headless) — -ginclude_subdirs recurses into tests/{core,world,sim,api,scenes}
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 
 # Run a single test file
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/test_phase0_core.gd -gexit
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat.gd -gexit
 
 # Run a single test by name within a file
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/test_phase3_combat.gd -gunit_test_name=test_combat_same_seed_identical_outcome -gexit
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat.gd -gunit_test_name=test_combat_same_seed_identical_outcome -gexit
 ```
 
-The test framework is **GUT 7.4.3** (Godot 3.x). Tests extend `"res://addons/gut/test.gd"`. Each `test_*` method is one test case.
+The test framework is **GUT 7.4.3** (Godot 3.x). Test suites are organised by functional area, mirroring the source layout: `tests/core/`, `tests/world/`, `tests/sim/`, `tests/api/`, `tests/scenes/` — one file per module/subsystem (e.g. `combat.gd` → `tests/sim/test_combat.gd`). New tests go in the file for the subsystem they exercise; a brand-new subsystem gets a new `test_<name>.gd` under the matching layer.
+
+Most suites extend the shared fixture `"res://tests/support/sim_fixture.gd"` (which itself extends GUT's `test.gd`) for the common scaffolding — `make_db()`, `make_gs(num_players, seed)`, `make_unit/make_warrior/make_settlement/make_gp`, `bare_facade(gs)`, `setup_facade(...)`, `hooks()`, `run_turns(...)`. Pure-math/data suites with no game state (e.g. `test_fixed`, `test_slider_math`) extend `"res://addons/gut/test.gd"` directly. The fixture file is **not** collected as a suite — GUT only picks up files named `test_*`. Each `test_*` method is one test case.
 
 ## Architecture
 

@@ -77,18 +77,19 @@ screen's **Load Game** picker.
 
 ## Tests
 
-The engine is covered by **241** tests using **GUT 7.4.3**.
+The engine is covered by **243** tests using **GUT 7.4.3**, organised by functional
+area under `tests/{core,world,sim,api,scenes}/` to mirror the source layout.
 
 ```bash
-# Run all tests (headless)
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
+# Run all tests (headless) — -ginclude_subdirs recurses the functional subdirs
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gdir=res://tests -ginclude_subdirs -gexit
 
 # Run a single test file
-godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/test_phase3_combat.gd -gexit
+godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat.gd -gexit
 
 # Run a single test by name
 godot3 --no-window -s addons/gut/gut_cmdln.gd \
-  -gtest=res://tests/test_phase3_combat.gd \
+  -gtest=res://tests/sim/test_combat.gd \
   -gunit_test_name=test_combat_same_seed_identical_outcome -gexit
 ```
 

@@ -26,7 +26,9 @@ scenes/
                             diplomacy_screen, save_load_screen
   input/                    input_router.gd, hotkey_map.gd
   hotseat/                  hotseat_manager.gd, pass_device_screen.tscn/.gd
-tests/                      GUT 7.4.3 headless suites, one file per implementation phase
+tests/                      GUT 7.4.3 headless suites, organised by functional area
+                            (core/ world/ sim/ api/ scenes/) mirroring src/;
+                            support/sim_fixture.gd holds the shared scaffolding
 addons/gut/                 Test framework (vendored)
 docs/                       This file, the engine-core plan, and the full game-rules spec
 ```
