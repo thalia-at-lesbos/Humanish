@@ -13,6 +13,8 @@ Thumbs.db
 # Editor temp files
 *.tmp
 *.bak
+*.swp
+*.swo
 
 # User data (GUT test output)
 user://

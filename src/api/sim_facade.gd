@@ -413,21 +413,18 @@ func _cmd_set_sliders(cmd: Dictionary) -> bool:
 		return false
 	if f < 0 or r < 0 or c < 0 or i < 0:
 		return false
-	# Governing policies constrain the sliders (§6.2): an allowed increment, a
-	# minimum research share, and an optional maximum research cap.
+	# Governing policies constrain the sliders (§6.2): an allowed increment and a
+	# minimum research share.
 	var increment: int = 0
 	var min_research: int = 0
-	var max_research: int = 100
 	for cat in p.policies:
 		var pol: Dictionary = _db.policies.get("policies", {}).get(p.policies[cat], {})
 		increment = max(increment, int(pol.get("slider_increment", 0)))
 		min_research = max(min_research, int(pol.get("slider_min_research", 0)))
-		if pol.has("slider_max_research"):
-			max_research = min(max_research, int(pol.get("slider_max_research", 100)))
 	if increment > 0 and (f % increment != 0 or r % increment != 0 \
 			or c % increment != 0 or i % increment != 0):
 		return false
-	if r < min_research or r > max_research:
+	if r < min_research:
 		return false
 	p.slider_finance = f; p.slider_research = r
 	p.slider_culture = c; p.slider_intel = i

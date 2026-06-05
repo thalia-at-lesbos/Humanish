@@ -1,5 +1,5 @@
 {
-  "categories": ["government", "legal", "labor", "economic", "religion", "civic"],
+  "categories": ["government", "legal", "labor", "economic", "religion"],
   "policies": {
     "despotism": {
       "id": "despotism",
@@ -24,20 +24,10 @@
       "transition_turns": 3,
       "effects": { "happiness_per_garrison": 1 }
     },
-    "monarchy": {
-      "id": "monarchy",
-      "category": "government",
-      "tech_required": null,
-      "upkeep_modifier": -10,
-      "slider_min_research": 0,
-      "slider_increment": 10,
-      "anger_modifier": 0,
-      "transition_turns": 3
-    },
     "republic": {
       "id": "republic",
       "category": "government",
-      "tech_required": "writing",
+      "tech_required": "code_of_laws",
       "upkeep_modifier": -20,
       "slider_min_research": 10,
       "slider_increment": 10,
@@ -295,64 +285,6 @@
       "anger_modifier": 0,
       "transition_turns": 3,
       "effects": { "happiness_per_religion": 1, "science_output": 10 }
-    },
-
-    "communism": {
-      "id": "communism",
-      "name": "Communism",
-      "description": "Centrally planned collective ownership. Strong, cheap state but chafes against personal freedom.",
-      "category": "civic",
-      "tech_required": null,
-      "upkeep_modifier": -10,
-      "production_modifier": 15,
-      "commerce_modifier": -10,
-      "slider_min_research": 0,
-      "slider_max_research": 50,
-      "slider_increment": 10,
-      "anger_modifier": 5,
-      "transition_turns": 4
-    },
-    "anarcho_communism": {
-      "id": "anarcho_communism",
-      "name": "Anarcho-Communism",
-      "description": "Stateless voluntary collectives. No state upkeep, but coordination is fragile.",
-      "category": "civic",
-      "tech_required": null,
-      "upkeep_modifier": 0,
-      "production_modifier": 5,
-      "commerce_modifier": 0,
-      "slider_min_research": 0,
-      "slider_increment": 10,
-      "anger_modifier": 10,
-      "transition_turns": 4
-    },
-    "anarcho_capitalism": {
-      "id": "anarcho_capitalism",
-      "name": "Anarcho-Capitalism",
-      "description": "Stateless free markets. Commerce thrives on private contract and competition.",
-      "category": "civic",
-      "tech_required": null,
-      "upkeep_modifier": 0,
-      "production_modifier": -5,
-      "commerce_modifier": 20,
-      "slider_min_research": 0,
-      "slider_increment": 10,
-      "anger_modifier": -5,
-      "transition_turns": 4
-    },
-    "fascism": {
-      "id": "fascism",
-      "name": "Fascism",
-      "description": "Authoritarian militarism. Order is enforced and dissent suppressed at a steep cost.",
-      "category": "civic",
-      "tech_required": null,
-      "upkeep_modifier": -5,
-      "production_modifier": 10,
-      "commerce_modifier": -5,
-      "slider_min_research": 0,
-      "slider_increment": 10,
-      "anger_modifier": -10,
-      "transition_turns": 5
     }
   }
 }

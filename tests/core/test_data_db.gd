@@ -62,18 +62,23 @@ func test_tech_tree_is_linear_progression() -> void:
 
 # ── Civics ───────────────────────────────────────────────────────────────────
 
-func test_civics_all_four_present() -> void:
+func test_policy_categories_are_the_five_design_categories() -> void:
+	var db = _db()
+	assert_eq(db.policies.get("categories", []),
+		["government", "legal", "labor", "economic", "religion"],
+		"policies.json defines exactly the five §8 design categories")
+
+func test_sample_civics_present_in_expected_categories() -> void:
 	var db = _db()
 	var pols = db.policies.get("policies", {})
-	for cid in ["communism", "anarcho_communism", "anarcho_capitalism", "fascism"]:
+	var expected = {
+		"hereditary_rule": "government", "free_speech": "legal",
+		"caste_system": "labor", "free_market": "economic", "theocracy": "religion",
+	}
+	for cid in expected:
 		assert_true(pols.has(cid), "Civic '%s' must exist" % cid)
-		assert_eq(str(pols[cid].get("category", "")), "civic",
-			"Civic '%s' is in the 'civic' category" % cid)
-
-func test_civic_category_registered() -> void:
-	var db = _db()
-	assert_true("civic" in db.policies.get("categories", []),
-		"'civic' must be a registered policy category")
+		assert_eq(str(pols[cid].get("category", "")), expected[cid],
+			"Civic '%s' is in the '%s' category" % [cid, expected[cid]])
 
 # ── Units & societies ──────────────────────────────────────────────────────────
 

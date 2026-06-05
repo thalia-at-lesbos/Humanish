@@ -9,7 +9,7 @@ A guide to how the codebase is structured and how the pieces connect at runtime.
 ```
 project.godot               Godot 3.6 project file; registers all class_name globals
                             main_scene → scenes/menus/start_menu.tscn
-data/                       21 JSON config tables — all numeric constants and content live here
+data/                       22 JSON config tables — all numeric constants and content live here
 src/
   core/                     Foundation: math, IDs, RNG, data loading
   world/                    Map geometry, tile output formula, regions, cultural influence
@@ -23,7 +23,7 @@ scenes/
   hud/                      hud.tscn, turn_score_bar, research_bar, slider_panel,
                             selection_panel, message_log, end_turn_button
   screens/                  city_screen, tech_chooser, policy_screen,
-                            diplomacy_screen, save_load_screen
+                            diplomacy_screen, save_load_screen, pause_menu
   input/                    input_router.gd, hotkey_map.gd
   hotseat/                  hotseat_manager.gd, pass_device_screen.tscn/.gd
 tests/                      GUT 7.4.3 headless suites, organised by functional area
@@ -76,7 +76,7 @@ The Godot `main_scene`. A full-screen `Control` that builds its UI programmatica
 A programmatic `Control` (no `.tscn`). Initialized via `init(db, on_start_callback)`. Presents: player count (2–4), per-player name and society picker, world size, pace, difficulty, and seed. On "Start Game" it creates a `SimFacade`, calls `facade.setup(...)` with the collected parameters, and fires `on_start_callback(facade, db)`. Society selection injects the chosen society's `leader_id`, `traits`, and `starting_gold` into the player config.
 
 ### `Main` (`scenes/main.tscn` / `main.gd`)
-Root game scene. Wires `WorldView`, `HUD` sub-panels, `InputRouter`, and `HotseatManager` to the `SimFacade`. Exposes `init_with_facade(facade, db)` — call this **before** adding to the tree so `_ready()` skips the default hardcoded 2-player setup. Routes `screen_requested` signals to the appropriate full-screen nodes (`CityScreen`, `TechChooser`, `PolicyScreen`, `DiplomacyScreen`, `SaveLoadScreen`).
+Root game scene. Wires `WorldView`, `HUD` sub-panels, `InputRouter`, and `HotseatManager` to the `SimFacade`. Exposes `init_with_facade(facade, db)` — call this **before** adding to the tree so `_ready()` skips the default hardcoded 2-player setup. Routes `screen_requested` signals to the appropriate full-screen nodes (`CityScreen`, `TechChooser`, `PolicyScreen`, `DiplomacyScreen`, `SaveLoadScreen`); the `OPEN_MENU` control toggles the `PauseMenu` overlay (Resume/Save/Load/New Game/Quit), whose Save/Load buttons defer to the shared `SaveLoadScreen`.
 
 ### HUD (`scenes/hud/`)
 `hud.tscn` is a `VBoxContainer` containing: `TurnScoreBar`, `ResearchBar`, `SliderPanel`, `SelectionPanel`, `MessageLog`, `EndTurnButton`. Each panel's `.gd` is initialized with `init(facade, ...)` and reads facade state or subscribes to its signals.
@@ -85,7 +85,7 @@ Root game scene. Wires `WorldView`, `HUD` sub-panels, `InputRouter`, and `Hotsea
 `WorldView` renders the tile map and unit positions; `FogLayer` overlays fog-of-war; `Minimap` draws the territory overview. All three are initialized with `init(facade)`.
 
 ### Full-screen overlays (`scenes/screens/`)
-`CityScreen`, `TechChooser`, `PolicyScreen`, `DiplomacyScreen`, `SaveLoadScreen` — each exposes a `show_screen()` entry point and reads state through the facade.
+`CityScreen`, `TechChooser`, `PolicyScreen`, `DiplomacyScreen`, `SaveLoadScreen`, `PauseMenu` — each exposes a `show_screen()` entry point and reads state through the facade.
 
 ### Input (`scenes/input/`)
 `InputRouter` translates raw `_input` events into `Commands.*()` calls via `facade.apply_command()`. `HotkeyMap` loads key bindings from `data/hotkeys.json`.
@@ -95,7 +95,7 @@ Root game scene. Wires `WorldView`, `HUD` sub-panels, `InputRouter`, and `Hotsea
 ## Core layer (`src/core/`)
 
 ### `DataDB`
-Loads all 20 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`). Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
+Loads 21 of the 22 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`) — every file except `hotkeys.json`, which `HotkeyMap` loads separately. Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
 
 The tables and what they configure:
 
@@ -116,6 +116,8 @@ The tables and what they configure:
 | `ages.json` / `paces.json` / `difficulties.json` | Scaling multipliers and per-level modifiers |
 | `world_sizes.json` | Map width/height, wrap axes, suggested player count |
 | `win_conditions.json` | Condition type and numeric thresholds |
+| `projects.json` | Endgame (spaceship-style) project stages: cost, tech/wonder gate, stage and count-needed; feeds the `endgame_project` win condition |
+| `events.json` | Scripted random-event definitions (min turn, treasury/effect delta, notice text) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
 
 Typed getters follow the pattern `get_X(id) → Dictionary` for every table. Additional helpers: `get_societies() → Dictionary` (full societies map), `get_society(id) → Dictionary` (single entry).
@@ -130,7 +132,7 @@ All integer math helpers. Movement allowances are stored at ×100 scale (`MOVE_P
 - `proportion(a, total, scale_to)` — used by `Combat` to derive per-side odds
 
 ### `IDs`
-Enums only. `Domain`, `Landform`, `Output`, `UnitClass`, `CommandType`, `WinType`, and `Phase`. `Phase` lists every named hook point in the §3 pipeline.
+Enums only. The sim/world core uses `Domain`, `Landform`, `Output`, `UnitClass`, `CommandType`, `WinType`, and `Phase` (`Phase` lists every named hook point in the §3 pipeline). The remaining enums back the UI-design spec's §2–§6 vocabulary: `DirtyRegion`, `WidgetType`, `InterfaceMode`, `PopupType`, `ControlType`, `UnitCmd`, and `UnitMission`.
 
 ---
 
@@ -183,11 +185,11 @@ Implements §3 as three static functions called in sequence. Every phase first c
 **`world_step(gs, hooks)`** — runs once after all players end their turn:
 1. Resolve/expire trades
 2. Advance shared alliance research stores
-3. Per-tile upkeep (stub)
+3. Per-tile upkeep (`_tile_upkeep` — charges each owned, improved tile's improvement maintenance)
 4. Spawn wild/raider forces (`WildForces`)
 5. Environmental degradation (`Pollution`)
 6. Assign special sites (stub)
-7. Assembly/voting (stub)
+7. Assembly/voting (`_resolve_assembly` — tallies population-weighted `gs.diplomatic_votes` per alliance)
 8. Increment `turn_number`
 9. Advance `current_player_id`
 10. Check win conditions (`WinConditions`)

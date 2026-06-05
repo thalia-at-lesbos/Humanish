@@ -20,8 +20,8 @@ func test_policy_set_and_switch() -> void:
 	p.id = 1
 	p.policies["government"] = "despotism"
 	assert_eq(p.policies["government"], "despotism", "Policy is set correctly")
-	p.policies["government"] = "monarchy"
-	assert_eq(p.policies["government"], "monarchy", "Policy switches correctly")
+	p.policies["government"] = "hereditary_rule"
+	assert_eq(p.policies["government"], "hereditary_rule", "Policy switches correctly")
 
 func test_transition_ticks_down() -> void:
 	var gs = make_gs(1)
@@ -30,16 +30,16 @@ func test_transition_ticks_down() -> void:
 	TurnEngine._tick_states(gs, p)
 	assert_eq(p.transition_turns, 2, "Transition turns tick down by 1 per turn")
 
-func test_set_civic_policy_applies() -> void:
+func test_set_policy_applies() -> void:
 	var facade = setup_facade(7, "tiny",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 100}], ["time"])
 	var gs = facade.get_state()
 	var pid = gs.players[0].id
 	gs.current_player_id = pid
-	assert_true(facade.apply_command(Commands.set_policy(pid, "civic", "fascism")),
-		"Selecting the fascism civic should be accepted")
-	assert_eq(gs.players[0].policies.get("civic", ""), "fascism",
-		"The civic category should now hold fascism")
+	assert_true(facade.apply_command(Commands.set_policy(pid, "labor", "serfdom")),
+		"Selecting the serfdom labor civic should be accepted")
+	assert_eq(gs.players[0].policies.get("labor", ""), "serfdom",
+		"The labor category should now hold serfdom")
 
 # ── Slider constraints ───────────────────────────────────────────────────────
 
@@ -67,13 +67,3 @@ func test_policy_min_research_enforced() -> void:
 	gs.get_player(1).policies = {"government": "republic"}  # min_research 10
 	assert_false(f.apply_command(Commands.set_sliders(1, 100, 0, 0, 0)),
 		"Research below the policy minimum is rejected")
-
-func test_policy_max_research_cap_enforced() -> void:
-	var gs = make_gs(1)
-	var f = bare_facade(gs)
-	gs.current_player_id = 1
-	gs.get_player(1).policies = {"civic": "communism"}  # max_research 50
-	assert_false(f.apply_command(Commands.set_sliders(1, 10, 90, 0, 0)),
-		"Research above the policy cap is rejected")
-	assert_true(f.apply_command(Commands.set_sliders(1, 50, 50, 0, 0)),
-		"Research at the cap is accepted")
