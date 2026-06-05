@@ -110,7 +110,7 @@ The tables and what they configure:
 | `units.json` | Domain, strength, movement, cost, upkeep, tags, first strikes, combat limit |
 | `structures.json` | Settlement building costs, upkeep, output bonuses, specialist slots |
 | `technologies.json` | Research cost, prereq graph (`prereqs_all`, `prereqs_any`), unlocks |
-| `policies.json` | Category, upkeep modifiers, slider constraints, anger modifier, transition turns |
+| `policies.json` | Category, upkeep modifiers, slider constraints, anger modifier, transition turns, and a per-civic `effects` block of gameplay bonuses (read by `PolicyEffects`) |
 | `promotions.json` | Per-promotion combat bonuses, applies-to filter |
 | `beliefs.json` / `econ_orgs.json` | Founding prereqs, spread chance, economic effects |
 | `ages.json` / `paces.json` / `difficulties.json` | Scaling multipliers and per-level modifiers |
@@ -197,8 +197,8 @@ Implements §3 as three static functions called in sequence. Every phase first c
 **`player_step(gs, player_id, hooks)`** — runs when a player ends their turn:
 1. Pre-turn bookkeeping
 2. Auto-assign workers to tiles
-3. Treasury: income (finance slice of settlement commerce) − unit upkeep; insolvency handling
-4. Research: accumulate research slice of commerce against current tech cost
+3. Treasury: income (finance slice of settlement commerce) − unit upkeep (civics waive free units / drop distance maintenance); insolvency handling
+4. Research: accumulate research slice of commerce (+ civic science effects) against current tech cost
 5. Intelligence accumulation
 6. Settlement steps (iterates `settlement_step` for all owned settlements)
 7. Tick down timed states (transition, rush anger, celebration, Golden Age)
@@ -207,10 +207,10 @@ Implements §3 as three static functions called in sequence. Every phase first c
 10. Reset unit movement/action flags
 
 **`settlement_step(gs, settlement, player, hooks)`** — runs per settlement:
-- Growth: sum tile outputs + structure bonuses + econ org delta → surplus food → food store → population threshold check
-- Wellbeing: positive (structures, features) vs negative (population, polluting structures) → deficit reduces effective food
-- Contentment: positive sentiment vs anger-driven negative → `discontented` citizens → `in_disorder` flag
-- Production: accumulate construction capacity → complete queue items (units, structures, projects)
+- Growth: sum tile outputs + structure bonuses + econ org delta (+ civic tile/capital/free-specialist bonuses via `PolicyEffects`) → surplus food → food store → population threshold check
+- Wellbeing: positive (structures, features, empire-health civics) vs negative (population, polluting structures) → deficit reduces effective food
+- Contentment: positive sentiment (incl. civic happiness effects) vs anger-driven negative (war anger trimmed by civics) → `discontented` citizens → `in_disorder` flag
+- Production: accumulate construction capacity (adjusted by `_policy_production_delta` for the queued item) → complete queue items (units, structures, projects)
 - Culture: accumulate total culture → ring expansion → `Influence.spread()`
 - Beliefs: `Beliefs.spread_all()` on each turn
 - Specialist progress: at a city's threshold a Great Person unit of the dominant specialist type is born (`GreatPeople.birth_from_settlement`); with no typed specialists the legacy abstract bonus (instant tech / seeded org / gold) applies
@@ -248,6 +248,7 @@ Tracks war state (`at_war_with`), contacts, subordination, shared research store
 
 ### Other sim modules
 - **`GreatPeople`** — §14 subsystem (pure static): maps specialists → great-person units, type-aware birth, Golden Ages (worked-tile bonus in `_settlement_growth`, war-weariness freeze, tick-down in `_tick_states`), the Great General accrued from combat, and the `GP_ACTION` action dispatch (`perform_action`) validated against each unit's data `actions` list. Types/actions are defined entirely in `data/units.json`; magnitudes in `data/constants.json`
+- **`PolicyEffects`** — §8 civic-effects reader (pure static): `sum_int`/`has_flag` aggregate a player's active policies' `effects` (both nested `effects` dicts and bare top-level flags); `largest_city_ids`/`is_religious_structure` are supporting helpers. The single reader of per-civic `effects`, called from `TurnEngine` (happiness/health, tile + capital output, production via `_policy_production_delta`, research/intel, treasury, Great-Person rate, new-unit XP) and `SimFacade` (rush gating, Serfdom worker speed). The mechanical policy fields stay in `SimFacade`/`TurnEngine`. See `docs/planning/designgaps.md` §2 for the wired-vs-inert breakdown
 - **`Beliefs`** — founding (first-eligible random draw), passive spread within range each turn
 - **`EconOrgs`** — founded by special person or a Great Merchant; spread like beliefs but costs treasury
 - **`WildForces`** — per-tile RNG spawn on unclaimed land tiles; raider settlements
