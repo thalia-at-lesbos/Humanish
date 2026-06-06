@@ -90,7 +90,7 @@ func _setup_new_game(facade, db, cfg: Dictionary) -> void:
 	var total: int = int(cfg["players"])
 	var ai_count: int = int(cfg["ai"])
 	var humans: int = total - ai_count
-	var default_units: Array = db.constants.get("default_starting_units", [])
+	var default_units: Array = db.starting_units_for_techs(db.constants.get("starting_techs", []))
 	var configs: Array = []
 	for i in range(total):
 		var is_ai: bool = i >= humans

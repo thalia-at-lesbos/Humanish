@@ -36,7 +36,7 @@ func _init() -> void:
 	randomize()
 	var db = load("res://src/core/data_db.gd").new()
 	db.load_all()
-	var units = db.constants.get("default_starting_units", [])
+	var units = db.starting_units_for_techs(db.constants.get("starting_techs", []))
 
 	var facade = load("res://src/api/sim_facade.gd").new()
 	facade.setup(db, 777, "tiny", "normal", "warlord", [

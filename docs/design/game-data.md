@@ -167,6 +167,8 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 
 Each faction begins with two technologies from the starting pool and has one unique unit and one unique building.
 
+**Starting units.** Every faction opens with exactly two units: one **Settler** plus a single escort unit determined by its starting techs — a **Scout** if either starting tech is **Hunting** (which unlocks the Scout), otherwise a **Warrior** by default. (Mechanically this is a small data-driven rule: `starting_units_base` + `starting_unit_by_tech` + `starting_unit_default` in `data/constants.json`, evaluated against each society's `starting_techs`; see `DataDB.starting_units_for_techs`.) Thus the Hunting factions below (Aztec, German, Greek, Persian, Mongolian, Russian, Celtic, Viking, Zulu, Ethiopian, Holy Roman, Khmer) begin with a Scout, and all others with a Warrior.
+
 | # | Faction | Release | Starting Tech 1 | Starting Tech 2 | Unique Unit | Unique Building |
 |---|---------|---------|-----------------|-----------------|-------------|-----------------|
 | 1 | American | Core | Fishing | Agriculture | Navy SEAL | Mall |

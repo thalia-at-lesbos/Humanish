@@ -117,6 +117,21 @@ func get_societies() -> Dictionary:
 func get_society(id: String) -> Dictionary:
 	return get_societies().get(id, {})
 
+# Derive a player's opening units from their starting techs (game-data.md §3):
+# always a settler, plus a single escort unit — a scout when a starting tech
+# grants one (Hunting → Scout), otherwise the default warrior. The rule lives in
+# data/constants.json so adding e.g. another tech→escort mapping needs no code.
+func starting_units_for_techs(techs: Array) -> Array:
+	var units: Array = constants.get("starting_units_base", ["settler"]).duplicate()
+	var by_tech: Dictionary = constants.get("starting_unit_by_tech", {})
+	var escort: String = str(constants.get("starting_unit_default", "warrior"))
+	for tech_id in techs:
+		if by_tech.has(tech_id):
+			escort = str(by_tech[tech_id])
+			break
+	units.append(escort)
+	return units
+
 # ── internals ─────────────────────────────────────────────────────────────────
 
 func _load_json(path: String) -> Dictionary:

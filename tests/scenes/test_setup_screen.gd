@@ -65,3 +65,16 @@ func test_ai_toggle_flows_into_player_is_ai() -> void:
 	var gs = _started_facade.get_state()
 	assert_false(gs.get_player(1).is_ai, "Player 1 is human")
 	assert_true(gs.get_player(2).is_ai, "Player 2 is AI")
+
+	# Player 1 opens with exactly a settler + tech-derived escort (game-data.md §3).
+	var sid = screen._player_rows[0]["society_ids"][0]
+	var techs = make_db().get_society(sid).get("starting_techs", [])
+	var escort = "scout" if "hunting" in techs else "warrior"
+	var p1_types = []
+	for u in gs.units:
+		if u.owner_player_id == gs.get_player(1).id:
+			p1_types.append(u.unit_type_id)
+	p1_types.sort()
+	var expected = ["settler", escort]; expected.sort()
+	assert_eq(p1_types, expected,
+		"Player 1 (society %s) starts with settler + %s" % [sid, escort])

@@ -72,7 +72,7 @@ func _start_server(player_configs, save_name, seed_val):
 	var port: int = _next_port
 	_next_port += 1
 	var db = make_db()
-	var units: Array = db.constants.get("default_starting_units", [])
+	var units: Array = db.starting_units_for_techs(db.constants.get("starting_techs", []))
 	for cfg in player_configs:
 		if not cfg.has("starting_units"):
 			cfg["starting_units"] = units.duplicate()

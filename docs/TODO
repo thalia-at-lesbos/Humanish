@@ -13,13 +13,35 @@ Minor issues
 -Revealed map should keep previous state until city or unit vision updates it [DONE — fog layer tracks per-player explored memory: seen tiles stay revealed under a light veil; live units shown only in current sight; memory resets on hotseat handoff.]
 - add about menu (to start and pause) [DONE — About screen (title/version/license) reachable from the start menu and the pause menu.]
 - advisor/info screens + UI command vocabulary [DONE — gift-unit command; sentry/heal/move-to-unit/scout-recon/air&sea-patrol unit missions; religion/corporation/turn-log/domestic-advisor/victory-progress/options/finance/military/espionage/encyclopedia screens. Deferred: camera modes, hall-of-fame/admin/world-builder, retire/chat/free-colony, unit-mission espionage, draft/trade-route. See docs/planning/designgaps.md §3.]
+- starting units are wrong. check design docs, but all societies should
+start with one settler, and another unit determined by starting techs
+(warrior default, scout of hunting is starting tech. if this isn't in
+game-data.md, add it. If starting technologies are unclear from docs,
+ask user for info, then update game-data.md with this info, then continue
+fixing this issue [DONE — every faction now opens with exactly a settler +
+one escort: a scout if Hunting is a starting tech, else a warrior. Rule is
+data-driven (constants.json starting_units_base/starting_unit_by_tech/
+starting_unit_default) and applied via DataDB.starting_units_for_techs,
+evaluated against each society's own starting_techs (now also seeded into
+the player's known techs). Documented in game-data.md §3; the old uniform
+5-unit default_starting_units list is gone.]
+- all tiles should be clickable (unoccupied tiles show terrain info 
+on side and deselect current unit if space is invalid move for unit).
+- city should be selectable the turn it is founded (it appears to not 
+be selectable)
+- once a unit stack is selected, it doesn't seem possible to select 
+another unit or city and stack members appear inaccurate when a unit 
+is moved out of the stack
+- after selecting first unit to leave the stack, it doesn't appear 
+possible to move other units out of stack
+
 
 Major features
-add debug mode (only enabled in debug build, extra logging, special debug menu showing debug log and allow modifying game values, standard console allowing same value modification)
-Add map generation
+[done]add debug mode (only enabled in debug build, extra logging, special debug menu showing debug log and allow modifying game values, standard console allowing same value modification)
+[done]Add map generation
 Add player AI [DONE — simple version: PlayerAI in src/api/player_ai.gd; per-player AI toggle in the setup screen; cheapest-first production/research, latest civics, 50% garrison / 50% random units. Future: smarter strategy, diplomacy, combat targeting.]
 Add advanced player AI (and remove simple AI)
-Add remote multiplayer
+[done]Add remote multiplayer
 Add mod support??
 Maximize accessibility (visual - simple, readable, audio - extra but not necessary feedback, tactile - both keyboard only or pointer only or both)
 

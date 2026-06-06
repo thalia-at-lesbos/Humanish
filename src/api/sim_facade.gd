@@ -82,7 +82,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 
 	# Create players and alliances
 	var difficulty: Dictionary = db.get_difficulty(difficulty_id)
-	var starting_techs: Array = db.constants.get("starting_techs", [])
+	var default_techs: Array = db.constants.get("starting_techs", [])
 	var default_research: String = str(db.constants.get("default_research", ""))
 	for cfg in player_configs:
 		var p := Player.new()
@@ -95,8 +95,10 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		p.is_ai = bool(cfg.get("is_ai", false))
 
 		# Seed the player's known techs and pick a default research target so the
-		# tech tree (data/technologies.json) is usable from turn one.
-		p.technologies = starting_techs.duplicate()
+		# tech tree (data/technologies.json) is usable from turn one. A player's
+		# society supplies its own starting techs (cfg["starting_techs"]); society-
+		# less players (default/headless games) fall back to the global default.
+		p.technologies = cfg.get("starting_techs", default_techs).duplicate()
 		if default_research != "" and Research.can_research(default_research, p, db):
 			p.current_research_id = default_research
 

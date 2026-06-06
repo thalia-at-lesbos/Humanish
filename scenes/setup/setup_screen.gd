@@ -196,21 +196,23 @@ func _on_start_pressed() -> void:
 		var leader_id: String = ""
 		var traits: Array = []
 		var starting_gold: int = 100
-		var default_units: Array = _db.constants.get("default_starting_units", [])
-		var starting_units: Array = default_units.duplicate()
+		var starting_techs: Array = _db.constants.get("starting_techs", []).duplicate()
 		if society_idx >= 0:
 			var sid: String = row_data["society_ids"][society_idx]
 			var society: Dictionary = _db.get_society(sid)
 			leader_id = society.get("leader_id", "")
 			traits = society.get("traits", []).duplicate()
 			starting_gold = int(society.get("starting_gold", 100))
-			starting_units = society.get("starting_units", default_units).duplicate()
+			starting_techs = society.get("starting_techs", starting_techs).duplicate()
+		# Opening units are derived from the starting techs (settler + warrior, or a
+		# scout when Hunting is known); see DataDB.starting_units_for_techs.
 		player_configs.append({
 			"name": row_data["name_edit"].text,
 			"leader_id": leader_id,
 			"traits": traits,
 			"starting_gold": starting_gold,
-			"starting_units": starting_units,
+			"starting_techs": starting_techs,
+			"starting_units": _db.starting_units_for_techs(starting_techs),
 			"is_ai": row_data["ai_check"].pressed
 		})
 

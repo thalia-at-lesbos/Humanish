@@ -86,11 +86,20 @@ func test_scout_unit_exists() -> void:
 	var db = _db()
 	assert_false(db.get_unit("scout").empty(), "A 'scout' unit type must exist")
 
-func test_every_society_has_required_starting_units() -> void:
+func test_every_society_starts_with_settler_plus_tech_escort() -> void:
+	# Every society opens with exactly a settler plus one escort unit, derived
+	# from its starting techs: a scout when Hunting is known, else a warrior.
 	var db = _db()
-	var required = ["settler", "worker", "scout", "warrior", "archer"]
 	for sid in db.get_societies():
-		var su = db.get_society(sid).get("starting_units", [])
-		for r in required:
-			assert_true(r in su,
-				"Society '%s' starting_units must include a %s" % [sid, r])
+		var techs = db.get_society(sid).get("starting_techs", [])
+		var su = db.starting_units_for_techs(techs)
+		var escort = "scout" if "hunting" in techs else "warrior"
+		assert_eq(su, ["settler", escort],
+			"Society '%s' (techs %s) should start with [settler, %s]" % [sid, techs, escort])
+
+func test_starting_units_default_to_warrior_without_hunting() -> void:
+	var db = _db()
+	assert_eq(db.starting_units_for_techs(["agriculture", "mining"]),
+		["settler", "warrior"], "No Hunting → settler + warrior")
+	assert_eq(db.starting_units_for_techs(["fishing", "hunting"]),
+		["settler", "scout"], "Hunting → settler + scout")

@@ -36,7 +36,7 @@ func _ready() -> void:
 			push_error("DataDB load failed: " + str(_db.get_errors()))
 			return
 		_facade = load("res://src/api/sim_facade.gd").new()
-		var default_units = _db.constants.get("default_starting_units", [])
+		var default_units = _db.starting_units_for_techs(_db.constants.get("starting_techs", []))
 		_facade.setup(_db, randi(), "tiny", "normal", "warlord",
 			[
 				{"name": "Player 1", "leader_id": "", "traits": [], "starting_gold": 100,
