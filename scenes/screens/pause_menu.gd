@@ -17,6 +17,7 @@ extends Control
 
 var _facade
 var _save_load_screen
+var _about_screen
 
 func init(facade) -> void:
 	_facade = facade
@@ -74,10 +75,24 @@ func _build_ui() -> void:
 	new_game_btn.connect("pressed", self, "_on_new_game")
 	box.add_child(new_game_btn)
 
+	var about_btn := Button.new()
+	about_btn.text = "About"
+	about_btn.connect("pressed", self, "_on_about")
+	box.add_child(about_btn)
+
 	var quit_btn := Button.new()
 	quit_btn.text = "Quit to Desktop"
 	quit_btn.connect("pressed", self, "_on_quit")
 	box.add_child(quit_btn)
+
+func _on_about() -> void:
+	# Show the shared About overlay on top of the pause menu; closing it returns
+	# here. Built lazily so the menu carries no extra node when never opened.
+	if _about_screen == null:
+		_about_screen = load("res://scenes/screens/about_screen.gd").new()
+		add_child(_about_screen)
+		_about_screen.init(_facade)
+	_about_screen.show_screen()
 
 func _on_resume() -> void:
 	visible = false

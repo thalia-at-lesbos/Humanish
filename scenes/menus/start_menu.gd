@@ -58,10 +58,21 @@ func _build_ui() -> void:
 	load_game_btn.connect("pressed", self, "_on_load_game_pressed")
 	_menu_box.add_child(load_game_btn)
 
+	var about_btn := Button.new()
+	about_btn.text = "About"
+	about_btn.connect("pressed", self, "_on_about_pressed")
+	_menu_box.add_child(about_btn)
+
 	var exit_btn := Button.new()
 	exit_btn.text = "Exit"
 	exit_btn.connect("pressed", self, "_on_exit_pressed")
 	_menu_box.add_child(exit_btn)
+
+func _on_about_pressed() -> void:
+	var about = load("res://scenes/screens/about_screen.gd").new()
+	add_child(about)
+	about.init(null)   # the About screen needs no game state
+	about.show_screen()
 
 func _on_new_game_pressed() -> void:
 	_menu_box.visible = false
