@@ -160,37 +160,52 @@ replays them) is future work; the protocol already isolates this behind the
 
 ---
 
-## Server mode (command line)
+## Autosave
 
-The server has **no UI**. It is the engine run windowless as a `SceneTree` main
-loop — `scenes/net/server_runner.gd` — which never loads the menu or any scene:
-it builds `DataDB` + a `SimFacade`, stands up `NetServer`, and polls the socket
-on every `idle_frame`.
+The server **autosaves the authoritative game to disk after every turn**, so a
+crash or restart loses at most the turn in progress (and a saved game can be
+resumed with `--load`). `NetServer` connects to the facade's
+`player_turn_started` signal — which fires on every turn transition, from both
+human `submit`s and the AI turns the server plays — and writes `facade.save()`
+to the configured file. It also writes the opening state at `listen()`. A bare
+save name lands under the user saves dir (`user://saves/`); a name containing a
+`/` is used as a full path. Because of this, **a default save file is
+mandatory**: the CLI rejects `--server` without `--save`, and the GUI host
+screen requires a save-file name.
+
+## Server mode — headless (command line)
+
+The headless server has **no UI**. It is the engine run windowless as a
+`SceneTree` main loop — `scenes/net/server_runner.gd` — which never loads the
+menu or any scene: it builds `DataDB` + a `SimFacade`, stands up `NetServer`, and
+polls the socket on every `idle_frame`.
 
 ```bash
-# 2-player game, port 9080, server plays no slots:
-./run_server.sh
+# 2-player game, port 9080, server plays no slots, autosaving to game.sav:
+./run_server.sh --save=game.sav
 
 # 3 slots, server plays 1 AI, on a small continents map:
-./run_server.sh --players=3 --ai=1 --world=small --map=continents
+./run_server.sh --save=game.sav --players=3 --ai=1 --world=small --map=continents
 
-# resume an authoritative save:
-./run_server.sh --load=/path/to/game.sav --port=9000
+# resume an authoritative save, autosaving onward to ongoing.sav:
+./run_server.sh --save=ongoing.sav --load=/path/to/game.sav --port=9000
 ```
 
 `run_server.sh` is a thin wrapper over:
 
 ```bash
-godot3 --no-window -s res://scenes/net/server_runner.gd -- --server [flags…]
+godot3 --no-window -s res://scenes/net/server_runner.gd -- --server --save=<file> [flags…]
 ```
 
 Flags are parsed by `NetConfig.parse_args` (pure, tested in
-`tests/net/test_net_config.gd`). Both `--flag value` and `--flag=value` forms
-work; unknown flags (like the engine's own `--no-window`) are ignored.
+`tests/net/test_net_config.gd`); `NetConfig.server_config_error` enforces the
+`--save` requirement. Both `--flag value` and `--flag=value` forms work; unknown
+flags (like the engine's own `--no-window`) are ignored.
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--server` | — | Enable server mode (implied by `run_server.sh`) |
+| `--save=PATH` | **required** | File the game autosaves to every turn (bare name → saves dir; `/` → full path) |
 | `--port=N` | 9080 | Listen port |
 | `--name=STR` | "Humanish Server" | Name sent in `welcome` |
 | `--load=PATH` | — | Resume from a `.sav` instead of a new game |
@@ -204,6 +219,25 @@ work; unknown flags (like the engine's own `--no-window`) are ignored.
 
 For a new game the first `players − ai` slots are **remote-human** slots that
 clients fill; the remainder are **AI** slots the server plays.
+
+## Server mode — in-game host
+
+The start menu's **Multiplayer Server** button opens
+`scenes/net/server_setup.gd`, which runs an authoritative `NetServer` *inside the
+desktop app* (no separate process). The host:
+
+1. sets the port, server name, and a **save file** (defaults to `mp_server.sav`),
+2. chooses **New Game…** — which reuses the normal `SetupScreen` to pick
+   players / society / per-player AI toggles / world / map / pace / difficulty —
+   **or** **Load Saved Game…** to pick an existing `.sav`,
+3. and the screen becomes a live **status panel** (port, autosave path, current
+   turn, and each player's slot state: AI / connected / waiting) with a **Stop
+   Server** button.
+
+The host screen polls the `NetServer` each `_process` frame (the GUI equivalent
+of the headless runner's `idle_frame` poll). The server holds and relays state
+only — there is no game board on the host; remote players join with the
+**Multiplayer** client menu exactly as they would against a headless server.
 
 ---
 
@@ -239,7 +273,9 @@ scenes/net/
   net_server.gd       authoritative server: WebSocketServer + round-robin turn loop
   server_runner.gd    headless SceneTree entry point (-s target)
   net_client.gd       client WebSocketClient + in-game facade glue (Node)
-  multiplayer_setup.gd client lobby Control (the "Multiplayer" menu)
+  multiplayer_setup.gd client lobby Control (the "Multiplayer" join menu)
+  server_setup.gd     in-game host Control (the "Multiplayer Server" menu):
+                      new-game/load config + running-server status panel
 tests/net/
   test_net_protocol.gd, test_net_config.gd   CI unit suites (pure layers)
 tests/manual/
@@ -276,7 +312,7 @@ godot3 --no-window -s res://tests/manual/loopback_smoke.gd   # prints "SMOKE: PA
 * **Encryption.** Move to `wss://` (TLS); WebSocket makes this transparent.
 * **Reconnection & lobby UX.** Persisted player identity, a proper pre-game
   lobby with ready states, and spectator slots.
-* **Save cadence.** The server should periodically `facade.save()` to disk so an
-  authoritative game survives a restart (it can already be resumed with
-  `--load`).
+* **Save cadence.** *(Done — per-turn autosave; see Autosave above.)* Possible
+  refinements: rotating/timestamped save slots instead of one overwritten file,
+  and throttling on very large maps if per-turn writes become costly.
 ```

@@ -63,6 +63,11 @@ func _build_ui() -> void:
 	multiplayer_btn.connect("pressed", self, "_on_multiplayer_pressed")
 	_menu_box.add_child(multiplayer_btn)
 
+	var server_btn := Button.new()
+	server_btn.text = "Multiplayer Server"
+	server_btn.connect("pressed", self, "_on_multiplayer_server_pressed")
+	_menu_box.add_child(server_btn)
+
 	var about_btn := Button.new()
 	about_btn.text = "About"
 	about_btn.connect("pressed", self, "_on_about_pressed")
@@ -93,7 +98,23 @@ func _on_multiplayer_pressed() -> void:
 	mp.anchor_right = 1.0
 	mp.anchor_bottom = 1.0
 	add_child(mp)
-	mp.init(_db, funcref(self, "_on_multiplayer_connected"))
+	mp.init(_db, funcref(self, "_on_multiplayer_connected"), funcref(self, "_restore_menu"))
+
+# Host an authoritative server in this process (the "Multiplayer Server" button).
+# server_setup runs the whole thing — new-game/load config, the running server,
+# and per-turn autosave — so we just stand it up and restore the menu on close.
+func _on_multiplayer_server_pressed() -> void:
+	_menu_box.visible = false
+	var srv = load("res://scenes/net/server_setup.gd").new()
+	srv.anchor_right = 1.0
+	srv.anchor_bottom = 1.0
+	add_child(srv)
+	srv.init(_db, funcref(self, "_restore_menu"))
+
+# Re-show the main menu when a sub-screen (multiplayer / server) is dismissed.
+func _restore_menu() -> void:
+	if _menu_box != null:
+		_menu_box.visible = true
 
 # A remote game is ready: reparent the live NetClient into the main scene (so it
 # keeps polling after this menu frees) and hand the server-built facade to

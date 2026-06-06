@@ -46,6 +46,7 @@ func _init() -> void:
 
 	_server = NetServer.new()
 	_server.init(facade, db, "Smoke")
+	_server.set_save_path("loopback_smoke.sav")   # exercise per-turn autosave
 	_server.listen(PORT)
 
 	_client = NetClient.new()
@@ -71,7 +72,10 @@ func _on_sync(active: bool) -> void:
 	var gs = _facade.get_state()
 	print("SMOKE: state_synced active=", active, " turn=", gs.turn_number)
 	if gs.turn_number >= 2:
-		print("SMOKE: PASS — advanced to turn ", gs.turn_number, " over ", _syncs, " syncs")
+		var saved := File.new().file_exists("user://saves/loopback_smoke.sav")
+		print("SMOKE: autosave file present=", saved)
+		print("SMOKE: ", ("PASS" if saved else "FAIL (no autosave)"),
+			" — advanced to turn ", gs.turn_number, " over ", _syncs, " syncs")
 		quit()
 		return
 	if active:

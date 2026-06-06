@@ -54,6 +54,25 @@ func test_load_path_and_ignores_unknown() -> void:
 	assert_eq(str(cfg["load"]), "/tmp/game.sav", "load path parsed")
 	assert_true(cfg["server"], "unknown flags do not disturb known ones")
 
+func test_save_path_parsed_and_defaults_empty() -> void:
+	assert_eq(str(NetConfig.parse_args([])["save"]), "", "save empty by default")
+	var cfg: Dictionary = NetConfig.parse_args(["--save=mp_server.sav"])
+	assert_eq(str(cfg["save"]), "mp_server.sav", "save name parsed")
+
+func test_server_requires_save_file() -> void:
+	# Server mode without --save is rejected.
+	var no_save: Dictionary = NetConfig.parse_args(["--server", "--port=9080"])
+	assert_ne(NetConfig.server_config_error(no_save), "",
+		"server without --save reports an error")
+	# With --save it validates clean.
+	var ok: Dictionary = NetConfig.parse_args(["--server", "--save=game.sav"])
+	assert_eq(NetConfig.server_config_error(ok), "",
+		"server with --save validates")
+	# Not server mode at all is also an error for this validator.
+	var off: Dictionary = NetConfig.parse_args(["--save=game.sav"])
+	assert_ne(NetConfig.server_config_error(off), "",
+		"non-server config is flagged")
+
 func test_is_server_mode() -> void:
 	assert_true(NetConfig.is_server_mode(["--no-window", "--server"]), "detects --server")
 	assert_false(NetConfig.is_server_mode(["--no-window"]), "absent → false")

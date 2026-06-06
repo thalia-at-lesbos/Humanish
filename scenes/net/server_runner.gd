@@ -41,6 +41,15 @@ func _init() -> void:
 		quit()
 		return
 
+	# A default save file is mandatory: the server autosaves the authoritative
+	# game every turn, so it must know where.
+	var cfg_err: String = NetConfig.server_config_error(cfg)
+	if cfg_err != "":
+		push_error("[net] " + cfg_err)
+		print("[net] usage: --server --save=<file> [--port=N] [--players=N --ai=N | --load=PATH] …")
+		quit()
+		return
+
 	var db = load("res://src/core/data_db.gd").new()
 	if not db.load_all():
 		push_error("[net] DataDB load failed: " + str(db.get_errors()))
@@ -57,6 +66,7 @@ func _init() -> void:
 
 	_server = NetServer.new()
 	_server.init(facade, db, str(cfg["name"]))
+	_server.set_save_path(str(cfg["save"]))
 	if _server.listen(int(cfg["port"])) != OK:
 		quit()
 		return

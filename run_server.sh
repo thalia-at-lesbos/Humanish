@@ -7,12 +7,16 @@
 # client, windowless, holding the one authoritative game; clients connect over
 # WebSocket (see scenes/net/server_runner.gd and docs/design/network-design.md).
 #
-# Usage:
-#   ./run_server.sh                       # 2-player game, port 9080, no AI
-#   ./run_server.sh --players=3 --ai=1    # 3 slots, server plays 1 of them
-#   ./run_server.sh --port=9000 --world=small --map=continents --pace=normal
-#   ./run_server.sh --load=/path/to/game.sav
+# A default save file is REQUIRED (--save): the server autosaves the
+# authoritative game to it every turn.
 #
+# Usage:
+#   ./run_server.sh --save=game.sav                          # 2 players, port 9080
+#   ./run_server.sh --save=game.sav --players=3 --ai=1       # server plays 1 slot
+#   ./run_server.sh --save=game.sav --port=9000 --world=small --map=continents
+#   ./run_server.sh --save=ongoing.sav --load=/path/to/game.sav
+#
+# A bare --save name lands under the user saves dir; one with a "/" is a full path.
 # Override the engine binary with GODOT=… (defaults to `godot3`). Every flag is
 # forwarded verbatim to NetConfig (src/net/net_config.gd); --server is implied.
 set -euo pipefail

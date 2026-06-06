@@ -20,6 +20,7 @@ const NetClient = preload("res://scenes/net/net_client.gd")
 
 var _db
 var _on_connected   # FuncRef(facade, db, net_client) — called when the game is ready
+var _on_close       # FuncRef() — restore the start menu when this screen goes away
 var _net_client
 
 var _host_edit: LineEdit
@@ -28,9 +29,10 @@ var _name_edit: LineEdit
 var _status: Label
 var _connect_btn: Button
 
-func init(db, on_connected) -> void:
+func init(db, on_connected, on_close = null) -> void:
 	_db = db
 	_on_connected = on_connected
+	_on_close = on_close
 	_build_ui()
 
 func _build_ui() -> void:
@@ -135,6 +137,8 @@ func _on_back_pressed() -> void:
 		_net_client.disconnect_from_server()
 		_net_client.queue_free()
 		_net_client = null
+	if _on_close != null:
+		_on_close.call_func()
 	queue_free()
 
 func _set_status(msg: String) -> void:

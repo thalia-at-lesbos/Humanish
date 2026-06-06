@@ -19,6 +19,9 @@ class_name NetConfig
 #   --server                 enable server mode (otherwise {server:false})
 #   --port=N                 listen port (default 9080)
 #   --name=STR               human-readable server name sent in WELCOME
+#   --save=PATH              REQUIRED in server mode: file the server autosaves the
+#                            authoritative game to every turn (bare name → under the
+#                            user saves dir; contains "/" → used as a full path)
 #   --load=PATH              start the authoritative game from a .sav file
 #   --new                    start a fresh game (the default when --load is absent)
 #   --players=N              total player slots for a new game (default 2)
@@ -40,6 +43,7 @@ static func parse_args(args: Array, default_seed: int = 0) -> Dictionary:
 		"server": false,
 		"port": DEFAULT_PORT,
 		"name": "Humanish Server",
+		"save": "",
 		"load": "",
 		"players": 2,
 		"ai": 0,
@@ -78,6 +82,9 @@ static func parse_args(args: Array, default_seed: int = 0) -> Dictionary:
 			"name":
 				if have_value:
 					cfg["name"] = value
+			"save":
+				if have_value:
+					cfg["save"] = value
 			"load":
 				if have_value:
 					cfg["load"] = value
@@ -110,6 +117,17 @@ static func parse_args(args: Array, default_seed: int = 0) -> Dictionary:
 	if cfg["ai"] > cfg["players"]:
 		cfg["ai"] = cfg["players"]
 	return cfg
+
+# Validate a parsed server config. Returns "" when good, otherwise a human-
+# readable reason the server must not start. A default save file is mandatory in
+# server mode so the authoritative game is always persisted (it autosaves every
+# turn). Testable without launching anything.
+static func server_config_error(cfg: Dictionary) -> String:
+	if not bool(cfg.get("server", false)):
+		return "not server mode"
+	if str(cfg.get("save", "")) == "":
+		return "a default save file is required: pass --save=<file>"
+	return ""
 
 # True when the args request server mode. Thin helper so launchers don't reparse.
 static func is_server_mode(args: Array) -> bool:

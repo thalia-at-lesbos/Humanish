@@ -34,6 +34,10 @@ extends Reference
 
 const NetProtocol = preload("res://src/net/net_protocol.gd")
 
+# Where bare save filenames land (shared with the in-game save/load screen so the
+# two never drift). A save path containing "/" is treated as a full path instead.
+const SAVE_DIR: String = "user://saves/"
+
 # Full-state snapshots (a whole serialized GameState) are large — far bigger than
 # the WebSocket default frame buffers — so we widen them before listening. Sizes
 # are in KB; the engine rounds each up to a power of two. 8 MB comfortably holds a
@@ -44,6 +48,7 @@ const BUF_PACKETS: int = 16
 var _db
 var _facade
 var _server_name: String = "Humanish Server"
+var _save_path: String = ""   # autosave target; empty = disabled (see set_save_path)
 
 var _ws: WebSocketServer
 var _listening: bool = false
@@ -59,6 +64,15 @@ func init(facade, db, server_name: String = "Humanish Server") -> void:
 	_facade = facade
 	_db = db
 	_server_name = server_name
+
+# Set the file the authoritative game is autosaved to after every turn. A bare
+# filename (no "/") is placed under SAVE_DIR; anything with a slash is treated as
+# a full path. Empty disables autosave.
+func set_save_path(path: String) -> void:
+	_save_path = path
+
+func get_save_path() -> String:
+	return _save_path
 
 # Begin listening on `port`. Returns OK or a Godot error code. The facade must
 # already hold a set-up (or loaded) game before this is called.
@@ -81,6 +95,14 @@ func listen(port: int) -> int:
 		print("[net] server '", _server_name, "' listening on port ", port,
 			" — remote slots: ", _remote_player_ids,
 			" total players: ", gs.players.size())
+		if _save_path != "":
+			print("[net] autosaving every turn to ", _resolved_save_path())
+		# Autosave after every player's turn ends (player_turn_started fires once
+		# per turn transition, from both human submits and the AI turns the server
+		# plays), so a completed turn is never lost to a crash.
+		_facade.connect("player_turn_started", self, "_on_turn_advanced")
+		# Persist the opening state immediately so the save file always exists.
+		_save_to_disk()
 		# Drive once so any AI players that lead the round robin play immediately,
 		# parking on the first remote slot (which waits for its client to connect).
 		_drive()
@@ -226,6 +248,38 @@ func _release_peer(peer_id: int) -> void:
 	_peers.erase(peer_id)
 	if int(_player_peer.get(player_id, -1)) == peer_id:
 		_player_peer.erase(player_id)
+
+# ── Autosave ───────────────────────────────────────────────────────────────────
+
+func _on_turn_advanced(_player_id: int) -> void:
+	_save_to_disk()
+
+# Resolve the configured save target to a concrete path: a bare filename goes
+# under SAVE_DIR, a path with a slash is used verbatim.
+func _resolved_save_path() -> String:
+	if _save_path.find("/") >= 0:
+		return _save_path
+	return SAVE_DIR + _save_path
+
+func _save_to_disk() -> void:
+	if _save_path == "" or _facade == null:
+		return
+	var path: String = _resolved_save_path()
+	# Ensure the saves dir exists for bare-filename targets.
+	if not (_save_path.find("/") >= 0):
+		var dir := Directory.new()
+		if not dir.dir_exists(SAVE_DIR):
+			dir.make_dir_recursive(SAVE_DIR)
+	var file := File.new()
+	if file.open(path, File.WRITE) != OK:
+		push_error("[net] autosave failed to open " + path)
+		return
+	file.store_string(_facade.save())
+	file.close()
+
+# Public view of the player roster (for a host status display).
+func get_players() -> Array:
+	return _player_summaries()
 
 func _player_summaries() -> Array:
 	var out: Array = []
