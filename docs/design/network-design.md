@@ -292,25 +292,31 @@ run_server.sh         convenience launcher for the headless server
 
 * The **pure layers** (`NetProtocol`, `NetConfig`) and the **facade seam**
   (`tests/api/test_sim_facade_remote.gd`) run in the normal CI unit gate.
-* The **live socket path** is exercised by `tests/manual/loopback_smoke.gd`
-  (run by hand): it spins up an in-process server (1 remote + 1 AI player),
-  connects one client, submits turns asserting the turn counter advances as the
-  server runs the pipeline, and confirms the per-turn autosave file appears. It
-  is kept out of CI because real sockets and frame-yields would make a headless
-  gate flaky.
+* The **live socket path is a CI gate**: `tests/net/test_multiplayer_loopback.gd`
+  opens real loopback WebSocket connections between an in-process `NetServer` and
+  `NetClient`s, pumping frames through GUT yields (a small poller Node drives the
+  server's `poll()`; clients poll themselves in `_process`). It asserts the full
+  turn cycle — a client ends its turn, the server runs the authoritative pipeline
+  (its own end-turn + the AI player + `world_step`) and pushes the next turn back
+  — plus the per-turn autosave, and the **off-turn-join regression** (a second
+  client connecting on another player's turn still reaches `game_ready`, parked
+  in the waiting state). Loopback on `127.0.0.1` is reliable headless, so this
+  runs in the normal unit gate (`tests/net/`).
+* The same path also has a by-hand harness, `tests/manual/loopback_smoke.gd`
+  (server with 1 remote + 1 AI player; prints `SMOKE: PASS`), kept out of CI as a
+  quick manual probe:
 
 ```bash
 godot3 --no-window -s res://tests/manual/loopback_smoke.gd   # prints "SMOKE: PASS"
 ```
 
-These socket/GUI paths are not covered by the CI gate, so two classes of bug
-slipped past it initially and were fixed against headless repros: the host
-status panel reading a freed config widget every refresh (the panel now caches
-the port/name into plain vars before the config form is freed), and a client
-joining on another player's turn never leaving the lobby (the server now sends
-every joiner a bootstrap snapshot — see *Bootstrap & re-sync* above). A small
-permanent multi-client harness under `tests/manual/` for the off-turn-join case
-is a worthwhile follow-up.
+The CI socket gate exists because two real bugs once slipped past the pure
+suites and were fixed against headless repros: a client joining on another
+player's turn never leaving the lobby (the server now sends every joiner a
+bootstrap snapshot — see *Bootstrap & re-sync* above; this case is now asserted
+in the gate), and the host status panel reading a freed config widget every
+refresh (the panel now caches port/name into plain vars before the config form
+is freed — a GUI-only path the headless gate cannot reach).
 
 ---
 
