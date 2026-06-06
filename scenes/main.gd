@@ -18,10 +18,16 @@ var _facade
 var _db
 var _dbg_log   # DebugLog (advanced debugging; only active in interactive debug builds)
 var _extra_screens = {}   # ControlType -> simple read-only info screen node
+var _net_client = null     # NetClient (remote multiplayer); null in solo/hotseat play
 
 func init_with_facade(facade, db) -> void:
 	_facade = facade
 	_db = db
+
+# Attach a live NetClient before the scene is added to the tree (remote play).
+# Wiring happens in _ready() once the world/HUD nodes exist.
+func set_net_client(net_client) -> void:
+	_net_client = net_client
 
 func _ready() -> void:
 	if _facade == null:
@@ -111,6 +117,34 @@ func _ready() -> void:
 		# map on one of their units here at game start.
 		if world_view.has_method("center_on_player"):
 			world_view.center_on_player(_facade.get_state().current_player_id)
+
+	# Remote multiplayer: refresh the view whenever the server pushes new state.
+	_wire_net_client(world_view)
+
+# ── Remote multiplayer ─────────────────────────────────────────────────────────
+
+# In a remote game the server (not a local pipeline) drives turns: each STATE
+# frame re-syncs the facade, so we repaint and re-fog for *our* player here. No
+# HotseatManager pass-device flow runs — player_turn_started never fires on the
+# client — so this is the client's equivalent "your turn begins" hook.
+func _wire_net_client(world_view) -> void:
+	if _net_client == null:
+		return
+	_net_client.connect("state_synced", self, "_on_net_state_synced", [world_view])
+	_net_client.connect("game_over", self, "_on_net_game_over")
+
+func _on_net_state_synced(active: bool, world_view) -> void:
+	var my_id: int = _net_client.get_player_id()
+	if world_view != null:
+		var fog = world_view.get_node_or_null("FogLayer")
+		if fog != null:
+			fog.rebuild(my_id)
+		if active and world_view.has_method("center_on_player"):
+			world_view.center_on_player(my_id)
+	_facade.get_dirty().mark_all()
+
+func _on_net_game_over(alliance_id: int) -> void:
+	print("Remote game over — winning alliance: ", alliance_id)
 
 func _init_extra_screens(screens) -> void:
 	var defs = {

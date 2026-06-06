@@ -32,7 +32,7 @@ jobs:
       - name: Run unit tests
         run: >-
           godot -s addons/gut/gut_cmdln.gd
-          -gdir=res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes
+          -gdir=res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes,res://tests/net
           -ginclude_subdirs -gexit
 
       - name: Run integration playthrough

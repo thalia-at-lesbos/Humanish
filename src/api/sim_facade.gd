@@ -36,6 +36,15 @@ var _interface_mode: int = 0    # IDs.InterfaceMode.SELECTION
 var _popup_queue: Array = []
 var _notifications: Array = []
 
+# Remote-multiplayer client seam (not part of simulation; not serialized).
+# When a NetClient installs a submit handler, this facade is a remote client:
+# ending the turn no longer runs the local pipeline — instead the handler ships
+# the player's post-move snapshot to the authoritative server, and the facade is
+# parked in a "waiting" state until the server pushes the next turn's state.
+# In server / single-player mode these stay null/false and nothing changes.
+var _remote_submit_cb = null     # FuncRef() → bool, set via set_remote_submit_handler()
+var _remote_waiting: bool = false
+
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
@@ -189,6 +198,17 @@ func apply_command(cmd: Dictionary) -> bool:
 	var ctype: int = int(cmd.get("type", -1))
 	var player_id: int = int(cmd.get("player_id", -1))
 
+	# Remote client: an end-turn is not run locally — it is handed to the server
+	# as a full-state submission (see set_remote_submit_handler). All other
+	# commands fall through and mutate the local facade normally, exactly as in a
+	# solo game, because the client owns the current turn until it submits. Once
+	# parked (waiting on the server) a repeat end-turn is dropped, never run
+	# through the local pipeline — only the server advances the authoritative game.
+	if _remote_submit_cb != null and _is_end_turn_command(ctype, cmd):
+		if _remote_waiting:
+			return false
+		return _remote_submit()
+
 	# Validate it's this player's turn
 	if player_id != _gs.current_player_id:
 		return false
@@ -253,6 +273,50 @@ func apply_command(cmd: Dictionary) -> bool:
 		IDs.CommandType.GP_ACTION:
 			return _cmd_gp_action(cmd)
 	return false
+
+# ── Remote-multiplayer client seam ────────────────────────────────────────────
+
+# Install (or clear, with null) the handler a NetClient uses to ship the player's
+# post-move snapshot to the server at end-of-turn. Setting a non-null handler
+# marks this facade as a remote client. Pure presentation/transport wiring — the
+# sim never sees it; it is not serialized.
+func set_remote_submit_handler(cb) -> void:
+	_remote_submit_cb = cb
+	if cb == null:
+		_remote_waiting = false
+
+func is_remote_client() -> bool:
+	return _remote_submit_cb != null
+
+# Park / unpark the local turn. While waiting, the End Turn button reads as
+# "Waiting…" and another end-turn cannot be submitted. The NetClient clears this
+# when the server pushes the next state this player owns.
+func set_remote_waiting(flag: bool) -> void:
+	_remote_waiting = flag
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+func is_remote_waiting() -> bool:
+	return _remote_waiting
+
+# True for any command that ends the turn — the direct END_TURN command or the
+# END_TURN / FORCE_END_TURN control routed through DO_CONTROL (the hotkey path).
+func _is_end_turn_command(ctype: int, cmd: Dictionary) -> bool:
+	if ctype == IDs.CommandType.END_TURN:
+		return true
+	if ctype == IDs.CommandType.DO_CONTROL:
+		var ct: int = int(cmd.get("ctrl_type", -1))
+		return ct == IDs.ControlType.END_TURN or ct == IDs.ControlType.FORCE_END_TURN
+	return false
+
+# Hand the current snapshot to the server and park the turn. Returns the
+# handler's result (false if no handler is installed — should not happen, since
+# the apply_command guard checks first).
+func _remote_submit() -> bool:
+	if _remote_submit_cb == null:
+		return false
+	_remote_waiting = true
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	return bool(_remote_submit_cb.call_func())
 
 # ── Command handlers ──────────────────────────────────────────────────────────
 
@@ -1391,6 +1455,9 @@ func can_handle_action(action_id: int, target_x: int, target_y: int) -> bool:
 
 func get_end_turn_state() -> int:
 	# 0 = ready, 1 = waiting on others, 2 = idle units prompt
+	# A remote client that has submitted its turn is waiting on the server.
+	if _remote_waiting:
+		return 1
 	if _gs.current_player_id < 0:
 		return 1
 	for u in _gs.units:

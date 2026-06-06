@@ -15,6 +15,8 @@ src/
   world/                    Map geometry, tile output formula, regions, cultural influence
   sim/                      Rule modules: every §3–§11 mechanic
   api/                      Public surface: commands, save/load, facade
+  net/                      Pure remote-multiplayer protocol + server CLI parsing
+                            (net_protocol, net_config — no sockets; see network-design.md)
 scenes/
   menus/                    start_menu.tscn/.gd  — entry point; title screen + nav
   setup/                    setup_screen.gd      — new-game config (players, society, world params)
@@ -30,13 +32,20 @@ scenes/
                             military, espionage, encyclopedia)
   input/                    input_router.gd, hotkey_map.gd
   hotseat/                  hotseat_manager.gd, pass_device_screen.tscn/.gd
+  net/                      Remote multiplayer runtime: net_server.gd (authoritative
+                            WebSocket server + turn loop + per-turn autosave),
+                            server_runner.gd (headless entry), net_client.gd,
+                            multiplayer_setup.gd (client join lobby),
+                            server_setup.gd (in-game host: new/load config + status)
   debug/                    debug_overlay.gd ('~' menu), terminal_console.gd
                             (debug-build-only tools; see docs/design/debug.md)
 tests/                      GUT 7.4.3 headless suites, organised by functional area
-                            (core/ world/ sim/ api/ scenes/) mirroring src/;
+                            (core/ world/ sim/ api/ scenes/ net/) mirroring src/;
                             support/sim_fixture.gd holds the shared scaffolding;
                             integration/ holds the end-to-end playthrough gate
-                            (run after the unit suites — see run_tests.sh)
+                            (run after the unit suites — see run_tests.sh);
+                            manual/ holds non-CI harnesses (e.g. the multiplayer
+                            loopback smoke test)
 addons/gut/                 Test framework (vendored)
 docs/                       This file, the engine-core plan, and the full game-rules spec
 ```
@@ -99,6 +108,19 @@ The simple read-only advisor/info screens (`OPEN_RELIGION`, `OPEN_CORPORATION`, 
 
 ### Input (`scenes/input/`)
 `InputRouter` translates raw `_input` events into `Commands.*()` calls via `facade.apply_command()`. `HotkeyMap` loads key bindings from `data/hotkeys.json`.
+
+### Remote multiplayer (`src/net/`, `scenes/net/`)
+A simple asynchronous **client–server** layer, **full-state handoff, round robin**. Like the UI and `PlayerAI`, every networking object is a *client* of `SimFacade` — it only reads `get_state()` or mutates through `apply_command()`/`load_save()`/`save()`; nothing in `sim/`/`world/` references it. Transport is Godot 3's built-in **WebSocket** (TCP, one port) — the simplest stack that is transparent across the internet (clients make outbound connections; no NAT/firewall config beyond the server's one reachable port).
+
+* **`src/net/net_protocol.gd`** (`NetProtocol`, pure) — the wire format: message-type constants and `encode`/`decode` of `{v, t, d}` JSON frames. Snapshots are `SimFacade.save()` strings carried inside frames.
+* **`src/net/net_config.gd`** (`NetConfig`, pure) — parses the headless server's command-line switches (`--server`, `--port`, `--players`, `--ai`, `--load`, …) into a config dict.
+* **`scenes/net/net_server.gd`** — the authoritative server (a `Reference`): a `WebSocketServer` plus the round-robin `_drive()` loop that plays AI slots itself, pushes `state` to the active remote human, and on `submit` adopts the snapshot and runs the authoritative end-of-turn pipeline. On `hello` it also sends every joiner a bootstrap `state` (inactive when it is not their turn) so off-turn joiners still enter the game. **Autosaves every turn** (`set_save_path`, hooked to the facade's `player_turn_started`). Polled by whatever owns it.
+* **`scenes/net/server_runner.gd`** — headless entry point (`extends SceneTree`, the `-s` target): builds `DataDB` + `SimFacade` from `NetConfig`, stands up the server, polls the socket each `idle_frame`. No scene/menu is loaded. `--save` is required. Launched via `run_server.sh`.
+* **`scenes/net/net_client.gd`** — the client (`Node`, so it polls each frame): a `WebSocketClient`; on the first `state` it builds a facade and installs itself as the facade's remote-submit handler, then re-syncs on each `state` and ships a `submit` when the player ends their turn.
+* **`scenes/net/multiplayer_setup.gd`** — the client join `Control` opened by the start menu's **Multiplayer** button (host/port/name → Connect), which hands the server-built facade to `main.tscn` like the New Game / Load flows.
+* **`scenes/net/server_setup.gd`** — the in-game host `Control` opened by the start menu's **Multiplayer Server** button: sets port/name/save-file, then configures a **New Game** (reusing `SetupScreen`) or **loads** a save, runs a `NetServer` in-process (polled each `_process` frame), and shows a running-server status panel with a Stop button.
+
+The only engine seam is on `SimFacade` (`set_remote_submit_handler` / `set_remote_waiting`): for a remote client, ending the turn is intercepted and handed to the network instead of running the local pipeline. It is presentation-only wiring (a `FuncRef`) and is not serialized. Full design — protocol table, sequence diagram, launch flags, future simultaneous-turn plan — in **`docs/design/network-design.md`**.
 
 ---
 

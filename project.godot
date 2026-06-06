@@ -209,6 +209,16 @@ _global_script_classes=[ {
 "language": "GDScript",
 "path": "res://src/sim/win_conditions.gd"
 }, {
+"base": "",
+"class": "NetConfig",
+"language": "GDScript",
+"path": "res://src/net/net_config.gd"
+}, {
+"base": "",
+"class": "NetProtocol",
+"language": "GDScript",
+"path": "res://src/net/net_protocol.gd"
+}, {
 "base": "Reference",
 "class": "WorldMap",
 "language": "GDScript",
@@ -234,6 +244,8 @@ _global_script_class_icons={
 "IDs": "",
 "Influence": "",
 "MapGen": "",
+"NetConfig": "",
+"NetProtocol": "",
 "Pathfinding": "",
 "Player": "",
 "PlayerAI": "",
@@ -262,7 +274,7 @@ _global_script_class_icons={
 
 config/name="Humanish"
 config/description="Turn-based 4X strategy game — headless engine + flat-color prototype UI"
-config/version="0.3.0"
+config/version="0.3.5"
 run/main_scene="res://scenes/menus/start_menu.tscn"
 
 [physics]

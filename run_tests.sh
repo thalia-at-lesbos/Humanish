@@ -18,7 +18,7 @@ GUT="addons/gut/gut_cmdln.gd"
 
 # Every unit directory except tests/integration (and tests/support, which holds
 # no test_* files). Listed explicitly so the unit phase excludes the playthrough.
-UNIT_DIRS="res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes"
+UNIT_DIRS="res://tests/core,res://tests/world,res://tests/sim,res://tests/api,res://tests/scenes,res://tests/net"
 
 echo "== Unit suites =="
 "$GODOT" --no-window -s "$GUT" -gdir="$UNIT_DIRS" -ginclude_subdirs -gexit
