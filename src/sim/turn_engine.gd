@@ -76,6 +76,10 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if player == null or player.is_eliminated:
 		return
 
+	# Guarantee a capital before any maintenance/bureaucracy reads it: if the old
+	# capital was lost, the Palace is rebuilt in the new capital (§6.1).
+	_ensure_capital_palace(gs, player_id)
+
 	# 1. Pre-turn bookkeeping
 	if not hooks.run(IDs.Phase.PLAYER_BOOKKEEPING, gs, {"player_id": player_id}):
 		pass  # AI planning would go here
@@ -490,7 +494,16 @@ static func _complete_item(gs: GameState, s: Settlement,
 				u.experience = xp
 			gs.units.append(u)
 		"structure":
-			if not s.has_structure(iid):
+			if iid == "palace":
+				# The Palace is the single seat of government: building it in a
+				# city moves the capital there, so strip it from the player's
+				# other cities (§6.1). _find_capital then reports this city.
+				for other in gs.settlements:
+					if other.owner_player_id == player.id and other != s:
+						other.structures.erase("palace")
+				if not s.has_structure("palace"):
+					s.structures.append("palace")
+			elif not s.has_structure(iid):
 				s.structures.append(iid)
 		"project":
 			var proj: Dictionary = gs.db.projects.get(iid, {})
@@ -688,16 +701,41 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 	else:
 		player.insolvent_turns = 0
 
-# The player's capital: the surviving settlement with the lowest id (earliest
-# founded). Null if the player has no settlements.
+# The player's capital: the city holding the Palace. The Palace is the single
+# seat of government, so it *defines* the capital — building it in another city
+# moves the capital there. Falls back to the earliest-founded surviving city when
+# none holds the Palace (the brief window after the old capital is lost, before
+# _ensure_capital_palace re-seeds it — which targets that same fallback). Null if
+# the player has no settlements.
 static func _find_capital(gs: GameState, player_id: int) -> Settlement:
-	var capital: Settlement = null
+	var fallback: Settlement = null
 	for s in gs.settlements:
 		if s.owner_player_id != player_id:
 			continue
-		if capital == null or s.id < capital.id:
-			capital = s
-	return capital
+		if s.has_structure("palace"):
+			return s
+		if fallback == null or s.id < fallback.id:
+			fallback = s
+	return fallback
+
+# A player always has exactly one capital. If the capital was lost (no surviving
+# city holds the Palace) the Palace is rebuilt for free in the new capital — the
+# earliest-founded surviving city — so a player who still has cities is never
+# left capital-less. No-op when the capital is intact, when the player has no
+# cities, or when the data tables define no Palace.
+static func _ensure_capital_palace(gs: GameState, player_id: int) -> void:
+	if gs.db.get_structure("palace").empty():
+		return
+	var fallback: Settlement = null
+	for s in gs.settlements:
+		if s.owner_player_id != player_id:
+			continue
+		if s.has_structure("palace"):
+			return   # capital intact
+		if fallback == null or s.id < fallback.id:
+			fallback = s
+	if fallback != null:
+		fallback.structures.append("palace")
 
 # Sell the newest structure (salvage refund) or, failing that, disband a unit to
 # relieve insolvency. Returns true if something was sold/disbanded.
