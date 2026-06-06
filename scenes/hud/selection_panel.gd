@@ -53,6 +53,27 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	move_lbl.text = "MP: " + str(u.movement_left) + "/" + str(u.movement_total)
 	add_child(move_lbl)
 
+	# On-tile unit list: every unit the player owns on this tile, so a stack can
+	# be inspected and addressed member-by-member. Clicking a row selects just
+	# that unit; "Select all" makes subsequent action buttons apply to the whole
+	# stack at once.
+	var sel = _facade.get_selection()
+	var stack: Array = _owned_units_on_tile(u.x, u.y, gs)
+	if stack.size() > 1:
+		var stack_lbl: Label = Label.new()
+		stack_lbl.text = "Stack on tile (" + str(stack.size()) + "):"
+		add_child(stack_lbl)
+		for su in stack:
+			var row: Button = Button.new()
+			var mark: String = "▸ " if su.id in sel.selected_unit_ids else "  "
+			row.text = mark + su.unit_type_id.capitalize() + "  (HP " + str(su.health) + ")"
+			row.connect("pressed", self, "_on_select_stack_member", [su.id])
+			add_child(row)
+		var all_btn: Button = Button.new()
+		all_btn.text = "Select all (" + str(stack.size()) + ")"
+		all_btn.connect("pressed", self, "_on_select_all", [u.x, u.y])
+		add_child(all_btn)
+
 	# Action buttons from flyout menu. Skip the "Open City" action: that belongs
 	# to a selected city, not a unit that merely shares the tile with one —
 	# otherwise it lingers on screen with no city actually selected.
@@ -92,7 +113,9 @@ func _build_city_panel(city_id: int, gs) -> void:
 	add_child(city_btn)
 
 func _on_action_pressed(item: Dictionary) -> void:
-	# Map flyout item to a command — minimal mapping for Phase 6
+	# Map flyout item to a command. When a whole stack is selected, per-unit
+	# orders (fortify / wake) apply to every selected unit; founding a settlement
+	# stays a single-settler action on the head unit.
 	var gs = _facade.get_state()
 	var sel = _facade.get_selection()
 	var uid: int = sel.head_unit()
@@ -103,9 +126,27 @@ func _on_action_pressed(item: Dictionary) -> void:
 	if aid == IDs.UnitMission.FOUND_SETTLEMENT:
 		_facade.apply_command(Commands.found_settlement(pid, int(item.get("unit_id", uid))))
 	elif aid == IDs.UnitCmd.FORTIFY:
-		_facade.apply_command(Commands.unit_fortify(pid, uid))
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.unit_fortify(pid, id))
 	elif aid == IDs.UnitCmd.WAKE:
-		_facade.apply_command(Commands.mission_skip_turn(pid, uid))
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.mission_skip_turn(pid, id))
+
+func _on_select_stack_member(unit_id: int) -> void:
+	_facade.select_unit(unit_id)
+	rebuild()
+
+func _on_select_all(tx: int, ty: int) -> void:
+	_facade.select_stack(tx, ty)
+	rebuild()
+
+# Every unit the current player owns on a tile, in stable spawn order.
+func _owned_units_on_tile(tx: int, ty: int, gs) -> Array:
+	var out: Array = []
+	for u in gs.units:
+		if u.x == tx and u.y == ty and u.owner_player_id == gs.current_player_id:
+			out.append(u)
+	return out
 
 func _on_open_city(_city_id: int) -> void:
 	_facade.apply_command(Commands.do_control(

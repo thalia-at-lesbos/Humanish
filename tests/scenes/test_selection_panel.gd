@@ -48,3 +48,46 @@ func test_unit_panel_omits_open_city_button() -> void:
 	assert_eq(_count_buttons_named(panel, "Open City"), 0,
 		"A selected unit must not show an Open City button (no city is selected)")
 	assert_true(panel.get_child_count() > 0, "The unit panel should still show unit info")
+
+func test_stack_panel_lists_members_and_select_all() -> void:
+	var facade = setup_facade(85, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var a = make_unit(gs, "warrior", pid, 4, 4)
+	make_unit(gs, "scout", pid, 4, 4)
+	make_unit(gs, "archer", pid, 4, 4)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(a.id)
+	panel.rebuild()
+
+	assert_true(_count_buttons_named(panel, "Select all (3)") == 1,
+		"A multi-unit tile shows a Select-all button")
+
+	# Selecting all then a fortify action fortifies every unit in the stack.
+	panel._on_select_all(4, 4)
+	assert_eq(facade.get_selection().selected_unit_ids.size(), 3,
+		"Select all selects the whole stack")
+	panel._on_action_pressed({"action_id": IDs.UnitCmd.FORTIFY})
+	for u in gs.units:
+		if u.x == 4 and u.y == 4:
+			assert_true(u.is_fortified, "Fortify-all should fortify every unit in the stack")
+
+func test_single_unit_panel_has_no_stack_list() -> void:
+	var facade = setup_facade(86, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var solo = make_unit(gs, "warrior", pid, 2, 2)
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(solo.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Select all (1)"), 0,
+		"A lone unit shows no Select-all button")

@@ -64,6 +64,23 @@ func test_select_city_updates_selection_state() -> void:
 	f.select_city(cid)
 	assert_eq(f.get_selection().head_city(), cid, "head_city should equal the selected city id")
 
+func test_select_stack_selects_all_owned_units_on_tile() -> void:
+	var f = setup_facade(6)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var a = _unit(f, pid, "warrior", 4, 4)
+	var b = _unit(f, pid, "scout", 4, 4)
+	# An enemy unit and a friendly unit elsewhere must be excluded.
+	_unit(f, gs.players[1].id, "warrior", 4, 4)
+	_unit(f, pid, "archer", 9, 9)
+
+	var n = f.select_stack(4, 4)
+	assert_eq(n, 2, "Only the two owned units on the tile are selected")
+	var ids = f.get_selection().selected_unit_ids
+	assert_true(a in ids and b in ids, "Both owned units on the tile are in the selection")
+	assert_eq(f.get_selection().head_unit(), a, "Head is the first owned unit in spawn order")
+
 func test_cycle_idle_units_visits_all_idle() -> void:
 	var f = setup_facade(6)
 	var gs = f.get_state()

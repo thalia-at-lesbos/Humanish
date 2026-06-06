@@ -1199,6 +1199,19 @@ func select_city(city_id: int, raise_screen: bool = false) -> void:
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 
+# Select every unit the current player owns on a tile as one multi-unit
+# selection (head = the first in spawn order). Lets the host issue an order to a
+# whole stack at once. Returns the number of units selected.
+func select_stack(tx: int, ty: int) -> int:
+	_selection.clear()
+	for u in _gs.units:
+		if u.x == tx and u.y == ty and u.owner_player_id == _gs.current_player_id:
+			_selection.select_unit(u.id, false, false)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return _selection.selected_unit_ids.size()
+
 func clear_selection() -> void:
 	_selection.clear()
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
