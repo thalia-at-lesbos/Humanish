@@ -238,6 +238,10 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_reject_trade(cmd)
 		IDs.CommandType.ASSIGN_SPECIALIST:
 			return _cmd_assign_specialist(cmd)
+		IDs.CommandType.SET_TILE_WORKED:
+			return _cmd_set_tile_worked(cmd)
+		IDs.CommandType.SET_CITIZEN_AUTOMATION:
+			return _cmd_set_citizen_automation(cmd)
 		IDs.CommandType.ESPIONAGE_MISSION:
 			return _cmd_espionage_mission(cmd)
 		IDs.CommandType.LOAD_UNIT:
@@ -691,6 +695,58 @@ func _cmd_assign_specialist(cmd: Dictionary) -> bool:
 		s.specialists.erase(stype)
 	else:
 		s.specialists[stype] = count
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
+
+# Lock or unlock a tile as worked by a city (§11 city screen). A locked tile is
+# always worked (capacity permitting); unlocking removes the lock. After the
+# change the player's worked tiles are recomputed immediately so the city screen
+# reflects it at once (output stays turn-cached and refreshes next turn).
+func _cmd_set_tile_worked(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var s: Settlement = _gs.get_settlement(int(cmd.get("settlement_id", -1)))
+	if s == null or s.owner_player_id != p.id:
+		return false
+	var tx: int = int(cmd.get("x", -999))
+	var ty: int = int(cmd.get("y", -999))
+	if not _gs.map.is_valid(tx, ty):
+		return false
+	# The tile must be within the city's worked radius and ownable by the player.
+	var in_range: bool = false
+	for tile in _gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
+		if tile.x == tx and tile.y == ty:
+			if tile.owner_player_id == p.id or tile.owner_player_id == -1:
+				in_range = true
+			break
+	if not in_range:
+		return false
+	var worked: bool = bool(cmd.get("worked", true))
+	var idx: int = -1
+	for i in range(s.locked_tiles.size()):
+		if int(s.locked_tiles[i][0]) == tx and int(s.locked_tiles[i][1]) == ty:
+			idx = i
+			break
+	if worked and idx < 0:
+		s.locked_tiles.append([tx, ty])
+	elif not worked and idx >= 0:
+		s.locked_tiles.remove(idx)
+	TurnEngine._auto_assign_workers(_gs, p)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
+
+# Toggle a city's automatic citizen management (§11 city screen). When off, only
+# the player's locked tiles are worked; when on, unlocked worker slots auto-fill.
+func _cmd_set_citizen_automation(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var s: Settlement = _gs.get_settlement(int(cmd.get("settlement_id", -1)))
+	if s == null or s.owner_player_id != p.id:
+		return false
+	s.manage_citizens_auto = bool(cmd.get("auto", true))
+	TurnEngine._auto_assign_workers(_gs, p)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
@@ -1198,6 +1254,19 @@ func select_city(city_id: int, raise_screen: bool = false) -> void:
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+
+# Select every unit the current player owns on a tile as one multi-unit
+# selection (head = the first in spawn order). Lets the host issue an order to a
+# whole stack at once. Returns the number of units selected.
+func select_stack(tx: int, ty: int) -> int:
+	_selection.clear()
+	for u in _gs.units:
+		if u.x == tx and u.y == ty and u.owner_player_id == _gs.current_player_id:
+			_selection.select_unit(u.id, false, false)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return _selection.selected_unit_ids.size()
 
 func clear_selection() -> void:
 	_selection.clear()

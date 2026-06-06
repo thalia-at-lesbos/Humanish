@@ -58,3 +58,57 @@ func test_city_view_add_to_production_queues_item() -> void:
 	assert_eq(s.production_queue.size(), 1, "Build button should queue one item")
 	assert_eq(str(s.production_queue[0].get("id", "")), "granary",
 		"The queued item should be the chosen structure")
+
+func _has_pair(arr, x, y) -> bool:
+	for p in arr:
+		if int(p[0]) == x and int(p[1]) == y:
+			return true
+	return false
+
+func test_city_screen_toggle_tile_locks_it() -> void:
+	var facade = setup_facade(73, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 2)
+
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_toggle_tile(6, 5, true)
+	assert_true(_has_pair(s.locked_tiles, 6, 5), "Toggling a tile on locks it")
+	assert_true(_has_pair(s.worked_tiles, 6, 5), "…and it becomes worked immediately")
+	screen._on_toggle_tile(6, 5, false)
+	assert_false(_has_pair(s.locked_tiles, 6, 5), "Toggling it again removes the lock")
+
+func test_city_screen_toggle_automation() -> void:
+	var facade = setup_facade(74, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 2)
+	assert_true(s.manage_citizens_auto, "Cities start auto-managed")
+
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_toggle_automation(false)
+	assert_false(s.manage_citizens_auto, "Automation toggle turns management manual")
+
+func test_city_screen_assign_specialist() -> void:
+	var facade = setup_facade(75, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 3)
+
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_specialist("scientist", 1)
+	assert_eq(int(s.specialists.get("scientist", 0)), 1, "Adding a specialist sets its count")
+	screen._on_specialist("scientist", 0)
+	assert_eq(int(s.specialists.get("scientist", 0)), 0, "Removing it clears the count")

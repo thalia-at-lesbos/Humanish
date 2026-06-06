@@ -242,6 +242,24 @@ static func assign_specialist(player_id: int, settlement_id: int,
 		"count": count
 	}
 
+static func set_tile_worked(player_id: int, settlement_id: int,
+		x: int, y: int, worked: bool) -> Dictionary:
+	return {
+		"type": IDs.CommandType.SET_TILE_WORKED,
+		"player_id": player_id,
+		"settlement_id": settlement_id,
+		"x": x, "y": y, "worked": worked
+	}
+
+static func set_citizen_automation(player_id: int, settlement_id: int,
+		auto: bool) -> Dictionary:
+	return {
+		"type": IDs.CommandType.SET_CITIZEN_AUTOMATION,
+		"player_id": player_id,
+		"settlement_id": settlement_id,
+		"auto": auto
+	}
+
 static func espionage_mission(player_id: int, target_alliance_id: int,
 		mission: String) -> Dictionary:
 	# mission: "steal_tech" or "sabotage"

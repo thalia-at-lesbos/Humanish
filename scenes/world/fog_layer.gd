@@ -12,13 +12,26 @@ extends Node2D
 
 # Per-player fog-of-war overlay. Draws a dark rectangle on tiles the current
 # player cannot see. Rebuilt when HotseatManager signals a turn handoff.
+#
+# Two layers of darkness model "explored memory": a tile the active player has
+# *ever* seen stays revealed (remembered terrain, lightly dimmed) even after the
+# unit that saw it moves on, and only snaps back to full black if it was never
+# seen at all. Currently-visible tiles get no overlay. Live units/cities are
+# hidden in remembered-but-not-visible areas (the renderer reads
+# get_visible_tiles()), so the player sees the old terrain but not stale unit
+# positions — "previous state until vision updates it".
 
 const TILE_SIZE: int = 40
-# Fully opaque: hidden tiles are blacked out completely, with no transparency
+# Fully opaque: never-seen tiles are blacked out completely, with no transparency
 # that would let the underlying terrain bleed through.
 const FOG_COLOR: Color = Color(0.0, 0.0, 0.0, 1.0)
+# Explored-but-not-currently-visible: a translucent veil so the remembered
+# terrain reads through, dimmer than live sight.
+const REMEMBERED_COLOR: Color = Color(0.0, 0.0, 0.0, 0.55)
 
-var _visible_tiles: Dictionary = {}   # "x,y" → true
+var _visible_tiles: Dictionary = {}    # "x,y" → true (current sight this turn)
+var _explored_tiles: Dictionary = {}   # "x,y" → true (ever seen by this player)
+var _explored_owner: int = -999        # whose memory _explored_tiles holds
 var _facade
 var _zoom: float = 1.0
 var _offset: Vector2 = Vector2.ZERO
@@ -29,8 +42,17 @@ func init(facade) -> void:
 func get_visible_tiles() -> Dictionary:
 	return _visible_tiles
 
+func get_explored_tiles() -> Dictionary:
+	return _explored_tiles
+
 func rebuild(player_id: int) -> void:
 	_visible_tiles = {}
+	# Explored memory is per player. When the active player changes (hotseat
+	# handoff), start their memory fresh rather than leaking the previous
+	# player's discoveries.
+	if player_id != _explored_owner:
+		_explored_tiles = {}
+		_explored_owner = player_id
 	if _facade == null:
 		return
 	var gs = _facade.get_state()
@@ -48,6 +70,10 @@ func rebuild(player_id: int) -> void:
 		if s.owner_player_id == player_id:
 			_add_visible_range(s.x, s.y, sight_city, gs.map)
 
+	# Everything in current sight joins the remembered set.
+	for key in _visible_tiles:
+		_explored_tiles[key] = true
+
 	update()
 
 # Debug helper: mark every tile visible (the '~' console's `reveal` command).
@@ -60,7 +86,9 @@ func reveal_all() -> void:
 		return
 	for y in range(gs.map.height):
 		for x in range(gs.map.width):
-			_visible_tiles[str(x) + "," + str(y)] = true
+			var k: String = str(x) + "," + str(y)
+			_visible_tiles[k] = true
+			_explored_tiles[k] = true
 	update()
 
 func _add_visible_range(cx: int, cy: int, radius: int, wmap) -> void:
@@ -91,7 +119,13 @@ func _draw() -> void:
 	for y in range(gs.map.height):
 		for x in range(gs.map.width):
 			var key: String = str(x) + "," + str(y)
-			if not _visible_tiles.has(key):
-				var screen_pos: Vector2 = Vector2(x * TILE_SIZE, y * TILE_SIZE) * _zoom + _offset
-				var rect: Rect2 = Rect2(screen_pos, Vector2(TILE_SIZE, TILE_SIZE) * _zoom)
+			if _visible_tiles.has(key):
+				continue   # in current sight: no overlay
+			var screen_pos: Vector2 = Vector2(x * TILE_SIZE, y * TILE_SIZE) * _zoom + _offset
+			var rect: Rect2 = Rect2(screen_pos, Vector2(TILE_SIZE, TILE_SIZE) * _zoom)
+			# Explored-but-unseen keeps its remembered terrain under a light veil;
+			# never-seen tiles stay fully black.
+			if _explored_tiles.has(key):
+				draw_rect(rect, REMEMBERED_COLOR)
+			else:
 				draw_rect(rect, FOG_COLOR)

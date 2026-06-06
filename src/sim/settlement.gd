@@ -48,6 +48,13 @@ var wellbeing_deficit: int = 0   # max(0, negative - positive)
 # Worked tiles: Array of [x, y] pairs (plus specialist slots)
 var worked_tiles: Array = []
 var specialists: Dictionary = {}  # specialist_type -> count
+# Manual citizen management (§11 city screen): tiles the player has explicitly
+# locked to be worked, and whether unlocked worker slots are auto-filled.
+# Locked tiles are always worked (capacity permitting); when auto is on the
+# remaining slots fill automatically (the historical behaviour), when off only
+# the locked tiles are worked.
+var locked_tiles: Array = []          # Array of [x, y] pairs
+var manage_citizens_auto: bool = true
 
 # Structures built
 var structures: Array = []        # Array of structure IDs
@@ -92,6 +99,8 @@ func serialize() -> Dictionary:
 		"wellbeing_negative": wellbeing_negative,
 		"wellbeing_deficit": wellbeing_deficit,
 		"worked_tiles": worked_tiles.duplicate(true),
+		"locked_tiles": locked_tiles.duplicate(true),
+		"manage_citizens_auto": manage_citizens_auto,
 		"specialists": specialists.duplicate(),
 		"structures": structures.duplicate(),
 		"belief_id": belief_id, "econ_org_id": econ_org_id,
@@ -125,6 +134,8 @@ static func deserialize(d: Dictionary):
 	s.wellbeing_negative = int(d.get("wellbeing_negative", 0))
 	s.wellbeing_deficit = int(d.get("wellbeing_deficit", 0))
 	s.worked_tiles = d.get("worked_tiles", []).duplicate(true)
+	s.locked_tiles = d.get("locked_tiles", []).duplicate(true)
+	s.manage_citizens_auto = bool(d.get("manage_citizens_auto", true))
 	s.specialists = d.get("specialists", {}).duplicate()
 	s.structures = d.get("structures", []).duplicate()
 	s.belief_id = str(d.get("belief_id", ""))

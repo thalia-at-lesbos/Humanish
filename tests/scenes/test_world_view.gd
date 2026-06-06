@@ -82,6 +82,51 @@ func test_fog_updates_when_world_changes() -> void:
 	assert_false(fog.get_visible_tiles().has("5,5"),
 		"The tile left behind should no longer be in current sight")
 
+func test_fog_remembers_explored_tiles_after_unit_leaves() -> void:
+	var facade = setup_facade(94, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var u = make_unit(gs, "warrior", pid, 5, 5)
+
+	var wv = _world_view(facade)
+	var fog = wv.get_node_or_null("FogLayer")
+	fog.init(facade)
+
+	fog.rebuild(pid)
+	assert_true(fog.get_explored_tiles().has("5,5"), "Standing tile should be explored")
+
+	u.x = 12; u.y = 9
+	fog.rebuild(pid)
+	assert_false(fog.get_visible_tiles().has("5,5"),
+		"The vacated tile leaves current sight")
+	assert_true(fog.get_explored_tiles().has("5,5"),
+		"…but stays in explored memory until vision says otherwise")
+	assert_true(fog.get_explored_tiles().has("12,9"),
+		"The new location is also remembered")
+
+func test_fog_memory_resets_on_player_handoff() -> void:
+	var facade = setup_facade(95, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var a = gs.players[0].id
+	var b = gs.players[1].id
+	make_unit(gs, "warrior", a, 5, 5)
+	make_unit(gs, "warrior", b, 14, 11)
+
+	var wv = _world_view(facade)
+	var fog = wv.get_node_or_null("FogLayer")
+	fog.init(facade)
+
+	fog.rebuild(a)
+	assert_true(fog.get_explored_tiles().has("5,5"), "Player A remembers their surroundings")
+	fog.rebuild(b)
+	assert_false(fog.get_explored_tiles().has("5,5"),
+		"Handing off to player B must not leak A's discoveries")
+	assert_true(fog.get_explored_tiles().has("14,11"), "B remembers their own surroundings")
+
 func test_fog_color_is_fully_opaque() -> void:
 	var fog = load("res://scenes/world/fog_layer.gd").new()
 	add_child_autofree(fog)

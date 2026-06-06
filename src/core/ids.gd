@@ -75,7 +75,11 @@ enum CommandType {
     MISSION_MOVE_TO_UNIT = 41,
     MISSION_RECON = 42,
     MISSION_AIR_PATROL = 43,
-    MISSION_SEA_PATROL = 44
+    MISSION_SEA_PATROL = 44,
+    # City citizen management (§11 city screen): manual worked-tile locks and the
+    # per-city automate-citizens toggle.
+    SET_TILE_WORKED = 45,
+    SET_CITIZEN_AUTOMATION = 46
 }
 
 # Win condition types

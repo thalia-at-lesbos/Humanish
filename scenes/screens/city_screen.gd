@@ -88,23 +88,13 @@ func _build() -> void:
 	_line(v, "Contentment  +" + str(s.positive_sentiment) + " / -" + str(s.negative_sentiment) \
 		+ "   discontented " + str(s.discontented) + "/" + str(s.population))
 
-	# ── Worked tiles / resources used ──────────────────────────────────────────
-	_header(v, "Worked tiles (resources used)")
-	if s.worked_tiles.empty():
-		_line(v, "  (none yet — tiles are auto-assigned at the end of the turn)")
-	else:
-		for wt in s.worked_tiles:
-			var tile = gs.map.get_tile(int(wt[0]), int(wt[1]))
-			if tile == null:
-				continue
-			var out = TileOutput.compute(tile, db, techs)
-			var desc = "  (" + str(tile.x) + "," + str(tile.y) + ") " + tile.terrain_id
-			if tile.resource_id != "":
-				desc += " + " + tile.resource_id
-			if tile.improvement_id != "":
-				desc += " [" + tile.improvement_id + "]"
-			desc += "   → F" + str(out[0]) + " P" + str(out[1]) + " C" + str(out[2])
-			_line(v, desc)
+	# ── Citizen management (worked tiles) ──────────────────────────────────────
+	_header(v, "Worked tiles")
+	_build_citizen_management(v, s, gs, db, techs)
+
+	# ── Specialists ────────────────────────────────────────────────────────────
+	_header(v, "Specialists")
+	_build_specialists(v, s)
 
 	# ── Current production ─────────────────────────────────────────────────────
 	_header(v, "Production")
@@ -148,6 +138,110 @@ func _build() -> void:
 	close_btn.text = "Close"
 	close_btn.connect("pressed", self, "_on_close")
 	v.add_child(close_btn)
+
+# Specialist types the city screen lets the player assign. The sim caps the
+# total by population (there is no per-building slot ceiling yet — see
+# designgaps §2), so these are offered uniformly.
+const SPECIALIST_TYPES: Array = ["scientist", "merchant", "artist", "priest", "engineer"]
+
+# Citizen management: an automate toggle plus a simplified grid of the tiles in
+# the city's work radius. Each tile button shows its yield and whether it is
+# worked/locked; clicking toggles a manual lock (auto-fill handles the rest when
+# automation is on). The grid is a flat representation of the surrounding area,
+# not a geographic map.
+func _build_citizen_management(v, s, gs, db, techs) -> void:
+	var auto_btn := Button.new()
+	auto_btn.text = "Automate citizens: " + ("ON" if s.manage_citizens_auto else "OFF")
+	auto_btn.connect("pressed", self, "_on_toggle_automation", [not s.manage_citizens_auto])
+	v.add_child(auto_btn)
+
+	_line(v, "Click a tile to lock/unlock it (★ locked+worked, ☆ locked, ● auto-worked):")
+
+	var worked := {}
+	for wt in s.worked_tiles:
+		worked[str(int(wt[0])) + "," + str(int(wt[1]))] = true
+	var locked := {}
+	for lt in s.locked_tiles:
+		locked[str(int(lt[0])) + "," + str(int(lt[1]))] = true
+
+	var grid := GridContainer.new()
+	grid.columns = 5
+	for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
+		# Skip tiles the city can never work (owned by another player).
+		if not (tile.owner_player_id == s.owner_player_id or tile.owner_player_id == -1):
+			continue
+		var key := str(tile.x) + "," + str(tile.y)
+		var out = TileOutput.compute(tile, db, techs)
+		var btn := Button.new()
+		var mark := ""
+		if locked.has(key):
+			mark = "★ " if worked.has(key) else "☆ "
+		elif worked.has(key):
+			mark = "● "          # auto-assigned (worked but not locked)
+		else:
+			mark = "· "
+		# The city's own tile is tagged for orientation.
+		if tile.x == s.x and tile.y == s.y:
+			mark = "⌂" + mark
+		btn.text = mark + tile.terrain_id.left(4) \
+			+ " F" + str(out[0]) + "P" + str(out[1]) + "C" + str(out[2])
+		btn.connect("pressed", self, "_on_toggle_tile",
+			[tile.x, tile.y, not locked.has(key)])
+		grid.add_child(btn)
+	v.add_child(grid)
+
+# Specialists: current counts and +/- buttons per type. Adding is capped by the
+# sim against the city's population.
+func _build_specialists(v, s) -> void:
+	var total := 0
+	for k in s.specialists:
+		total += int(s.specialists[k])
+	_line(v, "Assigned specialists: " + str(total) + " / pop " + str(s.population))
+	var grid := GridContainer.new()
+	grid.columns = 4
+	for stype in SPECIALIST_TYPES:
+		var count: int = int(s.specialists.get(stype, 0))
+		var lbl := Label.new()
+		lbl.text = "  " + stype.capitalize() + ": " + str(count)
+		grid.add_child(lbl)
+		var minus := Button.new()
+		minus.text = "−"
+		minus.disabled = count <= 0
+		minus.connect("pressed", self, "_on_specialist", [stype, count - 1])
+		grid.add_child(minus)
+		var plus := Button.new()
+		plus.text = "+"
+		plus.connect("pressed", self, "_on_specialist", [stype, count + 1])
+		grid.add_child(plus)
+		var pad := Control.new()
+		grid.add_child(pad)
+	v.add_child(grid)
+
+func _on_toggle_automation(auto: bool) -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.set_citizen_automation(s.owner_player_id, _city_id, auto))
+	rebuild()
+
+func _on_toggle_tile(tx: int, ty: int, worked: bool) -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.set_tile_worked(s.owner_player_id, _city_id, tx, ty, worked))
+	rebuild()
+
+func _on_specialist(stype: String, new_count: int) -> void:
+	if new_count < 0:
+		return
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.assign_specialist(s.owner_player_id, _city_id, stype, new_count))
+	rebuild()
 
 func _on_build(itype: String, iid: String) -> void:
 	var gs = _facade.get_state()

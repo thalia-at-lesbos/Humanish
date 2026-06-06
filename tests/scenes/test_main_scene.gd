@@ -23,6 +23,10 @@ func test_main_scene_boots_and_wires_overlays() -> void:
 	assert_not_null(main.get_node_or_null("Screens/CityScreen"), "city screen wired")
 	assert_not_null(main.get_node_or_null("Screens/TechChooser"), "tech chooser wired")
 	assert_not_null(main.get_node_or_null("Screens/PolicyScreen"), "policy screen wired")
+	assert_not_null(main.get_node_or_null("Screens/DiplomacyScreen"), "diplomacy screen wired")
+	assert_not_null(main.get_node_or_null("HUD/VBox/MenuBar"), "advisor menu bar present")
+	assert_true(main.get_node("HUD/VBox/MenuBar").get_child_count() > 0,
+		"the menu bar should build its advisor buttons")
 	assert_true(main.get_facade().get_state().units.size() > 0,
 		"the booted game should have starting units")
 	get_tree().paused = false  # safety in case an overlay toggled pause

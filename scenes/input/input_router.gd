@@ -18,6 +18,11 @@ var _world_view
 var _hotkey_map
 var _tooltip_label: Label       # set by main after HUD is available
 
+# Auto-advance: once the active unit can no longer act (moved out of moves, or
+# put into a rest stance), automatically select the next idle unit so the player
+# flows through their army without re-clicking. On by default.
+var auto_advance: bool = true
+
 func init(facade, world_view) -> void:
 	_facade = facade
 	_world_view = world_view
@@ -58,26 +63,37 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 				_facade.exit_interface_mode()
 			return
 
-		# Selection mode: click tile
-		var owned_ids: Array = _owned_units_at(tx, ty, gs)
-		var clicked_city_id: int = _find_owned_city_at(tx, ty, gs)
-		var head_uid: int = _facade.get_selection().head_unit()
-
-		if not owned_ids.empty():
-			# Several units may share a tile. Each click on the stack advances to
-			# the next member, so repeated clicks cycle through every unit there.
-			_facade.select_unit(_next_in_stack(owned_ids, head_uid))
-		elif clicked_city_id >= 0:
-			_facade.select_city(clicked_city_id)
-		elif head_uid >= 0:
-			# Unit selected + click empty/enemy tile → try to move
-			var u = gs.get_unit(head_uid)
-			if u != null:
-				_facade.apply_command(
-					Commands.move_stack(gs.current_player_id, u.x, u.y, tx, ty))
+		_handle_selection_click(tx, ty, gs)
 
 	elif event.button_index == BUTTON_RIGHT:
 		_show_flyout_menu(tx, ty, event.position)
+
+# Left-click in selection mode. Priority:
+#   1. If a unit is selected and the click is a *different* tile → move there.
+#      The destination may hold a friendly city/stack (garrison or stack up) or
+#      an enemy (attack); movement wins over re-selecting whatever is on the
+#      target tile, so friendly-occupied tiles are valid destinations.
+#   2. Otherwise (nothing selected, or clicking the selected unit's own tile) →
+#      select/cycle the units on the tile, else select a city on the tile.
+# To switch selection while a unit is active, click its own tile to cycle the
+# stack, use the next-unit control, or the selection panel's stack list.
+func _handle_selection_click(tx: int, ty: int, gs) -> void:
+	var head_uid: int = _facade.get_selection().head_unit()
+	var head_unit = gs.get_unit(head_uid) if head_uid >= 0 else null
+
+	if head_unit != null and (head_unit.x != tx or head_unit.y != ty):
+		_facade.apply_command(
+			Commands.move_stack(gs.current_player_id, head_unit.x, head_unit.y, tx, ty))
+		_maybe_auto_advance(gs)
+		return
+
+	var owned_ids: Array = _owned_units_at(tx, ty, gs)
+	if not owned_ids.empty():
+		_facade.select_unit(_next_in_stack(owned_ids, head_uid))
+		return
+	var clicked_city_id: int = _find_owned_city_at(tx, ty, gs)
+	if clicked_city_id >= 0:
+		_facade.select_city(clicked_city_id)
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	if _tooltip_label == null:
@@ -167,12 +183,31 @@ func _on_flyout_item(id: int, items: Array, tx: int, ty: int) -> void:
 			_facade.apply_command(Commands.found_settlement(pid, settler_id))
 	elif aid == IDs.UnitCmd.FORTIFY and uid >= 0:
 		_facade.apply_command(Commands.unit_fortify(pid, uid))
+		_maybe_auto_advance(gs)
 	elif aid == IDs.UnitCmd.WAKE and uid >= 0:
 		_facade.apply_command(Commands.mission_skip_turn(pid, uid))
+		_maybe_auto_advance(gs)
 	elif aid == IDs.ControlType.OPEN_CITY_SCREEN:
 		_facade.apply_command(Commands.do_control(pid, IDs.ControlType.OPEN_CITY_SCREEN))
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+# If the active unit can no longer act, hop to the next idle unit. Mirrors the
+# facade's own idle predicate (cycle_idle_units), so a unit that has moved or
+# entered a rest stance is considered done.
+func _maybe_auto_advance(gs) -> void:
+	if not auto_advance:
+		return
+	var head: int = _facade.get_selection().head_unit()
+	if head >= 0:
+		var u = gs.get_unit(head)
+		if u != null and _unit_can_still_act(u):
+			return   # still has moves and no rest stance — keep it selected
+	_facade.cycle_idle_units(false)
+
+func _unit_can_still_act(u) -> bool:
+	return not (u.has_moved or u.is_fortified or u.is_sentry \
+		or u.is_patrolling or u.is_healing)
 
 func _owned_units_at(tx: int, ty: int, gs) -> Array:
 	# All units the current player owns on this tile, in stable spawn order so the

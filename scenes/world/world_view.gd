@@ -95,8 +95,10 @@ func _draw() -> void:
 
 	var fog_node = get_node_or_null("FogLayer")
 	var visible_tiles: Dictionary = {}
+	var explored_tiles: Dictionary = {}
 	if fog_node != null:
 		visible_tiles = fog_node.get_visible_tiles()
+		explored_tiles = fog_node.get_explored_tiles()
 
 	var highlights: Dictionary = _facade.get_tile_highlights()
 	var now: float = OS.get_ticks_msec() / 1000.0
@@ -139,8 +141,13 @@ func _draw() -> void:
 				var center: Vector2 = rect.position + Vector2(4, 4) * _zoom
 				draw_circle(center, 3 * _zoom, Color(0.9, 0.7, 0.1))
 
-	# Draw settlements
+	# Draw settlements. A city the player has discovered stays on the map even
+	# when it leaves current sight (you remember it is there); cities on
+	# never-explored tiles stay hidden under the fog.
 	for s in gs.settlements:
+		var s_key: String = str(s.x) + "," + str(s.y)
+		if not explored_tiles.empty() and not explored_tiles.has(s_key):
+			continue
 		var screen_pos: Vector2 = _tile_to_screen(s.x, s.y)
 		var center: Vector2 = screen_pos + Vector2(TILE_SIZE, TILE_SIZE) * _zoom * 0.5
 		var r: float = TILE_SIZE * _zoom * 0.35
@@ -151,11 +158,15 @@ func _draw() -> void:
 	# Draw units (on top of settlements). The selected unit is drawn last so it
 	# sits on top of the others sharing its tile, and any tile holding more than
 	# one unit gets a small count badge so stacks are obvious and cycle-able.
+	# Units are only drawn where the player currently has vision: a remembered
+	# tile shows its old terrain (via the fog veil) but not stale unit positions.
 	var head_uid: int = _facade.get_selection().head_unit()
 	var counts: Dictionary = {}   # "x,y" → number of units on that tile
 	var selected_unit = null
 	for u in gs.units:
 		var key: String = str(u.x) + "," + str(u.y)
+		if not visible_tiles.empty() and not visible_tiles.has(key):
+			continue
 		counts[key] = int(counts.get(key, 0)) + 1
 		if u.id == head_uid:
 			selected_unit = u
@@ -168,6 +179,8 @@ func _draw() -> void:
 	var badged: Dictionary = {}
 	for u in gs.units:
 		var key2: String = str(u.x) + "," + str(u.y)
+		if not counts.has(key2):
+			continue
 		if int(counts.get(key2, 0)) > 1 and not badged.has(key2):
 			badged[key2] = true
 			_draw_stack_badge(u.x, u.y, int(counts[key2]))

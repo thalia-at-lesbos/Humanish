@@ -3,15 +3,15 @@ User generated TODO list
 Achieve base game parity with Civ IV
 
 Minor issues
--unit stacks should be visible and usable
--city work selections (worked tiles should be selectable, specialists should be visible)
+-unit stacks should be visible and usable [DONE — on-tile stack badges + click-to-cycle (existing) plus a selection-panel stack list with per-member rows and a Select-all that applies orders to the whole stack; SimFacade.select_stack(x,y).]
+-city work selections (worked tiles should be selectable, specialists should be visible) [DONE — city screen shows a simplified work-radius grid; click a tile to lock/unlock it (Settlement.locked_tiles, honoured by _auto_assign_workers, serialized). Specialists shown with +/- controls. New SET_TILE_WORKED command.]
 -foreign city and unit labels when selected
--auto selections (for city work, science, civics, etc)
--auto unit selections
--unit stack selections
--technology tree selector
--Revealed map should keep previous state until city or unit vision updates it
-- add about menu (to start and pause)
+-auto selections (for city work, science, civics, etc) [PARTIAL — per-city "Automate citizens" toggle done (SET_CITIZEN_AUTOMATION; manual mode works only locked tiles). Auto-research / auto-civics deliberately deferred.]
+-auto unit selections [DONE — input router auto-advances to the next idle unit once the active unit is done (moved/rest stance); auto_advance flag, on by default.]
+-unit stack selections [DONE — see "unit stacks" above; select-all builds a multi-unit selection that orders apply across.]
+-technology tree selector [DONE — tech chooser rebuilt as a tree: columns by era, rows by prereq tier, nodes show status/cost/prereqs/unlocks; researchable nodes clickable.]
+-Revealed map should keep previous state until city or unit vision updates it [DONE — fog layer tracks per-player explored memory: seen tiles stay revealed under a light veil; live units shown only in current sight; memory resets on hotseat handoff.]
+- add about menu (to start and pause) [DONE — About screen (title/version/license) reachable from the start menu and the pause menu.]
 - advisor/info screens + UI command vocabulary [DONE — gift-unit command; sentry/heal/move-to-unit/scout-recon/air&sea-patrol unit missions; religion/corporation/turn-log/domestic-advisor/victory-progress/options/finance/military/espionage/encyclopedia screens. Deferred: camera modes, hall-of-fame/admin/world-builder, retire/chat/free-colony, unit-mission espionage, draft/trade-route. See docs/planning/designgaps.md §3.]
 
 Major features

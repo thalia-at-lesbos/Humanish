@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=2]
+[gd_scene load_steps=9 format=2]
 
 [ext_resource path="res://scenes/hud/hud.gd" type="Script" id=1]
 [ext_resource path="res://scenes/hud/selection_panel.gd" type="Script" id=2]
@@ -7,6 +7,7 @@
 [ext_resource path="res://scenes/hud/end_turn_button.gd" type="Script" id=5]
 [ext_resource path="res://scenes/hud/message_log.gd" type="Script" id=6]
 [ext_resource path="res://scenes/hud/turn_score_bar.gd" type="Script" id=7]
+[ext_resource path="res://scenes/hud/menu_bar.gd" type="Script" id=8]
 
 [node name="HUD" type="CanvasLayer"]
 script = ExtResource( 1 )
@@ -19,6 +20,10 @@ margin_top = 4.0
 margin_right = -4.0
 margin_bottom = -4.0
 mouse_filter = 2
+
+[node name="MenuBar" type="HBoxContainer" parent="VBox"]
+mouse_filter = 2
+script = ExtResource( 8 )
 
 [node name="TurnScoreBar" type="HBoxContainer" parent="VBox"]
 mouse_filter = 2

@@ -828,9 +828,33 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 		if workers_needed < 0:
 			workers_needed = 0
 		s.worked_tiles = []
-		# Gather candidate tiles owned by this player.
+		# Honour manual locks first: a player-locked tile is always worked, as
+		# long as it is in range, ownable, and within the worker budget.
+		var assigned: int = 0
+		var locked_set := {}
+		for lt in s.locked_tiles:
+			if assigned >= workers_needed:
+				break
+			var lx: int = int(lt[0]); var ly: int = int(lt[1])
+			if not gs.map.is_valid(lx, ly):
+				continue
+			var ltile = gs.map.get_tile(lx, ly)
+			if ltile == null:
+				continue
+			if not (ltile.owner_player_id == player.id or ltile.owner_player_id == -1):
+				continue
+			s.worked_tiles.append([lx, ly])
+			locked_set[str(lx) + "," + str(ly)] = true
+			assigned += 1
+		# When citizen management is manual, stop here — only locked tiles work.
+		if not s.manage_citizens_auto:
+			continue
+		# Gather candidate tiles owned by this player (excluding ones already
+		# locked-in above).
 		var candidates := []
 		for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
+			if locked_set.has(str(tile.x) + "," + str(tile.y)):
+				continue
 			if tile.owner_player_id == player.id or tile.owner_player_id == -1:
 				var out: Array = TileOutput.compute(tile, db, player.technologies)
 				var score: int = out[0] * 3 + out[1] * 2 + out[2]
@@ -838,7 +862,6 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 		# Repeatedly take the best candidate. A plain candidates.sort() would
 		# compare [score, x, y] sub-arrays, which Godot cannot order consistently
 		# ("bad comparison function; sorting will be broken").
-		var assigned: int = 0
 		while assigned < workers_needed and not candidates.empty():
 			var best_i: int = 0
 			for i in range(1, candidates.size()):

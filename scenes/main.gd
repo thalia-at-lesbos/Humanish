@@ -56,6 +56,7 @@ func _ready() -> void:
 	if hud != null:
 		if hud.has_method("init"):
 			hud.init(_facade)
+		_init_node("HUD/VBox/MenuBar", [_facade])
 		_init_node("HUD/VBox/TurnScoreBar", [_facade])
 		_init_node("HUD/VBox/ResearchBar", [_facade])
 		_init_node("HUD/VBox/SliderPanel", [_facade])
@@ -66,7 +67,7 @@ func _ready() -> void:
 	# Wire full-screen overlays (city / tech / policy / save-load)
 	var screens = get_node_or_null("Screens")
 	if screens != null:
-		for sname in ["CityScreen", "TechChooser", "PolicyScreen", "SaveLoadScreen", "PauseMenu"]:
+		for sname in ["CityScreen", "TechChooser", "PolicyScreen", "DiplomacyScreen", "SaveLoadScreen", "PauseMenu"]:
 			var sc = screens.get_node_or_null(sname)
 			if sc != null and sc.has_method("init"):
 				sc.init(_facade)
@@ -173,7 +174,7 @@ func _on_screen_requested(screen_id: int) -> void:
 			if policy != null:
 				policy.show_screen()
 		IDs.ControlType.OPEN_DIPLOMACY:
-			var diplo = get_node_or_null("DiplomacyScreen")
+			var diplo = get_node_or_null("Screens/DiplomacyScreen")
 			if diplo != null:
 				diplo.show_screen()
 		IDs.ControlType.OPEN_SAVE_LOAD:

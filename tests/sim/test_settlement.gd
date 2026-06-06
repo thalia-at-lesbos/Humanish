@@ -40,6 +40,60 @@ func test_starvation_cannot_increase_pop() -> void:
 	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
 	assert_true(s.population <= pop_before, "Starvation should reduce or hold population")
 
+# ── Manual citizen management (worked-tile locks) ────────────────────────────
+
+func _has_pair(arr, x, y) -> bool:
+	for p in arr:
+		if int(p[0]) == x and int(p[1]) == y:
+			return true
+	return false
+
+func test_locked_tile_is_always_worked() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.locked_tiles = [[6, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_true(_has_pair(s.worked_tiles, 6, 5),
+		"A locked tile is worked regardless of its yield score")
+
+func test_locked_tile_survives_reassignment() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.locked_tiles = [[4, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))   # a second turn
+	assert_true(_has_pair(s.worked_tiles, 4, 5),
+		"A manual lock persists across end-of-turn reassignment")
+
+func test_manual_mode_works_only_locked_tiles() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.manage_citizens_auto = false
+	s.locked_tiles = [[6, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_eq(s.worked_tiles.size(), 1,
+		"With automation off only the locked tile is worked")
+	assert_true(_has_pair(s.worked_tiles, 6, 5), "…and it is the locked tile")
+
+func test_auto_mode_fills_remaining_slots_around_locks() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.manage_citizens_auto = true
+	s.locked_tiles = [[6, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_eq(s.worked_tiles.size(), 3,
+		"Automation fills the remaining worker slots beyond the lock")
+	assert_true(_has_pair(s.worked_tiles, 6, 5), "…while still honouring the lock")
+
+func test_lock_and_automation_survive_serialization() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.locked_tiles = [[6, 5], [4, 4]]
+	s.manage_citizens_auto = false
+	var s2 = Settlement.deserialize(s.serialize())
+	assert_eq(s2.locked_tiles, [[6, 5], [4, 4]], "Locked tiles survive a save/load roundtrip")
+	assert_false(s2.manage_citizens_auto, "The automation flag survives a save/load roundtrip")
+
 # ── Contentment & disorder ──────────────────────────────────────────────────
 
 func test_disorder_triggers_when_discontent_ge_population() -> void:

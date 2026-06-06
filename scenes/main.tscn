@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=2]
+[gd_scene load_steps=15 format=2]
 
 [ext_resource path="res://scenes/main.gd" type="Script" id=1]
 [ext_resource path="res://scenes/world/world_view.tscn" type="PackedScene" id=2]
@@ -13,6 +13,7 @@
 [ext_resource path="res://scenes/screens/pause_menu.gd" type="Script" id=11]
 [ext_resource path="res://scenes/debug/debug_overlay.gd" type="Script" id=12]
 [ext_resource path="res://scenes/debug/terminal_console.gd" type="Script" id=13]
+[ext_resource path="res://scenes/screens/diplomacy_screen.gd" type="Script" id=14]
 
 [node name="Main" type="Node"]
 script = ExtResource( 1 )
@@ -44,6 +45,11 @@ script = ExtResource( 8 )
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource( 9 )
+
+[node name="DiplomacyScreen" type="Control" parent="Screens"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource( 14 )
 
 [node name="SaveLoadScreen" type="Control" parent="Screens"]
 anchor_right = 1.0
