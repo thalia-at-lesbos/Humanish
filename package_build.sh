@@ -13,7 +13,7 @@ if [ -f "$BUILD/linux/Humanish-linux-amd64" ]; then
   cp -r data "$tmp/"
   cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-linux-amd64.zip" .)
-  rm -rf "$tmp"
+  rm -rf "$tmp" "$BUILD/linux"
   echo "Created $BUILD/Humanish-linux-amd64.zip"
 fi
 
@@ -24,7 +24,7 @@ if [ -f "$BUILD/windows/Humanish-windows-amd64.exe" ]; then
   cp -r data "$tmp/"
   cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-windows-amd64.zip" .)
-  rm -rf "$tmp"
+  rm -rf "$tmp" "$BUILD/windows"
   echo "Created $BUILD/Humanish-windows-amd64.zip"
 fi
 
@@ -35,7 +35,7 @@ if [ -f "$BUILD/macos/Humanish-macos.zip" ]; then
   cp -r data "$tmp/"
   cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-macos.zip" .)
-  rm -rf "$tmp"
+  rm -rf "$tmp" "$BUILD/macos"
   echo "Created $BUILD/Humanish-macos.zip"
 fi
 
