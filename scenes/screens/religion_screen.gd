@@ -26,8 +26,8 @@ func _populate(vbox) -> void:
 
 	# ── State religion picker ──────────────────────────────────────────────────
 	_add_line(vbox, "State Religion")
-	if p != null and p.anarchy_turns > 0:
-		_add_line(vbox, "  Anarchy: %d turn(s) remaining" % p.anarchy_turns)
+	if p != null and p.transition_turns > 0:
+		_add_line(vbox, "  Anarchy: %d turn(s) remaining" % p.transition_turns)
 
 	# "None" is always a valid choice.
 	_add_choice(vbox, "(none)", "", p)

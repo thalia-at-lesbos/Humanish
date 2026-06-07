@@ -492,7 +492,10 @@ Distinct from a settlement's per-city belief (§8), each **player** may adopt on
   of turns (`state_religion_anarchy_turns`): while it lasts the player's settlements yield
   **no commerce** — no gold, research, culture, or intelligence (food and production are
   unaffected). The **first** adoption (from none) is **free**, and a **Spiritual** leader
-  never suffers anarchy from a switch.
+  never suffers anarchy from a switch. Anarchy is a **single shared interregnum** — it is the
+  same `transition_turns` state that **switching an established civic** (§6.2) now incurs, with
+  the identical commerce blackout, free-first-choice, and Spiritual exemption. Religion and
+  civic switches do not stack a second anarchy on top of one already running.
 * **Effects.** The state religion is what gates religion-dependent bonuses: a **Cathedral**
   (and its religious-building tier marked `requires_state_religion`) only comforts a city
   whose religion is the player's state religion; **Theocracy** grants its new-unit experience

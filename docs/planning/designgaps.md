@@ -64,9 +64,13 @@ catalogued here so they aren't re-flagged as content gaps:
 
 `policies.json` matches `game-data.md` §8 (five categories, 26 civics). The
 *mechanical* fields were always read (`slider_increment`, `slider_min_research`
-→ `sim_facade._cmd_set_sliders`; `transition_turns` → anarchy tick in
-`turn_engine._tick_states`; `anger_modifier` → `_update_contentment`;
-`upkeep_modifier` → `_update_treasury`). As of 2026-06-05 the per-civic `effects`
+→ `sim_facade._cmd_set_sliders`; `transition_turns` → the anarchy interregnum,
+ticked in `turn_engine._tick_states`; `anger_modifier` → `_update_contentment`;
+`upkeep_modifier` → `_update_treasury`). As of the state-religion feature (§8.1)
+the anarchy that `transition_turns` represents has teeth — switching an
+established civic (first choice in a category is free; Spiritual is exempt) now
+zeroes the player's commerce for its duration, the same shared interregnum a
+state-religion switch incurs (`turn_engine._settlement_growth`). As of 2026-06-05 the per-civic `effects`
 dictionaries are read too, through the single helper `sim/policy_effects.gd`
 (`PolicyEffects.sum_int` / `has_flag`), wired into the relevant sim modules:
 

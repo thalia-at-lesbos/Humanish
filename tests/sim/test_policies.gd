@@ -41,6 +41,44 @@ func test_set_policy_applies() -> void:
 	assert_eq(gs.players[0].policies.get("labor", ""), "serfdom",
 		"The labor category should now hold serfdom")
 
+# ── Anarchy on civic switches (§8) ─────────────────────────────────────────────
+
+func test_first_civic_in_category_is_free() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	# serfdom carries transition_turns 3, but it is the first labor civic chosen.
+	assert_true(f.apply_command(Commands.set_policy(1, "labor", "serfdom")))
+	assert_eq(gs.get_player(1).transition_turns, 0,
+		"The first civic chosen in a category (from none) causes no anarchy")
+
+func test_switching_established_civic_causes_anarchy() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
+	assert_true(f.apply_command(Commands.set_policy(1, "labor", "slavery")))
+	assert_gt(gs.get_player(1).transition_turns, 0,
+		"Replacing an established civic plunges the player into anarchy")
+
+func test_spiritual_leader_switches_civic_without_anarchy() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).traits = ["spiritual"]
+	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
+	f.apply_command(Commands.set_policy(1, "labor", "slavery"))
+	assert_eq(gs.get_player(1).transition_turns, 0,
+		"A Spiritual leader switches civics without anarchy")
+
+func test_reselecting_current_civic_is_noop() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
+	assert_false(f.apply_command(Commands.set_policy(1, "labor", "serfdom")),
+		"Re-selecting the current civic is a no-op")
+
 # ── Slider constraints ───────────────────────────────────────────────────────
 
 func test_sliders_unconstrained_without_policy() -> void:

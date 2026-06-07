@@ -41,7 +41,7 @@ func test_first_adoption_sets_religion_without_anarchy() -> void:
 	var p = f.get_state().get_player(1)
 	assert_true(ok, "Adopting a present religion succeeds")
 	assert_eq(p.state_religion, "buddhism", "State religion is adopted")
-	assert_eq(p.anarchy_turns, 0, "First adoption (from none) causes no anarchy")
+	assert_eq(p.transition_turns, 0, "First adoption (from none) causes no anarchy")
 
 func test_switching_religion_triggers_anarchy() -> void:
 	var f = _facade_with_religion()
@@ -54,7 +54,7 @@ func test_switching_religion_triggers_anarchy() -> void:
 	var p = gs.get_player(1)
 	assert_true(ok, "Switching to another present religion succeeds")
 	assert_eq(p.state_religion, "christianity", "State religion switched")
-	assert_gt(p.anarchy_turns, 0, "Switching away from a religion causes anarchy")
+	assert_gt(p.transition_turns, 0, "Switching away from a religion causes anarchy")
 
 func test_switching_to_none_triggers_anarchy() -> void:
 	var f = _facade_with_religion()
@@ -63,7 +63,7 @@ func test_switching_to_none_triggers_anarchy() -> void:
 	var p = f.get_state().get_player(1)
 	assert_true(ok, "Reverting to no state religion succeeds")
 	assert_eq(p.state_religion, "", "State religion cleared")
-	assert_gt(p.anarchy_turns, 0, "Abandoning a state religion also causes anarchy")
+	assert_gt(p.transition_turns, 0, "Abandoning a state religion also causes anarchy")
 
 func test_spiritual_leader_switches_without_anarchy() -> void:
 	var f = _facade_with_religion("buddhism", true)
@@ -72,7 +72,7 @@ func test_spiritual_leader_switches_without_anarchy() -> void:
 	make_settlement(gs, 1, 6, 6, 2).belief_id = "christianity"
 	f.apply_command(Commands.set_state_religion(1, "buddhism"))
 	f.apply_command(Commands.set_state_religion(1, "christianity"))
-	assert_eq(gs.get_player(1).anarchy_turns, 0,
+	assert_eq(gs.get_player(1).transition_turns, 0,
 		"A Spiritual leader switches state religion without anarchy")
 
 func test_cannot_adopt_religion_absent_from_empire() -> void:
@@ -93,7 +93,7 @@ func test_readopting_same_religion_is_noop() -> void:
 	f.apply_command(Commands.set_state_religion(1, "buddhism"))
 	var ok = f.apply_command(Commands.set_state_religion(1, "buddhism"))
 	assert_false(ok, "Re-selecting the current state religion is a no-op")
-	assert_eq(f.get_state().get_player(1).anarchy_turns, 0, "No anarchy from a no-op")
+	assert_eq(f.get_state().get_player(1).transition_turns, 0, "No anarchy from a no-op")
 
 # ── Anarchy suppresses commerce ────────────────────────────────────────────────
 
@@ -104,16 +104,16 @@ func test_anarchy_zeroes_commerce_output() -> void:
 	s.specialists = {"scientist": 1}  # yields commerce via specialist_commerce
 	TurnEngine._settlement_growth(gs, s, p)
 	assert_gt(s.output_commerce, 0, "A specialist yields commerce in peacetime")
-	p.anarchy_turns = 1
+	p.transition_turns = 1
 	TurnEngine._settlement_growth(gs, s, p)
 	assert_eq(s.output_commerce, 0, "Anarchy zeroes all commerce output")
 
 func test_anarchy_ticks_down() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
-	p.anarchy_turns = 2
+	p.transition_turns = 2
 	TurnEngine._tick_states(gs, p)
-	assert_eq(p.anarchy_turns, 1, "Anarchy counts down one turn per tick")
+	assert_eq(p.transition_turns, 1, "Anarchy counts down one turn per tick")
 
 # ── Cathedral happiness requires the state religion ────────────────────────────
 
@@ -154,7 +154,7 @@ func test_state_religion_survives_serialization() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	p.state_religion = "buddhism"
-	p.anarchy_turns = 3
+	p.transition_turns = 3
 	var restored = load("res://src/sim/player.gd").deserialize(p.serialize())
 	assert_eq(restored.state_religion, "buddhism", "state_religion round-trips")
-	assert_eq(restored.anarchy_turns, 3, "anarchy_turns round-trips")
+	assert_eq(restored.transition_turns, 3, "transition_turns round-trips")

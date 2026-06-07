@@ -32,13 +32,8 @@ var policies: Dictionary = {}  # category -> policy_id
 # State religion (§8): the belief_id this player has adopted empire-wide, or ""
 # for none. Every player starts with no state religion; "none" is a valid choice.
 # Switching away from an existing state religion triggers anarchy (see
-# anarchy_turns), unless this is the first adoption or the player is Spiritual.
+# transition_turns), unless this is the first adoption or the player is Spiritual.
 var state_religion: String = ""
-
-# Anarchy countdown (§8): while > 0 the player's settlements yield no commerce
-# (no gold, research, culture, or intelligence). Set when switching state
-# religion; ticks down once per turn. Distinct from transition_turns (civics).
-var anarchy_turns: int = 0
 
 # Research
 var current_research_id: String = ""
@@ -56,7 +51,11 @@ var alliance_id: int = -1
 # Free early wins remaining (from difficulty)
 var free_early_wins: int = 0
 
-# Transition penalty turns remaining (from policy switch)
+# Anarchy turns remaining (§8): the interregnum after switching an established
+# civic or state religion. While > 0 the player's settlements yield no commerce
+# (no gold, research, culture, or intelligence); food and production continue.
+# Ticks down once per turn. The first adoption in a category (from none) is free,
+# as is any switch for a Spiritual leader.
 var transition_turns: int = 0
 
 # Score cache (updated each turn)
@@ -123,7 +122,6 @@ func serialize() -> Dictionary:
 		"free_early_wins": free_early_wins,
 		"transition_turns": transition_turns,
 		"state_religion": state_religion,
-		"anarchy_turns": anarchy_turns,
 		"score": score,
 		"is_eliminated": is_eliminated,
 		"is_ai": is_ai,
@@ -158,7 +156,6 @@ static func deserialize(d: Dictionary):
 	p.free_early_wins = int(d.get("free_early_wins", 0))
 	p.transition_turns = int(d.get("transition_turns", 0))
 	p.state_religion = str(d.get("state_religion", ""))
-	p.anarchy_turns = int(d.get("anarchy_turns", 0))
 	p.score = int(d.get("score", 0))
 	p.is_eliminated = bool(d.get("is_eliminated", false))
 	p.is_ai = bool(d.get("is_ai", false))

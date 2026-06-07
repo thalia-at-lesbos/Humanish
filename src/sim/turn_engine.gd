@@ -268,10 +268,10 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		total_prod += Fixed.scale(total_prod,
 			PolicyEffects.sum_int(player, db, "capital_production"))
 
-	# Anarchy (§8): during the interregnum after switching state religion the
-	# economy seizes up — settlements yield no commerce, so no gold, research,
-	# culture, or intelligence accrues. Food and production are unaffected.
-	if player != null and player.anarchy_turns > 0:
+	# Anarchy (§8): during the interregnum after switching an established civic or
+	# state religion the economy seizes up — settlements yield no commerce, so no
+	# gold, research, culture, or intelligence accrues. Food and production hold.
+	if player != null and player.transition_turns > 0:
 		total_commerce = 0
 
 	s.output_food       = total_food
@@ -906,8 +906,6 @@ static func _apply_intelligence(gs: GameState, player: Player) -> void:
 static func _tick_states(gs: GameState, player: Player) -> void:
 	if player.transition_turns > 0:
 		player.transition_turns -= 1
-	if player.anarchy_turns > 0:
-		player.anarchy_turns -= 1
 	if player.celebration_turns > 0:
 		player.celebration_turns -= 1
 	# A running Golden Age counts down one turn (§14.4).

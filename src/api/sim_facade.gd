@@ -716,10 +716,16 @@ func _cmd_set_policy(cmd: Dictionary) -> bool:
 	var tech_req = pol.get("tech_required", null)
 	if tech_req != null and tech_req != "" and not p.has_tech(tech_req):
 		return false
+	var prev: String = str(p.policies.get(cat, ""))
+	if prev == pol_id:
+		return false  # no change
+	# Anarchy on a real switch only: replacing an established civic costs the
+	# policy's transition turns, but the first government chosen in a category (from
+	# none) is free, as is any switch for a Spiritual leader (§8).
 	var transition: int = int(pol.get("transition_turns", 0))
-	p.policies[cat] = pol_id
-	if transition > 0:
+	if transition > 0 and prev != "" and not ("spiritual" in p.traits):
 		p.transition_turns = transition
+	p.policies[cat] = pol_id
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
@@ -748,7 +754,7 @@ func _cmd_set_state_religion(cmd: Dictionary) -> bool:
 			return false
 	# Anarchy on a real switch (not the first adoption), unless the leader is Spiritual.
 	if p.state_religion != "" and not ("spiritual" in p.traits):
-		p.anarchy_turns = _db.get_constant("state_religion_anarchy_turns", 1)
+		p.transition_turns = _db.get_constant("state_religion_anarchy_turns", 1)
 	p.state_religion = belief_id
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
