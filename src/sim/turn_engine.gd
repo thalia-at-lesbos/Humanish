@@ -136,6 +136,9 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	# (and no RNG draw) once every eligible belief is founded.
 	Beliefs.try_found(player_id, gs, gs.rng)
 
+	# Worked cottage-line tiles mature toward town (§8).
+	_grow_cottages(gs, player)
+
 	# Units that held position grow entrenchment and heal (§5.3, §5.6); a unit
 	# does neither on a turn it moves or fights. Moving/attacking resets
 	# entrenchment to 0 at the command site. Then reset flags for next turn.
@@ -638,6 +641,32 @@ static func _grant_free_promotions(gs: GameState, u: Unit, s: Settlement) -> voi
 			var pick: String = CombatApply.pick_promotion(gs, u)
 			if pick != "":
 				u.promotions.append(pick)
+
+# Cottage-line maturation (§8): each worked tile carrying an improvement with an
+# `upgrades_to` ages a step per turn (Emancipation's `faster_cottage_growth`
+# doubles the rate); on reaching `upgrade_turns` it advances to the next stage
+# (cottage → hamlet → village → town). Only worked tiles grow, mirroring the
+# reference model. Pure age bookkeeping on the tile; output is gated by tech in
+# TileOutput as usual.
+static func _grow_cottages(gs: GameState, player: Player) -> void:
+	var db: DataDB = gs.db
+	var per_turn: int = 2 if PolicyEffects.has_flag(player, db, "faster_cottage_growth") else 1
+	for s in gs.settlements:
+		if s.owner_player_id != player.id:
+			continue
+		for cell in s.worked_tiles:
+			var t: Tile = gs.map.get_tile(cell[0], cell[1])
+			if t == null or t.improvement_id == "":
+				continue
+			var imp: Dictionary = db.get_improvement(t.improvement_id)
+			var next_id: String = str(imp.get("upgrades_to", ""))
+			if next_id == "":
+				continue
+			t.improvement_age += per_turn
+			var need: int = int(imp.get("upgrade_turns", 0))
+			if need > 0 and t.improvement_age >= need:
+				t.improvement_id = next_id
+				t.improvement_age = 0
 
 static func _settlement_culture(gs: GameState, s: Settlement, player: Player) -> void:
 	var db: DataDB = gs.db

@@ -105,8 +105,9 @@ Covered by `tests/sim/test_policy_effects.gd`.
 - `unlimited_specialists` (Caste System) — the sim caps specialists only by
   population; there is no per-building specialist *slot* ceiling to lift, so the
   flag has nothing to relax until a slot system exists.
-- `faster_cottage_growth` (Emancipation) and Emancipation's cross-faction
-  unhappiness — cottage→hamlet→village→town upgrading is not modelled.
+- Emancipation's cross-faction unhappiness is not modelled (the cottage→hamlet→
+  village→town upgrading it speeds *is* now modelled — see below;
+  `faster_cottage_growth` is wired in `TurnEngine._grow_cottages`).
 - `trade_route_per_city`, `no_foreign_trade_routes` (Free Market / Mercantilism)
   and `corporation_maintenance_reduction` — trade routes are unbuilt (§3), and
   econ orgs charge a per-spread cost rather than ongoing maintenance.

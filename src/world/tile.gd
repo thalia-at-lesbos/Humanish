@@ -43,6 +43,11 @@ var has_discovery: bool = false
 # Improvement construction progress (turns remaining)
 var improvement_turns_left: int = 0
 
+# Cottage-line growth (§8): turns the current improvement has been worked, used to
+# advance cottage → hamlet → village → town once it reaches the improvement's
+# `upgrade_turns`. Reset on upgrade or when the improvement changes.
+var improvement_age: int = 0
+
 # Entrenchment per-unit is on the unit; this tracks tile-level fortification count
 # (not part of base spec but used for improvement tracking)
 
@@ -64,6 +69,7 @@ func serialize() -> Dictionary:
 		"owner_player_id": owner_player_id,
 		"pollution": pollution,
 		"improvement_turns_left": improvement_turns_left,
+		"improvement_age": improvement_age,
 		"has_discovery": has_discovery
 	}
 
@@ -82,5 +88,6 @@ static func deserialize(d: Dictionary):
 	t.owner_player_id = int(d.get("owner_player_id", -1))
 	t.pollution = int(d.get("pollution", 0))
 	t.improvement_turns_left = int(d.get("improvement_turns_left", 0))
+	t.improvement_age = int(d.get("improvement_age", 0))
 	t.has_discovery = bool(d.get("has_discovery", false))
 	return t
