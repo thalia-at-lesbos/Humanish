@@ -5,7 +5,7 @@ Achieve base game parity with Civ IV
 Minor issues
 -unit stacks should be visible and usable [DONE — on-tile stack badges + click-to-cycle (existing) plus a selection-panel stack list with per-member rows and a Select-all that applies orders to the whole stack; SimFacade.select_stack(x,y).]
 -city work selections (worked tiles should be selectable, specialists should be visible) [DONE — city screen shows a simplified work-radius grid; click a tile to lock/unlock it (Settlement.locked_tiles, honoured by _auto_assign_workers, serialized). Specialists shown with +/- controls. New SET_TILE_WORKED command.]
--foreign city and unit labels when selected
+-foreign city and unit labels when selected [OPEN — left-clicking a foreign tile shows a terrain readout via tile_info_text, but does NOT show the name/type of foreign units or cities on that tile. The selection panel's _build_tile_panel / tile_info_text need to be extended to include foreign subject info when the inspected tile contains enemy units or cities.]
 -auto selections (for city work, science, civics, etc) [PARTIAL — per-city "Automate citizens" toggle done (SET_CITIZEN_AUTOMATION; manual mode works only locked tiles). Auto-research / auto-civics deliberately deferred.]
 -auto unit selections [DONE — input router auto-advances to the next idle unit once the active unit is done (moved/rest stance); auto_advance flag, on by default.]
 -unit stack selections [DONE — see "unit stacks" above; select-all builds a multi-unit selection that orders apply across.]

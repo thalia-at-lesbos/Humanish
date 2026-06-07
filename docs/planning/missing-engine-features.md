@@ -26,13 +26,12 @@ entirely.
 The module exists but nothing in the pipeline or facade calls it, so the mechanic
 can never occur:
 
-- **Belief founding** (§8) — `Beliefs.try_found()` has zero callers. `spread_all()`
-  *is* called each settlement step, but with no belief ever founded it is a permanent
-  no-op. Missionary spread, state-adopted belief benefits, and principal-site finance
-  are absent.
-- **Economic organizations** (§8) — `EconOrgs.found()` and `EconOrgs.spread_all()`
-  have zero callers (only `get_output_delta` is wired into growth). Orgs can never be
-  founded or spread.
+- ~~**Belief founding** (§8)~~ — resolved in Tier 1 (`dev-missing-features`):
+  `player_step` now calls `Beliefs.try_found()`; missionary spread wired via
+  `SPREAD_BELIEF` command (`1014892`).
+- ~~**Economic organizations** (§8)~~ — resolved in Tier 2 (`dev-missing-features`):
+  `EconOrgs.spread_all()` runs each world step; `_apply_special_person()` seeds
+  an unfounded org via `EconOrgs.found()`.
 - **Exploration rewards** (§9) — `Events.exploration_reward()` is never called; there
   are no discovery sites or investigate action.
 - **Scripted/random events** (§9) — `Events.process_player_events()` is a hard-coded
@@ -45,10 +44,11 @@ can never occur:
 `IDs.CommandType` defines these, but `SimFacade.apply_command()` has no case for them
 (they silently return `false`):
 
-- `PROPOSE_TRADE`, `ACCEPT_TRADE`, `REJECT_TRADE` (§7) — no `Commands.*` factories
-  either. `_resolve_trades()` only *expires* pending trades; it never executes a
-  trade's effects (gold/resource/tech/settlement transfer, peace, maps, passage).
-- `SPREAD_BELIEF` (§5.6, §8 missionary) — no factory, no handler.
+- ~~`PROPOSE_TRADE`, `ACCEPT_TRADE`, `REJECT_TRADE` (§7)~~ — resolved in Tier 2
+  (`dev-missing-features`): factories added, handlers wired, `_execute_trade()`
+  moves gold + techs and applies peace clause.
+- ~~`SPREAD_BELIEF` (§5.6, §8 missionary)~~ — resolved: factory + handler wired
+  (`1014892`); missionary unit on a city tile spreads the player's religion.
 - `JOIN_SETTLEMENT` (§5.6 join as specialist) — no factory, no handler.
 - `ASSIGN_WORKERS`, `PILLAGE` (top-level) — enum entries with no factory/handler
   (pillage exists only as `MISSION_PILLAGE`).

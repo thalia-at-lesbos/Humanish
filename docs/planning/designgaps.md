@@ -156,8 +156,13 @@ subsystem this build does not have:
 - (`SPREAD_BELIEF` is now built: a missionary unit on a city tile spreads the
   player's religion via the `SPREAD_BELIEF` command — see the missionary
   subsystem.)
-- **`draft` (Nationhood) and `establish trade route`** — unbuilt mechanics already
-  tracked in §2 (inert policy effects).
+- (`DRAFT` is now built: a city can conscript a military unit from its population
+  when the `can_draft` civic is active — `Commands.draft` /
+  `SimFacade._cmd_draft`. City screen exposes a Draft Unit button.)
+- **`establish trade route`** — trade routes now run automatically each turn
+  (civic-granted via `TurnEngine._trade_route_commerce`), but there is no
+  explicit player-issued "establish route" command or UI widget; this entry
+  tracks the player-action form still absent.
 
 (For reference, `LOAD_UNIT` / `UNLOAD_UNIT` and `UnitCmd.AUTOMATE` /
 `STOP_AUTOMATE` already existed; `SPREAD_BELIEF`, `ESPIONAGE_MISSION`, and
@@ -180,6 +185,22 @@ fact implemented and have been corrected there: `WORLD_TILE_UPKEEP` →
 
 ## Recently reconciled
 
+- **2026-06-07** — Conscription / draft implemented (`026dc9d`): `DRAFT` command
+  (`Commands.draft` / `SimFacade._cmd_draft`) conscripts a military unit from a
+  city's population when `can_draft` is active; city screen exposes a Draft Unit
+  button alongside the Hurry (gold/pop) buttons. §3 updated accordingly.
+- **2026-06-07** — Resources generated and rendered on tiles (`946e099`):
+  `MapGen` now places resource tokens during world generation; `WorldView`
+  renders a coloured dot per resource type visible to the current player. This
+  closes the presentation gap for §10 resource tiles.
+- **2026-06-07** — Gold/treasury shown in HUD turn bar (`db1c80b`):
+  `turn_score_bar.gd` now displays the current player's treasury balance
+  alongside turn number and score, making fiscal state visible at a glance.
+- **2026-06-07** — Encyclopedia replaced with interactive tabbed reference
+  (`277dd66`): the flat `OPEN_ENCYCLOPEDIA` text screen became a full tabbed
+  browser (`encyclopedia_screen.gd`) covering units, structures, techs,
+  promotions, resources, and terrains — data pulled live from `DataDB`.
+
 - **2026-06-05** — Built the readily-modellable §3 UI vocabulary. New
   `IDs.ControlType` values (`TOGGLE_SCORE`, `OPEN_RELIGION`, `OPEN_CORPORATION`,
   `OPEN_TURN_LOG`, `OPEN_DOMESTIC_ADVISOR`, `OPEN_VICTORY_PROGRESS`,
@@ -193,7 +214,8 @@ fact implemented and have been corrected there: `WORLD_TILE_UPKEEP` →
   `is_sentry` / `is_patrolling` / `is_healing`, serialized). Covered by
   `tests/api/test_ui_contract.gd` and `tests/scenes/test_info_screens.gd`. The
   remaining §3 items are deferred on unbuilt subsystems (camera modes,
-  persistence/editor/MP, unit-mission espionage, draft/trade-route).
+  persistence/editor/MP, unit-mission espionage, establish-trade-route). Draft
+  was subsequently implemented (see 2026-06-07 entry).
 - **2026-06-05** — Full content reconciliation of the §1 tables (wonders,
   buildings, resources, promotions, terrain), entry-by-entry against
   `game-data.md`. Wonders matched exactly. Drift corrected in `structures.json`:

@@ -1,5 +1,12 @@
 # Plan: Phase 6 — Presentation and Input Abstraction Layer
 
+> **Status: COMPLETE** (as of v0.4.x). All sub-phases 6A–6F are shipped and
+> green. The test suite (382 unit + 8 integration) passes. This document is
+> retained as the design record; the live code in `scenes/` and `src/api/` is
+> authoritative. Post-Phase-6 additions (interactive encyclopedia, controls
+> overview screen, resources on map, gold in HUD, draft UI, remote multiplayer,
+> PlayerAI) are tracked in `docs/planning/designgaps.md` and the git log.
+
 ## Context
 
 Phases 0–5 are complete: 79/79 GUT tests pass, the headless simulation engine is fully
