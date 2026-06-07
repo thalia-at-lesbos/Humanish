@@ -151,6 +151,12 @@ func _build_load_ui() -> void:
 	title.align = Label.ALIGN_CENTER
 	_load_box.add_child(title)
 
+	var dir_lbl := Label.new()
+	dir_lbl.text = "Save directory: " + OS.get_user_data_dir() + "/saves"
+	dir_lbl.align = Label.ALIGN_CENTER
+	dir_lbl.modulate = Color(0.7, 0.7, 0.7)
+	_load_box.add_child(dir_lbl)
+
 	var saves := _list_saves()
 	if saves.empty():
 		var none_lbl := Label.new()
@@ -158,11 +164,20 @@ func _build_load_ui() -> void:
 		none_lbl.align = Label.ALIGN_CENTER
 		_load_box.add_child(none_lbl)
 	else:
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.rect_min_size = Vector2(0, 0)
+		_load_box.add_child(scroll)
+
+		var inner := VBoxContainer.new()
+		inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(inner)
+
 		for filename in saves:
 			var btn := Button.new()
 			btn.text = filename
 			btn.connect("pressed", self, "_on_load_file", [filename])
-			_load_box.add_child(btn)
+			inner.add_child(btn)
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"

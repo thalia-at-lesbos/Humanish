@@ -112,7 +112,7 @@ func test_delete_removes_file_and_does_not_crash() -> void:
 	yield(get_tree(), "idle_frame")   # flush deferred rebuild after delete
 	assert_false("to_delete.sav" in sl._list_saves(), "File gone after delete")
 
-func test_file_list_shows_delete_not_load() -> void:
+func test_file_list_shows_load_and_delete() -> void:
 	var sl = _screen(setup_facade(100))
 	sl.show_screen()
 	sl._name_edit.text = "del_check"
@@ -120,7 +120,7 @@ func test_file_list_shows_delete_not_load() -> void:
 	yield(get_tree(), "idle_frame")
 	sl.show_screen()
 	assert_not_null(_find_button(sl, "Delete"), "Each save row should have a Delete button")
-	assert_null(_find_button(sl, "Load"), "Load button must not appear in the file list")
+	assert_not_null(_find_button(sl, "Load"), "Each save row should have a Load button")
 	Directory.new().remove(sl.SAVE_DIR + "del_check.sav")
 
 func test_rebuild_is_synchronous_and_replaces_content() -> void:

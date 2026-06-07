@@ -90,10 +90,15 @@ func rebuild() -> void:
 	save_btn.connect("pressed", self, "_on_save")
 	vbox.add_child(save_btn)
 
-	# File list with per-entry Delete button.
+	# File list with per-entry Load and Delete buttons.
 	var files_lbl: Label = Label.new()
 	files_lbl.text = "Saved games:"
 	vbox.add_child(files_lbl)
+
+	var dir_lbl: Label = Label.new()
+	dir_lbl.text = "Save directory: " + OS.get_user_data_dir() + "/saves"
+	dir_lbl.modulate = Color(0.7, 0.7, 0.7)
+	vbox.add_child(dir_lbl)
 
 	var files: Array = _list_saves()
 	if files.empty():
@@ -107,6 +112,10 @@ func rebuild() -> void:
 			name_lbl.text = filename
 			name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(name_lbl)
+			var load_btn: Button = Button.new()
+			load_btn.text = "Load"
+			load_btn.connect("pressed", self, "_on_load", [filename])
+			row.add_child(load_btn)
 			var delete_btn: Button = Button.new()
 			delete_btn.text = "Delete"
 			delete_btn.connect("pressed", self, "_on_delete", [filename])
@@ -173,6 +182,10 @@ func _sanitize_name(raw: String) -> String:
 		if is_alpha or is_digit or ch in "-_. ":
 			out += ch
 	return out.strip_edges()
+
+func _on_load(filename: String) -> void:
+	_load_file(filename)
+	_on_close()
 
 func _on_delete(filename: String) -> void:
 	Directory.new().remove(SAVE_DIR + filename)
