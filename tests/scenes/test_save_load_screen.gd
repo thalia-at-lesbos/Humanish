@@ -101,6 +101,28 @@ func test_pressing_save_does_not_free_widget_mid_signal() -> void:
 	yield(get_tree(), "idle_frame")   # flush the deferred rebuild
 	Directory.new().remove(sl.SAVE_DIR + sl._default_save_name() + ".sav")
 
+func test_delete_removes_file_and_does_not_crash() -> void:
+	var sl = _screen(setup_facade(99))
+	sl.show_screen()
+	sl._name_edit.text = "to_delete"
+	sl._on_save_named()
+	yield(get_tree(), "idle_frame")   # flush deferred rebuild after save
+	assert_true("to_delete.sav" in sl._list_saves(), "File exists before delete")
+	sl._on_delete("to_delete.sav")
+	yield(get_tree(), "idle_frame")   # flush deferred rebuild after delete
+	assert_false("to_delete.sav" in sl._list_saves(), "File gone after delete")
+
+func test_file_list_shows_delete_not_load() -> void:
+	var sl = _screen(setup_facade(100))
+	sl.show_screen()
+	sl._name_edit.text = "del_check"
+	sl._on_save_named()
+	yield(get_tree(), "idle_frame")
+	sl.show_screen()
+	assert_not_null(_find_button(sl, "Delete"), "Each save row should have a Delete button")
+	assert_null(_find_button(sl, "Load"), "Load button must not appear in the file list")
+	Directory.new().remove(sl.SAVE_DIR + "del_check.sav")
+
 func test_rebuild_is_synchronous_and_replaces_content() -> void:
 	# rebuild() must not leave stale children behind (it once deferred frees and
 	# yielded a frame, which flashed the old widgets / a missing backdrop).

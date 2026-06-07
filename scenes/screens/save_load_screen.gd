@@ -90,7 +90,7 @@ func rebuild() -> void:
 	save_btn.connect("pressed", self, "_on_save")
 	vbox.add_child(save_btn)
 
-	# File list for loading
+	# File list with per-entry Delete button.
 	var files_lbl: Label = Label.new()
 	files_lbl.text = "Saved games:"
 	vbox.add_child(files_lbl)
@@ -107,10 +107,10 @@ func rebuild() -> void:
 			name_lbl.text = filename
 			name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			row.add_child(name_lbl)
-			var load_btn: Button = Button.new()
-			load_btn.text = "Load"
-			load_btn.connect("pressed", self, "_on_load", [filename])
-			row.add_child(load_btn)
+			var delete_btn: Button = Button.new()
+			delete_btn.text = "Delete"
+			delete_btn.connect("pressed", self, "_on_delete", [filename])
+			row.add_child(delete_btn)
 			vbox.add_child(row)
 
 	var close_btn: Button = Button.new()
@@ -174,9 +174,9 @@ func _sanitize_name(raw: String) -> String:
 			out += ch
 	return out.strip_edges()
 
-func _on_load(filename: String) -> void:
-	_load_file(filename)
-	visible = false
+func _on_delete(filename: String) -> void:
+	Directory.new().remove(SAVE_DIR + filename)
+	call_deferred("rebuild")
 
 # Write the current game state to SAVE_DIR + filename. Returns true on success.
 func _write_save(filename: String) -> bool:
