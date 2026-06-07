@@ -37,15 +37,16 @@ Most suites extend the shared fixture `"res://tests/support/sim_fixture.gd"` (wh
 
 ## Documentation
 
-The `docs/` tree has three tiers with different editorial rules:
+The `docs/` tree has four tiers with different editorial rules:
 
 | Tier | Path | Rule |
 |---|---|---|
 | **Design** (upstream) | `docs/design/` | Authoritative intent — game rules, architecture, protocol, UI vocabulary, debug spec. **Modify only with explicit user consent.** |
 | **Reference** (downstream) | `docs/ref/` | Always-current description of the actual project state (`code-layout.md`). Claude Code updates this freely whenever the code changes. |
 | **Planning** (collaborative) | `docs/planning/` | Shared memory of ongoing and past planning work (`designgaps.md`, `TODO`, phase plans). Updated collaboratively by Claude Code and the user. |
+| **User** (downstream) | `docs/user/` | End-user–facing documentation (`quick-start.md`, `user-reference.md`). Packaged with release builds. Claude Code updates freely; content must match the actual shipped game, not design intent. |
 
-The canonical code-layout reference is `docs/ref/code-layout.md`. Design specs (`network-design.md`, `debug.md`, `game-data.md`, `game-rules.md`, `user-interface-design.md`) stay in `docs/design/`.
+The canonical code-layout reference is `docs/ref/code-layout.md`. Design specs (`network-design.md`, `debug.md`, `game-data.md`, `game-rules.md`, `user-interface-design.md`) stay in `docs/design/`. End-user docs (`quick-start.md`, `user-reference.md`) live in `docs/user/`.
 
 ---
 

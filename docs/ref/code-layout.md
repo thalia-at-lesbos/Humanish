@@ -2,7 +2,7 @@
 
 A guide to how the codebase is structured and how the pieces connect at runtime.
 
-> **Doc stream:** `docs/ref/` is the *downstream* reference tier — it is always updated to reflect the current project state and may be edited freely by Claude Code or the user. Design intent lives upstream in `docs/design/` (requires explicit user consent to change). Collaborative planning notes and TODO lists live in `docs/planning/`.
+> **Doc stream:** `docs/ref/` is the *downstream* reference tier — it is always updated to reflect the current project state and may be edited freely by Claude Code or the user. Design intent lives upstream in `docs/design/` (requires explicit user consent to change). Collaborative planning notes and TODO lists live in `docs/planning/`. End-user–facing documentation (packaged with release builds) lives in `docs/user/`.
 
 ---
 
@@ -55,6 +55,8 @@ docs/
                             modify only with explicit user consent
   ref/                      Downstream reference (this file); always updated to current state
   planning/                 Collaborative planning memory: gaps, TODO, phase plans
+  user/                     End-user documentation (quick-start.md, user-reference.md);
+                            downstream — Claude Code updates freely; packaged with release builds
 ```
 
 ---

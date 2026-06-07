@@ -72,10 +72,21 @@ jobs:
 
       - name: Export builds
         run: |
-          godot --no-window --export "Linux/X11"      build/linux/Humanish.x86_64
-          godot --no-window --export "Windows Desktop" build/windows/Humanish.exe
-          godot --no-window --export "Mac OSX"         build/macos/Humanish.zip
+          godot --no-window --export "Linux/X11"       build/linux/Humanish-linux-amd64
+          godot --no-window --export "Windows Desktop" build/windows/Humanish-windows-amd64.exe
+          godot --no-window --export "Mac OSX"         build/macos/Humanish-macos.zip
           (cd build && sha256sum linux/* windows/* macos/* > SHA256SUMS)
+
+      # Bundle user documentation alongside the executables so players have
+      # the quick-start guide and reference without a separate download.
+      - name: Bundle user docs
+        run: |
+          cp docs/user/quick-start.md    build/linux/
+          cp docs/user/user-reference.md build/linux/
+          cp docs/user/quick-start.md    build/windows/
+          cp docs/user/user-reference.md build/windows/
+          cp docs/user/quick-start.md    build/macos/
+          cp docs/user/user-reference.md build/macos/
 
       # Downloadable from every workflow run (Actions tab).
       - name: Upload build artifacts
@@ -90,7 +101,13 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/linux/Humanish.x86_64
-            build/windows/Humanish.exe
-            build/macos/Humanish.zip
+            build/linux/Humanish-linux-amd64
+            build/linux/quick-start.md
+            build/linux/user-reference.md
+            build/windows/Humanish-windows-amd64.exe
+            build/windows/quick-start.md
+            build/windows/user-reference.md
+            build/macos/Humanish-macos.zip
+            build/macos/quick-start.md
+            build/macos/user-reference.md
             build/SHA256SUMS
