@@ -42,6 +42,11 @@ var research_store: int = 0     # accumulated research points
 # Technologies known
 var technologies: Array = []    # Array of tech IDs
 
+# Current era index (§1), a *cache* of the highest era among researched techs.
+# Recomputed by Eras.refresh whenever techs change; mechanics read the era live via
+# Eras.player_era, so this only exists to detect advancement for the notification.
+var era: int = 0
+
 # Espionage accumulation per target alliance_id
 var intel_points: Dictionary = {}   # alliance_id -> int
 
@@ -117,6 +122,7 @@ func serialize() -> Dictionary:
 		"current_research_id": current_research_id,
 		"research_store": research_store,
 		"technologies": technologies.duplicate(),
+		"era": era,
 		"intel_points": intel_points.duplicate(),
 		"alliance_id": alliance_id,
 		"free_early_wins": free_early_wins,
@@ -151,6 +157,7 @@ static func deserialize(d: Dictionary):
 	p.current_research_id = str(d.get("current_research_id", ""))
 	p.research_store = int(d.get("research_store", 0))
 	p.technologies = d.get("technologies", []).duplicate()
+	p.era = int(d.get("era", 0))
 	p.intel_points = d.get("intel_points", {}).duplicate()
 	p.alliance_id = int(d.get("alliance_id", -1))
 	p.free_early_wins = int(d.get("free_early_wins", 0))

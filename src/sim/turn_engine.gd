@@ -148,6 +148,11 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 		u.has_moved = false
 		u.has_attacked = false
 
+	# Era advancement (§1): recompute the player's era after every tech gained this
+	# step (research in phase 4, a Great Scientist's instant tech in phase 6). Queues
+	# a record for the facade to surface when the player crosses into a new era.
+	Eras.refresh(player, gs.db, gs)
+
 # ── Per-settlement step ───────────────────────────────────────────────────────
 
 static func settlement_step(gs: GameState, s: Settlement,
@@ -286,11 +291,13 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 
 	s.food_store += surplus
 
-	# Growth threshold
+	# Growth threshold, scaled by both the game pace and the owner's era (§1): later
+	# eras raise the food needed per growth (growth_threshold_scale in ages.json).
 	var base: int = db.get_constant("growth_base", 20)
 	var pace: Dictionary = db.get_pace(gs.pace_id)
 	var pace_scale: int = int(pace.get("growth_scale", 100))
-	var threshold: int = Fixed.scale(base * s.population, pace_scale)
+	var era_scale: int = Eras.growth_threshold_scale(Eras.player_era(player, db), db)
+	var threshold: int = Fixed.scale(Fixed.scale(base * s.population, pace_scale), era_scale)
 
 	if s.food_store >= threshold:
 		s.population += 1

@@ -165,16 +165,14 @@ static func _garrison_strength(gs, s, rival_pid: int, owner_pid: int, db) -> int
 		total *= db.get_constant("revolt_war_garrison_multiplier", 2)
 	return total
 
-# Era proxy for a player: the engine has no explicit ages, so era scales with the
-# number of technologies researched (min 1). Wild/unknown players are era 1.
+# Era number of a player for the revolt-power term (§4.9): the real era (§1, the
+# highest era among the rival's researched techs), floored at 1 so even an Ancient
+# rival exerts adjacency pressure. Wild/unknown players are era 1.
 static func _era_number(gs, player_id: int, db) -> int:
 	var p = gs.get_player(player_id)
 	if p == null:
 		return 1
-	var div: int = db.get_constant("revolt_era_tech_divisor", 6)
-	if div < 1:
-		div = 1
-	var era: int = p.technologies.size() / div
+	var era: int = Eras.player_era(p, db)
 	return 1 if era < 1 else era
 
 # The belief carried by the rival's nearest pressing settlement (used as its

@@ -53,6 +53,12 @@ var diplomatic_votes: Dictionary = {}  # alliance_id -> int votes
 # Not serialized: it never survives past the end of the turn that produced it.
 var pending_flips: Array = []  # [{settlement_id, from_player_id, to_player_id}]
 
+# Transient era-advancement records produced when a player crosses into a new era
+# (§1) during a player step, drained by SimFacade into notifications + the
+# era_advanced signal. Not serialized: it never survives past the turn that
+# produced it (Player.era carries the persistent state).
+var pending_era_advances: Array = []  # [{player_id, from, to}]
+
 # Transient wild-forces combat/conquest records produced by WildAI during the
 # world step (§9), drained by SimFacade into notifications + combat/conquest
 # signals. Not serialized: it never survives past the turn that produced it.

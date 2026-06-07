@@ -87,10 +87,51 @@ connected chain of tile-edge segments that runs from an inland high point down t
   multipliers (growth, research, build, and special-event timers). Slower paces multiply
   thresholds and costs together so relative balance is preserved.
 * **Ages/eras** gate which units and structures are available, may scale certain costs,
-  and influence presentation and AI behavior.
+  and influence presentation and AI behavior. See §2.1 for the implemented model.
 * A **difficulty setting** supplies a family of per-level modifiers (handicaps and
   bonuses for computer players, free starting units, comfort/health bonuses, and a number
   of "free" early combat wins against wild/raider forces).
+
+### 2.1 Eras (provisional)
+> **⚠️ Provisional — preliminary, not verified.** This subsection documents a first-pass
+> era model as actually implemented (`src/sim/eras.gd`). The era→effect wiring, the
+> growth-scale percentages, and the revolt era term below are placeholders drawn from a
+> preliminary reading of the reference game; they have **not** been checked against the
+> actual mechanics and are expected to be tuned. All quantities are integer math per the
+> engine invariants (percentages are integer 0–100).
+
+The seven eras (Ancient 0 → Future 6) and their tunables live in `data/ages.json`; the
+canonical table is `game-data.md` §1. Eras are **derived, not separately tracked**:
+
+* **A player's era** is the **highest era among the technologies they have researched**
+  (Ancient / 0 when they know none). Each technology carries an `era` tag
+  (`data/technologies.json`); the player's era is the maximum over that set, recomputed
+  whenever techs change. A wild/unknown player is Ancient.
+* **Unit and structure availability** is already gated on technology (§6.3), and every
+  gating tech belongs to an era, so era-gating is **transitive** — a unit/structure
+  "belongs to" the era of its required tech (a structure may also carry its own `era`
+  tag). No separate era gate is applied, so the two can never disagree.
+* **Advancement** is automatic: when a freshly-researched tech (or a Great Scientist's
+  instant tech) raises the player's maximum era, they **enter the new era** that turn. The
+  transition is surfaced once as a player notification and an `era_advanced` signal.
+
+Mechanical effects currently wired to the era:
+
+* **Settlement growth** — the food threshold to grow a population point is scaled by the
+  owner's era via `growth_threshold_scale` (Ancient/Classical 100, Medieval 110,
+  Renaissance 115, Industrial 120, Modern 125, Future 130), applied **on top of** the
+  game-pace growth multiplier (§4.2). Later eras therefore grow cities more slowly.
+* **Cultural revolt** — the "era number" term in the §4.9 revolt-power formula is the
+  challenging rival's real era (floored at 1), replacing the former technologies-count
+  proxy.
+* **Presentation** — the current player's era is shown on the HUD turn/score bar; the
+  engine exposes it through `SimFacade.get_player_era(player_id)` → `{index, id, name}`.
+
+Persistence and determinism: `Player.era` is a serialized **cache** used only to detect
+advancement for the notification; every rule above reads the era **live** (recomputed from
+techs), so the cache can never desync a mechanic. The `start_turn` field in
+`data/ages.json` is currently **descriptive only** (it does not force or gate era entry —
+research does).
 
 ---
 

@@ -24,6 +24,7 @@ signal city_conquered(settlement_id, captor_player_id)   # kept (in revolt) — 
 signal city_razed(settlement_id, by_player_id)           # destroyed — §4.8
 signal city_flipped(settlement_id, from_player_id, to_player_id)  # cultural — §4.9
 signal technology_completed(player_id, tech_id)
+signal era_advanced(player_id, from_era, to_era)         # §1
 signal combat_resolved(result_dict)
 signal player_turn_started(player_id)
 signal screen_requested(screen_id)
@@ -106,6 +107,9 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		p.technologies = cfg.get("starting_techs", default_techs).duplicate()
 		if default_research != "" and Research.can_research(default_research, p, db):
 			p.current_research_id = default_research
+		# Seed the era cache from the starting techs (no notification at game start —
+		# gs is omitted so nothing is queued).
+		Eras.refresh(p, db)
 
 		# Each player starts in their own alliance
 		var a := Alliance.new()
@@ -197,6 +201,14 @@ func get_state() -> GameState:
 
 func get_hooks() -> Hooks:
 	return _hooks
+
+# A player's current era as {index, id, name} (§1), for HUD/AI/presentation. The
+# index is read live (highest era over researched techs), so it is always current
+# even if the cached Player.era lags by a notification.
+func get_player_era(player_id: int) -> Dictionary:
+	var p: Player = _gs.get_player(player_id)
+	var idx: int = Eras.player_era(p, _db)
+	return {"index": idx, "id": Eras.era_id(idx, _db), "name": Eras.era_name(idx, _db)}
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
@@ -338,6 +350,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 
 	TurnEngine.player_step(_gs, player_id, _hooks)
 	_drain_flips()
+	_drain_era_advances()
 
 	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
@@ -1750,6 +1763,23 @@ func _drain_flips() -> void:
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface any era advancements queued during the player step (§1): one notification
+# + an era_advanced signal each, then clear the queue.
+func _drain_era_advances() -> void:
+	if _gs.pending_era_advances.empty():
+		return
+	for adv in _gs.pending_era_advances:
+		var pid: int = int(adv["player_id"])
+		var to_era: int = int(adv["to"])
+		var p: Player = _gs.get_player(pid)
+		var who: String = p.name if p != null else "A civilization"
+		_add_notification(
+			who + " has entered the " + Eras.era_name(to_era, _db) + " Era.", "major")
+		emit_signal("era_advanced", pid, int(adv["from"]), to_era)
+	_gs.pending_era_advances = []
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 
 # Surface any wild-forces combat/conquest records WildAI produced this world step
 # (§9): each fight re-emits combat_resolved; each razed city clears a stale

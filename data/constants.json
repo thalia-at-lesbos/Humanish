@@ -12,7 +12,6 @@
   "revolt_base_turns": 3,
   "revolt_check_chance": 10,
   "revolt_base_per_pop": 2,
-  "revolt_era_tech_divisor": 6,
   "revolt_state_belief_multiplier": 2,
   "revolt_war_garrison_multiplier": 2,
   "revolt_garrison_base": 1,
