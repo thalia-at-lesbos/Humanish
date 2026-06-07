@@ -11,6 +11,17 @@
 class_name Unit
 extends Reference
 
+# Class-versus-class combat keys (§5.3): a promotion's `vs_<key>` bonus applies
+# when the *opponent* has the mapped classification. Data uses the historical key
+# names (vs_ships for naval, vs_fighters for air), so we translate here.
+const VS_CLASS_KEY: Dictionary = {
+	"melee": "vs_melee",
+	"mounted": "vs_mounted",
+	"gunpowder": "vs_gunpowder",
+	"naval": "vs_ships",
+	"air": "vs_fighters",
+}
+
 var id: int = 0
 var unit_type_id: String = ""
 var owner_player_id: int = -1
@@ -64,18 +75,37 @@ var is_sleeping: bool = false
 func has_promotion(promo_id: String) -> bool:
 	return promo_id in promotions
 
-# Effective strength accounting for promotions and health fraction.
-# Returns integer in same scale as base_strength * 1000.
+# Effective combat strength (§5.3), accounting for promotions and health fraction.
+# Optional context the caller supplies for a
+# fight at a settlement: `at_settlement` marks the combat tile as a city (enabling
+# the attacker's attack-vs-settlement and the defender's defense-in-settlement
+# promotions), `settlement_def_bonus` is the city's structure + cultural defence
+# (added to defenders), and `opponent_entrenched` enables vs-fortified bonuses.
 func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
-		feature: Dictionary, versus_class: String) -> int:
+		feature: Dictionary, versus_class: String,
+		at_settlement: bool = false, settlement_def_bonus: int = 0,
+		opponent_entrenched: bool = false) -> int:
 	var bonus_sum: int = 0
+
+	# Class-versus-class key for the opponent's classification (§5.3).
+	var vs_key: String = VS_CLASS_KEY.get(versus_class, "")
 
 	# Promotions
 	for promo_id in promotions:
 		var promo: Dictionary = db.get_promotion(promo_id)
 		bonus_sum += int(promo.get("combat_strength_bonus", 0))
-		if is_attacker:
-			bonus_sum += int(promo.get("attack_vs_settlement", 0)) if terrain.get("is_settlement", false) else 0
+		# Class-versus-class and versus-fortified modifiers (apply in either role).
+		if vs_key != "":
+			bonus_sum += int(promo.get(vs_key, 0))
+		if opponent_entrenched:
+			bonus_sum += int(promo.get("vs_fortified", 0))
+		# Settlement combat: attackers get attack-vs-settlement, defenders get
+		# defense-in-settlement (§5.3).
+		if at_settlement:
+			if is_attacker:
+				bonus_sum += int(promo.get("attack_vs_settlement", 0))
+			else:
+				bonus_sum += int(promo.get("defense_in_settlement", 0))
 		var ter_key: String = "combat_in_" + terrain.get("id", "")
 		bonus_sum += int(promo.get(ter_key, 0))
 		var feat_key: String = "combat_in_" + feature.get("id", "")
@@ -85,6 +115,9 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 	if not is_attacker:
 		bonus_sum += int(terrain.get("defence_bonus", 0))
 		bonus_sum += int(feature.get("defence_bonus", 0))
+		# Settlement defensive bonus: walls/castle defence plus cultural defence
+		# (§5.3). Computed by the caller from the city's structures.
+		bonus_sum += settlement_def_bonus
 
 	# Entrenchment (defender only)
 	if not is_attacker:

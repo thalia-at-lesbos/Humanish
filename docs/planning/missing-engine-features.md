@@ -62,27 +62,27 @@ can never occur:
 
 ## 5. Combat & units — computed-but-unapplied / missing
 
-- **Flanking** (§5.4) — `Combat.resolve()` computes `flanking_damage`, but
-  `_apply_combat_result()` only applies `spillover_damage`. Flanking is discarded.
-- **Promotions on XP threshold** (§5.5) — combat awards XP, but nothing auto-grants a
-  promotion when a threshold is crossed. Promotion only happens via the manual
-  `UNIT_PROMOTE` command, with no prereq/threshold validation.
-- **Healing** (§5.6) — no per-turn healing logic anywhere (location- or
-  promotion-based). Damaged units never recover.
-- **Entrenchment growth** (§5.3/§5.6) — `entrenchment` / `stationary_turns` are only
-  ever *reset to 0* on move; never incremented for stationary units, and the
-  entrenchment cap is unused. The defensive bonus can never accrue.
-- **Zones of control** (§5.2) — pathfinding blocks moving *through* an enemy tile but
-  implements no ZoC (adjacent-enemy movement arrest).
-- **Transport / embarkation** (§5.2) — `Unit.cargo` / `transported_by` exist but are
-  unused; `_domain_legal` forbids land units on water, so they can never cross deep
-  water. Transport capacity is dead data.
-- **Air units** (§5.2) — domain `"air"` is "go anywhere" with no range, basing,
-  interception, or air-strike mission. `MISSION_AIRLIFT` just teleports.
-- **8-direction movement** (§1.2) — pathfinding/move-cost use `neighbours4` only;
-  diagonal/8-compass movement isn't supported in pathing.
-- No implementation for: bombarding settlement *defenses*, blockading, scouting,
-  interception, area-effect strikes.
+> Most of this section's original gaps are now resolved (see the Tier checklists
+> below): **flanking** (§5.4), **auto-promotion on XP threshold** (§5.5), **per-turn
+> healing** (§5.6), **entrenchment growth** (§5.3), **zones of control** &
+> **8-direction movement** (§1.2/§5.2), **transport / embarkation** (§5.2), **air
+> strikes & interception** with range (§5.2), **scouting/recon** (§9), and the
+> **class-versus-class / settlement & cultural defence** strength modifiers (§5.3).
+
+What remains:
+
+- **Residual §5.3 strength modifiers** — `effective_strength()` now applies
+  promotions (incl. `vs_<class>`, `vs_fortified`, `attack_vs_settlement`,
+  `defense_in_settlement`), terrain/feature defence, entrenchment, and the city's
+  structure + cultural defence. Still unwired: river-crossing / amphibious **attack
+  penalties**, domain-specific modifiers, self-sacrifice, and the terrain-keyed
+  `defense_on_hills` promotion (a different key from the wired `combat_in_<id>`).
+- **Air basing** (§5.2) — air strikes and interception work, but there is no
+  carrier/airfield basing requirement; `MISSION_AIRLIFT` teleports within range.
+- **Blockading** (§5.6) — naval blockade of coastal tiles / trade is unimplemented.
+- **Bombarding settlement *defenses*** (§5.6) — city defence is folded into siege HP
+  (`city_max_health`); there is no separate, recoverable "defence" stat to bombard
+  down before an assault.
 
 ## 6. Players / economy / research
 
@@ -239,3 +239,21 @@ Resolved on branch `dev-missing-features`, one commit per item; covered by
 
 > Remaining known simplification: area-effect strikes (a pollution/contamination
 > source) are not modelled, as no area-strike action exists yet.
+
+### Tier 4 — Combat strength modifiers — ✅ DONE
+
+Resolved on branch `feature/combat-class-settlement-modifiers`; covered by
+`tests/sim/test_combat.gd` (6 new tests).
+
+- [x] **Class-versus-class modifiers** (§5.3) — `Unit.effective_strength()` now reads
+      its `versus_class` argument (previously ignored), applying a promotion's
+      `vs_<class>` bonus via the `Unit.VS_CLASS_KEY` map (melee/mounted/gunpowder →
+      naval=`vs_ships`, air=`vs_fighters`), plus `vs_fortified` when the opponent is
+      entrenched. Makes `shock`/`pinch`/`formation`/`boarding`/`dogfighting`/`barrage`
+      live.
+- [x] **Settlement attack/defence + cultural defence** (§5.3) — combat at a city tile
+      (detected via `GameState.get_settlement_at`) now grants the attacker
+      `attack_vs_settlement` and the defender `defense_in_settlement` plus the city's
+      structure `defence_bonus` + `cultural_defence_bonus` (summed by
+      `Combat._settlement_defence`). Replaces the dead `terrain.is_settlement` branch
+      (a key that was never set); `_assault_city`/`WildAI` pass `at_settlement` too.

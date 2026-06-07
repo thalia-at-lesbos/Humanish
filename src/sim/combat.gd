@@ -31,8 +31,19 @@ static func resolve(attacker: Unit, defender: Unit,
 	var ter: Dictionary = db.get_terrain(tile.terrain_id)
 	var feat: Dictionary = db.get_feature(tile.feature_id) if tile.feature_id != "" else {}
 
-	var a_str: int = attacker.effective_strength(db, true, {}, {}, _unit_class(defender, db))
-	var d_str: int = defender.effective_strength(db, false, ter, feat, _unit_class(attacker, db))
+	# Settlement context (§5.3): a fight on a city tile gives the attacker the
+	# attack-vs-settlement bonus and the defender the in-settlement promotions plus
+	# the city's structure + cultural defence.
+	var settle: Settlement = game_state.get_settlement_at(defender.x, defender.y)
+	var at_settlement: bool = settle != null
+	var settle_def: int = _settlement_defence(settle, db)
+	var a_fortified: bool = defender.entrenchment > 0
+	var d_fortified: bool = attacker.entrenchment > 0
+
+	var a_str: int = attacker.effective_strength(db, true, {}, {},
+		_unit_class(defender, db), at_settlement, 0, a_fortified)
+	var d_str: int = defender.effective_strength(db, false, ter, feat,
+		_unit_class(attacker, db), at_settlement, settle_def, d_fortified)
 
 	# Free early wins: clamp attacker odds against wild units
 	var atk_player: Player = game_state.get_player(attacker.owner_player_id)
@@ -59,7 +70,6 @@ static func resolve(attacker: Unit, defender: Unit,
 
 	var a_unit_data: Dictionary = db.get_unit(attacker.unit_type_id)
 	var a_first_strikes: int = int(a_unit_data.get("first_strikes", 0))
-	var d_unit_data: Dictionary = db.get_unit(defender.unit_type_id)
 	var a_combat_limit: int = int(a_unit_data.get("combat_limit", 0))  # 0 = no limit
 	var a_withdrawal: int = int(a_unit_data.get("withdrawal_chance", 0))
 	# Promotion bonuses
@@ -160,3 +170,15 @@ static func _xp_from_kill(winner_str: int, loser_str: int) -> int:
 
 static func _unit_class(u: Unit, db: DataDB) -> String:
 	return db.get_unit(u.unit_type_id).get("classification", "")
+
+# Total defensive bonus a settlement grants its garrison (§5.3): each built
+# structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …).
+static func _settlement_defence(settle, db: DataDB) -> int:
+	if settle == null:
+		return 0
+	var total: int = 0
+	for sid in settle.structures:
+		var st: Dictionary = db.get_structure(sid)
+		total += int(st.get("defence_bonus", 0))
+		total += int(st.get("cultural_defence_bonus", 0))
+	return total

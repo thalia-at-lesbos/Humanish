@@ -142,7 +142,7 @@ static func _assault_city(game_state, lead: Unit, city: Settlement) -> void:
 	var tile: Tile = game_state.map.get_tile(city.x, city.y)
 	var ter: Dictionary = db.get_terrain(tile.terrain_id)
 	var feat: Dictionary = db.get_feature(tile.feature_id) if tile.feature_id != "" else {}
-	var dmg: int = lead.effective_strength(db, true, ter, feat, "")
+	var dmg: int = lead.effective_strength(db, true, ter, feat, "", true)
 	if dmg < 1:
 		dmg = 1
 	city.health -= dmg

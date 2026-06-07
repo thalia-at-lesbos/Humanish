@@ -221,3 +221,70 @@ func test_unit_can_attack_adjacent_enemy() -> void:
 	var av = gs.get_unit(a.id)
 	assert_not_null(av, "The strong attacker should survive")
 	assert_eq([av.x, av.y], [6, 5], "The victorious attacker advances onto the captured tile")
+
+# ── Class-versus-class modifiers (§5.3) ─────────────────────────────────────────
+
+func test_vs_class_promotion_applies_only_against_mapped_class() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)   # melee, base_strength 10
+	u.promotions = ["formation"]        # vs_mounted +25, applies_to melee
+	var vs_mounted: int = u.effective_strength(gs.db, false, {}, {}, "mounted")
+	var vs_melee: int = u.effective_strength(gs.db, false, {}, {}, "melee")
+	assert_gt(vs_mounted, vs_melee,
+		"formation's vs_mounted bonus applies against a mounted opponent")
+	assert_eq(vs_melee, 10,
+		"...and not against a non-mounted opponent (base strength unchanged)")
+
+func test_vs_fortified_promotion_applies_against_entrenched_opponent() -> void:
+	var gs = make_gs()
+	gs.db.units["test_catapult"] = {
+		"id": "test_catapult", "base_strength": 10, "movement": 100,
+		"classification": "siege", "tags": [], "upkeep": 0, "cost": 40
+	}
+	var u = make_unit(gs, "test_catapult", 1, 5, 5)
+	u.base_strength = 10
+	u.promotions = ["barrage1"]          # vs_fortified +25, applies_to siege
+	var vs_fort: int = u.effective_strength(gs.db, true, {}, {}, "", false, 0, true)
+	var vs_open: int = u.effective_strength(gs.db, true, {}, {}, "", false, 0, false)
+	assert_gt(vs_fort, vs_open, "barrage's vs_fortified bonus applies vs an entrenched unit")
+
+# ── Settlement attack / defence modifiers (§5.3) ────────────────────────────────
+
+func test_attack_vs_settlement_bonus_only_at_a_city() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)   # melee
+	u.promotions = ["city_raider1"]     # attack_vs_settlement +20, melee
+	var at_city: int = u.effective_strength(gs.db, true, {}, {}, "", true)
+	var in_open: int = u.effective_strength(gs.db, true, {}, {}, "", false)
+	assert_gt(at_city, in_open, "city_raider boosts an attack into a settlement")
+	assert_eq(in_open, 10, "...and not in the open field")
+
+func test_settlement_defence_helper_sums_structure_and_cultural() -> void:
+	var gs = make_gs()
+	var s = make_settlement(gs, 2, 5, 5)
+	s.structures = ["walls"]            # defence_bonus 50 + cultural_defence_bonus 10
+	assert_eq(Combat._settlement_defence(s, gs.db), 60,
+		"Settlement defence = structure defence_bonus + cultural_defence_bonus")
+	assert_eq(Combat._settlement_defence(null, gs.db), 0, "No settlement → no bonus")
+
+func test_defender_in_settlement_is_stronger() -> void:
+	var gs = make_gs()
+	var d = make_warrior(gs, 2, 5, 5)   # base_strength 10
+	var s = make_settlement(gs, 2, 5, 5)
+	s.structures = ["walls"]
+	var def_bonus: int = Combat._settlement_defence(s, gs.db)
+	var defending: int = d.effective_strength(gs.db, false, {}, {}, "", true, def_bonus)
+	var in_open: int = d.effective_strength(gs.db, false, {}, {}, "", false, 0)
+	assert_gt(defending, in_open, "A garrison inside a walled city defends harder")
+
+func test_settlement_defence_flows_through_combat_resolve() -> void:
+	var gs = make_gs()
+	# An impregnable bastion: settlement defence so high the attacker can never win.
+	gs.db.structures["test_bastion"] = {"id": "test_bastion", "defence_bonus": 100000}
+	var atk = make_warrior(gs, 1, 5, 6)
+	var dfn = make_warrior(gs, 2, 5, 5)
+	var s = make_settlement(gs, 2, 5, 5)
+	s.structures = ["test_bastion"]
+	var r: Dictionary = Combat.resolve(atk, dfn, gs, _rng(42))
+	assert_true(r["defender_survived"],
+		"Combat.resolve reads the defender's settlement defence (garrison survives)")
