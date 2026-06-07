@@ -9,12 +9,13 @@ A guide to how the codebase is structured and how the pieces connect at runtime.
 ```
 project.godot               Godot 3.6 project file; registers all class_name globals
                             main_scene → scenes/menus/start_menu.tscn
-data/                       23 JSON config tables — all numeric constants and content live here
+data/                       24 JSON config tables — all numeric constants and content live here
 src/
-  core/                     Foundation: math, IDs, RNG, data loading
+  core/                     Foundation: math, IDs, RNG, data loading, debug ring buffer
   world/                    Map geometry, tile output formula, regions, cultural influence
-  sim/                      Rule modules: every §3–§11 mechanic
-  api/                      Public surface: commands, save/load, facade
+  sim/                      Rule modules: every §3–§11 mechanic (incl. eras, assembly,
+                            culture revolt, wild-forces AI, shared combat application)
+  api/                      Public surface: commands, save/load, facade, AI/debug clients
   net/                      Pure remote-multiplayer protocol + server CLI parsing
                             (net_protocol, net_config — no sockets; see network-design.md)
 scenes/
@@ -127,7 +128,7 @@ The only engine seam is on `SimFacade` (`set_remote_submit_handler` / `set_remot
 ## Core layer (`src/core/`)
 
 ### `DataDB`
-Loads 22 of the 23 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`) — every file except `hotkeys.json`, which `HotkeyMap` loads separately. Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
+Loads 23 of the 24 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`) — every file except `hotkeys.json`, which `HotkeyMap` loads separately. Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
 
 The tables and what they configure:
 
@@ -151,6 +152,7 @@ The tables and what they configure:
 | `win_conditions.json` | Condition type and numeric thresholds |
 | `projects.json` | Endgame (spaceship-style) project stages: cost, tech/wonder gate, stage and count-needed; feeds the `endgame_project` win condition |
 | `events.json` | Scripted random-event definitions (min turn, treasury/effect delta, notice text) |
+| `resolutions.json` | §7.2 world-assembly resolutions: category, vote threshold, effect payload, eligibility gates (read by `Assembly`) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
 
 Typed getters follow the pattern `get_X(id) → Dictionary` for every table. Additional helpers: `get_societies() → Dictionary` (full societies map), `get_society(id) → Dictionary` (single entry), `get_map_types() → Dictionary` (full map-script map), `get_map_type(id) → Dictionary` (single entry, falling back to `continents`).
@@ -218,9 +220,12 @@ gs.turn_number
 gs.current_player_id
 gs.winning_alliance_id
 gs.founded_beliefs / gs.founded_econ_orgs / gs.endgame_project_stages
+gs.diplomatic_votes              alliance_id → vote weight
+gs.assembly                      §7.2 world-assembly state (body, resident, open session, tallies)
+gs.pending_assembly_events / gs.pending_flips / gs.pending_era_advances / gs.pending_wild_events
 ```
 
-ID counters (`_next_unit_id` etc.) are also serialized so IDs remain stable across save/load.
+The four `pending_*` arrays are an outbox: pipeline phases that run with no active player (world step) or that need to raise UI notifications push records onto them, and `SimFacade` drains each into the matching signal (`assembly_event`, `city_flipped`, `era_advanced`, plus wild-combat/raze signals) at the next opportunity. ID counters (`_next_unit_id` etc.) are also serialized so IDs remain stable across save/load.
 
 ### `TurnEngine`
 Implements §3 as three static functions called in sequence. Every phase first consults `hooks.run(IDs.Phase.X, gs)` — if a hook returns `true` the built-in is skipped entirely.
@@ -229,7 +234,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 1. Resolve/expire trades
 2. Advance shared alliance research stores
 3. Per-tile upkeep (`_tile_upkeep` — charges each owned, improved tile's improvement maintenance)
-4. Spawn wild/raider forces (`WildForces`)
+4. Spawn wild/raider forces (`WildForces`), then let them act (`WildAI.run` — §9 scouts, camp alerts, mustered raid waves; pushes fights/razes onto `gs.pending_wild_events`)
 5. Environmental degradation (`Pollution`)
 6. Assign special sites (stub)
 7. Assembly/voting (`_resolve_assembly` — tallies population-weighted `gs.diplomatic_votes` per alliance — then `Assembly.world_tick` runs the §7.2 world-assembly lifecycle: sessions, resident elections, resolutions; gated on a built Apostolic Palace / United Nations)
@@ -242,12 +247,12 @@ Implements §3 as three static functions called in sequence. Every phase first c
 2. Auto-assign workers to tiles
 3. Treasury: income (finance slice of settlement commerce) − unit upkeep (civics waive free units / drop distance maintenance); insolvency handling
 4. Research: accumulate research slice of commerce (+ civic science effects) against current tech cost
-5. Intelligence accumulation
-6. Settlement steps (iterates `settlement_step` for all owned settlements)
-7. Tick down timed states (transition, rush anger, celebration, Golden Age)
+5. Intelligence accumulation (`_apply_intelligence` — §7.1 espionage points per rival, from the intel slice + structure `espionage` output scaled by `espionage_output`)
+6. Settlement steps (iterates `settlement_step` for all owned settlements), then §4.9 cultural revolt / city flipping (`CultureRevolt.process_player`, queued onto `gs.pending_flips`)
+7. Tick down timed states (transition, rush anger, celebration, Golden Age, state-religion/civic anarchy)
 8. Validate policies; update war fatigue
 9. Random events (`Events`)
-10. Reset unit movement/action flags
+10. Reset unit movement/action flags; recompute the player's derived era (`Eras.refresh`, queuing `gs.pending_era_advances`)
 
 **`settlement_step(gs, settlement, player, hooks)`** — runs per settlement:
 - Growth: sum tile outputs + structure bonuses + econ org delta (+ civic tile/capital/free-specialist bonuses via `PolicyEffects`) → surplus food → food store → population threshold check
@@ -260,7 +265,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 - Structure upkeep charged to treasury
 
 ### `Player`
-Per-player economic and research state. The four allocation sliders (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the sliders. Also holds Golden Age state (`golden_age_turns` / `golden_age_count` / `pending_golden_age_gp`) and Great General accumulation (`great_general_points` / `great_general_threshold` / `great_generals_produced`) — all serialized.
+Per-player economic and research state. The four allocation sliders (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the sliders. Also holds: `state_religion` (§8.1 — the player's adopted belief, switching it triggers anarchy via the shared anarchy counter); `era` (§2.1 — a *cache* of the derived current era, recomputed by `Eras.refresh`; every rule reads it live through `Eras.player_era`); `intel_points` (§7.1 — espionage points accumulated per rival alliance, spent on missions); Golden Age state (`golden_age_turns` / `golden_age_count` / `pending_golden_age_gp`); and Great General accumulation (`great_general_points` / `great_general_threshold` / `great_generals_produced`). All serialized.
 
 ### `Settlement`
 Holds all per-city state: population, food store, production queue and store, culture total and border ring, contentment/wellbeing breakdowns, specialist assignments, and a list of built structure IDs. `effective_workers()` = `population − discontented`.
@@ -280,6 +285,9 @@ Stateless helpers that query `gs.units` by tile position. `at(units, x, y, playe
 5. Compute XP gains, spillover (siege), and flanking (fast unit) damage
 Returns a result Dictionary — it does not mutate the unit objects directly.
 
+### `CombatApply`
+Pure application of a resolved `Combat.resolve()` result back to `GameState`: healths, XP, auto-promotions, removing the dead, advancing a victorious attacker onto the tile, spillover/flanking damage, war-fatigue, and Great-General accrual. No signals or `Node` references — so both `SimFacade` (the human/AI command path) and `WildAI` (the world-step raider path) share one source of truth. Each caller emits its own signals afterwards from the returned `result`.
+
 ### `Pathfinding`
 Dijkstra over `WorldMap.neighbours4`. Movement cost per tile = terrain base + feature add, reduced if a road improvement is present. Domain legality (land/sea/air) is checked per tile. Tiles occupied by enemies block passage.
 
@@ -290,6 +298,10 @@ Dijkstra over `WorldMap.neighbours4`. Movement cost per tile = terrain base + fe
 Tracks war state (`at_war_with`), contacts, subordination, shared research store, war fatigue, and pending trades. War and peace are declared at the alliance level, not the player level.
 
 ### Other sim modules
+- **`Eras`** — §2.1 ages/eras (pure static reader, provisional): a player's era is *derived* — the highest era index among the techs they have researched (`Ancient`/0 with none), read live through `player_era()`; `Player.era` is only a cache that `refresh()` updates to detect advancement (queued onto `gs.pending_era_advances`). Eras scale growth thresholds and the §4.9 culture-revolt power term; unit/structure availability is already era-gated transitively through tech prereqs. Reads `data/ages.json` and the per-tech `era` tag
+- **`CultureRevolt`** — §4.9 cultural city flipping (pure static, provisional): a TurnEngine phase in the owner's player step that tests each of the owner's settlements; the strongest rival that both out-cultures the owner on the city's tile and holds a settlement within cultural radius accumulates revolt on a passed `gs.rng` check, and the city flips once enough accumulate. Mutates ownership/occupation directly and returns flip records onto `gs.pending_flips`
+- **`Assembly`** — §7.2 world-government assemblies, elections & resolutions (pure static, provisional): a voting body founded by a world wonder (the religious Apostolic Palace, superseded by the secular United Nations). `world_tick()` drives the lifecycle once per world step — a session opens on a cadence recording one proposal (a resident election while there is no resident, else a random eligible resolution from `data/resolutions.json`), members cast weighted Yea/Nay/Abstain over their player-turns (humans via `SimFacade.cast_assembly_vote` / the `CHOOSE_ELECTION` popup, AI automatically), and the proposal resolves. State lives in `gs.assembly`; outcomes push onto `gs.pending_assembly_events`
+- **`WildAI`** — §9 wild-forces *behaviour* (pure static, provisional). `WildForces` spawns raiders; `WildAI.run()` makes them act once per world step (owner `-2` has no round-robin slot, so it runs inside `world_step`, not as a facade client): refresh wild movement, march each unit toward its raid goal or wander, and fight via the shared `CombatApply`. Surfacing (a fight, a razed city) goes onto `gs.pending_wild_events`
 - **`GreatPeople`** — §14 subsystem (pure static): maps specialists → great-person units, type-aware birth, Golden Ages (worked-tile bonus in `_settlement_growth`, war-weariness freeze, tick-down in `_tick_states`), the Great General accrued from combat, and the `GP_ACTION` action dispatch (`perform_action`) validated against each unit's data `actions` list. Types/actions are defined entirely in `data/units.json`; magnitudes in `data/constants.json`
 - **`PolicyEffects`** — §8 civic-effects reader (pure static): `sum_int`/`has_flag` aggregate a player's active policies' `effects` (both nested `effects` dicts and bare top-level flags); `largest_city_ids`/`is_religious_structure` are supporting helpers. The single reader of per-civic `effects`, called from `TurnEngine` (happiness/health, tile + capital output, production via `_policy_production_delta`, research/intel, treasury, Great-Person rate, new-unit XP) and `SimFacade` (rush gating, Serfdom worker speed). The mechanical policy fields stay in `SimFacade`/`TurnEngine`. See `docs/planning/designgaps.md` §2 for the wired-vs-inert breakdown
 - **`Beliefs`** — founding (first-eligible random draw), passive spread within range each turn
@@ -339,6 +351,20 @@ var hash: int = facade.state_hash()   # determinism gate
 
 ### `SaveLoad`
 `save_to_string(gs)` calls `gs.serialize()` → `JSON.print()`. `load_from_string(json, db)` calls `JSON.parse()` → `GameState.deserialize()`. Every sim object has symmetric `serialize() → Dictionary` and `static deserialize(d) → Object` methods. Integer-keyed dictionaries (e.g. `tile.influence`) convert keys back to `int` on deserialize to restore exact types. `state_hash()` returns `String.hash()` of the JSON output — used by integration tests as the determinism gate.
+
+### Facade *clients* (`src/api/`)
+These are not part of the engine — each is a *client* of `SimFacade`, exactly like the UI: they read `get_state()` and mutate only through `apply_command()` (or, for debug write commands, mutate `GameState` then `get_dirty().mark_all()`), drawing any randomness from the shared `gs.rng`, so their actions are reproducible and captured by save/load.
+
+- **`PlayerAI`** — the simple deterministic computer player (`take_turn(facade, player_id)`): cheapest researchable tech, latest-unlocked policy per civic, each city's queue refilled cheapest-first, and units split between garrisoning and wandering. Marked by `Player.is_ai`; driven in-scene by `HotseatManager` and on the server by `net_server.gd`.
+- **`DebugConsole`** + **`DebugLog`** (the latter in `src/core/`) — the debug-build-only debugging subsystem: a command engine and a capped stdout-mirrored ring buffer, surfaced by the `~` overlay and a stdin terminal reader. Inert under release exports and the headless/GUT runner. Full reference: `docs/design/debug.md`.
+
+### Presentation-only helpers (`src/api/`)
+UI concerns that deliberately live outside `GameState` (they have no effect on simulation outcomes and are not serialized):
+
+- **`DirtyFlags`** — per-region invalidation bit set (one bool per `IDs.DirtyRegion`). `SimFacade` sets flags on state change; the presentation host clears them after repainting each affected region. `get_dirty().mark_all()` forces a full repaint (used after a load).
+- **`SelectionState`** — the active subject (selected unit IDs or selected city) tracked for the HUD/input layer.
+- **`SliderMath`** — keeps the four economic-allocation sliders summing to exactly 100 by spreading a change across the other three in a fixed round-robin order, in whole `step` increments (predictable, no value jumping).
+- **`TextGen`** — centralized tooltip/breakdown text (§9 of ui-design): every human-readable explanation of game state lives here, reached via `SimFacade.widget_help()`, so displayed text always matches the actual computation.
 
 ---
 
