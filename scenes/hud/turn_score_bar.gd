@@ -27,6 +27,8 @@ func rebuild() -> void:
 	var score_str: String = str(p.score) if p != null else "0"
 	var who: String = p.name if p != null else "—"
 	var era_str: String = str(_facade.get_player_era(gs.current_player_id).get("name", ""))
+	var gold_str: String = str(p.treasury) if p != null else "0"
 	# turn_number is 0-based internally; show it 1-based for players.
 	_label.text = "Turn: " + str(gs.turn_number + 1) + "/" + str(gs.max_turns) + \
-		"   " + who + "   Era: " + era_str + "   Score: " + score_str
+		"   " + who + "   Era: " + era_str + "   Score: " + score_str + \
+		"   Gold: " + gold_str
