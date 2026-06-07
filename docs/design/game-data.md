@@ -1322,3 +1322,233 @@ text, votes}}`; `gs.pending_assembly_events` is the transient queue drained by t
 `CAST_VOTE` command (`Commands.cast_vote` → `SimFacade._cmd_cast_vote` → `Assembly.cast_vote`)
 records a vote; humans are prompted via the `CHOOSE_ELECTION` popup; computer players vote in
 `PlayerAI.manage_assembly` (`Assembly.ai_vote`); and `assembly_event` is the facade signal.
+
+---
+
+## 19. Data field reference (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** This section documents JSON data fields
+> and engine entity fields that exist in the code but were not enumerated in the sections
+> above. All are implemented and serialized; values and names are subject to tuning.
+
+### 19.1 Unit data fields (`data/units.json`)
+
+The tables in §5 list the design-level unit properties. The following additional fields
+appear in `units.json` and are read by the engine:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `can_found` | bool | Unit can found a settlement (`FOUND_SETTLEMENT` mission) |
+| `can_build` | bool | Unit can build tile improvements (worker behaviour) |
+| `draftable` | bool | Unit type can be conscripted via the draft (§6.6); only the most advanced draftable type is raised |
+| `cargo_capacity` | int | Number of units this unit can carry as cargo (transport ships, carriers) |
+| `transport_capacity` | int | Alternative capacity field used by some transport types (may alias `cargo_capacity`) |
+| `consumed_on_use` | bool | Unit is removed from the map when it performs its primary action (Work Boat, Tactical Nuke, ICBM, Missile) |
+| `blast_radius` | int | Chebyshev radius of area effect on detonation; used by nuclear weapons (§5.7) |
+| `global_range` | bool | Unit can target any tile on the map regardless of `air_range` (ICBM tag) |
+| `one_use` | bool | Equivalent to `consumed_on_use`; marks single-use weapons |
+| `generated_by` | String | Specialist type that generates this Great Person unit, or `"combat_xp"` for the Great General (§14.1) |
+| `per_specialist_output` | Dict | Per-specialist commerce/science/culture output the GP unit provides while garrisoned (specialist mode) |
+| `classification` | String | Unit class: `"civilian"`, `"great_person"`, `"land"`, `"naval"`, `"air"` — used for combat class matching (§5.3) and garrison checks |
+| `first_strikes` | int | Number of first-strike rounds the unit fires before normal combat |
+| `intercept_strength` | int | Effectiveness as an air interceptor (fighter units) |
+| `withdrawal_chance` | int | Percent chance (0–100) the unit retreats instead of dying |
+| `combat_limit` | int | Maximum damage this unit can deal to a defending unit per combat (siege collateral cap) |
+| `free_promotions` | Array | Promotion IDs granted when the unit is built or drafted |
+| `replaces` | String | The standard unit ID this faction-unique unit replaces |
+| `unique_to` | String | Society/faction ID; restricts availability to that faction |
+| `upgrades_to` | Array | Unit IDs this type can upgrade into (requires gold + tech) |
+| `upkeep` | int | Gold per turn maintenance cost |
+| `air_range` | int | Maximum tiles an air unit can fly per mission |
+
+### 19.2 Structure / building data fields (`data/structures.json`)
+
+Fields beyond the headline effects table in §6:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `cultural_defence_bonus` | int | Additional culture-based defence rating added to the city's `Combat._settlement_defence` sum (§4.9, §5.3) |
+| `espionage_output` | int | Flat EP added to the city's espionage output each turn (§7.1) |
+| `requires_state_religion` | bool | Building can only be built when the city's owner has the matching state religion |
+| `espionage_defense` | int | Flat EP modifier reducing enemy EP accumulated against this city |
+| `heals_units` | bool | All units garrisoned in this city heal each turn regardless of stance (§5.6) |
+| `free_promotion` | String | Promotion granted to every new unit built in this city |
+| `free_promotion_all` | String | Promotion granted empire-wide to all new units |
+| `land_xp` / `mounted_xp` / `naval_xp` / `archery_xp` / `siege_xp` / `air_xp` | int | XP bonus applied to new units of the named domain/class built in this city (§5.5) |
+| `military_xp_city` | int | XP bonus applied to all military units built in this city |
+| `unit_xp_all_cities` | int | Empire-wide XP bonus applied to all military units built anywhere |
+| `is_wonder` | bool | Identifies this as a world wonder (only one may exist globally); counted in scoring (§10) |
+| `is_national_wonder` | bool | Only one copy per player (not globally unique) |
+| `wonder_type` | String | `"world"` or `"national"` — alternative to the boolean flags |
+| `coastal_only` | bool | Can only be built in coastal cities |
+| `coastal_allowed` | bool | Can be built in coastal cities (some buildings are land-only by default) |
+| `building_req` | String | Building ID that must already exist in the city before this can be built |
+| `obsoleted_by` | String | Tech ID after which this building no longer provides effects |
+| `tier` | int | Build order tier (used for auto-build priority) |
+| `built_by` | String | Great Person classification that can build this structure as an action |
+| `era` | String | Era tag (used for availability gating alongside `tech_required`) |
+| `replaces` | String | Standard building ID this faction-unique structure replaces |
+| `unique_to` | String | Society/faction ID |
+| `upkeep` | int | Gold per turn maintenance |
+| `output_delta` | Dict | Per-field output modifiers (food/production/commerce) added to the city each turn |
+| `effects` | Dict | Civic-style effect dictionary (read via `PolicyEffects` — same keys as §8 civic effects) |
+
+### 19.3 Improvement data fields (`data/improvements.json`)
+
+Fields beyond the headline table in §12:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `requires_river` | bool | Improvement can only be built on tiles adjacent to a river (Watermill) |
+| `requires_feature` | String | Feature ID that must be present on the tile (Lumbermill: `"forest"`, Forest Preserve: `"forest"`) |
+| `requires_improvement` | String | Improvement ID that must already exist on the tile (Railroad requires `"road"`) |
+| `upgrade_only` | bool | This improvement is never built directly; it is only reached by upgrading from a lower tier (Hamlet, Village, Town) |
+| `upgrade_turns` | int | Turns a worked tile must accumulate before auto-advancing to the next maturation stage (§4.10) |
+| `upgrades_to` | String | Improvement ID of the next maturation stage |
+| `movement_cost_override` | int | Fixed movement cost (in Fixed units) for tiles with this improvement, replacing the terrain default; Road = 34 (≈ 1/3 tile), Railroad = 0 |
+| `allowed_landforms` | Array | Terrain IDs this improvement may be placed on |
+| `output_delta` | Dict | Food/production/commerce yield changes added to the tile |
+| `defence_bonus` | int | Percent defence bonus for units garrisoned on this tile |
+| `pillage_value` | int | Gold awarded to the pillaging unit when this improvement is destroyed |
+| `upkeep` | int | Gold per turn deducted from the owning player's treasury |
+
+### 19.4 Promotion bonus keys (`data/promotions.json`)
+
+Promotion entries support the following bonus-key fields read by `Unit.effective_strength`
+and related combat code (§5.3):
+
+| Key | Meaning |
+|-----|---------|
+| `combat_strength_bonus` | General percent strength modifier (stacks with Combat line) |
+| `vs_melee` | Bonus percent strength when fighting melee-class opponents |
+| `vs_mounted` | Bonus percent strength when fighting mounted-class opponents |
+| `vs_gunpowder` | Bonus percent strength when fighting gunpowder-class opponents |
+| `vs_ships` | Bonus percent strength when fighting naval units |
+| `vs_fighters` | Bonus percent strength when fighting air units (interceptors) |
+| `vs_fortified` | Bonus percent strength when the opponent has any entrenchment |
+| `attack_vs_settlement` | Bonus percent strength when attacking a tile with an enemy settlement |
+| `defense_in_settlement` | Bonus percent strength when defending inside a settlement |
+| `defense_on_hills` | Bonus percent strength when defending on hills terrain (Guerrilla line) |
+| `combat_in_forest` | Bonus percent strength when fighting in or from a forest tile |
+| `first_strikes_bonus` | Additional first-strike rounds beyond the unit's base |
+| `withdrawal_chance_bonus` | Additional percent added to the unit's withdrawal roll |
+| `healing_bonus` | Extra HP healed per turn (§5.6) |
+| `adjacent_heal_bonus` | HP healed per turn granted to adjacent friendly units |
+| `adjacent_heal_in_enemy_territory` | HP healed to adjacent allies even in enemy territory |
+| `movement_bonus` | Additional movement points |
+| `forest_movement_bonus` | Ignore terrain movement penalty in forests/jungles |
+| `ignore_terrain_cost` | All terrain costs 1 movement point |
+| `vision_bonus` | Extra sight range tiles |
+| `intercept_bonus` | Bonus when intercepting enemy air attacks |
+| `evade_interception_chance` | Percent chance to avoid an interception roll |
+| `reduce_enemy_intercept` | Reduces the enemy's interception chance |
+| `hit_damage_reduction` | Percent damage reduction per hit received |
+| `siege_bombard_damage_reduction` | Specific reduction against siege splash damage |
+| `escort_damage_reduction` | Absorbs a share of damage directed at a carried unit |
+| `extra_attacks` | Number of additional attacks per turn (e.g. Blitz) |
+| `move_after_attack` | Unit retains remaining movement after attacking |
+| `heal_while_active` | Unit heals even while moving (March) |
+| `adjacent_xp_bonus` | XP bonus granted to adjacent friendly units after combat |
+| `applies_to` | Array of unit classifications this promotion is valid for |
+| `prereqs` | Array of promotion IDs that must be held first |
+| `can_bombard` | Unit may use the `BOMBARD` mission |
+| `no_amphibious_penalty` | Waives the amphibious attack strength penalty (§5.2) |
+| `airlift` | City with this promotion can airlift one unit per turn |
+| `sentry` | Grants the Sentry stance (auto-wakes when enemies approach) |
+| `commando` | Unit can move through enemy ZOC without stopping |
+| `formation` | Formation promotion effect (blocking mounted attacks) |
+
+### 19.5 Serialized entity fields (provisional)
+
+> **⚠️ Provisional.** These are the GDScript fields serialized to JSON by `SaveLoad` and
+> restored on load. They represent the engine's in-memory state, not user-facing data.
+
+#### Player (`src/sim/player.gd`)
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `id` | int | 0 | Player index |
+| `name` | String | "" | Display name |
+| `leader_id` | String | "" | Leader ID from `leaders_traits.json` |
+| `treasury` | int | 0 | Current gold balance |
+| `slider_finance/research/culture/intel` | int | 0/100/0/0 | Economic split percentages, sum = 100 |
+| `state_religion` | String | "" | Active state religion belief ID (§8.1) |
+| `current_research_id` | String | "" | Tech being researched (§6.3) |
+| `era` | int | 0 | Cached era index; recomputed from techs each turn (§2.1) |
+| `alliance_id` | int | -1 | Alliance the player belongs to |
+| `free_early_wins` | int | 0 | Free tech wins from alliance shared research bonus |
+| `transition_turns` | int | 0 | Remaining turns of anarchy (civic or state-religion switch) |
+| `score` | int | 0 | Current score |
+| `is_eliminated` | bool | false | Player has no units or settlements remaining |
+| `is_ai` | bool | false | Controlled by `PlayerAI` |
+| `celebration_turns` | int | 0 | Remaining turns of a We Love the King celebration |
+| `events_fired` | Array | [] | IDs of one-shot events already triggered (§9) |
+| `insolvent_turns` | int | 0 | Consecutive turns in the red; triggers structure/unit sales at the grace-period cap |
+| `golden_age_turns` | int | 0 | Remaining turns of an active Golden Age (§14.4) |
+| `golden_age_count` | int | 0 | Number of Golden Ages the player has had (used to escalate GP cost) |
+| `pending_golden_age_gp` | int | 0 | GP points accumulated toward triggering the next Golden Age |
+| `great_general_points` | int | 0 | Combat XP toward the next Great General (§14.2) |
+| `great_general_threshold` | int | 0 | Threshold for the next Great General (escalates each time) |
+| `great_generals_produced` | int | 0 | Total Great Generals born to this player |
+
+#### Settlement (`src/sim/settlement.gd`)
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `id` | int | 0 | Settlement index |
+| `name` | String | "" | City name |
+| `owner_player_id` | int | -1 | Owning player |
+| `x, y` | int | 0 | Map coordinates |
+| `population` | int | 1 | Current city size |
+| `output_food/production/commerce` | int | 0 | Cached per-turn outputs (updated each turn) |
+| `production_queue` | Array | [] | Ordered list of items being built |
+| `positive_sentiment` | int | 0 | Happiness points from all sources (§4.5) |
+| `in_disorder` | bool | false | City is in disorder (unhappy citizens ≥ happy) |
+| `wellbeing_positive/negative` | int | 0 | Health surplus/deficit (§4.6) |
+| `worked_tiles` | Array | [] | Tile coordinates the city currently works |
+| `manage_citizens_auto` | bool | true | City auto-assigns free workers; false = only lock-overrides |
+| `belief_id` | String | "" | Religion present/dominant in this city (§8) |
+| `econ_org_id` | String | "" | Corporation active in this city (§14.6) |
+| `special_person_points` | int | 0 | GP points accumulated this city (§6.5) |
+| `special_person_threshold` | int | 100 | Points needed for the next GP birth (escalates) |
+| `special_persons_produced` | int | 0 | Total GPs born from this city |
+| `rush_anger_turns` | int | 0 | Remaining turns of unhappiness from a production rush/draft |
+| `garrison_turns` | int | 0 | Turns a military unit has been continuously garrisoned here |
+| `defence_value` | int | 0 | Current city wall/fortification HP |
+| `peak_population` | int | 1 | Highest population ever reached (used in cultural revolt formula §4.9) |
+| `revolt_turns` | int | 0 | Remaining occupation revolt turns after capture (§4.8) |
+| `revolt_progress` | int | 0 | Accumulated successful cultural revolts toward a flip (§4.9) |
+| `alert_turns` | int | 0 | Turns this wild camp has been mustering raiders (§9.1) |
+| `alert_target_x/y` | int | -1 | Map coordinates the mustered raiders march toward |
+| `alert_cooldown` | int | 0 | Turns remaining before this camp can be roused again |
+
+#### Unit (`src/sim/unit.gd`)
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `id` | int | 0 | Unit index |
+| `unit_type_id` | String | "" | Key into `data/units.json` |
+| `owner_player_id` | int | -1 | Owning player (-2 = wild faction) |
+| `x, y` | int | 0 | Map tile coordinates |
+| `base_strength` | int | 0 | Combat strength from data |
+| `health` | int | 100 | Current HP (0–100) |
+| `experience` | int | 0 | Accumulated XP |
+| `experience_level` | int | 0 | Number of promotions taken |
+| `promotions` | Array | [] | Promotion IDs currently held |
+| `movement_total` | int | 200 | Full movement allowance in Fixed units (200 = 2 tiles) |
+| `movement_left` | int | 200 | Remaining movement this turn |
+| `entrenchment` | int | 0 | Current entrenchment bonus (percent, capped by data) |
+| `stationary_turns` | int | 0 | Consecutive turns without moving or attacking |
+| `cargo` | Array | [] | IDs of units carried as cargo |
+| `transported_by` | int | -1 | ID of the transport carrying this unit (-1 = free) |
+| `build_turns_left` | int | 0 | Turns remaining on current improvement build |
+| `building_improvement` | String | "" | Improvement ID being built by this worker |
+| `goto_x / goto_y` | int | -1 | Persistent go-to destination; -1 = no standing order |
+| `has_moved` | bool | false | Unit has used movement this turn |
+| `has_attacked` | bool | false | Unit has attacked this turn |
+| `is_fortified` | bool | false | Fortify stance active (accumulates entrenchment) |
+| `is_wild` | bool | false | Wild/barbarian unit |
+| `is_sentry` | bool | false | Sentry stance — auto-wakes when enemies enter sight |
+| `is_patrolling` | bool | false | Air/sea patrol stance |
+| `is_healing` | bool | false | Heal-in-place stance |
+| `is_sleeping` | bool | false | Sleep stance (stays idle until manually woken) |

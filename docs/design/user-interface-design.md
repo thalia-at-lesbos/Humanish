@@ -126,6 +126,51 @@ groupings:
 * **Session**: load game, quick-save, quick-load, save (normal and group variants),
   retire, all-chat, team-chat, free-colony.
 * **Convenience selections**: select only healthy units; select-healthy variants.
+* **Assembly**: cast a Yea/Nay/Abstain vote on the open assembly proposal (`CAST_VOTE`) — §7.2.
+
+#### 3.1.1 Implemented ControlType values (provisional)
+
+> **⚠️ Provisional — implemented, values not verified against spec naming.** The following
+> table enumerates the `IDs.ControlType` enum values currently wired in the engine
+> (`src/core/ids.gd`). The functional description above lists the full intended vocabulary;
+> this table records what is actually dispatched through `SimFacade.apply_command`. Values
+> without a ✓ in the "Wired" column are declared in the enum but have no handler (they may
+> be set by a hotkey or button without producing a game-state change).
+
+| Value | Name | Wired | Notes |
+|-------|------|-------|-------|
+| 0 | `CENTER_ON_SELECTION` | ✓ | Pan camera to selected unit/city |
+| 1 | `SELECT_ALL_TYPE` | ✓ | Select all units of the same type on this tile |
+| 2 | `NEXT_CITY` | ✓ | Cycle to the next owned settlement |
+| 3 | `PREV_CITY` | ✓ | Cycle to the previous owned settlement |
+| 4 | `NEXT_UNIT` | ✓ | Cycle to the next unit |
+| 5 | `PREV_UNIT` | ✓ | Cycle to the previous unit |
+| 6 | `NEXT_IDLE_UNIT` | ✓ | Cycle to the next unit with moves remaining |
+| 7 | `NEXT_IDLE_WORKER` | ✓ | Cycle to the next idle worker |
+| 8 | `END_TURN` | ✓ | End the current player's turn |
+| 9 | `FORCE_END_TURN` | ✓ | End turn even if units remain idle |
+| 10 | `TOGGLE_GRID` | ✓ | Toggle tile grid overlay |
+| 11 | `TOGGLE_YIELDS` | ✓ | Toggle per-tile yield display |
+| 12 | `TOGGLE_RESOURCES` | ✓ | Toggle resource icon display |
+| 13 | `OPEN_TECH` | ✓ | Open tech chooser screen |
+| 14 | `OPEN_POLICY` | ✓ | Open policy/civics screen |
+| 15 | `OPEN_DIPLOMACY` | ✓ | Open diplomacy screen |
+| 16 | `OPEN_FINANCE` | ✓ | Open finance advisor screen |
+| 17 | `OPEN_MILITARY` | ✓ | Open military advisor screen |
+| 18 | `OPEN_ESPIONAGE` | ✓ | Open espionage advisor screen |
+| 19 | `OPEN_ENCYCLOPEDIA` | ✓ | Open interactive encyclopedia |
+| 20 | `OPEN_CITY_SCREEN` | ✓ | Open the city management screen for the selected city |
+| 21 | `OPEN_SAVE_LOAD` | ✓ | Open the save/load screen |
+| 22 | `QUICK_SAVE` | ✓ | Save to the quicksave slot (F5) |
+| 23 | `QUICK_LOAD` | ✓ | Load from the quicksave slot (F9) |
+| 24 | `OPEN_MENU` | ✓ | Toggle the pause/ESC menu |
+| 25 | `TOGGLE_SCORE` | ✓ | Toggle score overlay |
+| 26 | `OPEN_RELIGION` | ✓ | Open religion / state-religion advisor screen |
+| 27 | `OPEN_CORPORATION` | ✓ | Open economic-organizations advisor screen |
+| 28 | `OPEN_TURN_LOG` | ✓ | Open the turn event log screen |
+| 29 | `OPEN_DOMESTIC_ADVISOR` | ✓ | Open the domestic advisor screen |
+| 30 | `OPEN_VICTORY_PROGRESS` | ✓ | Open the victory-conditions progress screen |
+| 31 | `OPEN_OPTIONS` | ✓ | Open the in-game options screen |
 
 ### 3.2 Unit commands
 Direct, immediate orders on the current unit selection: choose a promotion; upgrade to a
@@ -301,6 +346,34 @@ Out-of-band feedback to the player, posted by the rules module and surfaced by t
 * **Map pings** and **signs**: transient attention markers placed on tiles, optionally
   shared with other players.
 
+### 8.1 Facade signals (provisional)
+
+> **⚠️ Provisional — implemented, names not verified.** The signal names below match the
+> current `SimFacade` implementation (`src/api/sim_facade.gd`). They represent the engine's
+> push interface: the host subscribes to these and reacts (rebuild HUD, show popup, etc.).
+> Signal parameters are GDScript Dictionaries unless noted.
+
+| Signal | Parameters | When emitted |
+|--------|-----------|--------------|
+| `event_emitted` | `event_dict` | Generic player-targeted notification (exploration reward, scripted event, etc.) |
+| `turn_advanced` | `turn_number: int` | After the whole-world step completes and a new player's turn begins |
+| `game_won` | `alliance_id: int` | When a win condition is satisfied |
+| `unit_created` | `unit_id: int` | When a new unit is placed (production, draft, GP spawn) |
+| `settlement_founded` | `settlement_id: int` | When a settler founds a city |
+| `city_conquered` | `settlement_id, captor_player_id: int` | Settlement was captured and kept (enters revolt) — §4.8 |
+| `city_razed` | `settlement_id, by_player_id: int` | Settlement was destroyed — §4.8 |
+| `city_flipped` | `settlement_id, from_player_id, to_player_id: int` | Settlement changed hands via cultural pressure — §4.9 |
+| `technology_completed` | `player_id, tech_id: int/String` | A player finishes researching a technology |
+| `era_advanced` | `player_id, from_era, to_era: int` | A player's era increases — §2.1 |
+| `combat_resolved` | `result_dict` | A combat round resolves (attacker/defender IDs, outcome, damage) |
+| `player_turn_started` | `player_id: int` | At the start of each player's turn slot |
+| `screen_requested` | `screen_id: int` | A `DO_CONTROL` command requests a screen to open (`IDs.ControlType`) |
+| `assembly_event` | `event_dict` | Assembly session opened or resolution resolved — §7.2 |
+| `nuclear_detonated` | `result_dict` | Nuclear strike resolved with area-effect — §5.7 |
+
+The host connects these signals in its scene's `_ready()` and uses them to trigger dirty-flag
+sets, popup pushes, notification appends, and one-shot visual effects (e.g. combat flash).
+
 ---
 
 ## 9. Explanatory / tooltip / help text
@@ -366,16 +439,48 @@ data it shows and what actions it offers, not its layout:
   techs and what each unlocks.
 * **Policy/civics screen**: view and switch governing policies; see effects and switch
   cost.
-* **Belief / organization screens**: founded beliefs and organizations, spread, and
-  state-belief selection.
+* **Belief / religion screen**: state-religion selection, list of founded beliefs with
+  their spread and holy-site info. (`OPEN_RELIGION` → `religion_screen.gd`)
+* **Corporation / organization screen**: list of founded economic organizations with
+  spread and per-city income info. (`OPEN_CORPORATION` → `corporation_screen.gd`)
+  *(provisional — content mirrors the religion screen structure)*
 * **Diplomacy screen**: contact leaders, propose/respond to trades and agreements, see
   attitudes.
-* **Advisor/info screens**: domestic advisor, foreign relations, finance, military,
-  espionage, victory progress, score breakdown.
-* **Encyclopedia**: browsable reference for all game objects with cross-links and back/
-  forward navigation.
+* **Advisor/info screens**:
+  - *Domestic advisor* (`OPEN_DOMESTIC_ADVISOR`): settlement-by-settlement overview
+    (population, production, happiness, tile yields). (`domestic_advisor_screen.gd`)
+  - *Finance advisor* (`OPEN_FINANCE`): empire income/expense breakdown.
+  - *Military advisor* (`OPEN_MILITARY`): list of all military units and their status.
+  - *Espionage advisor* (`OPEN_ESPIONAGE`): accumulated EP per target alliance, available
+    missions and their costs.
+  - *Victory progress* (`OPEN_VICTORY_PROGRESS`): per-condition progress bars for all
+    enabled win conditions. (`victory_progress_screen.gd`)
+  - *Turn log* (`OPEN_TURN_LOG`): scrollable history of all game events for the current
+    session. (`turn_log_screen.gd`)
+  - *Options* (`OPEN_OPTIONS`): in-game settings (sound, display, etc.).
+* **Encyclopedia**: interactive tabbed reference covering units, structures, technologies,
+  promotions, resources, and terrain — data pulled live from `DataDB`. Back/forward
+  navigation. (`OPEN_ENCYCLOPEDIA` → `encyclopedia_screen.gd`)
 * **Session/meta**: main menu, options, save/load, hall of fame, replay, game/admin
   details, world-builder/editor, advanced-start editor.
+* **About / Controls** *(provisional — meta screens not in the design spec)*:
+  - *About screen*: title, version, and license text. Reachable from the start menu and
+    pause menu.
+  - *Controls screen*: overview of all hotkeys and mouse bindings. Reachable from the
+    pause menu.
+
+#### 11.1 HUD advisor menu bar (provisional)
+
+> **⚠️ Provisional — implemented, not in the original spec.** The advisor menu bar is an
+> additional quality-of-life element added during implementation to make advisor screens
+> discoverable without requiring F-key memorization.
+
+A persistent row of buttons sits in the HUD (implemented in `scenes/hud/menu_bar.gd`),
+one button per major advisor screen. Clicking a button fires the corresponding
+`DO_CONTROL` command, identical to pressing the hotkey. The bar currently exposes:
+Science (tech chooser), Civics (policy screen), Diplomacy, Finance, Military, Espionage,
+Encyclopedia, Religion, Corporation, Turn Log, Domestic Advisor, and Victory Progress.
+It is the recommended entry point for all advisor/info screens.
 
 ---
 

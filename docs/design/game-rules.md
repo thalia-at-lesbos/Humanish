@@ -280,14 +280,13 @@ regenerates a fixed amount each owner turn, up to that maximum.
   settlements, which destroys it exactly as razing does.
 
 ### 4.9 Cultural revolt and city flipping (provisional)
-> **⚠️ Provisional — preliminary, not verified.** This subsection is a first-pass model of
-> capturing a settlement through **cultural pressure** rather than combat. It is based only on
-> a preliminary reading of the reference game's behaviour and has **not** been checked against
-> the actual mechanics, nor is it implemented yet. The named factors, the 10% check rate, the
-> revolt-power and garrison-strength formulas, and all constants below are placeholders to be
-> verified and tuned before relying on them. (All quantities are integer math per the engine
-> invariants; the "ratios" below are expressed as integer percentages, e.g. a culture ratio of
-> 100–200.)
+> **⚠️ Provisional — implemented, not verified.** This subsection documents the cultural-revolt
+> model as implemented in `src/sim/culture_revolt.gd` (called from the owner's player step via
+> `TurnEngine`). The named factors, the 10% check rate, the revolt-power and garrison-strength
+> formulas, and all constants below are placeholders drawn from a preliminary reading of the
+> reference game; they have **not** been checked against the actual mechanics and are expected to
+> be tuned. (All quantities are integer math per the engine invariants; the "ratios" below are
+> expressed as integer percentages, e.g. a culture ratio of 100–200.)
 
 Independently of military conquest (§4.8), a settlement may **flip** to a rival player when
 that rival's accumulated cultural influence (§4.7) on the settlement's tile exceeds the
@@ -313,20 +312,37 @@ pressure as well as against assault.
     does — belief acts as a cultural amplifier/dampener;
   * **War modifier** = the garrison's contribution doubles while the owner is at war (war status
     sharply raises rebellion risk; see the garrison term below).
-* **Garrison strength** = `1 + Σ(garrison value of each military unit stationed in the
-  settlement)`, where each unit's garrison value scales with its type (placeholder: early units
-  ≈ 3, late-era units ≈ 16). While the owner is at war this term is doubled (per the war
-  modifier above).
-* **Outcome.** If revolt power exceeds garrison strength the settlement **changes hands** to the
-  challenging rival. A **non-barbarian** settlement may require **multiple** successful revolts
-  before it actually flips (a revolt counter that must accumulate), whereas barbarian/wild
-  settlements flip on the first. A game setting governs whether a recently **conquered**
-  settlement (still in revolt, §4.8) is eligible to flip immediately or is shielded until its
-  occupation ends.
+* **Garrison strength** = `revolt_garrison_base + Σ(base_strength of each non-civilian military
+  unit stationed in the settlement)`. Unlike the earlier placeholder, garrison value is the
+  unit's actual `base_strength` from data, so veteran or late-era units defend more effectively.
+  While the owner is **at war** with the rival's alliance this total is multiplied by
+  `revolt_war_garrison_multiplier` (placeholder: ×2).
+* **Outcome.** If revolt power exceeds garrison strength the settlement accrues one
+  **revolt success** on `Settlement.revolt_progress`. A **non-barbarian** settlement requires
+  `revolt_required_successes` (placeholder: 2) accumulated successes before it actually flips —
+  so cultural pressure builds over multiple rounds. A **wild/barbarian** settlement
+  (`owner_player_id == -2`) flips on the first success. A freshly-conquered settlement still
+  under occupation (`revolt_turns > 0`) is **shielded** from revolt progress by default
+  (`revolt_shield_during_occupation`; configurable), and its counter is reset each skipped turn.
 
-When a settlement flips, ownership transfers exactly as a kept capture (§4.8) — the same
-queue/specialist clearing, siege-health restore, and Palace handling apply — but no combat or
-attacking stack is involved.
+When a settlement flips, ownership transfers exactly as a kept capture (§4.8) — production
+queue, specialists, and worked tiles cleared; siege HP restored; Palace stripped; new
+occupation revolt period set to `revolt_base_turns + population / 2` — but no combat or
+attacking stack is involved. The flip is queued on `gs.pending_flips` and drained by the
+facade into a `city_flipped` signal and player notification.
+
+**Constants (`data/constants.json`):**
+
+| Key | Placeholder value | Meaning |
+|-----|-------------------|---------|
+| `revolt_check_chance` | 10 | Percent chance an eligible settlement is checked each turn |
+| `revolt_base_per_pop` | 2 | Population multiplier in the revolt-power base |
+| `revolt_garrison_base` | 1 | Minimum garrison strength (before unit contributions) |
+| `revolt_war_garrison_multiplier` | 2 | Multiplier applied to garrison while owner is at war |
+| `revolt_state_belief_multiplier` | 2 | Amplifier/dampener for state belief mismatch |
+| `revolt_required_successes` | 2 | Successful revolts needed for a non-barbarian city to flip |
+| `revolt_shield_during_occupation` | 1 (true) | Shield recently conquered cities from flipping |
+| `revolt_base_turns` | 3 | Base occupation turns after a cultural flip |
 
 ### 4.10 Tile improvement maturation (provisional)
 
