@@ -20,6 +20,7 @@
   "movement_precision": 100,
   "influence_per_turn_base": 10,
   "influence_distance_falloff": 2,
+  "resource_tile_chance": 6,
   "river_land_per_river": 90,
   "culture_ring_thresholds": [10, 30, 60, 100, 150, 210, 280, 360, 450, 550],
   "experience_per_kill_min": 5,

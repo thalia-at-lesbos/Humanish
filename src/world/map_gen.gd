@@ -382,6 +382,7 @@ static func _paint(map: WorldMap, db: DataDB, rng: RNG, mask: Dictionary, spec: 
 			tile.terrain_id = _flat_terrain(climate, x, y, w, h, dist_from_pole, rng)
 
 	_add_features(map, rng, spec)
+	_place_resources(map, db, rng)
 
 # Choose a flat-land terrain for the tile's climate band.
 static func _flat_terrain(climate: String, x: int, y: int, w: int, h: int, dist_from_pole: int, rng: RNG) -> String:
@@ -459,6 +460,33 @@ static func _add_features(map: WorldMap, rng: RNG, spec: Dictionary) -> void:
 			elif ter != "tundra" or lat_pct >= COLD_LAT:
 				if forest_chance > 0 and rng.rand_bool_percent(forest_chance):
 					tile.feature_id = "forest"
+
+# Scatter resources across the map. Each tile gets at most one resource; for each
+# tile we build the list of resources whose allowed_terrains includes that terrain
+# and, with a configurable per-tile probability, assign one at random.
+static func _place_resources(map: WorldMap, db: DataDB, rng: RNG) -> void:
+	var chance: int = db.get_constant("resource_tile_chance", 6)
+	if chance <= 0:
+		return
+	# Index resources by terrain for fast per-tile lookup.
+	var by_terrain: Dictionary = {}
+	for res_id in db.resources:
+		var res: Dictionary = db.resources[res_id]
+		for ter in res.get("allowed_terrains", []):
+			var key: String = str(ter)
+			if not by_terrain.has(key):
+				by_terrain[key] = []
+			by_terrain[key].append(str(res_id))
+	for y in range(map.height):
+		for x in range(map.width):
+			var tile: Tile = map.get_tile(x, y)
+			if tile == null or tile.resource_id != "":
+				continue
+			var candidates: Array = by_terrain.get(tile.terrain_id, [])
+			if candidates.empty():
+				continue
+			if rng.rand_bool_percent(chance):
+				tile.resource_id = str(candidates[rng.randi_range(0, candidates.size() - 1)])
 
 # Convert every ocean tile that touches land into coast (shallow water).
 static func _add_coasts(map: WorldMap, db: DataDB) -> void:

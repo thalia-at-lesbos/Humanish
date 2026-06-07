@@ -39,6 +39,13 @@ const PEAK_COLOR: Color = Color(0.30, 0.28, 0.26)
 # Rivers are drawn as bright water-blue lines along tile borders.
 const RIVER_COLOR: Color = Color(0.30, 0.55, 0.95)
 
+# Resource dot colors keyed by resource type string.
+const RESOURCE_COLORS: Dictionary = {
+	"strategic": Color(0.4, 0.55, 0.85),  # steel blue
+	"luxury":    Color(0.95, 0.80, 0.1),  # amber/gold
+	"food":      Color(0.25, 0.85, 0.3),  # bright green
+}
+
 # Wild/raider forces (owner id -2) — a deliberate charcoal so they read as
 # hostile barbarians rather than rendering glitches.
 const WILD_OWNER_ID: int = -2
@@ -166,6 +173,18 @@ func _draw() -> void:
 			if tile != null and tile.improvement_id != "":
 				var center: Vector2 = rect.position + Vector2(4, 4) * _zoom
 				draw_circle(center, 3 * _zoom, Color(0.9, 0.7, 0.1))
+
+			# Resource indicator: a small colored dot in the bottom-right corner,
+			# color-coded by type (food/luxury/strategic). Only drawn on explored tiles
+			# so fog hides unknown resources the way it would in-universe.
+			if tile != null and tile.resource_id != "" and explored:
+				var res: Dictionary = _facade._db.get_resource(tile.resource_id)
+				var rtype: String = str(res.get("type", "food"))
+				var rcol: Color = RESOURCE_COLORS.get(rtype, Color(0.8, 0.8, 0.8))
+				if in_fog:
+					rcol = rcol.darkened(0.5)
+				var rcenter: Vector2 = rect.position + Vector2(TILE_SIZE - 5, TILE_SIZE - 5) * _zoom
+				draw_circle(rcenter, 3 * _zoom, rcol)
 
 	# Draw settlements. A city the player has discovered stays on the map even
 	# when it leaves current sight (you remember it is there); cities on
