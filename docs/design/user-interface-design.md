@@ -471,6 +471,11 @@ boolean/enumeration queries each frame. Functional set:
   context-menu items (each an action id + label + target tile) and later applies the chosen
   item.
 * **Minimap**: per-tile color by minimap mode (territory / terrain / replay / military).
+* **Resource reveal**: resources whose `tech_required` field is non-null are hidden on
+  the map (even on explored tiles) until the active player has researched that technology.
+  Once revealed by tech, resources are further filtered by `TOGGLE_RESOURCES`. The
+  `tech_required` check mirrors the same field used by `TileOutput.compute` to gate
+  output — a resource the player cannot see is also a resource they cannot work.
 
 ---
 

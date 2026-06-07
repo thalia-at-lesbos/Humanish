@@ -176,15 +176,21 @@ func _draw() -> void:
 
 			# Resource indicator: a small colored dot in the bottom-right corner,
 			# color-coded by type (food/luxury/strategic). Only drawn on explored tiles
-			# so fog hides unknown resources the way it would in-universe.
+			# so fog hides unknown resources the way it would in-universe. Resources
+			# with a tech_required are additionally hidden until the active player has
+			# researched that technology.
 			if tile != null and tile.resource_id != "" and explored:
 				var res: Dictionary = _facade._db.get_resource(tile.resource_id)
-				var rtype: String = str(res.get("type", "food"))
-				var rcol: Color = RESOURCE_COLORS.get(rtype, Color(0.8, 0.8, 0.8))
-				if in_fog:
-					rcol = rcol.darkened(0.5)
-				var rcenter: Vector2 = rect.position + Vector2(TILE_SIZE - 5, TILE_SIZE - 5) * _zoom
-				draw_circle(rcenter, 3 * _zoom, rcol)
+				var tech_req = res.get("tech_required", null)
+				var player = gs.get_player(gs.current_player_id)
+				var tech_ok: bool = (tech_req == null or tech_req == "" or tech_req in player.technologies)
+				if tech_ok:
+					var rtype: String = str(res.get("type", "food"))
+					var rcol: Color = RESOURCE_COLORS.get(rtype, Color(0.8, 0.8, 0.8))
+					if in_fog:
+						rcol = rcol.darkened(0.5)
+					var rcenter: Vector2 = rect.position + Vector2(TILE_SIZE - 5, TILE_SIZE - 5) * _zoom
+					draw_circle(rcenter, 3 * _zoom, rcol)
 
 	# Draw settlements. A city the player has discovered stays on the map even
 	# when it leaves current sight (you remember it is there); cities on
