@@ -299,6 +299,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_mission(cmd)
 		IDs.CommandType.NUCLEAR_STRIKE:
 			return _cmd_nuclear_strike(cmd)
+		IDs.CommandType.DRAFT:
+			return _cmd_draft(cmd)
 		IDs.CommandType.DO_CONTROL:
 			return _cmd_do_control(cmd)
 		IDs.CommandType.PROPOSE_TRADE:
@@ -1289,6 +1291,72 @@ func _resolve_interception(bomber: Unit, tx: int, ty: int, player_id: int) -> bo
 	_apply_combat_result(interceptor, bomber, ir, false)
 	emit_signal("combat_resolved", ir)
 	return true
+
+# Conscript a military unit from a city (§6.4). Requires the can_draft civic
+# (Nationhood); spends population and stirs unhappiness; the drafted unit is the
+# most advanced draftable unit the player has the technology for.
+func _cmd_draft(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	if not PolicyEffects.has_flag(p, _db, "can_draft"):
+		return false
+	var s: Settlement = _gs.get_settlement(int(cmd.get("settlement_id", -1)))
+	if s == null or s.owner_player_id != p.id:
+		return false
+	if s.in_disorder:
+		return false
+	var min_pop: int = _db.get_constant("draft_min_population", 2)
+	if s.population < min_pop:
+		return false
+	var unit_id: String = _draftable_unit(p)
+	if unit_id == "":
+		return false
+	# Spend population and stir conscription unhappiness (reuses the rush-anger
+	# channel that feeds contentment).
+	var pop_cost: int = _db.get_constant("draft_population_cost", 1)
+	s.population -= pop_cost
+	if s.population < 1:
+		s.population = 1
+	s.food_store = 0
+	var anger: int = _db.get_constant("draft_anger_turns", 5)
+	if s.rush_anger_turns < anger:
+		s.rush_anger_turns = anger
+	# Raise the unit at the city. Drafted units come only with civic XP (no
+	# building XP), reflecting their reduced training.
+	var u := Unit.new()
+	u.id = _gs.next_unit_id()
+	u.unit_type_id = unit_id
+	u.owner_player_id = p.id
+	u.x = s.x; u.y = s.y
+	var udata: Dictionary = _db.get_unit(unit_id)
+	u.base_strength = int(udata.get("base_strength", 5))
+	u.movement_total = int(udata.get("movement", 200))
+	u.movement_left = u.movement_total
+	u.experience = PolicyEffects.sum_int(p, _db, "new_unit_xp")
+	_gs.units.append(u)
+	emit_signal("unit_created", u.id)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	return true
+
+# The most advanced draftable unit (data `draftable`) whose tech the player holds,
+# ranked by base strength. "" when none is available.
+func _draftable_unit(p: Player) -> String:
+	var best_id: String = ""
+	var best_str: int = -1
+	for uid in _db.units:
+		var ud: Dictionary = _db.units[uid]
+		if not ud.get("draftable", false):
+			continue
+		var tech: String = str(ud.get("tech_required", ""))
+		if tech != "" and not p.has_tech(tech):
+			continue
+		var st: int = int(ud.get("base_strength", 0))
+		if st > best_str:
+			best_str = st
+			best_id = uid
+	return best_id
 
 # Launch a one-use nuclear weapon at a target tile (§5.7). The missile is consumed
 # whether or not it is intercepted. Forbidden while a Non-Proliferation resolution

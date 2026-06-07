@@ -89,7 +89,9 @@ enum CommandType {
     # Nuclear strike (§5.7): launch a one-use nuke at a target tile (area effect).
     NUCLEAR_STRIKE = 50,
     # Clean radioactive fallout off a worker's tile (§5.7/§11).
-    MISSION_CLEAN_FALLOUT = 51
+    MISSION_CLEAN_FALLOUT = 51,
+    # Conscript a military unit from a city's population (§6.4 Nationhood).
+    DRAFT = 52
 }
 
 # Win condition types

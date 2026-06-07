@@ -221,6 +221,16 @@ static func mission_sea_patrol(player_id: int, unit_id: int) -> Dictionary:
 static func mission_clean_fallout(player_id: int, unit_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.MISSION_CLEAN_FALLOUT, "player_id": player_id, "unit_id": unit_id}
 
+# ── Draft / conscription (§6.4) ───────────────────────────────────────────────
+
+# Conscript a military unit from a city's population (requires the can_draft civic).
+static func draft(player_id: int, settlement_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.DRAFT,
+		"player_id": player_id,
+		"settlement_id": settlement_id
+	}
+
 # ── Nuclear strike (§5.7) ─────────────────────────────────────────────────────
 
 # Launch a one-use nuclear weapon at a target tile; the missile is consumed.

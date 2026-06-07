@@ -111,8 +111,8 @@ Covered by `tests/sim/test_policy_effects.gd`.
 - `trade_route_per_city`, `no_foreign_trade_routes` (Free Market / Mercantilism)
   and `corporation_maintenance_reduction` — trade routes are unbuilt (§3), and
   econ orgs charge a per-spread cost rather than ongoing maintenance.
-- `can_draft` (Nationhood), `missionary_without_monastery` (Organized Religion)
-  — tied to the unbuilt draft / missionary mechanics noted in §3.
+- (`can_draft` and `missionary_without_monastery` are now wired — see the draft
+  and missionary subsystems below.)
 
 **Now wired by the state-religion feature (§8.1, provisional):** `blocks_nonstate_spread`
 (Theocracy) stops non-state religions spreading into a player's cities (`Beliefs.spread_all`),
