@@ -2,6 +2,8 @@
 
 A guide to how the codebase is structured and how the pieces connect at runtime.
 
+> **Doc stream:** `docs/ref/` is the *downstream* reference tier — it is always updated to reflect the current project state and may be edited freely by Claude Code or the user. Design intent lives upstream in `docs/design/` (requires explicit user consent to change). Collaborative planning notes and TODO lists live in `docs/planning/`.
+
 ---
 
 ## Directory map
@@ -48,7 +50,11 @@ tests/                      GUT 7.4.3 headless suites, organised by functional a
                             manual/ holds non-CI harnesses (e.g. the multiplayer
                             loopback smoke test)
 addons/gut/                 Test framework (vendored)
-docs/                       This file, the engine-core plan, and the full game-rules spec
+docs/
+  design/                   Upstream design specs (game-rules, network, UI, debug, game-data);
+                            modify only with explicit user consent
+  ref/                      Downstream reference (this file); always updated to current state
+  planning/                 Collaborative planning memory: gaps, TODO, phase plans
 ```
 
 ---

@@ -35,6 +35,20 @@ The test framework is **GUT 7.4.3** (Godot 3.x). Test suites are organised by fu
 
 Most suites extend the shared fixture `"res://tests/support/sim_fixture.gd"` (which itself extends GUT's `test.gd`) for the common scaffolding — `make_db()`, `make_gs(num_players, seed)`, `make_unit/make_warrior/make_settlement/make_gp`, `bare_facade(gs)`, `setup_facade(...)`, `hooks()`, `run_turns(...)`. Pure-math/data suites with no game state (e.g. `test_fixed`, `test_slider_math`) extend `"res://addons/gut/test.gd"` directly. The fixture file is **not** collected as a suite — GUT only picks up files named `test_*`. Each `test_*` method is one test case.
 
+## Documentation
+
+The `docs/` tree has three tiers with different editorial rules:
+
+| Tier | Path | Rule |
+|---|---|---|
+| **Design** (upstream) | `docs/design/` | Authoritative intent — game rules, architecture, protocol, UI vocabulary, debug spec. **Modify only with explicit user consent.** |
+| **Reference** (downstream) | `docs/ref/` | Always-current description of the actual project state (`code-layout.md`). Claude Code updates this freely whenever the code changes. |
+| **Planning** (collaborative) | `docs/planning/` | Shared memory of ongoing and past planning work (`designgaps.md`, `TODO`, phase plans). Updated collaboratively by Claude Code and the user. |
+
+The canonical code-layout reference is `docs/ref/code-layout.md`. Design specs (`network-design.md`, `debug.md`, `game-data.md`, `game-rules.md`, `user-interface-design.md`) stay in `docs/design/`.
+
+---
+
 ## Architecture
 
 The design enforces a hard boundary: **`sim` (pure rules) ↔ `api` facade ↔ `scenes` (presentation)**. Nothing in `src/sim/` or `src/world/` may reference `Node`, scenes, or input. This keeps the engine headless and testable.
