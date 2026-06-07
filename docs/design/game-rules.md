@@ -421,16 +421,20 @@ Outcomes and side effects:
   triggering a celebration age, or seeding an economic organization).
 
 ### 5.7 Nuclear weapons & radiation (provisional)
-> **⚠️ Provisional — preliminary, not verified.** This subsection is a first-pass model of
-> the **nuclear-weapon** units (`tactical_nuke`, `icbm`) and the **radioactive fallout** they
-> leave behind. The data scaffolding already exists — the units, the `nuke`/`one_use`/
-> `global_range` tags, the `fission` tech, the **Manhattan Project** national wonder
-> (`enable_nukes_global`), the **Bomb Shelter** structure (`nuke_damage_reduction`), the
-> **Fallout** feature, the **Non-Proliferation** assembly resolution and the `no_nuclear`
-> standing effect (§7.2) — but the **detonation/radiation rules below are not implemented yet**
-> and have **not** been checked against the reference game. Every blast radius, damage figure,
-> radiation chance, and the listed constants are **placeholders** to be verified and tuned.
-> (All quantities are integer math per the engine invariants; chances are integer percentages.)
+> **⚠️ Provisional — implemented, magnitudes unverified.** This subsection models the
+> **nuclear-weapon** units (`tactical_nuke`, `icbm`) and the **radioactive fallout** they
+> leave behind. The data scaffolding exists — the units, the `nuke`/`one_use`/`global_range`
+> tags, the `fission` tech, the **Manhattan Project** national wonder (`enable_nukes_global`),
+> the **Bomb Shelter** structure (`nuke_damage_reduction`), the **Fallout** feature, the
+> **Non-Proliferation** assembly resolution and the `no_nuclear` standing effect (§7.2) — and
+> the detonation/radiation rules below are now **implemented** in `sim/nuclear.gd` (launch via
+> the `NUCLEAR_STRIKE` command; meltdowns tick in the world step; fallout is scrubbed by the
+> `MISSION_CLEAN_FALLOUT` worker action). The behaviour has **not** been checked against the
+> reference game: every blast radius, damage figure, radiation chance, and the listed
+> constants are **placeholders** to be verified and tuned (`data/constants.json` `nuke_*` /
+> `nuclear_meltdown_chance`; per-unit `blast_radius`). All quantities are integer math per the
+> engine invariants; chances are integer percentages, and every stochastic step draws from the
+> shared `gs.rng` in a fixed tile order so replays reproduce the same craters and fallout.
 
 A **nuclear strike** is a one-use area-effect attack, distinct from the round-by-round duel of
 §5.4. It does not "fight" a single defender: it detonates over a **target tile** and damages

@@ -29,6 +29,7 @@ signal combat_resolved(result_dict)
 signal player_turn_started(player_id)
 signal screen_requested(screen_id)
 signal assembly_event(event_dict)   # §7.2 session opened / resolution resolved
+signal nuclear_detonated(result_dict)  # §5.7 nuke strike resolved (area effect)
 
 var _gs: GameState
 var _hooks: Hooks
@@ -293,8 +294,11 @@ func apply_command(cmd: Dictionary) -> bool:
 		IDs.CommandType.MISSION_BOMBARD, IDs.CommandType.MISSION_AIRLIFT, \
 		IDs.CommandType.MISSION_SENTRY, IDs.CommandType.MISSION_HEAL, \
 		IDs.CommandType.MISSION_MOVE_TO_UNIT, IDs.CommandType.MISSION_RECON, \
-		IDs.CommandType.MISSION_AIR_PATROL, IDs.CommandType.MISSION_SEA_PATROL:
+		IDs.CommandType.MISSION_AIR_PATROL, IDs.CommandType.MISSION_SEA_PATROL, \
+		IDs.CommandType.MISSION_CLEAN_FALLOUT:
 			return _cmd_mission(cmd)
+		IDs.CommandType.NUCLEAR_STRIKE:
+			return _cmd_nuclear_strike(cmd)
 		IDs.CommandType.DO_CONTROL:
 			return _cmd_do_control(cmd)
 		IDs.CommandType.PROPOSE_TRADE:
@@ -1286,6 +1290,67 @@ func _resolve_interception(bomber: Unit, tx: int, ty: int, player_id: int) -> bo
 	emit_signal("combat_resolved", ir)
 	return true
 
+# Launch a one-use nuclear weapon at a target tile (§5.7). The missile is consumed
+# whether or not it is intercepted. Forbidden while a Non-Proliferation resolution
+# (`no_nuclear`) is in force.
+func _cmd_nuclear_strike(cmd: Dictionary) -> bool:
+	var player_id: int = int(cmd["player_id"])
+	var u: Unit = _gs.get_unit(int(cmd.get("unit_id", -1)))
+	if u == null or u.owner_player_id != player_id:
+		return false
+	if not Nuclear.is_nuke(_db, u):
+		return false
+	if not Nuclear.nukes_enabled(_gs):
+		return false
+	# Non-Proliferation in force: launching is forbidden (§5.7 / §7.2).
+	if bool(_gs.assembly.get("standing", {}).get("no_nuclear", false)):
+		return false
+	var tx: int = int(cmd.get("target_x", -1))
+	var ty: int = int(cmd.get("target_y", -1))
+	if not _gs.map.is_valid(tx, ty):
+		return false
+	# Range: a `global_range` weapon (ICBM) reaches any tile; otherwise air_range.
+	var udata: Dictionary = _db.get_unit(u.unit_type_id)
+	if not ("global_range" in udata.get("tags", [])):
+		var reach: int = int(udata.get("air_range", 12))
+		if _gs.map.distance(u.x, u.y, tx, ty) > reach:
+			return false
+
+	# The unit is spent on launch; remove it first so it is never caught in its own
+	# blast (we still hold the reference for owner/type lookups in detonate).
+	Stack.remove_unit(_gs.units, u.id)
+	if _selection != null:
+		_selection.selected_unit_ids.erase(u.id)
+
+	# Interception aborts the strike with no effect on the target.
+	if Nuclear.try_intercept(_gs, u, tx, ty, _gs.rng):
+		emit_signal("event_emitted", {
+			"type": "nuclear_intercepted",
+			"player_id": player_id, "target_x": tx, "target_y": ty
+		})
+		_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+		_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+		return true
+
+	var result: Dictionary = Nuclear.detonate(_gs, u, tx, ty, _gs.rng)
+
+	# A strike is an act of war: declare war on every victim's alliance (§5.7).
+	var attacker_alliance: Alliance = _gs.get_player_alliance(player_id)
+	if attacker_alliance != null:
+		for aid in result["victim_alliance_ids"]:
+			if aid == attacker_alliance.id:
+				continue
+			if not attacker_alliance.is_at_war_with(aid):
+				attacker_alliance.at_war_with.append(aid)
+			if not attacker_alliance.has_contact_with(aid):
+				attacker_alliance.contacts.append(aid)
+
+	emit_signal("nuclear_detonated", result)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
+
 # True if a hostile unit (wild, or an enemy at war) occupies a tile adjacent to
 # (x, y). Used to apply zones of control (§5.2).
 func _adjacent_hostile(x: int, y: int, player_id: int) -> bool:
@@ -1471,6 +1536,16 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 		IDs.CommandType.MISSION_AIR_PATROL, IDs.CommandType.MISSION_SEA_PATROL:
 			# Patrol stance for air/naval units; holds the tile on standby.
 			u.is_patrolling = true
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_CLEAN_FALLOUT:
+			# A worker-type unit scrubs radioactive fallout off its tile (§5.7).
+			if not _db.get_unit(u.unit_type_id).get("can_build", false):
+				return false
+			var ftile: Tile = _gs.map.get_tile(u.x, u.y)
+			if ftile == null or ftile.feature_id != "fallout":
+				return false
+			ftile.feature_id = ""
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.MISSION_MOVE_TO_UNIT:

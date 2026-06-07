@@ -48,6 +48,8 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.WORLD_ENVIRONMENTAL, gs):
 		Pollution.accumulate(gs)
 		Pollution.degrade(gs, gs.rng)
+		# Nuclear Plant meltdowns spread fallout around their settlement (§5.7).
+		Nuclear.meltdown_tick(gs, gs.rng)
 
 	# 6. Assign/reassign special institutional sites (stub)
 	if not hooks.run(IDs.Phase.WORLD_ASSIGN_SITES, gs):

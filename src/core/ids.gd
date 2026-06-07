@@ -85,7 +85,11 @@ enum CommandType {
     # State religion (§8): adopt/switch the player's empire-wide religion ("" = none).
     SET_STATE_RELIGION = 48,
     # Diplomatic assembly vote (§7.2): cast Yea/Nay/Abstain on the open proposal.
-    CAST_VOTE = 49
+    CAST_VOTE = 49,
+    # Nuclear strike (§5.7): launch a one-use nuke at a target tile (area effect).
+    NUCLEAR_STRIKE = 50,
+    # Clean radioactive fallout off a worker's tile (§5.7/§11).
+    MISSION_CLEAN_FALLOUT = 51
 }
 
 # Win condition types
@@ -154,7 +158,7 @@ enum UnitMission {
     FOUND_SETTLEMENT = 4, BUILD_IMPROVEMENT = 5, BUILD_ROAD = 6,
     RANGED_ATTACK = 7, BOMBARD = 8, AIRLIFT = 9, PARADROP = 10,
     SENTRY = 11, HEAL = 12, MOVE_TO_UNIT = 13, RECON = 14,
-    AIR_PATROL = 15, SEA_PATROL = 16
+    AIR_PATROL = 15, SEA_PATROL = 16, CLEAN_FALLOUT = 17
 }
 
 # Phase flags for hooks

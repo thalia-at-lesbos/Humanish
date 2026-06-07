@@ -217,6 +217,22 @@ static func mission_air_patrol(player_id: int, unit_id: int) -> Dictionary:
 static func mission_sea_patrol(player_id: int, unit_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.MISSION_SEA_PATROL, "player_id": player_id, "unit_id": unit_id}
 
+# Order a worker-type unit to scrub radioactive fallout off its current tile (§5.7).
+static func mission_clean_fallout(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_CLEAN_FALLOUT, "player_id": player_id, "unit_id": unit_id}
+
+# ── Nuclear strike (§5.7) ─────────────────────────────────────────────────────
+
+# Launch a one-use nuclear weapon at a target tile; the missile is consumed.
+static func nuclear_strike(player_id: int, unit_id: int,
+		target_x: int, target_y: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.NUCLEAR_STRIKE,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"target_x": target_x, "target_y": target_y
+	}
+
 # ── Trades (§7) ───────────────────────────────────────────────────────────────
 
 # `give`/`receive` are Dictionaries like {"gold": int, "techs": [String]}; `peace`
