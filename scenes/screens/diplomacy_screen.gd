@@ -99,5 +99,8 @@ func _on_make_peace(target_aid: int) -> void:
 	_facade.apply_command(Commands.make_peace(gs.current_player_id, target_aid))
 	rebuild()
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false

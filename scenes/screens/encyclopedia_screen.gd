@@ -88,6 +88,9 @@ func rebuild() -> void:
 	_add_maps_tab(tabs, db)
 	_add_reference_tab(tabs, db)
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false
 

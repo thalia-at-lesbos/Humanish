@@ -312,6 +312,9 @@ func _on_draft() -> void:
 	_facade.apply_command(Commands.draft(s.owner_player_id, _city_id))
 	rebuild()
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false
 	emit_signal("closed")

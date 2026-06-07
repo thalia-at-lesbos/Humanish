@@ -69,5 +69,8 @@ func _add_line(vbox, text) -> void:
 	lbl.text = text
 	vbox.add_child(lbl)
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false

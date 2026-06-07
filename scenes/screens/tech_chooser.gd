@@ -214,6 +214,9 @@ func _on_tech_selected(tech_id: String) -> void:
 	visible = false
 	emit_signal("closed")
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false
 	emit_signal("closed")

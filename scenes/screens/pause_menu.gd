@@ -33,6 +33,15 @@ func set_save_load_screen(screen) -> void:
 func toggle() -> void:
 	visible = not visible
 
+# Close About or Controls if either is open (ESC priority over the menu itself).
+# Returns true if a submenu was closed so the caller knows not to also toggle.
+func try_close_submenu() -> bool:
+	for sub in [_controls_screen, _about_screen]:
+		if sub != null and sub.visible:
+			sub.close_screen()
+			return true
+	return false
+
 func show_screen() -> void:
 	visible = true
 

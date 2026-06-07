@@ -204,6 +204,9 @@ func _load_file(filename: String) -> bool:
 			return true
 	return false
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false
 

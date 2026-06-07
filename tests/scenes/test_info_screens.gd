@@ -42,6 +42,21 @@ func test_info_screens_build_without_error() -> void:
 		assert_true(screen.get_child_count() > 0,
 			"Screen %s should build text content from state" % path)
 
+func test_close_screen_hides_info_screen() -> void:
+	var facade = setup_facade(93)
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	make_settlement(gs, gs.players[0].id, 5, 5, 3)
+
+	for path in _SCREENS:
+		var screen = load(path).new()
+		add_child_autofree(screen)
+		screen.init(facade)
+		screen.show_screen()
+		assert_true(screen.visible, "Screen %s visible after show_screen()" % path)
+		screen.close_screen()
+		assert_false(screen.visible, "Screen %s hidden after close_screen()" % path)
+
 func test_options_screen_score_toggle_routes_through_facade() -> void:
 	var facade = setup_facade(92)
 	var gs = facade.get_state()

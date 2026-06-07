@@ -188,6 +188,25 @@ func _init_node(path: String, args: Array) -> void:
 	if node != null and node.has_method("init"):
 		node.callv("init", args)
 
+# Close the topmost open screen and return true, or return false if nothing
+# was visible. Priority: extra info screens → major screens → pause submenus.
+# The pause menu itself is not closed here — callers toggle it separately.
+func _try_close_open_screen(pause) -> bool:
+	for sc in _extra_screens.values():
+		if sc != null and sc.visible:
+			sc.close_screen()
+			return true
+	for path in ["Screens/CityScreen", "Screens/TechChooser", "Screens/PolicyScreen",
+			"Screens/DiplomacyScreen", "Screens/SaveLoadScreen"]:
+		var sc = get_node_or_null(path)
+		if sc != null and sc.visible:
+			sc.close_screen()
+			return true
+	if pause != null and pause.visible and pause.has_method("try_close_submenu"):
+		if pause.try_close_submenu():
+			return true
+	return false
+
 func get_facade():
 	return _facade
 
@@ -242,10 +261,12 @@ func _on_screen_requested(screen_id: int) -> void:
 				sl.quick_load()
 		IDs.ControlType.OPEN_MENU:
 			var pause = get_node_or_null("Screens/PauseMenu")
-			if pause != null:
-				pause.toggle()
+			if not _try_close_open_screen(pause):
+				if pause != null:
+					pause.toggle()
 		-1:  # close current screen
-			pass
+			var pause = get_node_or_null("Screens/PauseMenu")
+			_try_close_open_screen(pause)
 
 # ── Advanced debugging ─────────────────────────────────────────────────────────
 

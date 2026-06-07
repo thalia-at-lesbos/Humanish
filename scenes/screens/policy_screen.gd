@@ -92,5 +92,8 @@ func _on_policy_selected(cat: String, pol_id: String) -> void:
 	_facade.apply_command(Commands.set_policy(gs.current_player_id, cat, pol_id))
 	rebuild()
 
+func close_screen() -> void:
+	_on_close()
+
 func _on_close() -> void:
 	visible = false
