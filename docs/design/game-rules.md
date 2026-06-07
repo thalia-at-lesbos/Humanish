@@ -420,6 +420,75 @@ Outcomes and side effects:
   specialist, and special-person actions (instant technology, rushed construction,
   triggering a celebration age, or seeding an economic organization).
 
+### 5.7 Nuclear weapons & radiation (provisional)
+> **⚠️ Provisional — preliminary, not verified.** This subsection is a first-pass model of
+> the **nuclear-weapon** units (`tactical_nuke`, `icbm`) and the **radioactive fallout** they
+> leave behind. The data scaffolding already exists — the units, the `nuke`/`one_use`/
+> `global_range` tags, the `fission` tech, the **Manhattan Project** national wonder
+> (`enable_nukes_global`), the **Bomb Shelter** structure (`nuke_damage_reduction`), the
+> **Fallout** feature, the **Non-Proliferation** assembly resolution and the `no_nuclear`
+> standing effect (§7.2) — but the **detonation/radiation rules below are not implemented yet**
+> and have **not** been checked against the reference game. Every blast radius, damage figure,
+> radiation chance, and the listed constants are **placeholders** to be verified and tuned.
+> (All quantities are integer math per the engine invariants; chances are integer percentages.)
+
+A **nuclear strike** is a one-use area-effect attack, distinct from the round-by-round duel of
+§5.4. It does not "fight" a single defender: it detonates over a **target tile** and damages
+*everything* in an area, friend and foe alike, then **contaminates** the ground.
+
+* **Eligibility & range.** Nuclear units carry the `nuke` + `one_use` tags. A `tactical_nuke`
+  is a short-range missile (data `air_range`, placeholder 12) launched from a settlement,
+  carrier, or missile-cruiser within range; an `icbm` carries `global_range` (`air_range` 999)
+  and may target **any** tile on the map. Both require the **Uranium** resource to build and a
+  player who has either completed the **Manhattan Project** or for whom nukes are globally
+  enabled. The unit is **consumed** on launch whether or not it is intercepted.
+* **Interception.** Before detonation, an enemy with an in-range anti-air/SDI capability
+  (placeholder: SAM Infantry, Missile Cruiser, or a future "SDI" defensive structure within
+  range of the target) rolls a fixed **interception chance** (placeholder, tunable). A
+  successful interception destroys the missile **with no effect on the target** (the launching
+  player is still notified). This roll is drawn from the shared generator in pipeline order.
+* **Blast & damage.** On detonation the engine resolves an **area effect** centred on the target
+  tile out to a **blast radius** (placeholder: Tactical Nuke = the single target tile only
+  ("0", point strike); ICBM = the target tile plus all adjacent tiles, "radius 1"):
+  * **Units** in the blast take heavy, **non-lethal-floored** damage — each affected unit is
+    reduced by a large percentage of max health but a strike alone does **not** wipe a stack to
+    zero (placeholder: leave each unit at ≥ 1 health, mirroring the §5.4 combat-limit idea), so
+    nukes **soften** defenders rather than auto-killing them. Damage applies to **all** owners in
+    the area, **including the attacker's own** units — there is no friendly-fire exemption.
+  * **Settlements** in the blast lose a share of current **population** (placeholder) and have
+    their accumulated **defensive/garrison bonus** and stored production reduced; a settlement is
+    **never destroyed outright** by a strike (it can still be taken only by capture, §4.8).
+  * **Bomb Shelter** in a struck settlement reduces the population loss and unit damage there by
+    its `nuke_damage_reduction` (data, placeholder 50%).
+  * **Tile improvements & features** in the blast are **pillaged/stripped** (improvements
+    destroyed; vegetation removed), as with a heavy area strike (§11).
+* **Radiation (fallout).** Each tile in the blast — and a ring of tiles around it — has a
+  **contamination chance** (placeholder) of gaining the **Fallout** feature (data: output
+  `−3/−3/−3` food/production/commerce, `+50` movement cost, `health_penalty 1`, `removable`).
+  Fallout therefore:
+  * **poisons tile yield** (worked Fallout tiles produce almost nothing),
+  * **slows movement** through the contaminated zone,
+  * **harms wellbeing** (§4.6) of any settlement working a Fallout tile in its radius, and
+  * **lingers** until cleaned. A worker-type unit removes Fallout with a `clean_fallout` work
+    action (cost in data; the **Ecology** tech / Recycling Center speeds it — see §11). Fallout
+    may **also** be created independently by ordinary heavy area strikes and by a **Nuclear Plant
+    meltdown** (provisional: a small per-turn meltdown chance that spawns Fallout around the
+    plant's settlement), not only by nuclear weapons.
+* **Diplomatic & global consequences.** Launching a nuclear strike is an act of war and a
+  **global** event:
+  * it adds a large amount of **war-fatigue** (§ combat/economy) to the *attacker* (and unhappiness
+    across that player's settlements), reflecting domestic and world revulsion;
+  * it may **break peace** and sour standing with all third parties, not just the victim;
+  * while a **Non-Proliferation** resolution / `no_nuclear` standing effect is in force (§7.2),
+    building or launching nuclear units is **forbidden**, and a player who defies it incurs the
+    assembly-defiance penalty (§4.5) once that hook is wired.
+
+**Determinism.** Every stochastic step — interception, per-unit blast damage spread, the
+per-tile contamination roll, and any meltdown check — draws from `gs.rng` in strict pipeline
+order, so a replay reproduces the same craters and fallout. Strike results and the list of newly
+contaminated tiles are surfaced through the normal area-effect/event channel for the
+presentation layer (notifications + a `combat_resolved`/area-strike signal).
+
 ---
 
 ## 6. Players, economy, and research
@@ -755,6 +824,14 @@ produces a per-turn chance of randomly degrading a tile — stripping vegetation
 terrain toward barrenness, or flooding low tiles — scaled by game settings. Area-effect
 strikes also add lingering contamination and pollution.
 
+**Radioactive fallout (provisional).** The strongest form of lingering contamination is the
+**Fallout** feature created by nuclear strikes, heavy area strikes, and (provisionally) Nuclear
+Plant meltdowns (§5.7). Fallout is modelled as a removable tile feature that poisons yield,
+slows movement, and harms settlement wellbeing (§4.6) until a worker-type unit clears it with a
+`clean_fallout` action. The **Ecology** tech and the **Recycling Center** structure speed
+cleanup; see §5.7 for the strike/meltdown side and the data tables for the Fallout feature's
+exact penalties. (Provisional — not yet implemented; constants are placeholders.)
+
 ---
 
 ## 12. Configurable data
@@ -763,7 +840,8 @@ Everything numeric and every named game object is treated as **external configur
 rather than hard-coded logic, including:
 
 * **Global constants**: combat resolution scale and damage magnitude, maximum health,
-  spillover/ranged/air damage, withdrawal/evasion caps, entrenchment cap,
+  spillover/ranged/air damage, withdrawal/evasion caps, entrenchment cap, nuclear blast
+  radius/damage, interception and per-tile contamination chances, and meltdown chance (§5.7),
   minimum/maximum experience per fight, healing rates by location, movement precision,
   visibility and blockade ranges, growth-threshold base and per-population multiplier,
   consumption per population, the anger-to-population divisor, minimum settlement spacing,
