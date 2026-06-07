@@ -5,7 +5,7 @@ a tiled world, settlements with growth/production/culture, units with detailed c
 research, policies, alliances and diplomacy, beliefs, economic organizations, Great
 People, and multiple victory conditions.
 
-Built in **Godot 3.6 / GDScript** (version **0.4.0**). The repository ships a fully
+Built in **Godot 3.6 / GDScript** (version **0.4.1**). The repository ships a fully
 headless, deterministic rules engine plus a flat-color prototype UI for playing it.
 
 ---
