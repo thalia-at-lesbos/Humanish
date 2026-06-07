@@ -48,6 +48,17 @@ The `docs/` tree has four tiers with different editorial rules:
 
 The canonical code-layout reference is `docs/ref/code-layout.md`. Design specs (`network-design.md`, `debug.md`, `game-data.md`, `game-rules.md`, `user-interface-design.md`) stay in `docs/design/`. End-user docs (`quick-start.md`, `user-reference.md`) live in `docs/user/`.
 
+Each file in `docs/design/` opens with a **YAML frontmatter block** (between `---` delimiters) containing:
+- `title` / `role: design` — identity and tier marker
+- `summary` — 3–5 sentence orientation for agents and humans
+- `audience` — who should read it and in what context
+- `key_files` — annotated list of source paths the document governs
+- `sections` — ordered map of section number → one-line scope, covering every `##` heading
+- `editorial_rule` — consent and extension-pattern instructions
+- `provisional_sections` (game-rules.md only) — list of `⚠️ Provisional` subsections with placeholder constants
+
+Read the frontmatter before diving into a design doc — it identifies the relevant source files and tells you which sections are still unverified placeholders.
+
 ---
 
 ## Architecture
