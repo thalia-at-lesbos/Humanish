@@ -882,33 +882,51 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		player.current_research_id = ""
 
 static func _apply_intelligence(gs: GameState, player: Player) -> void:
-	# Accumulate intel points from commerce allocation
+	# Each turn a player's espionage output is accumulated as intel points,
+	# spread evenly across every alliance it has met (§7, §15.5 — provisional).
+	# Per city the output is the intel slice of its commerce plus the flat
+	# `espionage` of its structures (Palace, Courthouse, Jail, …), the whole
+	# scaled up by that city's `espionage_output` percent (Intelligence Agency,
+	# Scotland Yard, the Castle line). Empire-wide civic espionage (Nationhood)
+	# is added on top.
+	var alliance: Alliance = gs.get_player_alliance(player.id)
+	if alliance == null or alliance.contacts.empty():
+		return
+
+	var total: int = 0
 	for s in gs.settlements:
 		if s.owner_player_id != player.id:
 			continue
-		var split: Array = player.split_commerce(s.output_commerce)
-		var intel: int = split[3]
-		# Distribute evenly across all known alliances
-		var alliance: Alliance = gs.get_player_alliance(player.id)
-		if alliance == null:
-			continue
-		for target_aid in alliance.contacts:
-			if not player.intel_points.has(target_aid):
-				player.intel_points[target_aid] = 0
-			var share: int = intel / max(1, alliance.contacts.size())
-			player.intel_points[target_aid] += share
+		var city_out: int = player.split_commerce(s.output_commerce)[3] \
+			+ _settlement_espionage_flat(s, gs.db)
+		city_out += Fixed.scale(city_out, _settlement_espionage_output(s, gs.db))
+		total += city_out
 
-	# Nationhood adds a flat espionage yield each turn, spread across known
-	# alliances like the commerce-derived intel above (§8).
-	var espionage: int = PolicyEffects.sum_int(player, gs.db, "espionage")
-	if espionage > 0:
-		var alliance2: Alliance = gs.get_player_alliance(player.id)
-		if alliance2 != null and not alliance2.contacts.empty():
-			var share2: int = espionage / max(1, alliance2.contacts.size())
-			for target_aid in alliance2.contacts:
-				if not player.intel_points.has(target_aid):
-					player.intel_points[target_aid] = 0
-				player.intel_points[target_aid] += share2
+	# Nationhood and other civics add a flat empire-wide espionage yield (§8).
+	total += PolicyEffects.sum_int(player, gs.db, "espionage")
+	if total <= 0:
+		return
+
+	var share: int = total / alliance.contacts.size()
+	for target_aid in alliance.contacts:
+		if not player.intel_points.has(target_aid):
+			player.intel_points[target_aid] = 0
+		player.intel_points[target_aid] += share
+
+# Sum of the flat `espionage` points contributed by a settlement's structures.
+static func _settlement_espionage_flat(s: Settlement, db: DataDB) -> int:
+	var flat: int = 0
+	for struct_id in s.structures:
+		flat += int(db.get_structure(struct_id).get("effects", {}).get("espionage", 0))
+	return flat
+
+# Sum of the `espionage_output` percent modifiers a settlement's structures grant
+# (they stack additively, e.g. Intelligence Agency +50% with Scotland Yard +100%).
+static func _settlement_espionage_output(s: Settlement, db: DataDB) -> int:
+	var pct: int = 0
+	for struct_id in s.structures:
+		pct += int(db.get_structure(struct_id).get("effects", {}).get("espionage_output", 0))
+	return pct
 
 static func _tick_states(gs: GameState, player: Player) -> void:
 	if player.transition_turns > 0:

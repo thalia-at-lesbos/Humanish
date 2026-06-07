@@ -17,6 +17,12 @@ func init(facade) -> void:
 	_title = "Espionage"
 	.init(facade)
 
+const MISSIONS = [
+	["steal_tech", "Steal Tech"],
+	["sabotage", "Sabotage"],
+	["incite_unrest", "Incite Unrest"],
+]
+
 func _populate(vbox) -> void:
 	var gs = _facade.get_state()
 	var p = gs.get_player(gs.current_player_id)
@@ -27,6 +33,25 @@ func _populate(vbox) -> void:
 	if p.intel_points.empty():
 		_add_line(vbox, "No espionage points accumulated.")
 		return
+	var min_cost = gs.db.get_constant("intel_mission_cost", 100)
 	_add_line(vbox, "Espionage points by alliance:")
 	for alliance_id in p.intel_points:
-		_add_line(vbox, "  alliance %s: %d" % [str(alliance_id), int(p.intel_points[alliance_id])])
+		var pts = int(p.intel_points[alliance_id])
+		_add_line(vbox, "  alliance %s: %d" % [str(alliance_id), pts])
+		# Offer a mission per rival the player has banked enough points against.
+		if pts >= min_cost:
+			_add_mission_buttons(vbox, int(alliance_id))
+
+func _add_mission_buttons(vbox, alliance_id: int) -> void:
+	var row = HBoxContainer.new()
+	for m in MISSIONS:
+		var btn = Button.new()
+		btn.text = m[1]
+		btn.connect("pressed", self, "_on_mission", [alliance_id, m[0]])
+		row.add_child(btn)
+	vbox.add_child(row)
+
+func _on_mission(alliance_id: int, mission: String) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.espionage_mission(gs.current_player_id, alliance_id, mission))
+	rebuild()

@@ -280,7 +280,7 @@ static func disband_city(player_id: int, settlement_id: int) -> Dictionary:
 
 static func espionage_mission(player_id: int, target_alliance_id: int,
 		mission: String) -> Dictionary:
-	# mission: "steal_tech" or "sabotage"
+	# mission: "steal_tech", "sabotage", or "incite_unrest"
 	return {
 		"type": IDs.CommandType.ESPIONAGE_MISSION,
 		"player_id": player_id,

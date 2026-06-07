@@ -38,6 +38,8 @@
   "specialist_commerce": 3,
   "intel_mission_cost": 100,
   "intel_interception_chance": 25,
+  "intel_interception_max": 90,
+  "intel_cost_advantage_max": 200,
   "trade_default_duration": 20,
   "air_strike_default_range": 4,
   "interception_range": 2,

@@ -1076,13 +1076,14 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	var target_alliance: Alliance = _gs.get_alliance(target_aid)
 	if target_alliance == null or target_aid == p.alliance_id:
 		return false
-	var cost: int = _db.get_constant("intel_mission_cost", 100)
 	var have: int = int(p.intel_points.get(target_aid, 0))
+	var cost: int = _espionage_mission_cost(p, target_alliance, have)
 	if have < cost:
 		return false
 	p.intel_points[target_aid] = have - cost
-	# Interception spends the points but fails the mission.
-	if _gs.rng.rand_bool_percent(_db.get_constant("intel_interception_chance", 25)):
+	# A defender's espionage_defense structures raise the interception chance;
+	# interception spends the points but fails the mission (§7, §15.5).
+	if _gs.rng.rand_bool_percent(_espionage_interception_chance(target_alliance)):
 		_add_notification("Espionage mission intercepted.", "info")
 		return true
 	match str(cmd.get("mission", "")):
@@ -1090,7 +1091,45 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 			_espionage_steal_tech(p, target_alliance)
 		"sabotage":
 			_espionage_sabotage(target_alliance)
+		"incite_unrest":
+			_espionage_incite_unrest(target_alliance)
 	return true
+
+# §15.5 mission cost (provisional): base × (1 + EP-advantage/100). The advantage
+# is how much more espionage the target holds against the attacker than the
+# attacker holds against the target — a well-defended rival costs more to hit.
+# When the attacker is ahead the advantage is zero (cost floors at base).
+func _espionage_mission_cost(attacker: Player, target: Alliance, attacker_ep: int) -> int:
+	var base: int = _db.get_constant("intel_mission_cost", 100)
+	var defender_ep: int = 0
+	for pid in target.member_player_ids:
+		var member: Player = _gs.get_player(pid)
+		if member != null:
+			defender_ep += int(member.intel_points.get(attacker.alliance_id, 0))
+	if defender_ep <= attacker_ep:
+		return base
+	var advantage: int = (defender_ep - attacker_ep) * 100 / (attacker_ep if attacker_ep > 0 else 1)
+	var cap: int = _db.get_constant("intel_cost_advantage_max", 200)
+	if advantage > cap:
+		advantage = cap
+	return base + base * advantage / 100
+
+# Interception chance against missions targeting this alliance: the base chance
+# plus the strongest espionage_defense structure across the target's cities,
+# capped (§15.5, provisional).
+func _espionage_interception_chance(target: Alliance) -> int:
+	var defense: int = 0
+	for s in _gs.settlements:
+		var owner: Player = _gs.get_player(s.owner_player_id)
+		if owner == null or owner.alliance_id != target.id:
+			continue
+		for struct_id in s.structures:
+			var d: int = int(_db.get_structure(struct_id).get("effects", {}).get("espionage_defense", 0))
+			if d > defense:
+				defense = d
+	var chance: int = _db.get_constant("intel_interception_chance", 25) + defense
+	var cap: int = _db.get_constant("intel_interception_max", 90)
+	return cap if chance > cap else chance
 
 func _espionage_steal_tech(thief: Player, target: Alliance) -> void:
 	for pid in target.member_player_ids:
@@ -1110,6 +1149,22 @@ func _espionage_sabotage(target: Alliance) -> void:
 			s.production_store = s.production_store / 2
 			_add_notification("Sabotaged production in " + s.name, "major")
 			return
+
+# Incite unrest: tip the target alliance's most populous city into disorder so
+# it produces nothing until its owner restores order (§7, provisional).
+func _espionage_incite_unrest(target: Alliance) -> void:
+	var worst: Settlement = null
+	for s in _gs.settlements:
+		var owner: Player = _gs.get_player(s.owner_player_id)
+		if owner == null or owner.alliance_id != target.id:
+			continue
+		if worst == null or s.population > worst.population \
+				or (s.population == worst.population and s.id < worst.id):
+			worst = s
+	if worst != null:
+		worst.in_disorder = true
+		worst.discontented = worst.population
+		_add_notification("Incited unrest in " + worst.name, "major")
 
 # ── Transport / embarkation (§5.2) ────────────────────────────────────────────
 

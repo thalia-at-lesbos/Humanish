@@ -499,6 +499,52 @@ organization.
   alliance it has met, spent on covert missions (stealing technology, sabotage, inciting
   unrest, and more) with costs and interception chances governed by configuration.
 
+### 7.1 Espionage points & missions (provisional)
+
+> **⚠️ Provisional — preliminary, not verified.** This subsection documents the
+> first-pass espionage model now wired into the engine. The accumulation/output/defense
+> formulas, the mission-cost curve, and the mission effects are placeholders to be
+> verified and tuned against the reference game before being relied on. There is **no AI
+> behaviour** for espionage yet (the computer player neither funds the intel slider nor
+> launches missions); missions are reachable from the human espionage advisor and through
+> `apply_command`.
+
+**Espionage point (EP) accumulation.** Each turn, a player's espionage output is banked as
+EP and **spread evenly across every alliance it has met** (its `contacts`), tracked per
+target alliance. A player's per-turn output is the sum, over its settlements, of:
+
+* the **intelligence slice** of that city's commerce (the intel allocation slider, §6.2);
+  plus
+* the **flat espionage** of the city's structures (Palace +4, Courthouse +2, Jail +4,
+  Security Bureau +8, Intelligence Agency +8, …);
+
+with that per-city subtotal then scaled up by the city's **`espionage_output`** percent
+(Intelligence Agency +50%, the Castle line +25%, Scotland Yard +100%; these stack
+additively). Empire-wide **civic** espionage (e.g. Nationhood +4) is added on top before
+distribution.
+
+**Mission cost (§15.5).** A mission's cost is
+
+```
+cost = base_cost × (1 + EP_advantage / 100)
+```
+
+where `base_cost` is `intel_mission_cost` and `EP_advantage` (a percent, capped at
+`intel_cost_advantage_max`) measures how much more EP the **target** alliance holds against
+the attacker than the attacker holds against the target — i.e. hitting a rival who has been
+spying on you harder costs more. When the attacker is ahead the advantage is zero and the
+cost floors at `base_cost`. The mission spends its cost in EP whether or not it succeeds.
+
+**Interception.** After the cost is paid, the mission is intercepted with probability
+`intel_interception_chance` **plus** the strongest **`espionage_defense`** percent among the
+target alliance's cities (Jail/Security Bureau/Mausoleum +50%), capped at
+`intel_interception_max`. An intercepted mission is announced and produces no effect.
+
+**Missions implemented.** `steal_tech` (copies one technology the attacker lacks from the
+target), `sabotage` (halves a target city's stored production), and `incite_unrest` (tips
+the target alliance's most populous city into disorder for its owner's next turn). Other
+missions named in the design narrative are not yet modelled.
+
 ---
 
 ## 8. Beliefs & economic organizations
