@@ -79,6 +79,23 @@ var pending_era_advances: Array = []  # [{player_id, from, to}]
 # Each entry is {"kind": "combat"/"captured"/"razed", ...payload}.
 var pending_wild_events: Array = []
 
+# Transient tech-completion records produced by TurnEngine._apply_research and
+# _apply_special_person during a player step, drained by SimFacade into
+# notifications + the technology_completed signal. Not serialized.
+# Each entry is {"player_id": int, "tech_id": String}.
+var pending_tech_completions: Array = []
+
+# Transient great-person birth records produced by GreatPeople.birth_from_settlement
+# and award_combat_points during a player/world step, drained by SimFacade into
+# notifications. Not serialized.
+# Each entry is {"player_id": int, "unit_type_id": String}.
+var pending_great_people: Array = []
+
+# Transient wonder/project-completion records produced by TurnEngine._complete_item
+# during a player step, drained by SimFacade into notifications. Not serialized.
+# Each entry is {"player_id": int, "settlement_name": String, "item_type": String, "item_id": String, "item_name": String}.
+var pending_productions: Array = []
+
 # Auto-incrementing IDs
 var _next_unit_id: int = 1
 var _next_settlement_id: int = 1

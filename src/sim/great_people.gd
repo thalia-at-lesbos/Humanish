@@ -83,6 +83,8 @@ static func birth_from_settlement(gs: GameState, s: Settlement) -> int:
 	if unit_type == "":
 		return -1
 	var u: Unit = spawn_unit(gs, unit_type, s.owner_player_id, s.x, s.y)
+	if u != null:
+		gs.pending_great_people.append({"player_id": s.owner_player_id, "unit_type_id": unit_type})
 	return u.id if u != null else -1
 
 # ── Great General (§14.2) ─────────────────────────────────────────────────────
@@ -118,6 +120,7 @@ static func award_combat_points(gs: GameState, player: Player,
 		player.great_general_threshold = Fixed.scale_up(player.great_general_threshold, growth)
 		if unit_type != "":
 			spawn_unit(gs, unit_type, player.id, x, y)
+			gs.pending_great_people.append({"player_id": player.id, "unit_type_id": unit_type})
 
 # ── Golden Ages (§14.4) ───────────────────────────────────────────────────────
 

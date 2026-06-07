@@ -387,6 +387,9 @@ func _cmd_end_turn(player_id: int) -> bool:
 	TurnEngine.player_step(_gs, player_id, _hooks)
 	_drain_flips()
 	_drain_era_advances()
+	_drain_tech_completions()
+	_drain_great_people()
+	_drain_productions()
 
 	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
@@ -394,6 +397,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 		TurnEngine.world_step(_gs, _hooks)
 		_drain_wild_events()
 		_drain_assembly_events()
+		_drain_great_people()
 		_add_notification("Turn " + str(_gs.turn_number) + " begins.", "info")
 		emit_signal("turn_advanced", _gs.turn_number)
 		if _gs.winning_alliance_id >= 0:
@@ -457,6 +461,7 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			var result: Dictionary = Combat.resolve(lead, enemy, _gs, _gs.rng)
 			_apply_combat_result(lead, enemy, result, enemy_city == null)
 			emit_signal("combat_resolved", result)
+			_add_combat_notification(lead, enemy, result)
 			for u in moving_units:
 				u.movement_left = 0
 				u.has_moved = true
@@ -778,6 +783,7 @@ func _cmd_set_policy(cmd: Dictionary) -> bool:
 	if transition > 0 and prev != "" and not ("spiritual" in p.traits):
 		p.transition_turns = transition
 	p.policies[cat] = pol_id
+	_add_notification(p.name + " adopted " + str(pol.get("name", pol_id)) + ".", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
@@ -808,6 +814,11 @@ func _cmd_set_state_religion(cmd: Dictionary) -> bool:
 	if p.state_religion != "" and not ("spiritual" in p.traits):
 		p.transition_turns = _db.get_constant("state_religion_anarchy_turns", 1)
 	p.state_religion = belief_id
+	if belief_id == "":
+		_add_notification(p.name + " abandoned their state religion.", "major")
+	else:
+		var belief_name: String = str(_db.beliefs.get(belief_id, {}).get("name", belief_id))
+		_add_notification(p.name + " declared " + belief_name + " as state religion.", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
@@ -825,6 +836,7 @@ func _cmd_declare_war(cmd: Dictionary) -> bool:
 	# Ensure contact
 	if not alliance.has_contact_with(target_aid):
 		alliance.contacts.append(target_aid)
+	_add_notification(p.name + " declared war on " + _alliance_label(target_aid) + "!", "major")
 	return true
 
 func _cmd_make_peace(cmd: Dictionary) -> bool:
@@ -836,6 +848,7 @@ func _cmd_make_peace(cmd: Dictionary) -> bool:
 	if alliance == null:
 		return false
 	alliance.at_war_with.erase(target_aid)
+	_add_notification(p.name + " made peace with " + _alliance_label(target_aid) + ".", "major")
 	return true
 
 func _cmd_rush_production(cmd: Dictionary) -> bool:
@@ -979,12 +992,22 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 		for tech in receive.get("techs", []):
 			if not proposer.has_tech(tech):
 				proposer.technologies.append(tech)
+		var parts: Array = []
+		if gg > 0: parts.append(str(gg) + " gold to " + accepter.name)
+		if rg > 0: parts.append(str(rg) + " gold to " + proposer.name)
+		var give_techs: Array = give.get("techs", [])
+		var recv_techs: Array = receive.get("techs", [])
+		if not give_techs.empty(): parts.append("tech to " + accepter.name)
+		if not recv_techs.empty(): parts.append("tech to " + proposer.name)
+		if not parts.empty():
+			_add_notification(proposer.name + " and " + accepter.name + " traded: " + ", ".join(parts) + ".", "info")
 	if bool(t.get("peace", false)):
 		var a_from: Alliance = _gs.get_alliance(int(t.get("from_alliance", -1)))
 		var a_to: Alliance = _gs.get_alliance(int(t.get("to_alliance", -1)))
 		if a_from != null and a_to != null:
 			a_from.at_war_with.erase(a_to.id)
 			a_to.at_war_with.erase(a_from.id)
+			_add_notification(a_from.name + " and " + a_to.name + " agreed to peace.", "major")
 
 # ── Subordination (§7) ────────────────────────────────────────────────────────
 
@@ -1008,6 +1031,7 @@ func _cmd_set_subordination(cmd: Dictionary) -> bool:
 	for enemy_aid in overlord.at_war_with:
 		if not (enemy_aid in mine.at_war_with):
 			mine.at_war_with.append(enemy_aid)
+	_add_notification(p.name + " became a tributary of " + _alliance_label(overlord_id) + ".", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	return true
 
@@ -1106,8 +1130,25 @@ func _cmd_gp_action(cmd: Dictionary) -> bool:
 	for k in cmd:
 		if k != "type" and k != "player_id" and k != "unit_id" and k != "action":
 			params[k] = cmd[k]
+	var p_gp: Player = _gs.get_player(player_id)
+	var was_in_golden_age: bool = p_gp != null and GreatPeople.is_in_golden_age(p_gp)
 	if not GreatPeople.perform_action(_gs, u, action, params):
 		return false
+	if p_gp != null:
+		var udata_gp: Dictionary = _db.get_unit(u.unit_type_id)
+		var gp_name: String = str(udata_gp.get("name", u.unit_type_id))
+		match action:
+			"start_golden_age":
+				if GreatPeople.is_in_golden_age(p_gp) and not was_in_golden_age:
+					_add_notification(p_gp.name + " has entered a Golden Age!", "major")
+				else:
+					_add_notification(gp_name + " contributed to the next Golden Age.", "info")
+			"trade_mission":
+				_add_notification(gp_name + " completed a trade mission.", "info")
+			"found_religion":
+				_add_notification(gp_name + " founded a new religion.", "major")
+			"discover_technology":
+				_add_notification(gp_name + " discovered a technology.", "major")
 	_dirty.mark_all()
 	return true
 
@@ -1292,6 +1333,7 @@ func _resolve_interception(bomber: Unit, tx: int, ty: int, player_id: int) -> bo
 	var ir: Dictionary = Combat.resolve(interceptor, bomber, _gs, _gs.rng)
 	_apply_combat_result(interceptor, bomber, ir, false)
 	emit_signal("combat_resolved", ir)
+	_add_combat_notification(interceptor, bomber, ir)
 	return true
 
 # Spread a religion to a city with a missionary unit (§8). The missionary must be
@@ -1322,6 +1364,8 @@ func _cmd_spread_belief(cmd: Dictionary) -> bool:
 	Stack.remove_unit(_gs.units, u.id)
 	if _selection != null:
 		_selection.selected_unit_ids.erase(u.id)
+	var belief_name: String = str(_db.beliefs.get(belief_id, {}).get("name", belief_id))
+	_add_notification(belief_name + " spread to " + s.name + ".", "info")
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
@@ -1439,6 +1483,9 @@ func _cmd_nuclear_strike(cmd: Dictionary) -> bool:
 
 	# Interception aborts the strike with no effect on the target.
 	if Nuclear.try_intercept(_gs, u, tx, ty, _gs.rng):
+		var p_nuke: Player = _gs.get_player(player_id)
+		var who_nuke: String = p_nuke.name if p_nuke != null else "A nuclear weapon"
+		_add_notification(who_nuke + "'s nuclear strike was intercepted!", "major")
 		emit_signal("event_emitted", {
 			"type": "nuclear_intercepted",
 			"player_id": player_id, "target_x": tx, "target_y": ty
@@ -1460,6 +1507,9 @@ func _cmd_nuclear_strike(cmd: Dictionary) -> bool:
 			if not attacker_alliance.has_contact_with(aid):
 				attacker_alliance.contacts.append(aid)
 
+	var p_nuke2: Player = _gs.get_player(player_id)
+	var who_nuke2: String = p_nuke2.name if p_nuke2 != null else "A nuclear weapon"
+	_add_notification(who_nuke2 + " detonated a nuclear weapon at (" + str(tx) + "," + str(ty) + ")!", "major")
 	emit_signal("nuclear_detonated", result)
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
@@ -1624,6 +1674,7 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			# Bombard / air strike never advances onto the target tile.
 			_apply_combat_result(u, target, result, false)
 			emit_signal("combat_resolved", result)
+			_add_combat_notification(u, target, result)
 			u.has_moved = true
 		IDs.CommandType.MISSION_AIRLIFT:
 			var tx2: int = int(cmd.get("target_x", u.x))
@@ -2024,6 +2075,13 @@ func widget_is_link(widget: Dictionary) -> bool:
 func get_notification_queue() -> Array:
 	return _notifications
 
+func _alliance_label(alliance_id: int) -> String:
+	var a: Alliance = _gs.get_alliance(alliance_id)
+	if a == null or a.member_player_ids.empty():
+		return "another power"
+	var p: Player = _gs.get_player(int(a.member_player_ids[0]))
+	return p.name if p != null else "another power"
+
 func _add_notification(text: String, category: String = "info") -> void:
 	_notifications.append({"text": text, "category": category, "turn": _gs.turn_number})
 	if _notifications.size() > 100:
@@ -2101,6 +2159,71 @@ func _drain_assembly_events() -> void:
 	_gs.pending_assembly_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface technology-completion records queued during a player step: one
+# notification + a technology_completed signal each, then clear the queue.
+func _drain_tech_completions() -> void:
+	if _gs.pending_tech_completions.empty():
+		return
+	for entry in _gs.pending_tech_completions:
+		var pid: int = int(entry["player_id"])
+		var tech_id: String = str(entry["tech_id"])
+		var p: Player = _gs.get_player(pid)
+		var who: String = p.name if p != null else "A civilization"
+		var tech_name: String = str(_db.get_technology(tech_id).get("name", tech_id))
+		_add_notification(who + " discovered " + tech_name + ".", "major")
+		emit_signal("technology_completed", pid, tech_id)
+	_gs.pending_tech_completions = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface great-person birth records queued during a player/world step: one
+# notification each, then clear the queue.
+func _drain_great_people() -> void:
+	if _gs.pending_great_people.empty():
+		return
+	for entry in _gs.pending_great_people:
+		var pid: int = int(entry["player_id"])
+		var unit_type: String = str(entry["unit_type_id"])
+		var p: Player = _gs.get_player(pid)
+		var who: String = p.name if p != null else "A civilization"
+		var gp_name: String = str(_db.get_unit(unit_type).get("name", unit_type))
+		_add_notification(who + " produced a " + gp_name + "!", "major")
+	_gs.pending_great_people = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface wonder/project-completion records queued during a player step: one
+# notification each, then clear the queue.
+func _drain_productions() -> void:
+	if _gs.pending_productions.empty():
+		return
+	for entry in _gs.pending_productions:
+		var pid: int = int(entry["player_id"])
+		var p: Player = _gs.get_player(pid)
+		var who: String = p.name if p != null else "A civilization"
+		var city: String = str(entry.get("settlement_name", ""))
+		var item_name: String = str(entry.get("item_name", ""))
+		if str(entry.get("item_type", "")) == "project":
+			_add_notification(who + " completed a project stage: " + item_name + ".", "major")
+		else:
+			_add_notification(who + " built " + item_name + " in " + city + "!", "major")
+	_gs.pending_productions = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Compose a brief combat notification from the attacker and defender units.
+func _add_combat_notification(attacker: Unit, defender: Unit, result: Dictionary) -> void:
+	var atk_name: String = str(_db.get_unit(attacker.unit_type_id).get("name", attacker.unit_type_id))
+	var def_name: String = str(_db.get_unit(defender.unit_type_id).get("name", defender.unit_type_id))
+	var outcome: String
+	if not bool(result.get("attacker_survived", true)):
+		outcome = atk_name + " was destroyed attacking " + def_name + "."
+	elif not bool(result.get("defender_survived", true)):
+		outcome = atk_name + " defeated " + def_name + "."
+	else:
+		outcome = atk_name + " attacked " + def_name + " — both survived."
+	_add_notification(outcome, "info")
 
 # Push a CHOOSE_ELECTION popup for a human player who is an eligible member of an
 # open assembly session and has not yet voted (§7.2). AI players vote through

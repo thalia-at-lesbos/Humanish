@@ -589,12 +589,28 @@ static func _complete_item(gs: GameState, s: Settlement,
 					s.structures.append("palace")
 			elif not s.has_structure(iid):
 				s.structures.append(iid)
+			var sdata: Dictionary = gs.db.get_structure(iid)
+			if sdata.get("is_wonder", false) or sdata.get("is_national_wonder", false):
+				gs.pending_productions.append({
+					"player_id": player.id,
+					"settlement_name": s.name,
+					"item_type": "structure",
+					"item_id": iid,
+					"item_name": str(sdata.get("name", iid))
+				})
 		"project":
 			var proj: Dictionary = gs.db.projects.get(iid, {})
 			var alliance_id: int = player.alliance_id
 			if not gs.endgame_project_stages.has(alliance_id):
 				gs.endgame_project_stages[alliance_id] = 0
 			gs.endgame_project_stages[alliance_id] += 1
+			gs.pending_productions.append({
+				"player_id": player.id,
+				"settlement_name": s.name,
+				"item_type": "project",
+				"item_id": iid,
+				"item_name": str(proj.get("name", iid))
+			})
 
 # Starting experience a newly built military unit draws from its city's (and the
 # empire's) buildings, by unit category (§5.5). Per-settlement keys come from the
@@ -831,9 +847,11 @@ static func _apply_special_person(gs: GameState, s: Settlement) -> void:
 		GreatPeople.birth_from_settlement(gs, s)
 		return
 	if player.current_research_id != "" and not player.has_tech(player.current_research_id):
-		player.technologies.append(player.current_research_id)
+		var gifted_tech: String = player.current_research_id
+		player.technologies.append(gifted_tech)
 		player.current_research_id = ""
 		player.research_store = 0
+		gs.pending_tech_completions.append({"player_id": player.id, "tech_id": gifted_tech})
 		return
 	# Seed an economic organization if one is unfounded and this settlement is free.
 	if s.econ_org_id == "":
@@ -1088,6 +1106,7 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		player.research_store -= cost
 		player.technologies.append(tech_id)
 		player.current_research_id = ""
+		gs.pending_tech_completions.append({"player_id": player.id, "tech_id": tech_id})
 
 static func _apply_intelligence(gs: GameState, player: Player) -> void:
 	# Each turn a player's espionage output is accumulated as intel points,
