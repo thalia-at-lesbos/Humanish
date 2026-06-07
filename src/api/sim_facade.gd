@@ -1276,10 +1276,13 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			u.is_sentry = false
 			u.is_patrolling = false
 			u.is_healing = false
+			u.is_sleeping = false
 			u.has_moved = false
 			u.movement_left = u.movement_total
 		IDs.CommandType.UNIT_SLEEP:
-			u.is_fortified = true
+			# Sleep is a skip-until-woken order, distinct from fortify, so the UI can
+			# show it as "Sleeping". It still ends the unit's turn.
+			u.is_sleeping = true
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.UNIT_FORTIFY:
@@ -1289,6 +1292,9 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 		IDs.CommandType.UNIT_CANCEL_ORDERS:
 			u.building_improvement = ""
 			u.build_turns_left = 0
+			u.is_sleeping = false
+			u.goto_x = -1
+			u.goto_y = -1
 			u.has_moved = false
 			u.movement_left = u.movement_total
 		IDs.CommandType.UNIT_DISBAND:
@@ -1573,7 +1579,7 @@ func cycle_idle_units(workers_only: bool = false) -> void:
 	for u in _gs.units:
 		if u.owner_player_id != _gs.current_player_id:
 			continue
-		if u.has_moved or u.is_fortified or u.is_sentry or u.is_patrolling or u.is_healing:
+		if u.has_moved or u.is_fortified or u.is_sentry or u.is_patrolling or u.is_healing or u.is_sleeping:
 			continue
 		if workers_only and not _db.get_unit(u.unit_type_id).get("can_build", false):
 			continue
@@ -1692,7 +1698,8 @@ func get_end_turn_state() -> int:
 	if _gs.current_player_id < 0:
 		return 1
 	for u in _gs.units:
-		if u.owner_player_id == _gs.current_player_id and not u.has_moved and not u.is_fortified:
+		if u.owner_player_id == _gs.current_player_id and not u.has_moved \
+				and not u.is_fortified and not u.is_sleeping:
 			return 2
 	return 0
 

@@ -57,6 +57,9 @@ var is_wild: bool = false
 var is_sentry: bool = false
 var is_patrolling: bool = false
 var is_healing: bool = false
+# Asleep: skips its turns (no entrench/defence intent, unlike is_fortified) until
+# woken or disturbed. Distinct from fortify so the UI can show the actual order.
+var is_sleeping: bool = false
 
 func has_promotion(promo_id: String) -> bool:
 	return promo_id in promotions
@@ -108,7 +111,7 @@ func serialize() -> Dictionary:
 		"has_moved": has_moved, "has_attacked": has_attacked,
 		"is_fortified": is_fortified, "is_wild": is_wild,
 		"is_sentry": is_sentry, "is_patrolling": is_patrolling,
-		"is_healing": is_healing
+		"is_healing": is_healing, "is_sleeping": is_sleeping
 	}
 
 static func deserialize(d: Dictionary):
@@ -138,4 +141,5 @@ static func deserialize(d: Dictionary):
 	u.is_sentry = bool(d.get("is_sentry", false))
 	u.is_patrolling = bool(d.get("is_patrolling", false))
 	u.is_healing = bool(d.get("is_healing", false))
+	u.is_sleeping = bool(d.get("is_sleeping", false))
 	return u

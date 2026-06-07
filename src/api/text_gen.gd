@@ -55,7 +55,35 @@ static func _help_unit(unit_id: int, gs: GameState, db: DataDB) -> String:
         result += "Promotions: " + _join(u.promotions) + "\n"
     var domain: String = str(udata.get("domain", "land"))
     result += "Domain: " + domain + "\n"
+    result += "State: " + unit_state_text(u) + "\n"
     return result
+
+# A short human-readable description of what a unit is currently doing, for the
+# selection / unit-info pane (§7). Reflects standing orders (build, go-to) and
+# stances (fortified, sleeping, sentry, healing); falls back to whether the unit
+# still has moves this turn.
+static func unit_state_text(u) -> String:
+    if u == null:
+        return ""
+    if u.building_improvement != "":
+        var t: int = u.build_turns_left
+        return "Building " + u.building_improvement.capitalize() \
+            + ((" (" + str(t) + " turn(s) left)") if t > 0 else "")
+    if u.goto_x >= 0:
+        return "Moving to (" + str(u.goto_x) + ", " + str(u.goto_y) + ")"
+    if u.is_sleeping:
+        return "Sleeping"
+    if u.is_fortified:
+        return "Fortified"
+    if u.is_sentry:
+        return "On sentry"
+    if u.is_patrolling:
+        return "Patrolling"
+    if u.is_healing:
+        return "Healing"
+    if u.has_moved or u.movement_left <= 0:
+        return "Done"
+    return "Active"
 
 # ── City ─────────────────────────────────────────────────────────────────────
 

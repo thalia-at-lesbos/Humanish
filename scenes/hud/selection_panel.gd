@@ -55,6 +55,13 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	move_lbl.text = "MP: " + str(u.movement_left) + "/" + str(u.movement_total)
 	add_child(move_lbl)
 
+	# Current activity/stance (fortified, sleeping, moving to a target, building…),
+	# so a selected unit's state is visible at a glance. Text comes from the rules
+	# layer (TextGen) so it always matches the actual order semantics.
+	var state_lbl: Label = Label.new()
+	state_lbl.text = "State: " + TextGen.unit_state_text(u)
+	add_child(state_lbl)
+
 	# On-tile unit list: every unit the player owns on this tile, so a stack can
 	# be inspected and addressed member-by-member. Clicking a row selects just
 	# that unit; "Select all" makes subsequent action buttons apply to the whole

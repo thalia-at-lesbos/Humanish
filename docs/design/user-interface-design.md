@@ -354,7 +354,11 @@ data it shows and what actions it offers, not its layout:
 
 * **Main HUD**: world view, minimap, selected-unit/stack panel with action buttons,
   selected-city summary, economic sliders, research indicator, turn/score indicators,
-  message area, end-turn control.
+  message area, end-turn control. The selected-unit panel shows the unit's health and
+  movement plus its **current state** — the standing order or stance it is under
+  (fortified, sleeping, on sentry, healing, en route to a go-to target, or building an
+  improvement; otherwise whether it still has moves this turn). This state text is produced
+  by the rules layer (§9) so it always matches the order's actual semantics.
 * **City screen**: worked-tile assignment, production queue and chooser, citizen/specialist
   assignment, contentment/wellbeing/food/production/commerce breakdowns, building list,
   hurry/conscript controls, tabs (units / buildings / wonders), rename, city scroll.

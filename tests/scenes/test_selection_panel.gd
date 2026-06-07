@@ -49,6 +49,29 @@ func test_unit_panel_omits_open_city_button() -> void:
 		"A selected unit must not show an Open City button (no city is selected)")
 	assert_true(panel.get_child_count() > 0, "The unit panel should still show unit info")
 
+func _has_label_starting(node, prefix) -> bool:
+	for c in node.get_children():
+		if c is Label and c.text.begins_with(prefix):
+			return true
+	return false
+
+func test_unit_panel_shows_current_state() -> void:
+	var facade = setup_facade(89, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var w = make_unit(gs, "warrior", pid, 6, 6)
+	gs.get_unit(w.id).is_fortified = true
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(w.id)
+	panel.rebuild()
+	assert_true(_has_label_starting(panel, "State: Fortified"),
+		"The unit panel shows the unit's current state")
+
 func test_stack_panel_lists_members_and_select_all() -> void:
 	var facade = setup_facade(85, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])

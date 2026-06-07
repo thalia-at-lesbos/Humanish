@@ -186,6 +186,36 @@ func test_unit_mission_commands_accepted_by_facade() -> void:
 	assert_true(f.apply_command(Commands.mission_skip_turn(pid, uid)), "mission_skip_turn should be accepted")
 	assert_true(gs.get_unit(uid).has_moved, "Unit should have has_moved set after skip")
 
+func test_unit_sleep_is_distinct_from_fortify() -> void:
+	var f = setup_facade(17)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	var uid = _unit(f, pid, "warrior", 3, 3)
+	gs.current_player_id = pid
+
+	assert_true(f.apply_command(Commands.unit_sleep(pid, uid)), "unit_sleep accepted")
+	var u = gs.get_unit(uid)
+	assert_true(u.is_sleeping, "Sleep sets the sleeping state")
+	assert_false(u.is_fortified, "Sleep is not the same as fortify")
+	assert_eq(TextGen.unit_state_text(u), "Sleeping", "State reads as Sleeping")
+
+	assert_true(f.apply_command(Commands.unit_wake(pid, uid)), "unit_wake accepted")
+	assert_false(gs.get_unit(uid).is_sleeping, "Wake clears the sleeping state")
+
+func test_unit_state_text_reflects_orders() -> void:
+	var f = setup_facade(18)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	var uid = _unit(f, pid, "warrior", 4, 4)
+	var u = gs.get_unit(uid)
+
+	assert_eq(TextGen.unit_state_text(u), "Active", "A fresh unit with moves is Active")
+	u.goto_x = 9; u.goto_y = 4
+	assert_eq(TextGen.unit_state_text(u), "Moving to (9, 4)", "A go-to order shows the destination")
+	u.goto_x = -1
+	u.is_fortified = true
+	assert_eq(TextGen.unit_state_text(u), "Fortified", "A fortified unit reads as Fortified")
+
 # ── Additional controls (§3.1) ──────────────────────────────────────────────────
 
 func test_new_advisor_controls_emit_screen_requested() -> void:
