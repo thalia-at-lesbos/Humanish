@@ -106,6 +106,9 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 				bonus_sum += int(promo.get("attack_vs_settlement", 0))
 			else:
 				bonus_sum += int(promo.get("defense_in_settlement", 0))
+		# Landform-keyed defence (Guerrilla line on Hills), defender only (§5.3).
+		if not is_attacker and str(terrain.get("landform", "")) == "hill":
+			bonus_sum += int(promo.get("defense_on_hills", 0))
 		var ter_key: String = "combat_in_" + terrain.get("id", "")
 		bonus_sum += int(promo.get(ter_key, 0))
 		var feat_key: String = "combat_in_" + feature.get("id", "")

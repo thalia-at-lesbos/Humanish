@@ -926,6 +926,18 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 	research_income += Fixed.scale(research_income,
 		PolicyEffects.sum_int(player, db, "science_output"))
 
+	# §6.3: when research is not independently funded (research slider at 0), net
+	# finance supplements it — a fraction of the player's finance income spills over
+	# into the current project so a fully commerce-funded empire still advances.
+	if player.slider_research == 0:
+		var fin_income: int = 0
+		for s in gs.settlements:
+			if s.owner_player_id == player.id:
+				fin_income += player.split_commerce(s.output_commerce)[0]
+		if fin_income > 0:
+			research_income += Fixed.scale(fin_income,
+				db.get_constant("finance_research_supplement_pct", 50))
+
 	player.research_store += research_income
 
 	# Alliance shared research (§6.3): draw this member's per-capita share of the

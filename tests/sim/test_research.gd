@@ -83,6 +83,33 @@ func test_setup_seeds_starting_tech_and_research() -> void:
 	assert_true(p.has_tech("agriculture"), "Players start knowing agriculture")
 	assert_eq(p.current_research_id, "pottery", "Default research target is pottery")
 
+# ── Finance supplementing research (§6.3) ────────────────────────────────────
+
+func test_finance_supplements_research_when_unfunded() -> void:
+	# Research slider at 0, all commerce to finance: a fraction of finance income
+	# still feeds the current project so a commerce-funded empire advances.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.current_research_id = "mining"
+	p.slider_finance = 100; p.slider_research = 0; p.slider_culture = 0; p.slider_intel = 0
+	make_settlement(gs, 1, 5, 5).output_commerce = 10  # too little to complete mining
+	var before: int = p.research_store
+	TurnEngine._apply_research(gs, p)
+	assert_gt(p.research_store, before,
+		"net finance supplements research when the research channel is unfunded")
+
+func test_no_finance_supplement_when_research_funded() -> void:
+	# With the research slider above 0 the supplement does not apply: progress
+	# comes only from the research slice of commerce.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.current_research_id = "mining"
+	p.slider_finance = 50; p.slider_research = 50; p.slider_culture = 0; p.slider_intel = 0
+	make_settlement(gs, 1, 5, 5).output_commerce = 10
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 5,
+		"only the 50% research slice accrues; finance is not double-counted")
+
 # ── Alliance shared research (§6.3) ──────────────────────────────────────────
 
 func _all_research_to(p):

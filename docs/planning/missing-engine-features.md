@@ -71,12 +71,14 @@ can never occur:
 
 What remains:
 
-- **Residual §5.3 strength modifiers** — `effective_strength()` now applies
-  promotions (incl. `vs_<class>`, `vs_fortified`, `attack_vs_settlement`,
-  `defense_in_settlement`), terrain/feature defence, entrenchment, and the city's
-  structure + cultural defence. Still unwired: river-crossing / amphibious **attack
-  penalties**, domain-specific modifiers, self-sacrifice, and the terrain-keyed
-  `defense_on_hills` promotion (a different key from the wired `combat_in_<id>`).
+- **Residual §5.3 strength modifiers** — `effective_strength()` applies promotions
+  (incl. `vs_<class>`, `vs_fortified`, `attack_vs_settlement`,
+  `defense_in_settlement`), terrain/feature defence, entrenchment, the city's
+  structure + cultural defence, and now the terrain-keyed `defense_on_hills`
+  promotion (Guerrilla line). `Combat.resolve()` now also applies the
+  **river-crossing** and **amphibious attack penalties** (constants existed but
+  were unused), waived by the Amphibious promotion / `amphibious` unit tag. Still
+  unwired: domain-specific modifiers and self-sacrifice.
 - **Air basing** (§5.2) — air strikes and interception work, but there is no
   carrier/airfield basing requirement; `MISSION_AIRLIFT` teleports within range.
 - **Blockading** (§5.6) — naval blockade of coastal tiles / trade is unimplemented.
@@ -89,7 +91,9 @@ What remains:
 - **Alliance shared research** (§6.3) — `_advance_alliances()` accumulates
   `shared_research_store`, but `_apply_research()` researches per-player and never
   reads that pool. Research is not actually shared.
-- **Finance supplementing research** (§6.3) — not implemented.
+- **Finance supplementing research** (§6.3) — done: when the research slider is 0,
+  `_apply_research()` supplements the project with `finance_research_supplement_pct`
+  of the player's finance income (without double-deducting from treasury).
 - **Settlement upkeep scaling** (§6.1) — upkeep counts only unit + per-structure
   upkeep. Scaling by distance-from-capital, number of settlements, and size, plus
   policy upkeep, is absent.

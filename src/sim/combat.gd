@@ -45,6 +45,15 @@ static func resolve(attacker: Unit, defender: Unit,
 	var d_str: int = defender.effective_strength(db, false, ter, feat,
 		_unit_class(attacker, db), at_settlement, settle_def, d_fortified)
 
+	# River-crossing / amphibious attack penalties (§5.3): an attacker striking
+	# across a river border, or from a water tile onto land, fights weakened unless
+	# it ignores the penalty (Amphibious promotion / amphibious unit tag).
+	var atk_penalty: int = _attack_penalty(attacker, defender, game_state)
+	if atk_penalty > 0:
+		a_str -= Fixed.scale(a_str, atk_penalty)
+		if a_str < 1:
+			a_str = 1
+
 	# Free early wins: clamp attacker odds against wild units
 	var atk_player: Player = game_state.get_player(attacker.owner_player_id)
 	if defender.is_wild and atk_player != null and atk_player.free_early_wins > 0:
@@ -167,6 +176,65 @@ static func _xp_from_kill(winner_str: int, loser_str: int) -> int:
 	if winner_str <= 0:
 		return 5
 	return (loser_str * 10) / winner_str
+
+# Percentage strength penalty an attacker suffers for the way it reaches the
+# defender (§5.3): an amphibious assault (attacking off a water tile onto land) or
+# a river crossing (attacking across a river border). Waived for units that ignore
+# amphibious penalties (the Amphibious promotion's `no_amphibious_penalty`, or the
+# `amphibious` unit tag — Marines / Navy SEALs). The two situations are mutually
+# exclusive (a unit on water cannot also be crossing a land river), so the larger
+# applicable penalty is returned, never their sum.
+static func _attack_penalty(attacker: Unit, defender: Unit, game_state) -> int:
+	var db: DataDB = game_state.db
+	if _ignores_amphibious(attacker, db):
+		return 0
+	var atk_tile: Tile = game_state.map.get_tile(attacker.x, attacker.y)
+	var def_tile: Tile = game_state.map.get_tile(defender.x, defender.y)
+	if atk_tile == null or def_tile == null:
+		return 0
+	var atk_land: String = str(db.get_terrain(atk_tile.terrain_id).get("landform", ""))
+	var def_land: String = str(db.get_terrain(def_tile.terrain_id).get("landform", ""))
+	var atk_on_water: bool = atk_land == "water" or atk_land == "deep_water"
+	var def_on_land: bool = def_land != "water" and def_land != "deep_water"
+	if atk_on_water and def_on_land:
+		return db.get_constant("amphibious_attack_penalty", 50)
+	if _river_between(game_state.map, attacker.x, attacker.y, defender.x, defender.y):
+		return db.get_constant("river_crossing_attack_penalty", 25)
+	return 0
+
+# True when a unit ignores amphibious/river attack penalties.
+static func _ignores_amphibious(u: Unit, db: DataDB) -> bool:
+	if "amphibious" in db.get_unit(u.unit_type_id).get("tags", []):
+		return true
+	for pid in u.promotions:
+		if bool(db.get_promotion(pid).get("no_amphibious_penalty", false)):
+			return true
+	return false
+
+# True when a river runs along the shared border between two orthogonally adjacent
+# tiles. Rivers are stored on a tile's north/west edges (see Tile); a south edge is
+# the tile-below's north, an east edge the tile-to-the-right's west. Only direct
+# (non-wrapped) orthogonal adjacency is considered.
+static func _river_between(map, ax: int, ay: int, bx: int, by: int) -> bool:
+	var dx: int = bx - ax
+	var dy: int = by - ay
+	var adx: int = dx if dx >= 0 else -dx
+	var ady: int = dy if dy >= 0 else -dy
+	if adx + ady != 1:
+		return false
+	if dy == -1:  # defender to the north: attacker's own north edge
+		var n: Tile = map.get_tile(ax, ay)
+		return n != null and n.river_n
+	if dy == 1:   # defender to the south: that tile's north edge
+		var s: Tile = map.get_tile(ax, ay + 1)
+		return s != null and s.river_n
+	if dx == -1:  # defender to the west: attacker's own west edge
+		var w: Tile = map.get_tile(ax, ay)
+		return w != null and w.river_w
+	if dx == 1:   # defender to the east: that tile's west edge
+		var e: Tile = map.get_tile(ax + 1, ay)
+		return e != null and e.river_w
+	return false
 
 static func _unit_class(u: Unit, db: DataDB) -> String:
 	return db.get_unit(u.unit_type_id).get("classification", "")

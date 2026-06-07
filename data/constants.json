@@ -92,6 +92,7 @@
   "max_xp_from_barbarians": 10,
   "river_crossing_attack_penalty": 25,
   "amphibious_attack_penalty": 50,
+  "finance_research_supplement_pct": 50,
   "nuke_blast_unit_damage_pct": 60,
   "nuke_population_loss_pct": 50,
   "nuke_production_loss_pct": 50,
