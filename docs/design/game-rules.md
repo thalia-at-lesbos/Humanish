@@ -328,6 +328,25 @@ When a settlement flips, ownership transfers exactly as a kept capture (§4.8) �
 queue/specialist clearing, siege-health restore, and Palace handling apply — but no combat or
 attacking stack is involved.
 
+### 4.10 Tile improvement maturation (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** The cottage-line chain and its growth
+> rates live in `improvements.json` (`upgrades_to` / `upgrade_turns`) and are placeholders to
+> be tuned against the reference game.
+
+Some tile improvements **mature** as they are worked. A commerce improvement built on a tile
+(the **cottage**) accumulates worked-turns and, on reaching its `upgrade_turns`, advances to
+the next stage — **cottage → hamlet → village → town** — each stage yielding more commerce
+than the last.
+
+* **Only worked tiles grow.** A tile advances only on a turn its settlement actually works it;
+  an unworked or abandoned improvement holds its current stage.
+* **Labor civics accelerate growth.** A civic carrying `faster_cottage_growth` (Emancipation)
+  speeds maturation (the engine doubles the per-turn rate).
+* Each stage's output is still gated by the owning player's technology in the normal way, so an
+  advanced stage reached before its enabling tech yields its lower, tech-gated output until the
+  tech is researched.
+
 ---
 
 ## 5. Units
@@ -493,6 +512,22 @@ order, so a replay reproduces the same craters and fallout. Strike results and t
 contaminated tiles are surfaced through the normal area-effect/event channel for the
 presentation layer (notifications + a `combat_resolved`/area-strike signal).
 
+### 5.8 Naval blockade (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** The blockade reach and the commerce
+> penalty (`blockade_range`, `blockade_commerce_penalty`) are placeholders to be tuned.
+
+A **coastal** settlement (one that borders water) whose sea approaches are held by a hostile
+fleet has its **trade choked**: while one or more hostile naval units — an enemy the owner is
+at war with, or a wild fleet — sit within `blockade_range` of the city, its **commerce** is cut
+by `blockade_commerce_penalty` (a percentage) for as long as the blockade holds.
+
+* Only **naval** units blockade, and only **coastal** cities can be blockaded; inland cities
+  and a city's own (or a peaceful third party's) fleet have no effect.
+* The penalty applies to the city's total commerce — and therefore to its trade-route income
+  (§6.7) — before the economic split, so it reduces gold, research, culture, and intelligence
+  alike. (A blockade does not reduce food or production.)
+
 ---
 
 ## 6. Players, economy, and research
@@ -550,6 +585,41 @@ Citizens may be assigned as **specialists** that yield economic output and point
 rising threshold, a special person is produced, who can settle for a permanent bonus,
 construct a wonder, grant a technology, trigger a celebration age, or seed an economic
 organization.
+
+### 6.6 Conscription / the draft (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** The population cost, minimum city size,
+> and unhappiness (`draft_population_cost`, `draft_min_population`, `draft_anger_turns`) are
+> placeholders to be tuned.
+
+A player running a civic that permits conscription (`can_draft`, e.g. **Nationhood**) may
+**draft** a military unit directly from a city's population instead of building one:
+
+* The city must be at or above a **minimum size** and **not in disorder**; the draft spends
+  population and stirs **conscription unhappiness** (the same anger channel as rushing, §4.5).
+* The unit raised is the **most advanced draftable unit** the player has the technology for
+  (data flag `draftable`, e.g. the gunpowder infantry line). Drafted units arrive with reduced
+  training — only their civic starting-experience, no building experience (§5.5).
+
+### 6.7 Trade routes (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** Route counts and yields (`trade_routes_base`,
+> `trade_route_per_city`, `trade_route_base_yield`, `trade_route_pop_pct`,
+> `trade_route_foreign_bonus`) are placeholders to be tuned. The base route count is **0**, so
+> routes appear only once a civic grants them.
+
+Each city runs a number of **trade routes** to other cities, each route adding **commerce** to
+the city's output (§4.3):
+
+* **Route count** is a base plus a per-city civic bonus (`trade_route_per_city`, e.g.
+  **Free Market**).
+* Each route connects to a **distinct other city**; the highest-yielding partners are chosen.
+  A route's yield is a base plus a share of the two cities' combined size, with an extra bonus
+  for a **foreign** partner.
+* **Restrictions.** A civic carrying `no_foreign_trade_routes` (**Mercantilism**) confines a
+  player's routes to its **own** cities, and no route ever runs to a city the player is **at
+  war** with. Route income is part of the city's commerce, so a **naval blockade** (§5.8)
+  chokes it along with the rest.
 
 ---
 
@@ -738,6 +808,25 @@ Distinct from a settlement's per-city belief (§8), each **player** may adopt on
 * **Selection.** The state religion is chosen at runtime through the Religion advisor screen
   (§3.1 `OPEN_RELIGION`), which lists "none" plus every religion present in the player's
   cities; the AI adopts the religion its empire already follows but never switches afterward.
+
+### 8.2 Missionary belief spread (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** The single-belief-per-city conversion rule
+> and the build-gate are a first-pass model not yet checked against the reference game.
+
+Beyond the passive turn-by-turn spread (§8), a player may spread a religion deliberately with a
+**missionary** unit (data tag `spread_religion`):
+
+* **Spreading.** A missionary standing on a city's tile converts that city to the player's
+  religion — its **state religion** if adopted, otherwise a belief the player **founded** or
+  one its cities already follow. In this single-belief-per-city model a missionary only
+  converts a **faithless** city, and the missionary is **consumed** on a successful spread.
+* **Theocracy block.** A target whose owner runs **Theocracy** (`blocks_nonstate_spread`)
+  rejects any religion other than that owner's state religion.
+* **Training missionaries.** A city can train missionaries only when the player **has a
+  religion** and the city holds a `trains_missionaries` structure (a **Monastery**) — or the
+  player runs **Organized Religion** (`missionary_without_monastery`), which lifts the
+  monastery requirement.
 
 ---
 
