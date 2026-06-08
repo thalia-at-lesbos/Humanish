@@ -27,6 +27,13 @@ godot3 --no-window -s addons/gut/gut_cmdln.gd -gtest=res://tests/sim/test_combat
 
 # Manual (non-CI) end-to-end multiplayer loopback smoke test
 godot3 --no-window -s res://tests/manual/loopback_smoke.gd   # prints "SMOKE: PASS"
+
+# Manual AI full-game smoke run (all-AI, runs to win condition or 10-minute timeout)
+godot3 --no-window -s res://tests/manual/ai_full_game_smoke.gd
+godot3 --no-window -s res://tests/manual/ai_full_game_smoke.gd -- \
+  --players=4 --seed=99 --map=islands --size=standard --log=/tmp/run.log
+# Logs every facade signal and DebugConsole snapshot to a timestamped file under
+# user:// (default) or the path given by --log. Exit 0 = win + zero errors.
 ```
 
 > Heads-up: `-gdir=res://tests -ginclude_subdirs` would recurse into **all** of `tests/`, including `tests/integration`. To keep the unit run separate from the final integration gate, run them as two phases (use `./run_tests.sh`, which encodes the ordering and is mirrored by `.github/workflows/build.yml`).
