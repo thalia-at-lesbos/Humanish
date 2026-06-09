@@ -28,6 +28,24 @@ func _populate(vbox) -> void:
 	minimap_btn.text = "Toggle Minimap"
 	minimap_btn.connect("pressed", self, "_on_toggle_minimap")
 	vbox.add_child(minimap_btn)
+	# Debug-only: fog of war toggle.  Uses the same interactive-debug-build guard
+	# as main.gd._debug_active() — only visible in a windowed debug build, never
+	# in release exports or under the headless GUT runner.
+	if _debug_active():
+		_add_line(vbox, "Debug:")
+		var fog_btn = Button.new()
+		fog_btn.text = "Toggle Fog of War"
+		fog_btn.connect("pressed", self, "_on_toggle_fog")
+		vbox.add_child(fog_btn)
+
+# Returns true only in an interactive windowed debug build (mirrors main.gd).
+func _debug_active() -> bool:
+	if not OS.is_debug_build():
+		return false
+	for arg in OS.get_cmdline_args():
+		if arg == "--no-window" or arg.find("gut_cmdln") != -1:
+			return false
+	return true
 
 func _on_toggle_score() -> void:
 	var gs = _facade.get_state()
@@ -38,3 +56,8 @@ func _on_toggle_minimap() -> void:
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.do_control(
 		gs.current_player_id, IDs.ControlType.TOGGLE_MINIMAP))
+
+func _on_toggle_fog() -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.do_control(
+		gs.current_player_id, IDs.ControlType.TOGGLE_FOG))

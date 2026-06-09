@@ -252,6 +252,14 @@ func _on_screen_requested(screen_id: int) -> void:
 		if minimap != null and minimap.has_method("set_enabled"):
 			minimap.set_enabled(not minimap.is_enabled())
 		return
+	# Debug fog toggle: disable/restore per-player fog globally (session only).
+	if screen_id == IDs.ControlType.TOGGLE_FOG:
+		var world_view = get_node_or_null("WorldView")
+		if world_view != null:
+			var fog = world_view.get_node_or_null("FogLayer")
+			if fog != null and fog.has_method("set_fog_disabled"):
+				fog.set_fog_disabled(not fog.is_fog_disabled())
+		return
 	# Simple read-only advisor/info screens opened programmatically.
 	if _extra_screens.has(screen_id):
 		_extra_screens[screen_id].show_screen()

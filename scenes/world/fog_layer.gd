@@ -35,9 +35,19 @@ var _explored_owner: int = -999        # whose memory _explored_tiles holds
 var _facade
 var _zoom: float = 1.0
 var _offset: Vector2 = Vector2.ZERO
+# Debug-only: when true, skip all fog rendering (all tiles fully visible).
+var fog_disabled: bool = false
 
 func init(facade) -> void:
 	_facade = facade
+
+# Debug helper: disable/enable fog rendering globally (session-only, not saved).
+func set_fog_disabled(disabled: bool) -> void:
+	fog_disabled = disabled
+	update()
+
+func is_fog_disabled() -> bool:
+	return fog_disabled
 
 func get_visible_tiles() -> Dictionary:
 	return _visible_tiles
@@ -110,6 +120,9 @@ func sync_camera(zoom: float, offset: Vector2) -> void:
 
 func _draw() -> void:
 	if _facade == null:
+		return
+	# Debug: fog disabled — skip all overlay rendering so all tiles are visible.
+	if fog_disabled:
 		return
 	var gs = _facade.get_state()
 	if gs == null or gs.map == null:
