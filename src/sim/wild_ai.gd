@@ -106,7 +106,14 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 		var enemy: Unit = Stack.get_defender(game_state.units, sx, sy, -2, game_state)
 		if enemy != null:
 			var result: Dictionary = Combat.resolve(u, enemy, game_state, game_state.rng)
-			CombatApply.apply_unit_result(game_state, u, enemy, result, true)
+			# Do NOT advance onto a tile that still holds a city: a city tile's garrison
+			# must be beaten first, then the city is assaulted separately (mirrors the
+			# SimFacade player-move path where advance = enemy_city == null). Without
+			# this guard a winning wild unit slides onto the city tile and gets stuck
+			# there, unable to assault the city from the inside (Issue 11).
+			var city_on_tile: Settlement = _enemy_settlement_at(game_state, sx, sy)
+			CombatApply.apply_unit_result(game_state, u, enemy, result,
+				city_on_tile == null)
 			game_state.pending_wild_events.append(
 				{"kind": "combat", "result": result})
 			u.has_attacked = true
@@ -141,6 +148,11 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 
 # One assault by `lead` on an undefended enemy `city`: lowers its siege HP by the
 # attacker's effective strength; at 0 the city is razed (wild forces never hold).
+# Exception: wild units can never raze a player's capital (Issue 15). If the
+# capital's HP would drop to zero the assault bottoms out at 1 — the city is
+# heavily damaged but the civilization survives. The fog-of-war lift reported in
+# the bug is a downstream symptom of the ownership/destruction change; preventing
+# the destruction here resolves it.
 static func _assault_city(game_state, lead: Unit, city: Settlement) -> void:
 	var db: DataDB = game_state.db
 	# Load TurnEngine rather than name it: TurnEngine references WildAI (it calls
@@ -157,6 +169,12 @@ static func _assault_city(game_state, lead: Unit, city: Settlement) -> void:
 		dmg = 1
 	city.health -= dmg
 	if city.health > 0:
+		return
+	# Wild units cannot raze a player's capital (§4.5 exception): the palace marks
+	# the seat of government and must remain with the original owner. Clamp HP to 1
+	# so the assault is recorded but the city does not fall.
+	if city.has_structure("palace"):
+		city.health = 1
 		return
 	game_state.settlements.erase(city)
 	game_state.pending_wild_events.append({

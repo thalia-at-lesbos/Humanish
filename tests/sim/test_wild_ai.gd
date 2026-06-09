@@ -155,6 +155,86 @@ func test_raider_razes_an_undefended_player_city() -> void:
 			razed = true
 	assert_true(razed, "A raze event was recorded for the facade to surface")
 
+# ── Capital protection + stacking guard (Issue 11, Issue 15) ──────────────────
+
+# Issue 11 regression: a wild unit that wins combat against a garrison on a city
+# tile must NOT advance onto that tile. Without the fix it slid inside the city
+# and got stuck — unable to assault from within and unable to move away.
+func test_raider_does_not_advance_onto_city_tile_after_killing_garrison() -> void:
+	var gs = make_gs(2)
+	var city = make_settlement(gs, 1, 5, 5, 2)
+	city.peak_population = 2
+	city.structures.append("palace")
+	# Garrison: a very weak player unit on the city tile.
+	var garrison = make_warrior(gs, 1, 5, 5)
+	garrison.health = 1  # will die in one hit
+	# Strong raider one tile away.
+	var raider = make_warrior(gs, -2, 5, 4, true)
+	raider.base_strength = 50  # guaranteed to win
+	raider.goto_x = 5
+	raider.goto_y = 5
+
+	WildAI.run(gs, gs.rng)
+
+	# The garrison should be dead (or at least combat was initiated).
+	var combat_happened = false
+	for e in gs.pending_wild_events:
+		if e["kind"] == "combat":
+			combat_happened = true
+	assert_true(combat_happened, "Combat should have occurred")
+	# The raider must NOT be on the city tile.
+	assert_true(raider.x != 5 or raider.y != 5,
+		"Wild unit must not advance onto a city tile after killing its garrison (Issue 11)")
+	# The city still exists and belongs to the original owner.
+	var surviving = gs.get_settlement_at(5, 5)
+	assert_not_null(surviving, "City must still exist")
+	assert_eq(surviving.owner_player_id, 1, "City must still belong to player 1")
+
+# Issue 15 regression: wild units cannot raze (or capture) a player's capital.
+# The palace marks the seat of government; wild forces may damage it but never
+# bring it to zero HP. The fog-of-war lift was a downstream symptom of the city
+# being removed from game_state.settlements — fixed by keeping it alive.
+func test_wild_unit_cannot_raze_the_capital() -> void:
+	var gs = make_gs(2)
+	var capital = make_settlement(gs, 1, 5, 5, 3)
+	capital.peak_population = 3
+	capital.structures.append("palace")
+	capital.health = 1  # one hit from falling under normal rules
+	# A powerful raider adjacent to the undefended capital.
+	var raider = make_warrior(gs, -2, 5, 4, true)
+	raider.base_strength = 50  # huge — would exceed any city's max HP in one blow
+	raider.goto_x = 5
+	raider.goto_y = 5
+
+	WildAI.run(gs, gs.rng)
+
+	# The capital must still exist.
+	var surviving = gs.get_settlement_at(5, 5)
+	assert_not_null(surviving, "Capital must survive a wild assault (Issue 15)")
+	assert_eq(surviving.owner_player_id, 1, "Capital must remain owned by player 1")
+	# It should NOT have been razed (no wild raze event for it).
+	for e in gs.pending_wild_events:
+		if e["kind"] == "razed":
+			assert_ne(e.get("settlement_id", -1), capital.id,
+				"Capital must not appear in wild raze events")
+
+# Confirm wild units CAN still raze a non-capital city (the protection is scoped
+# to the palace-bearing settlement only).
+func test_wild_unit_can_raze_a_non_capital_city() -> void:
+	var gs = make_gs(2)
+	var city = make_settlement(gs, 1, 5, 5, 1)
+	city.peak_population = 1
+	city.health = 1  # one hit from falling
+	# No palace — not a capital.
+	var raider = make_warrior(gs, -2, 5, 4, true)
+	raider.base_strength = 50
+	raider.goto_x = 5
+	raider.goto_y = 5
+
+	WildAI.run(gs, gs.rng)
+
+	assert_null(gs.get_settlement_at(5, 5), "Non-capital cities can still be razed by wild forces")
+
 # ── Facade surfacing ───────────────────────────────────────────────────────────
 
 func test_facade_drains_wild_events_into_signals() -> void:
