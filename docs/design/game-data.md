@@ -1284,7 +1284,7 @@ A unit does not heal on any turn it moves or fights.
 | Field | Settler | Chieftain | Warlord | Noble | Prince | Monarch | Emperor | Immortal | Deity |
 |-------|--------:|----------:|--------:|------:|-------:|--------:|--------:|---------:|------:|
 | `unowned_tiles_per_wild_unit` | 150 | 100 | 80 | 60 | 50 | 40 | 35 | 30 | 25 |
-| `unowned_water_tiles_per_wild_unit` † | 3000 | 2400 | 2200 | 2000 | 1800 | 1600 | 1400 | 1200 | 1000 |
+| `unowned_water_tiles_per_wild_unit` (§9.4) | 3000 | 2400 | 2200 | 2000 | 1800 | 1600 | 1400 | 1200 | 1000 |
 | `unowned_tiles_per_wild_city` | 160 | 150 | 140 | 130 | 120 | 110 | 100 | 90 | 80 |
 | `wild_creation_turns_elapsed` ‡ | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 | 10 |
 | `wild_city_creation_turns_elapsed` ‡ | 55 | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 |
@@ -1292,7 +1292,6 @@ A unit does not heal on any turn it moves or fights.
 | `unowned_tiles_per_animal` (§9.3) | 100 | 80 | 60 | 50 | 40 | 35 | 30 | 25 | 20 |
 | `animals_enter_borders` (§9.3) | no | no | no | no | no | no | yes | yes | yes |
 
-† Tabled but **not yet wired** — the wild AI is land-only (game-rules §9.2).
 ‡ Turn gates are **scaled by game pace** (`paces.json` `growth_scale`): Quick ×0.67, Normal ×1.0,
 Epic ×1.5, Marathon ×3.0.
 

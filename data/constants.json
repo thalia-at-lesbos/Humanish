@@ -67,6 +67,7 @@
   "insolvency_grace_turns": 1,
   "pollution_degradation_chance": 5,
   "wild_land_per_unit": 80,
+  "wild_water_per_unit": 2000,
   "raider_land_per_camp": 350,
   "wild_creation_turns_elapsed": 30,
   "wild_city_creation_turns_elapsed": 35,

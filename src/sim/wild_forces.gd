@@ -225,6 +225,169 @@ static func _spawn_animal_unit(x: int, y: int, game_state, rng: RNG) -> void:
 	u.is_animal = true
 	game_state.units.append(u)
 
+# ── Naval raider spawning (§9.4, provisional) ───────────────────────────────────
+
+# Sea-domain wild forces, the water counterpart of spawn_turn. Gated identically
+# (turn / era / city), they top each contiguous water area up toward one raider per
+# `unowned_water_tiles_per_wild_unit` unowned sea tiles (much sparser than land).
+# They use the strongest naval unit any player has unlocked, so the seas stay empty
+# until someone can sail; their AI (WildAI._act_naval) is a simple random patrol.
+static func spawn_naval(game_state, rng: RNG) -> void:
+	var db: DataDB = game_state.db
+	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
+
+	if not _wild_units_allowed(game_state, db):
+		return
+
+	var unit_type: String = _strongest_naval_unit_type(game_state)
+	if unit_type == "":
+		return  # no player can sail yet — empty seas
+
+	var divisor: int = int(diff.get("unowned_water_tiles_per_wild_unit",
+		db.get_constant("wild_water_per_unit", 2000)))
+	if divisor < 1:
+		divisor = 1
+
+	var areas: Array = _label_sea_areas(game_state)
+	var total_unowned: int = 0
+	for a in areas:
+		total_unowned += a.unowned
+	var global_cap: int = total_unowned / divisor + 1
+	var total_naval: int = _count_wild_sea_units(game_state)
+
+	for a in areas:
+		if total_naval >= global_cap:
+			break
+		var target: int = a.unowned / divisor
+		var deficit: int = target - a.wild_units
+		if deficit <= 0:
+			continue
+		var needed: int = deficit / 4 + 1
+		var placed: int = 0
+		while placed < needed and total_naval < global_cap and not a.open.empty():
+			var idx: int = rng.randi_range(0, a.open.size() - 1)
+			var t = a.open[idx]
+			a.open.remove(idx)
+			_spawn_naval_unit(t.x, t.y, game_state, unit_type)
+			placed += 1
+			total_naval += 1
+
+# Flood-fill the map into contiguous passable-sea areas (8-connectivity). Each area
+# carries its unowned tile count, the open tiles a raider may spawn on, and a tally
+# of the naval wild units already in it.
+static func _label_sea_areas(game_state) -> Array:
+	var db: DataDB = game_state.db
+	var map = game_state.map
+	var min_clear: int = db.get_constant("wild_spawn_min_distance", 2)
+
+	var area_of: Dictionary = {}
+	var areas: Array = []
+	for tile in map.all_tiles():
+		if not _is_passable_sea(tile, db):
+			continue
+		var key: String = "%d,%d" % [tile.x, tile.y]
+		if area_of.has(key):
+			continue
+		var idx: int = areas.size()
+		var area: Dictionary = {"tiles": [], "unowned": 0, "open": [], "wild_units": 0}
+		areas.append(area)
+		var queue: Array = [tile]
+		area_of[key] = idx
+		while not queue.empty():
+			var t = queue.pop_back()
+			if t.owner_player_id < 0:
+				area.unowned += 1
+				if _is_open_sea_tile(game_state, t, min_clear):
+					area.open.append(t)
+			for nb in map.neighbours8(t.x, t.y):
+				if not _is_passable_sea(nb, db):
+					continue
+				var nkey: String = "%d,%d" % [nb.x, nb.y]
+				if area_of.has(nkey):
+					continue
+				area_of[nkey] = idx
+				queue.append(nb)
+
+	for u in game_state.units:
+		if u.is_wild and not u.is_animal \
+				and db.get_unit(u.unit_type_id).get("domain", "land") == "sea":
+			var k: String = "%d,%d" % [u.x, u.y]
+			if area_of.has(k):
+				areas[area_of[k]].wild_units += 1
+	return areas
+
+static func _is_passable_sea(tile, db: DataDB) -> bool:
+	var ter: Dictionary = db.get_terrain(tile.terrain_id)
+	return ter.get("domain", "land") == "sea" and not ter.get("impassable", false)
+
+static func _is_open_sea_tile(game_state, tile, min_clear: int) -> bool:
+	if tile.owner_player_id >= 0:
+		return false
+	if not Stack.at(game_state.units, tile.x, tile.y).empty():
+		return false
+	if game_state.get_settlement_at(tile.x, tile.y) != null:
+		return false
+	var map = game_state.map
+	for u in game_state.units:
+		if u.owner_player_id >= 0 and map.distance(tile.x, tile.y, u.x, u.y) < min_clear:
+			return false
+	for s in game_state.settlements:
+		if s.owner_player_id >= 0 and map.distance(tile.x, tile.y, s.x, s.y) < min_clear:
+			return false
+	return true
+
+static func _count_wild_sea_units(game_state) -> int:
+	var db: DataDB = game_state.db
+	var n: int = 0
+	for u in game_state.units:
+		if u.is_wild and not u.is_animal \
+				and db.get_unit(u.unit_type_id).get("domain", "land") == "sea":
+			n += 1
+	return n
+
+# Strongest generic sea unit the most-advanced player has unlocked, or "" if none
+# can sail yet. Mirrors _strongest_wild_unit_type for the land case.
+static func _strongest_naval_unit_type(game_state) -> String:
+	var db: DataDB = game_state.db
+	var leader = null
+	for p in game_state.players:
+		if leader == null or p.technologies.size() > leader.technologies.size():
+			leader = p
+
+	var best_id: String = ""
+	var best_str: int = -1
+	for uid in db.units:
+		var ud: Dictionary = db.units[uid]
+		if ud.get("domain", "land") != "sea":
+			continue
+		if str(ud.get("unique_to", "")) != "":
+			continue
+		var bs: int = int(ud.get("base_strength", 0))
+		if bs <= 0:
+			continue  # transports / work boats are not raider stock
+		var tech_req = ud.get("tech_required", null)
+		if tech_req != null and str(tech_req) != "":
+			if leader == null or not leader.has_tech(str(tech_req)):
+				continue
+		if bs > best_str:
+			best_str = bs
+			best_id = str(uid)
+	return best_id
+
+static func _spawn_naval_unit(x: int, y: int, game_state, unit_type_id: String) -> void:
+	var db: DataDB = game_state.db
+	var ud: Dictionary = db.get_unit(unit_type_id)
+	var u := Unit.new()
+	u.id = game_state.next_unit_id()
+	u.unit_type_id = unit_type_id
+	u.owner_player_id = -2  # -2 = wild
+	u.x = x; u.y = y
+	u.base_strength = int(ud.get("base_strength", 2))
+	u.movement_total = int(ud.get("movement", 200))
+	u.movement_left = u.movement_total
+	u.is_wild = true
+	game_state.units.append(u)
+
 # ── Area labelling ──────────────────────────────────────────────────────────────
 
 # Flood-fill the map into contiguous passable-land areas (8-connectivity, matching
@@ -374,9 +537,11 @@ static func _count_living_civs(game_state) -> int:
 	return n if n > 0 else 1
 
 static func _count_wild_land_units(game_state) -> int:
+	var db: DataDB = game_state.db
 	var n: int = 0
 	for u in game_state.units:
-		if u.is_wild and not u.is_animal:
+		if u.is_wild and not u.is_animal \
+				and db.get_unit(u.unit_type_id).get("domain", "land") == "land":
 			n += 1
 	return n
 

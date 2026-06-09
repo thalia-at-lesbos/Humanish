@@ -1016,7 +1016,7 @@ New units are placed on random unowned, unoccupied land tiles kept at least
 spawn as the **strongest generic land unit** the leading player has unlocked (resources ignored,
 as in §9.1). A global ceiling of `total_unowned / divisor + 1` guards against many small areas
 each contributing their `+1`. (Naval raiders — `unowned_water_tiles_per_wild_unit`, Settler 3000
-→ Deity 1000 — are **tabled but not yet wired**: the wild AI is land-only.)
+→ Deity 1000 — are the sea counterpart; see §9.4.)
 
 Wild **cities** (raider camps, §9.1's muster points) spawn on their own, later schedule:
 
@@ -1068,8 +1068,27 @@ memory in the sim), so an animal may spawn on a tile a player has seen before bu
 see.
 
 ### 9.4 Naval raiders (provisional)
-> **⚠️ Provisional — placeholder.** Reserved for sea-domain wild forces
-> (`unowned_water_tiles_per_wild_unit`). See §9.2's note; documented in full when wired.
+> **⚠️ Provisional — preliminary, not verified.** Sea-domain wild forces, the water
+> counterpart of §9.2's land raiders. Magnitudes are BtS-derived and untuned.
+
+Naval raiders are wild units (`owner_player_id = -2`, `is_wild = true`) of a **sea-domain** type
+(`data/units.json` `"domain": "sea"`).
+
+* **Spawning (`WildForces.spawn_naval`).** Gated identically to land raiders (the three §9.2
+  gates), they fill each **contiguous water area** toward one raider per
+  `unowned_water_tiles_per_wild_unit` unowned sea tiles (Settler 3000 → Deity 1000 — far sparser
+  than land, so only real oceans see them), using the same `((unowned/divisor) − existing)/4 + 1`
+  top-up and a global ceiling. The raider type is the **strongest generic sea unit any player has
+  unlocked**, so the seas stay **empty until someone can sail** (no naval tech ⇒ no naval raiders).
+* **Behaviour (`WildAI._act_naval`).** A deliberately simple **random patrol**: each step the
+  raider picks a random adjacent passable-sea tile and sails there; if that tile holds a player
+  unit, it **attacks** the unit it "lands on" instead of moving (resolved through the shared
+  `CombatApply`, surfaced via `pending_wild_events` like every other wild fight). It never chooses
+  a tile already held by its own kind, so it cannot stall. It takes no part in land-camp musters.
+
+**Known gaps / simplifications (to revisit):** no transport/coastal-raid behaviour (raiders never
+disembark or bombard land/cities), no naval raider "camps", and the patrol has no goal-seeking —
+it wanders until it bumps into something.
 
 ---
 

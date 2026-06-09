@@ -66,6 +66,11 @@ static func _act_units(game_state, rng: RNG) -> void:
 			_act_animal(game_state, rng, u)
 			continue
 
+		if _is_naval(game_state, u):
+			# Naval raiders patrol at random, attacking what they bump into (§9.4).
+			_act_naval(game_state, rng, u)
+			continue
+
 		if u.goto_x >= 0:
 			# A mustered raider marching to its wave's target tile.
 			_move_along(game_state, rng, u, u.goto_x, u.goto_y)
@@ -283,6 +288,60 @@ static func _animal_wander(game_state, rng: RNG, u: Unit, allow_borders: bool) -
 	u.has_moved = true
 	u.stationary_turns = 0
 
+# ── Naval raider behaviour (§9.4, provisional) ─────────────────────────────────
+#
+# INCOMPLETE PLACEHOLDER. This is a deliberately minimal first cut, not finished
+# behaviour: a naval raider only random-walks and hits whatever it happens to bump
+# into. It does NOT yet seek targets, threaten coasts, bombard or raid cities,
+# disembark, retreat when hurt, or coordinate — all of which §9.4 calls for. Treat
+# it as a stub to be replaced, on par with the land WildAI's own provisional state.
+# Kept intentionally simple so the spawn/AI plumbing can be exercised end to end.
+
+static func _is_naval(game_state, u: Unit) -> bool:
+	return game_state.db.get_unit(u.unit_type_id).get("domain", "land") == "sea"
+
+# PLACEHOLDER (see section header): a naval raider patrols at random over the water.
+# Each step it picks a random adjacent passable-sea tile; if that tile holds a player
+# unit it attacks (the unit it "lands on"), otherwise it sails there. Friendly-occupied
+# tiles are not chosen, so it never stalls against its own kind. No goal-seeking,
+# coastal raiding, or retreat yet — to be built out.
+static func _act_naval(game_state, rng: RNG, u: Unit) -> void:
+	var db: DataDB = game_state.db
+	while u.movement_left > 0:
+		# Candidate moves: empty sea tiles, or sea tiles holding an attackable enemy.
+		var opts: Array = []
+		for nb in game_state.map.neighbours8(u.x, u.y):
+			var ter: Dictionary = db.get_terrain(nb.terrain_id)
+			if ter.get("domain", "land") != "sea" or ter.get("impassable", false):
+				continue
+			var stack: Array = Stack.at(game_state.units, nb.x, nb.y)
+			if stack.empty():
+				opts.append([nb, null])
+			else:
+				var enemy: Unit = Stack.get_defender(
+					game_state.units, nb.x, nb.y, -2, game_state)
+				if enemy != null:
+					opts.append([nb, enemy])
+		if opts.empty():
+			return  # land-locked this step
+		var pick: Array = opts[rng.randi_range(0, opts.size() - 1)]
+		var dest = pick[0]
+		var foe: Unit = pick[1]
+		if foe != null:
+			var result: Dictionary = Combat.resolve(u, foe, game_state, game_state.rng)
+			CombatApply.apply_unit_result(game_state, u, foe, result, true)
+			game_state.pending_wild_events.append({"kind": "combat", "result": result})
+			u.has_attacked = true
+			u.movement_left = 0
+			return
+		var cost: int = Pathfinding._move_cost(dest, db, "sea")
+		if cost < 1:
+			cost = 1  # guard against a zero-cost loop
+		u.movement_left = u.movement_left - cost if u.movement_left - cost > 0 else 0
+		u.x = dest.x; u.y = dest.y
+		u.has_moved = true
+		u.stationary_turns = 0
+
 # ── Detection and alerting ────────────────────────────────────────────────────
 
 static func _detect_and_alert(game_state, rng: RNG) -> void:
@@ -296,8 +355,8 @@ static func _detect_and_alert(game_state, rng: RNG) -> void:
 
 	var sight: int = _scout_sight(game_state, db)
 	for u in game_state.units:
-		if not u.is_wild or u.is_animal:
-			continue  # animals are lone hunters; they do not rouse raider camps
+		if not u.is_wild or u.is_animal or _is_naval(game_state, u):
+			continue  # animals/naval raiders are lone; they do not rouse land camps
 		var target: Array = _nearest_player_target(game_state, u.x, u.y, sight)
 		if target.empty():
 			continue

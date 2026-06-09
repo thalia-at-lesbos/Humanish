@@ -42,6 +42,7 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.WORLD_SPAWN_WILD, gs):
 		WildForces.spawn_animals(gs, gs.rng)
 		WildForces.spawn_turn(gs, gs.rng)
+		WildForces.spawn_naval(gs, gs.rng)
 		WildForces.spawn_raider_settlement(gs, gs.rng)
 		WildAI.run(gs, gs.rng)
 
