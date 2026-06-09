@@ -83,7 +83,10 @@ Jun 9, 2026 17:21 — All fixed Jun 9, 2026
 -- [FIXED] user should be able to rearrange items in the city production queue
    > Up/down buttons on each queue item; new MOVE_PRODUCTION_ITEM command.
 -- [FIXED] fishing boat don't appear as a production option for city, need to ensure it's there (once player has the right tech pre-req). also check if there is an issue for other water units.
-   > work_boat added to the hardcoded production options list.
+   > work_boat is in the production option list and is now gated correctly: the
+     city screen only offers an option when its tech_required is researched, and
+     a sea-domain unit only in a coastal city (TurnEngine._is_coastal), via the
+     new _can_offer_production helper. Same gating covers other water units.
 -- [FIXED] settlers must be at least two empty squares away from another city before they can found a city (update game-rules with this provisionally)
    > Rule documented in game-rules.md as provisional; code already enforces Chebyshev distance ≥ 3.
 -- [FIXED] workers (and fishing boats) should only should build actions for what's possible on their current tile given current player technologies for visible resources. also if an improvement is made to a resource tile before that resource is shown to player, ensure that only the tile itself is counted for the improvement. Once player exposes the resource due to new tech, the improvement can work with the actual resource. (updates to ui design doc, as provisional)
