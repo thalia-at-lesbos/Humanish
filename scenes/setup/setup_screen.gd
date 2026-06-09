@@ -55,14 +55,14 @@ func _build_ui() -> void:
 	vbox.add_child(title)
 
 	# Player count — default comes from the initial world size's players_suggested.
-	# The SpinBox value is set explicitly so it is visible immediately on open.
+	# The value is applied via _apply_player_count() once the player rows exist
+	# (see below) so the SpinBox display and the visible rows always agree.
 	var count_row: HBoxContainer = HBoxContainer.new()
 	var count_lbl: Label = Label.new()
 	count_lbl.text = "Players:"
 	_player_count_spin = SpinBox.new()
 	_player_count_spin.min_value = 2
 	_player_count_spin.max_value = 999
-	_player_count_spin.value = _default_player_count("standard")
 	_player_count_spin.connect("value_changed", self, "_on_player_count_changed")
 	count_row.add_child(count_lbl)
 	count_row.add_child(_player_count_spin)
@@ -94,7 +94,8 @@ func _build_ui() -> void:
 		_player_rows.append({"row": row, "name_edit": edit, "society_btn": society_btn,
 				"society_ids": society_ids, "ai_check": ai_check})
 		vbox.add_child(row)
-		row.visible = i < 2
+		# Visibility is synced to the player count by _apply_player_count() below.
+		row.visible = false
 
 	# World size — all sizes from world_sizes.json, defaulting to "standard".
 	var ws_row: HBoxContainer = HBoxContainer.new()
@@ -114,9 +115,11 @@ func _build_ui() -> void:
 	ws_row.add_child(ws_lbl)
 	ws_row.add_child(_world_size_btn)
 	vbox.add_child(ws_row)
-	# Now that the world-size button is initialised, update the player count to
-	# match the default world size.
-	_player_count_spin.value = _default_player_count(_world_size_ids[ws_default_idx])
+	# Now that both the SpinBox and the player rows exist, apply the default count
+	# for the initial world size. This sets the value, refreshes the SpinBox text,
+	# and reveals the matching number of player rows — all in one place so the
+	# display and the visible rows can never disagree on open.
+	_apply_player_count(_default_player_count(_world_size_ids[ws_default_idx]))
 
 	# Map type (data-driven from data/map_types.json)
 	var mt_row: HBoxContainer = HBoxContainer.new()
@@ -198,21 +201,34 @@ func _default_player_count(size_id: String) -> int:
 	var suggested: int = ws.get("players_suggested", 4)
 	return suggested if suggested >= 2 else 2
 
+# Sets the player count programmatically (not a user edit): updates the SpinBox
+# value, force-refreshes its visible text (Godot 3's SpinBox does not always
+# repaint its line edit when set_value runs before the node is in the tree, and
+# assigning the same value fires no signal at all), and reveals the matching
+# rows — without flagging the count as user-set.
+func _apply_player_count(count: int) -> void:
+	var was_user_set: bool = _player_count_user_set
+	_player_count_spin.value = count
+	_player_count_user_set = was_user_set
+	var line_edit: LineEdit = _player_count_spin.get_line_edit()
+	if line_edit != null:
+		line_edit.text = str(count)
+	_sync_player_rows(count)
+
+func _sync_player_rows(count: int) -> void:
+	for i in range(_player_rows.size()):
+		_player_rows[i]["row"].visible = i < count
+
 func _on_player_count_changed(value: float) -> void:
 	if not _building_ui:
 		_player_count_user_set = true
-	var count: int = int(value)
-	var rows: int = _player_rows.size()
-	for i in range(rows):
-		_player_rows[i]["row"].visible = i < count
+	_sync_player_rows(int(value))
 
 func _on_world_size_changed(idx: int) -> void:
 	if not _player_count_user_set and idx >= 0 and idx < _world_size_ids.size():
-		# Auto-update the player count to match the new world size.
-		# Temporarily suppress user-set tracking while we apply the default.
-		var was_user_set: bool = _player_count_user_set
-		_player_count_spin.value = _default_player_count(_world_size_ids[idx])
-		_player_count_user_set = was_user_set
+		# Auto-update the player count to match the new world size (programmatic,
+		# so this must not mark the count as user-set).
+		_apply_player_count(_default_player_count(_world_size_ids[idx]))
 
 # Returns the 1-based player numbers that have no society selected (index 0 of the
 # option button is the "— No Society —" placeholder). Empty = all valid.

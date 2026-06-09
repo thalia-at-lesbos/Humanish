@@ -46,6 +46,62 @@ func test_blocks_start_until_every_player_picks_a_society() -> void:
 	screen._on_start_pressed()
 	assert_true(_started, "Start proceeds once all players have chosen a society")
 
+func _visible_row_count(screen) -> int:
+	var n: int = 0
+	for r in screen._player_rows:
+		if r["row"].visible:
+			n += 1
+	return n
+
+func test_initial_player_count_matches_visible_rows_on_open() -> void:
+	# Regression: on open the SpinBox must already show the default count for the
+	# initial world size (standard = 6), and exactly that many player rows must be
+	# visible — without the user touching anything first.
+	var screen = load("res://scenes/setup/setup_screen.gd").new()
+	screen.anchor_right = 1.0
+	screen.anchor_bottom = 1.0
+	add_child_autofree(screen)
+	screen.init(make_db(), funcref(self, "_on_start"))
+
+	var default_count = int(make_db().get_world_size("standard").get("players_suggested", 4))
+	assert_eq(int(screen._player_count_spin.value), default_count,
+		"SpinBox shows the standard world-size default on open")
+	assert_eq(screen._player_count_spin.get_line_edit().text, str(default_count),
+		"SpinBox text field displays the default immediately (not blank until clicked)")
+	assert_eq(_visible_row_count(screen), default_count,
+		"Visible player rows match the default count on open")
+	assert_false(screen._player_count_user_set,
+		"Applying the default must not flag the count as user-set")
+
+func test_world_size_change_updates_count_and_rows_until_user_override() -> void:
+	var screen = load("res://scenes/setup/setup_screen.gd").new()
+	screen.anchor_right = 1.0
+	screen.anchor_bottom = 1.0
+	add_child_autofree(screen)
+	screen.init(make_db(), funcref(self, "_on_start"))
+
+	# Switch to a world size with a different suggested count; both the value and
+	# the visible rows should follow.
+	var duel_idx = screen._world_size_ids.find("duel")
+	assert_true(duel_idx >= 0, "duel world size exists")
+	screen._on_world_size_changed(duel_idx)
+	var duel_count = int(make_db().get_world_size("duel").get("players_suggested", 2))
+	assert_eq(int(screen._player_count_spin.value), duel_count,
+		"World-size change updates the player count")
+	assert_eq(_visible_row_count(screen), duel_count,
+		"World-size change updates the visible rows")
+
+	# Once the user sets the count manually, a later world-size change must not
+	# override their choice.
+	screen._player_count_spin.value = 5
+	assert_true(screen._player_count_user_set, "Manual edit flags user-set")
+	var huge_idx = screen._world_size_ids.find("huge")
+	screen._on_world_size_changed(huge_idx)
+	assert_eq(int(screen._player_count_spin.value), 5,
+		"User-chosen count is preserved across world-size changes")
+	assert_eq(_visible_row_count(screen), 5,
+		"Visible rows still match the user-chosen count")
+
 func test_ai_toggle_flows_into_player_is_ai() -> void:
 	var screen = load("res://scenes/setup/setup_screen.gd").new()
 	screen.anchor_right = 1.0
