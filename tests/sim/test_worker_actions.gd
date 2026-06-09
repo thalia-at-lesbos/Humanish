@@ -155,6 +155,64 @@ func test_building_worker_not_flagged_idle() -> void:
 	assert_true(facade.get_end_turn_state() != 2,
 		"A worker mid-build must not raise the idle-units end-turn prompt")
 
+# ── Worker resource-gating (Jun 9 bug report) ────────────────────────────────
+
+func test_resource_improvement_rejected_without_resource() -> void:
+	# A pasture is resource-bound: it must not be buildable on a bare grassland
+	# tile even when the player holds every technology.
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	gs.map.get_tile(5, 5).resource_id = ""
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.build_improvement(1, w.id, "pasture")),
+		"Pasture must be rejected on a tile with no matching resource")
+
+func test_resource_improvement_accepted_with_visible_resource() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["animal_husbandry"]  # builds pasture + reveals cow
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "grassland"
+	t.resource_id = "cow"  # cow.improvement_required == pasture
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "pasture")),
+		"Pasture must be buildable on a visible cow resource")
+
+func test_resource_improvement_rejected_when_resource_not_yet_visible() -> void:
+	# Whale's reveal tech (sailing) differs from whaling_boats' build tech
+	# (compass). With compass but not sailing the resource is hidden, so the
+	# improvement is not offered; granting sailing reveals it and unblocks.
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["compass"]  # can build whaling_boats; whale hidden
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "coast"  # water landform
+	t.resource_id = "whale"
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.build_improvement(1, w.id, "whaling_boats")),
+		"Whaling boats must be blocked while the whale resource is not yet visible")
+	gs.get_player(1).technologies.append("sailing")  # whale now revealed
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "whaling_boats")),
+		"Whaling boats must be allowed once the whale resource is visible")
+
+func test_generic_improvement_still_allowed_without_resource() -> void:
+	# Regression guard: farm/mine are NOT resource-bound and must remain buildable
+	# on bare tiles given the right landform and tech.
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	gs.map.get_tile(5, 5).resource_id = ""
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "farm")),
+		"Farm (generic) must still build on a bare grassland tile")
+
 # ── Issue 13: Scout Explore mission ──────────────────────────────────────────
 
 func test_explore_command_accepted_for_scout() -> void:
