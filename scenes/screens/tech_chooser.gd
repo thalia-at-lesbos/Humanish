@@ -57,28 +57,29 @@ func rebuild() -> void:
 	bg.color = Color(0.10, 0.10, 0.13, 1.0)
 	add_child(bg)
 
-	# The Cancel button sits outside the scroll area anchored to the right edge so
-	# it is always reachable regardless of horizontal scroll position.
-	var close_btn: Button = Button.new()
-	close_btn.text = "Cancel"
-	close_btn.anchor_left = 1.0
-	close_btn.anchor_right = 1.0
-	close_btn.anchor_top = 0.0
-	close_btn.anchor_bottom = 0.0
-	close_btn.margin_left = -110
-	close_btn.margin_right = -8
-	close_btn.margin_top = 8
-	close_btn.margin_bottom = 40
-	close_btn.connect("pressed", self, "_on_close")
-	add_child(close_btn)
-
-	# The scroll area covers the whole screen but leaves room on the right for the
-	# Cancel button (margin_right keeps the columns from sliding under it).
+	# The scroll area covers the whole screen but leaves a strip at the bottom for
+	# the Cancel button (margin_bottom keeps the tree from sliding under it).
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.anchor_right = 1.0
 	scroll.anchor_bottom = 1.0
-	scroll.margin_right = -118
+	scroll.margin_bottom = -48
 	add_child(scroll)
+
+	# The Cancel button sits at the bottom of the screen, matching the bottom Close
+	# button on every other advisor screen. Added after the scroll area so it draws
+	# on top, and anchored to the bottom edge so it is always reachable.
+	var close_btn: Button = Button.new()
+	close_btn.text = "Cancel"
+	close_btn.anchor_left = 0.0
+	close_btn.anchor_right = 0.0
+	close_btn.anchor_top = 1.0
+	close_btn.anchor_bottom = 1.0
+	close_btn.margin_left = 8
+	close_btn.margin_right = 110
+	close_btn.margin_top = -40
+	close_btn.margin_bottom = -8
+	close_btn.connect("pressed", self, "_on_close")
+	add_child(close_btn)
 
 	# Eras run left→right as columns; within a column techs stack by prereq tier.
 	var hbox: HBoxContainer = HBoxContainer.new()

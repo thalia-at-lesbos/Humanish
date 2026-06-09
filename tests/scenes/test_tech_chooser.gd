@@ -51,6 +51,29 @@ func test_researchable_node_is_enabled_known_is_not() -> void:
 	var researchable = tc._build_tech_node("pottery", p)
 	assert_false(researchable.disabled, "A researchable tech node is clickable")
 
+func _find_cancel_button(tc):
+	for child in tc.get_children():
+		if child is Button and child.text == "Cancel":
+			return child
+	return null
+
+func test_cancel_button_is_anchored_to_the_bottom() -> void:
+	# Regression: the tech tree's Cancel button must sit at the bottom of the
+	# screen (like every other advisor's Close button), not anchored to the right.
+	var facade = setup_facade(74)
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	var tc = _chooser(facade)
+	tc.show_screen()                       # rebuild() yields one idle frame
+	yield(yield_for(0.05), YIELD)
+	var cancel = _find_cancel_button(tc)
+	assert_not_null(cancel, "The chooser has a Cancel button")
+	assert_eq(cancel.text, "Cancel", "It is labelled Cancel")
+	assert_eq(cancel.anchor_top, 1.0, "Cancel is anchored to the bottom edge")
+	assert_eq(cancel.anchor_bottom, 1.0, "…top and bottom both pinned to the bottom")
+	assert_true(cancel.anchor_left < 1.0,
+		"Cancel is no longer anchored to the right edge")
+
 func test_locked_node_is_disabled() -> void:
 	var facade = setup_facade(73)
 	var gs = facade.get_state()
