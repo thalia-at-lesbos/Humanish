@@ -326,6 +326,12 @@ contributions from population, polluting structures, unhealthful resources, and 
 terrain/features. A net wellbeing deficit reduces the settlement's sustenance surplus each
 turn.
 
+Currently wired positive contributions: per-population base (negative), structure
+`health_bonus`/`health_penalty`, the adopted belief's `health_bonus`, the empire-wide
+`health_empire` civic effect, the owner's **leader/society trait** `health_bonus`
+(`data/leaders_traits.json` — e.g. **Expansive grants +2 health per city**, the Beyond the
+Sword value), the difficulty `health_bonus` handicap (§2.2), and fresh water.
+
 ### 4.7 Culture & borders
 * Each settlement accumulates cultural output and crosses **influence-level thresholds**
   that expand its working/claim radius outward in rings.

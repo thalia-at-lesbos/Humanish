@@ -297,6 +297,29 @@ func _positive_for_difficulty(diff: String) -> int:
 	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
 	return s.positive_sentiment
 
+# ── Leader/society trait wellbeing (§4.6) ────────────────────────────────────
+
+func test_expansive_trait_grants_health() -> void:
+	# Expansive grants +2 health per city (the Beyond the Sword value).
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	var p = gs.get_player(1)
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var base_pos: int = s.wellbeing_positive
+	p.traits = ["expansive"]
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	assert_eq(s.wellbeing_positive, base_pos + 2,
+		"Expansive grants +2 health per city (BtS value)")
+
+func test_traitless_player_has_no_trait_health() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	var p = gs.get_player(1)
+	p.traits = []
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	# No traits, no structures, dry inland: positive is purely difficulty (prince=0).
+	assert_eq(s.wellbeing_positive, 0, "A traitless prince city has no positive wellbeing")
+
 # ── Specialist output (§6.5) ─────────────────────────────────────────────────
 
 func test_specialists_add_commerce() -> void:

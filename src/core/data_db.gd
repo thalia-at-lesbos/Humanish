@@ -118,6 +118,9 @@ func get_map_type(id: String) -> Dictionary:
 func get_promotion(id: String) -> Dictionary:
 	return promotions.get(id, {})
 
+func get_trait(id: String) -> Dictionary:
+	return leaders_traits.get("traits", {}).get(id, {})
+
 func get_societies() -> Dictionary:
 	return leaders_traits.get("societies", {})
 
