@@ -40,6 +40,7 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	# 4. Spawn wild/raider settlements and units, then let them act (§9 scouts,
 	#    camp alerts, mustered waves — provisional).
 	if not hooks.run(IDs.Phase.WORLD_SPAWN_WILD, gs):
+		WildForces.spawn_animals(gs, gs.rng)
 		WildForces.spawn_turn(gs, gs.rng)
 		WildForces.spawn_raider_settlement(gs, gs.rng)
 		WildAI.run(gs, gs.rng)

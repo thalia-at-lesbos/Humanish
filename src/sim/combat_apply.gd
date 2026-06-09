@@ -28,8 +28,8 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 	attacker.health = int(result["attacker_health_after"])
 	defender.health = int(result["defender_health_after"])
 
-	attacker.experience += int(result["attacker_xp_gain"])
-	defender.experience += int(result["defender_xp_gain"])
+	attacker.experience += _award_xp(gs, attacker, defender, int(result["attacker_xp_gain"]))
+	defender.experience += _award_xp(gs, defender, attacker, int(result["defender_xp_gain"]))
 
 	# Auto-promote survivors that crossed an experience threshold (§5.5).
 	if result["attacker_survived"]:
@@ -82,7 +82,24 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 
 # Grant promotions for each experience level newly reached (§5.5). Levels are the
 # data-defined experience_thresholds; each new level awards one eligible promotion.
+# XP actually awarded to `unit` for this fight. Against an **animal** (§9.3) the
+# gain is clamped so the unit's *lifetime* animal XP never exceeds the cap — beyond
+# it, hunting animals yields nothing. Non-animal fights award the full gain.
+static func _award_xp(gs, unit: Unit, opponent: Unit, gain: int) -> int:
+	if gain <= 0 or not opponent.is_animal:
+		return gain if gain > 0 else 0
+	var cap: int = gs.db.get_constant("animal_xp_lifetime_cap", 10)
+	var remaining: int = cap - unit.xp_from_animals
+	if remaining <= 0:
+		return 0
+	var granted: int = gain if gain < remaining else remaining
+	unit.xp_from_animals += granted
+	return granted
+
 static func award_promotions(gs, u: Unit) -> void:
+	# Animals never earn promotions from combat (§9.3).
+	if u.is_animal:
+		return
 	var thresholds: Array = gs.db.constants.get("experience_thresholds", [])
 	while u.experience_level + 1 < thresholds.size() \
 			and u.experience >= int(thresholds[u.experience_level + 1]):

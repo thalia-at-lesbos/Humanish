@@ -44,23 +44,9 @@ static func spawn_turn(game_state, rng: RNG) -> void:
 	var db: DataDB = game_state.db
 	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
 
-	# Gate 1 — turn threshold, scaled by game pace (slower paces push it later).
-	var gate: int = _scaled_turns(game_state,
-		int(diff.get("wild_creation_turns_elapsed",
-			db.get_constant("wild_creation_turns_elapsed", 30))))
-	if game_state.turn_number < gate:
-		return
-
-	# Gate 2 — the current era still suppresses organised wild units.
-	if _era_suppresses_wild(game_state, db):
-		return
-
-	# Gate 3 — the world is still too empty (civ cities < ratio * living civs).
-	var num: int = db.get_constant("wild_city_ratio_num", 3)
-	var den: int = db.get_constant("wild_city_ratio_den", 2)
-	if den < 1:
-		den = 1
-	if _count_civ_cities(game_state) * den < _count_living_civs(game_state) * num:
+	# Three gates: pace-scaled turn threshold, the era's no_wild_units flag, and the
+	# city-density check. Until all clear we are in the "quiet phase" (animals only).
+	if not _wild_units_allowed(game_state, db):
 		return
 
 	var divisor: int = int(diff.get("unowned_tiles_per_wild_unit",
@@ -132,6 +118,113 @@ static func spawn_raider_settlement(game_state, rng: RNG) -> void:
 		if spot != null:
 			_spawn_raider_settlement(spot.x, spot.y, game_state)
 
+# ── Animal spawning (§9.3, provisional) ─────────────────────────────────────────
+
+# Wild animals are the "quiet phase" population (BtS's GameAnimal): they spawn on
+# tiles **no player can currently see** (outside every unit/city sight radius) and
+# in **unowned** land, up to a per-difficulty density. Once organised wild units
+# take over (the three gates clear), no new animals appear and the existing ones
+# are thinned out one per world step, mirroring BtS's animal-to-barbarian handoff.
+static func spawn_animals(game_state, rng: RNG) -> void:
+	var db: DataDB = game_state.db
+	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
+
+	if _wild_units_allowed(game_state, db):
+		_cull_one_animal(game_state)
+		return
+
+	var divisor: int = int(diff.get("unowned_tiles_per_animal",
+		db.get_constant("animal_land_per_unit", 60)))
+	if divisor < 1:
+		divisor = 1
+
+	# Dark tiles: unowned, passable, unoccupied land outside every player's sight.
+	var visible: Dictionary = _visible_tiles(game_state, db)
+	var unowned_land: int = 0
+	var dark: Array = []
+	for tile in game_state.map.all_tiles():
+		if not _is_passable_land(tile, db) or tile.owner_player_id >= 0:
+			continue
+		unowned_land += 1
+		if visible.has("%d,%d" % [tile.x, tile.y]):
+			continue
+		if not Stack.at(game_state.units, tile.x, tile.y).empty():
+			continue
+		if game_state.get_settlement_at(tile.x, tile.y) != null:
+			continue
+		dark.append(tile)
+
+	var target: int = unowned_land / divisor
+	var existing: int = _count_animals(game_state)
+	if existing >= target or dark.empty():
+		return
+
+	var per_turn: int = db.get_constant("animal_spawn_per_turn", 2)
+	var spawned: int = 0
+	while spawned < per_turn and existing + spawned < target and not dark.empty():
+		var idx: int = rng.randi_range(0, dark.size() - 1)
+		var t = dark[idx]
+		dark.remove(idx)
+		_spawn_animal_unit(t.x, t.y, game_state, rng)
+		spawned += 1
+
+# Set of "x,y" tiles any living player currently sees, matching the fog model
+# (unit_sight / city_sight, Manhattan radius). Used to keep animal spawns in the dark.
+static func _visible_tiles(game_state, db: DataDB) -> Dictionary:
+	var seen: Dictionary = {}
+	var su: int = db.get_constant("unit_sight", 2)
+	var sc: int = db.get_constant("city_sight", 3)
+	var map = game_state.map
+	for u in game_state.units:
+		if u.owner_player_id >= 0:
+			_mark_sight(map, u.x, u.y, su, seen)
+	for s in game_state.settlements:
+		if s.owner_player_id >= 0:
+			_mark_sight(map, s.x, s.y, sc, seen)
+	return seen
+
+static func _mark_sight(map, cx: int, cy: int, radius: int, seen: Dictionary) -> void:
+	for t in map.tiles_in_range(cx, cy, radius):
+		if map.manhattan(cx, cy, t.x, t.y) <= radius:
+			seen["%d,%d" % [t.x, t.y]] = true
+
+static func _count_animals(game_state) -> int:
+	var n: int = 0
+	for u in game_state.units:
+		if u.is_animal:
+			n += 1
+	return n
+
+static func _cull_one_animal(game_state) -> void:
+	for u in game_state.units:
+		if u.is_animal:
+			Stack.remove_unit(game_state.units, u.id)
+			return
+
+# A random animal unit type from the data (classification "animal").
+static func _spawn_animal_unit(x: int, y: int, game_state, rng: RNG) -> void:
+	var db: DataDB = game_state.db
+	var types: Array = []
+	for uid in db.units:
+		if db.units[uid].get("classification", "") == "animal":
+			types.append(str(uid))
+	if types.empty():
+		return
+	types.sort()  # deterministic order before the seeded pick
+	var unit_type: String = types[rng.randi_range(0, types.size() - 1)]
+	var ud: Dictionary = db.get_unit(unit_type)
+	var u := Unit.new()
+	u.id = game_state.next_unit_id()
+	u.unit_type_id = unit_type
+	u.owner_player_id = -2  # -2 = wild
+	u.x = x; u.y = y
+	u.base_strength = int(ud.get("base_strength", 2))
+	u.movement_total = int(ud.get("movement", 100))
+	u.movement_left = u.movement_total
+	u.is_wild = true
+	u.is_animal = true
+	game_state.units.append(u)
+
 # ── Area labelling ──────────────────────────────────────────────────────────────
 
 # Flood-fill the map into contiguous passable-land areas (8-connectivity, matching
@@ -176,9 +269,10 @@ static func _label_land_areas(game_state) -> Array:
 				area_of[nkey] = idx
 				queue.append(nb)
 
-	# Tally existing wild units / cities into their area.
+	# Tally existing wild units / cities into their area. Animals are a separate
+	# population (§9.3) and do not count toward the raider density target.
 	for u in game_state.units:
-		if u.is_wild:
+		if u.is_wild and not u.is_animal:
 			var k: String = "%d,%d" % [u.x, u.y]
 			if area_of.has(k):
 				areas[area_of[k]].wild_units += 1
@@ -282,9 +376,28 @@ static func _count_living_civs(game_state) -> int:
 static func _count_wild_land_units(game_state) -> int:
 	var n: int = 0
 	for u in game_state.units:
-		if u.is_wild:
+		if u.is_wild and not u.is_animal:
 			n += 1
 	return n
+
+# Whether the three gates (turn / era / city-density) have all cleared, i.e. the
+# game has moved past the quiet phase and organised wild units may now spawn.
+static func _wild_units_allowed(game_state, db: DataDB) -> bool:
+	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
+	var gate: int = _scaled_turns(game_state,
+		int(diff.get("wild_creation_turns_elapsed",
+			db.get_constant("wild_creation_turns_elapsed", 30))))
+	if game_state.turn_number < gate:
+		return false
+	if _era_suppresses_wild(game_state, db):
+		return false
+	var num: int = db.get_constant("wild_city_ratio_num", 3)
+	var den: int = db.get_constant("wild_city_ratio_den", 2)
+	if den < 1:
+		den = 1
+	if _count_civ_cities(game_state) * den < _count_living_civs(game_state) * num:
+		return false
+	return true
 
 # The strongest generic land unit the most-advanced player has unlocked, so ambient
 # raiders scale with the game's tech (resources deliberately ignored, like the wave
@@ -303,6 +416,8 @@ static func _strongest_wild_unit_type(game_state) -> String:
 		var ud: Dictionary = db.units[uid]
 		if ud.get("domain", "land") != "land":
 			continue
+		if ud.get("classification", "") == "animal":
+			continue  # wildlife is never raider stock (§9.3)
 		if str(ud.get("unique_to", "")) != "":
 			continue
 		var bs: int = int(ud.get("base_strength", 0))

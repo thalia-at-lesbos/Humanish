@@ -62,6 +62,13 @@ var has_moved: bool = false
 var has_attacked: bool = false
 var is_fortified: bool = false
 var is_wild: bool = false
+# A wild *animal* (§9.3): a subset of wild units (owner -2, is_wild also true) with
+# its own spawning (dark/unrevealed tiles), behaviour (hunts weak units, shuns
+# cities and borders), and combat limits (gives capped XP, earns no promotions).
+var is_animal: bool = false
+# Lifetime XP this unit has banked from killing animals, capped per §9.3 so animal
+# hunting can never farm a unit to high levels.
+var xp_from_animals: int = 0
 # Standing-order stances (§3.3 missions): a unit holds its tile under one of
 # these until woken or ordered otherwise. Mutually informative, not exclusive of
 # is_fortified, but set independently by the matching mission.
@@ -146,6 +153,7 @@ func serialize() -> Dictionary:
 		"goto_x": goto_x, "goto_y": goto_y,
 		"has_moved": has_moved, "has_attacked": has_attacked,
 		"is_fortified": is_fortified, "is_wild": is_wild,
+		"is_animal": is_animal, "xp_from_animals": xp_from_animals,
 		"is_sentry": is_sentry, "is_patrolling": is_patrolling,
 		"is_healing": is_healing, "is_sleeping": is_sleeping
 	}
@@ -174,6 +182,8 @@ static func deserialize(d: Dictionary):
 	u.has_attacked = bool(d.get("has_attacked", false))
 	u.is_fortified = bool(d.get("is_fortified", false))
 	u.is_wild = bool(d.get("is_wild", false))
+	u.is_animal = bool(d.get("is_animal", false))
+	u.xp_from_animals = int(d.get("xp_from_animals", 0))
 	u.is_sentry = bool(d.get("is_sentry", false))
 	u.is_patrolling = bool(d.get("is_patrolling", false))
 	u.is_healing = bool(d.get("is_healing", false))

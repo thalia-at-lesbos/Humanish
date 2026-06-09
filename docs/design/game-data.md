@@ -1289,10 +1289,18 @@ A unit does not heal on any turn it moves or fights.
 | `wild_creation_turns_elapsed` ‡ | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 | 10 |
 | `wild_city_creation_turns_elapsed` ‡ | 55 | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 |
 | `wild_city_creation_prob` (%) | 4 | 5 | 5 | 6 | 6 | 7 | 7 | 8 | 8 |
+| `unowned_tiles_per_animal` (§9.3) | 100 | 80 | 60 | 50 | 40 | 35 | 30 | 25 | 20 |
+| `animals_enter_borders` (§9.3) | no | no | no | no | no | no | yes | yes | yes |
 
 † Tabled but **not yet wired** — the wild AI is land-only (game-rules §9.2).
 ‡ Turn gates are **scaled by game pace** (`paces.json` `growth_scale`): Quick ×0.67, Normal ×1.0,
 Epic ×1.5, Marathon ×3.0.
+
+Animal globals (`data/constants.json`, §9.3): `animal_land_per_unit` (60, density fallback),
+`animal_detect_radius` (2, hunt range), `animal_spawn_per_turn` (2), `animal_xp_lifetime_cap` (10,
+max XP a unit ever banks from animals), and `unit_sight` (2) / `city_sight` (3) — the fog radii the
+spawner reuses to keep animals in the dark. Animal unit types are `data/units.json` entries with
+`"classification": "animal"` (Wolf, Panther, Bear).
 
 Supporting global constants (`data/constants.json`): `wild_city_min_distance` (6, min tiles from
 civ culture), `wild_spawn_min_distance` (2, min tiles a unit spawns from civ units/cities),
@@ -1640,7 +1648,9 @@ and related combat code (§5.3):
 | `has_moved` | bool | false | Unit has used movement this turn |
 | `has_attacked` | bool | false | Unit has attacked this turn |
 | `is_fortified` | bool | false | Fortify stance active (accumulates entrenchment) |
-| `is_wild` | bool | false | Wild/barbarian unit |
+| `is_wild` | bool | false | Wild/barbarian unit (owner -2) |
+| `is_animal` | bool | false | Wild **animal** (§9.3) — a wild unit with animal spawning/behaviour/combat limits |
+| `xp_from_animals` | int | 0 | Lifetime XP this unit has banked from killing animals (capped, §9.3) |
 | `is_sentry` | bool | false | Sentry stance — auto-wakes when enemies enter sight |
 | `is_patrolling` | bool | false | Air/sea patrol stance |
 | `is_healing` | bool | false | Heal-in-place stance |

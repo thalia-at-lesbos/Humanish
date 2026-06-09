@@ -37,7 +37,7 @@ sections:
   "§6  Economy & research":    "Treasury, sliders, research graph, policies, specialists & Great People, draft (§6.6 provisional), trade routes (§6.7 provisional)"
   "§7  Diplomacy & war":       "Alliances, trades, subordination, espionage (§7.1 provisional), world assemblies (§7.2 provisional)"
   "§8  Beliefs & orgs":        "Religion founding/spread, state religion (§8.1 provisional), missionary spread (§8.2 provisional)"
-  "§9  Wild forces & events":  "Wild spawning (§9.2 provisional), wild-AI behaviour (§9.1 provisional), exploration rewards, scripted events"
+  "§9  Wild forces & events":  "Wild spawning (§9.2 provisional), wild-AI behaviour (§9.1 provisional), animals (§9.3 provisional), exploration rewards, scripted events"
   "§10 Win conditions":        "Last standing, dominance, endgame project, cultural, diplomatic, time"
   "§11 Environmental":         "Pollution accumulation, flooding, tile degradation"
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
@@ -57,6 +57,8 @@ provisional_sections:
   - "§8.2  Missionary spread"
   - "§9.1  Wild-forces behaviour — all radii and cooldowns placeholder"
   - "§9.2  Wild-forces spawning — BtS-derived port, per-difficulty tables provisional"
+  - "§9.3  Wild animals — spawning, behaviour, and combat limits (BtS-derived)"
+  - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1026,9 +1028,48 @@ Wild **cities** (raider camps, §9.1's muster points) spawn on their own, later 
   any civ settlement and any civ cultural tile — BtS's minimum barbarian-city spacing.
 
 **Known gaps / simplifications (to revisit):** the per-difficulty tables are BtS values, untuned
-here; the Ancient-era window is silent for want of a wildlife subsystem; naval/air wild spawning
-is unimplemented; and the "current era" gate uses the most-advanced living player rather than a
-distinct game-era track.
+here; naval/air wild spawning is covered by §9.4; and the "current era" gate uses the
+most-advanced living player rather than a distinct game-era track.
+
+### 9.3 Wild animals (provisional)
+> **⚠️ Provisional — preliminary, not verified.** Animals model BtS's *GameAnimal* layer — the
+> wildlife that prowls the unexplored early map before organised raiders appear. Magnitudes are
+> BtS-derived and untuned. All math is integer and every roll is from the shared `gs.rng`.
+
+Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`, plus
+`is_animal = true`) defined by data — `data/units.json` entries with `"classification": "animal"`
+(Wolf, Panther, Bear). They are the **quiet-phase** population: spawning fills the early game,
+*before* the §9.2 gates open, and hands off to raiders once they do.
+
+* **Spawning (`WildForces.spawn_animals`).** While the §9.2 wild-*unit* gates are **not** yet
+  satisfied, animals spawn on tiles that are **unowned**, passable land, unoccupied, and **outside
+  every player's sight** (the same `unit_sight` / `city_sight` Manhattan fog model the UI uses —
+  i.e. in the dark / unrevealed map), up to one animal per `unowned_tiles_per_animal` unowned land
+  tiles (Settler 100 → Deity 20), a few per step. Once the wild-unit gates **do** open, no new
+  animals appear and the existing ones are **thinned one per world step** (BtS's animal→barbarian
+  handoff). Animals are a **separate population**: they do not count toward the §9.2 raider density
+  and are never chosen as raider/wave stock.
+* **Behaviour (`WildAI._act_animal`).** Each animal hunts the **nearest weak prey** within
+  `animal_detect_radius`: a **civilian or unfortified** player unit that is **not standing in a
+  city** (animals leave cities and garrisons alone). It moves toward and attacks that unit, but
+  **never assaults a city** and — on most difficulties — **never enters player borders**
+  (`animals_enter_borders`, true only on the higher difficulties). With no prey in range it
+  **wanders** one tile (also refusing borders). Animals do not rouse raider camps.
+* **Combat limits.** Animals **earn no promotions** from combat (`CombatApply.award_promotions`
+  is a no-op for them), and a player unit's **lifetime XP from killing animals is capped** at
+  `animal_xp_lifetime_cap` (10, per BtS) — tracked on `Unit.xp_from_animals`; beyond it, hunting
+  animals yields no further experience. (This is in addition to the existing per-fight
+  `experience_vs_wild_cap`.)
+
+**Known gaps / simplifications (to revisit):** the silent pre-animal era no longer exists (animals
+fill it), but animals are land-only; "weak" is a coarse civilian-or-unfortified test rather than a
+real threat assessment; and visibility is computed from current sight only (no per-player explored
+memory in the sim), so an animal may spawn on a tile a player has seen before but cannot currently
+see.
+
+### 9.4 Naval raiders (provisional)
+> **⚠️ Provisional — placeholder.** Reserved for sea-domain wild forces
+> (`unowned_water_tiles_per_wild_unit`). See §9.2's note; documented in full when wired.
 
 ---
 

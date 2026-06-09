@@ -155,8 +155,8 @@ func test_wild_units_are_capped_over_many_turns() -> void:
 			land += 1
 	var wild = 0
 	for u in gs.units:
-		if u.is_wild:
+		if u.is_wild and not u.is_animal:  # raiders only; animals have their own cap (§9.3)
 			wild += 1
 	var cap = land / int(gs.db.constants.get("wild_land_per_unit", 80))
 	assert_true(wild <= cap + 1,
-		"Wild units (%d) must stay near the land-based cap (%d), not flood" % [wild, cap])
+		"Wild raiders (%d) must stay near the land-based cap (%d), not flood" % [wild, cap])

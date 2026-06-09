@@ -61,6 +61,11 @@ static func _act_units(game_state, rng: RNG) -> void:
 		if u == null or not u.is_wild or u.health <= 0:
 			continue
 
+		if u.is_animal:
+			# Animals hunt weak prey, shun cities and (usually) borders (§9.3).
+			_act_animal(game_state, rng, u)
+			continue
+
 		if u.goto_x >= 0:
 			# A mustered raider marching to its wave's target tile.
 			_move_along(game_state, rng, u, u.goto_x, u.goto_y)
@@ -177,6 +182,107 @@ static func _wander(game_state, rng: RNG, u: Unit) -> void:
 	u.has_moved = true
 	u.stationary_turns = 0
 
+# ── Animal behaviour (§9.3, provisional) ───────────────────────────────────────
+
+# An animal hunts the nearest weak prey it can reach; with none in range it wanders.
+# Unlike raiders it never attacks cities and (on most difficulties) never enters
+# player borders.
+static func _act_animal(game_state, rng: RNG, u: Unit) -> void:
+	var db: DataDB = game_state.db
+	var radius: int = db.get_constant("animal_detect_radius", 2)
+	var allow_borders: bool = bool(
+		db.get_difficulty(game_state.difficulty_id).get("animals_enter_borders", false))
+	var prey: Array = _nearest_prey(game_state, u, radius, allow_borders)
+	if not prey.empty():
+		_animal_move(game_state, rng, u, prey[0], prey[1], allow_borders)
+	else:
+		_animal_wander(game_state, rng, u, allow_borders)
+
+# Nearest huntable player unit within `radius`: a **civilian or unfortified** unit
+# that is **not standing in a city** (animals leave garrisons/cities alone). When the
+# animal cannot cross borders, prey on owned tiles is unreachable and skipped.
+# Returns [x, y] of the prey's tile, or [] if none.
+static func _nearest_prey(game_state, u: Unit, radius: int, allow_borders: bool) -> Array:
+	var best: Array = []
+	var best_d: int = radius + 1
+	for pu in game_state.units:
+		if pu.owner_player_id < 0:
+			continue  # -1 unowned / -2 wild
+		if game_state.get_settlement_at(pu.x, pu.y) != null:
+			continue  # protected inside a city
+		var weak: bool = pu.base_strength <= 0 or not pu.is_fortified
+		if not weak:
+			continue
+		var tile: Tile = game_state.map.get_tile(pu.x, pu.y)
+		if not allow_borders and tile != null and tile.owner_player_id >= 0:
+			continue  # cannot enter borders to reach it
+		var d: int = game_state.map.distance(u.x, u.y, pu.x, pu.y)
+		if d <= radius and d < best_d:
+			best_d = d
+			best = [pu.x, pu.y]
+	return best
+
+# Move an animal one turn toward (tx, ty): attacks a player unit it steps into, but
+# never enters a city tile and never crosses into borders unless `allow_borders`.
+static func _animal_move(game_state, rng: RNG, u: Unit, tx: int, ty: int,
+		allow_borders: bool) -> void:
+	var db: DataDB = game_state.db
+	var path: Array = Pathfinding.find_path(
+		game_state.map, u.x, u.y, tx, ty, u, db, game_state.units, -2)
+	if path.empty():
+		return
+	for step in path:
+		if u.movement_left <= 0:
+			break
+		var sx: int = int(step[0]); var sy: int = int(step[1])
+		if game_state.get_settlement_at(sx, sy) != null:
+			break  # animals leave cities alone
+		var stile: Tile = game_state.map.get_tile(sx, sy)
+		if not allow_borders and stile != null and stile.owner_player_id >= 0:
+			break  # stop at the border
+
+		var enemy: Unit = Stack.get_defender(game_state.units, sx, sy, -2, game_state)
+		if enemy != null:
+			var result: Dictionary = Combat.resolve(u, enemy, game_state, game_state.rng)
+			CombatApply.apply_unit_result(game_state, u, enemy, result, true)
+			game_state.pending_wild_events.append({"kind": "combat", "result": result})
+			u.has_attacked = true
+			u.movement_left = 0
+			return
+
+		var cost: int = Pathfinding._move_cost(stile, db, "land")
+		u.movement_left = u.movement_left - cost if u.movement_left - cost > 0 else 0
+		u.x = sx; u.y = sy
+		u.has_moved = true
+		u.stationary_turns = 0
+		u.entrenchment = 0
+
+# Like _wander, but an animal also refuses to step into borders (unless allowed).
+static func _animal_wander(game_state, rng: RNG, u: Unit, allow_borders: bool) -> void:
+	if u.movement_left <= 0:
+		return
+	var db: DataDB = game_state.db
+	var open: Array = []
+	for nb in game_state.map.neighbours8(u.x, u.y):
+		var ter: Dictionary = db.get_terrain(nb.terrain_id)
+		if ter.get("domain", "land") != "land" or ter.get("impassable", false):
+			continue
+		if not allow_borders and nb.owner_player_id >= 0:
+			continue
+		if not Stack.at(game_state.units, nb.x, nb.y).empty():
+			continue
+		if game_state.get_settlement_at(nb.x, nb.y) != null:
+			continue
+		open.append(nb)
+	if open.empty():
+		return
+	var pick = open[rng.randi_range(0, open.size() - 1)]
+	var cost: int = Pathfinding._move_cost(pick, db, "land")
+	u.movement_left = u.movement_left - cost if u.movement_left - cost > 0 else 0
+	u.x = pick.x; u.y = pick.y
+	u.has_moved = true
+	u.stationary_turns = 0
+
 # ── Detection and alerting ────────────────────────────────────────────────────
 
 static func _detect_and_alert(game_state, rng: RNG) -> void:
@@ -190,8 +296,8 @@ static func _detect_and_alert(game_state, rng: RNG) -> void:
 
 	var sight: int = _scout_sight(game_state, db)
 	for u in game_state.units:
-		if not u.is_wild:
-			continue
+		if not u.is_wild or u.is_animal:
+			continue  # animals are lone hunters; they do not rouse raider camps
 		var target: Array = _nearest_player_target(game_state, u.x, u.y, sight)
 		if target.empty():
 			continue
@@ -284,6 +390,8 @@ static func _strongest_wild_unit_type(game_state) -> String:
 		var ud: Dictionary = db.units[uid]
 		if ud.get("domain", "land") != "land":
 			continue
+		if ud.get("classification", "") == "animal":
+			continue  # wildlife is never raider stock (§9.3)
 		if str(ud.get("unique_to", "")) != "":
 			continue  # society-specific uniques are not generic raider stock
 		var bs: int = int(ud.get("base_strength", 0))
