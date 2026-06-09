@@ -94,6 +94,14 @@ static func make_peace(player_id: int, target_alliance_id: int) -> Dictionary:
 		"target_alliance_id": target_alliance_id
 	}
 
+static func propose_permanent_alliance(player_id: int,
+		target_alliance_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.PROPOSE_PERMANENT_ALLIANCE,
+		"player_id": player_id,
+		"target_alliance_id": target_alliance_id
+	}
+
 static func rush_production(player_id: int, settlement_id: int,
 		method: String) -> Dictionary:
 	# method: "treasury" or "population"

@@ -101,7 +101,10 @@ enum CommandType {
     # Explore mission (§3.3): recon/scout auto-moves toward unexplored territory.
     MISSION_EXPLORE = 56,
     # Remove an item from a city's production queue by index (§11 city screen).
-    DEQUEUE_PRODUCTION = 57
+    DEQUEUE_PRODUCTION = 57,
+    # Diplomacy: propose a permanent alliance with another alliance (requires the
+    # permanent_alliances optional rule to be active in GameState).
+    PROPOSE_PERMANENT_ALLIANCE = 58
 }
 
 # Win condition types

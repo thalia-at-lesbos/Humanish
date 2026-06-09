@@ -86,6 +86,53 @@ func test_trade_reject_removes_without_effect() -> void:
 	assert_eq(gs.get_player(1).treasury, 100, "Rejected trade transfers nothing")
 	assert_true(gs.alliances[0].pending_trades.empty(), "Rejected trade removed")
 
+# ── Permanent alliances ───────────────────────────────────────────────────────
+
+func test_permanent_alliance_requires_rule_enabled() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	# Rule is off by default: command must be rejected.
+	assert_false(f.apply_command(Commands.propose_permanent_alliance(1, 2)),
+		"Permanent alliance command rejected when rule is off")
+
+func test_permanent_alliance_forms_when_rule_enabled() -> void:
+	var gs = make_gs(2)
+	gs.permanent_alliances = true
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(f.apply_command(Commands.propose_permanent_alliance(1, 2)),
+		"Permanent alliance command accepted when rule is on")
+	assert_true(2 in gs.alliances[0].permanent_allies, "Alliance 1 records alliance 2 as perm ally")
+	assert_true(1 in gs.alliances[1].permanent_allies, "Alliance 2 records alliance 1 as perm ally (mutual)")
+
+func test_permanent_alliance_blocked_while_at_war() -> void:
+	var gs = make_gs(2)
+	gs.permanent_alliances = true
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	gs.alliances[0].at_war_with = [2]
+	assert_false(f.apply_command(Commands.propose_permanent_alliance(1, 2)),
+		"Cannot form permanent alliance while at war")
+
+func test_permanent_alliance_no_duplicate() -> void:
+	var gs = make_gs(2)
+	gs.permanent_alliances = true
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_permanent_alliance(1, 2))
+	assert_false(f.apply_command(Commands.propose_permanent_alliance(1, 2)),
+		"Duplicate permanent alliance rejected")
+
+func test_permanent_alliance_establishes_contact() -> void:
+	var gs = make_gs(2)
+	gs.permanent_alliances = true
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_permanent_alliance(1, 2))
+	assert_true(gs.alliances[0].has_contact_with(2), "Permanent alliance establishes contact (p1 side)")
+	assert_true(gs.alliances[1].has_contact_with(1), "Permanent alliance establishes contact (p2 side)")
+
 # ── Subordination / tributaries ────────────────────────────────────────────────
 
 func test_become_tributary_records_relationship() -> void:

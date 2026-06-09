@@ -56,7 +56,8 @@ var _remote_waiting: bool = false
 func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		difficulty_id: String, player_configs: Array,
 		enabled_win_conditions: Array, map_type_id: String = "continents",
-		aggressive_wild: bool = false) -> void:
+		aggressive_wild: bool = false,
+		permanent_alliances: bool = false) -> void:
 	_db = db
 	_hooks = Hooks.new()
 	_dirty = load("res://src/api/dirty_flags.gd").new()
@@ -73,6 +74,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	_gs.difficulty_id = difficulty_id
 	_gs.enabled_win_conditions = enabled_win_conditions.duplicate()
 	_gs.wild_aggressive = aggressive_wild
+	_gs.permanent_alliances = permanent_alliances
 
 	var ws: Dictionary = db.get_world_size(world_size_id)
 	_gs.max_turns = int(db.get_pace(pace_id).get("max_turns", 500))
@@ -342,6 +344,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_gp_action(cmd)
 		IDs.CommandType.CAST_VOTE:
 			return _cmd_cast_vote(cmd)
+		IDs.CommandType.PROPOSE_PERMANENT_ALLIANCE:
+			return _cmd_propose_permanent_alliance(cmd)
 	return false
 
 # ── Remote-multiplayer client seam ────────────────────────────────────────────
@@ -886,6 +890,42 @@ func _cmd_make_peace(cmd: Dictionary) -> bool:
 		return false
 	alliance.at_war_with.erase(target_aid)
 	_add_notification(p.name + " made peace with " + _alliance_label(target_aid) + ".", "major")
+	return true
+
+# Propose a permanent alliance with another alliance (§optional rule). Requires
+# the permanent_alliances rule to be active and both sides to not already be at
+# war or already permanently allied. The alliance is immediate and mutual — it is
+# a voluntary act by the acting player, not a negotiation awaiting acceptance.
+func _cmd_propose_permanent_alliance(cmd: Dictionary) -> bool:
+	if not _gs.permanent_alliances:
+		return false
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var target_aid: int = int(cmd["target_alliance_id"])
+	var mine: Alliance = _gs.get_player_alliance(p.id)
+	var other: Alliance = _gs.get_alliance(target_aid)
+	if mine == null or other == null or mine.id == target_aid:
+		return false
+	# Cannot form a permanent alliance while at war.
+	if mine.is_at_war_with(target_aid):
+		return false
+	# Already permanently allied: no duplicate.
+	if target_aid in mine.permanent_allies:
+		return false
+	# Record the alliance on both sides (mutual and permanent).
+	if not (target_aid in mine.permanent_allies):
+		mine.permanent_allies.append(target_aid)
+	if not (mine.id in other.permanent_allies):
+		other.permanent_allies.append(mine.id)
+	# Ensure both sides have contact (declaring/forming alliance implies contact).
+	if not mine.has_contact_with(target_aid):
+		mine.contacts.append(target_aid)
+	if not other.has_contact_with(mine.id):
+		other.contacts.append(mine.id)
+	_add_notification(p.name + " formed a permanent alliance with "
+		+ _alliance_label(target_aid) + "!", "major")
+	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	return true
 
 func _cmd_rush_production(cmd: Dictionary) -> bool:

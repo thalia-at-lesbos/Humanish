@@ -30,6 +30,10 @@ var shared_research_store: int = 0
 # War fatigue per war (alliance_id -> int anger points accumulated)
 var war_fatigue: Dictionary = {}
 
+# Permanent alliances: set of alliance IDs with which a permanent alliance
+# has been formed (when the gs.permanent_alliances rule is active).
+var permanent_allies: Array = []
+
 # Active trade offers from this alliance: Array of trade Dictionaries
 var pending_trades: Array = []
 
@@ -53,7 +57,8 @@ func serialize() -> Dictionary:
 		"tributaries": tributaries.duplicate(),
 		"shared_research_store": shared_research_store,
 		"war_fatigue": war_fatigue.duplicate(),
-		"pending_trades": pending_trades.duplicate(true)
+		"pending_trades": pending_trades.duplicate(true),
+		"permanent_allies": permanent_allies.duplicate()
 	}
 
 static func deserialize(d: Dictionary):
@@ -67,4 +72,5 @@ static func deserialize(d: Dictionary):
 	a.shared_research_store = int(d.get("shared_research_store", 0))
 	a.war_fatigue = d.get("war_fatigue", {}).duplicate()
 	a.pending_trades = d.get("pending_trades", []).duplicate(true)
+	a.permanent_allies = d.get("permanent_allies", []).duplicate()
 	return a

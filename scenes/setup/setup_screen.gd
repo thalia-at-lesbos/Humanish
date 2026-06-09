@@ -26,6 +26,7 @@ var _map_type_ids: Array = []
 var _pace_btn: OptionButton
 var _difficulty_btn: OptionButton
 var _aggressive_wild_check: CheckBox
+var _permanent_alliances_check: CheckBox
 var _seed_edit: LineEdit
 var _player_count_spin: SpinBox
 var _error_label: Label
@@ -162,6 +163,13 @@ func _build_ui() -> void:
 	_aggressive_wild_check.pressed = false
 	vbox.add_child(_aggressive_wild_check)
 
+	# Permanent alliances: players at peace may form permanent alliances via a
+	# diplomatic action. Off by default.
+	_permanent_alliances_check = CheckBox.new()
+	_permanent_alliances_check.text = "Permanent alliances"
+	_permanent_alliances_check.pressed = false
+	vbox.add_child(_permanent_alliances_check)
+
 	# Seed
 	var seed_row: HBoxContainer = HBoxContainer.new()
 	var seed_lbl: Label = Label.new()
@@ -271,7 +279,8 @@ func _on_start_pressed() -> void:
 	_facade = load("res://src/api/sim_facade.gd").new()
 	_facade.setup(_db, seed_val, world_size_id, pace_id, difficulty_id,
 		player_configs, ["last_standing", "dominance", "cultural", "time"], map_type_id,
-		_aggressive_wild_check.pressed)
+		_aggressive_wild_check.pressed,
+		_permanent_alliances_check.pressed)
 
 	if _on_start_callback != null:
 		_on_start_callback.call_func(_facade, _db)

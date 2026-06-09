@@ -36,6 +36,11 @@ var winning_alliance_id: int = -1  # -1 = game still running
 # shorter cooldowns and a wider scout reach (WildAI). Off by default.
 var wild_aggressive: bool = false
 
+# Optional rule: when true, players who are at peace may form permanent alliances
+# via the Propose Permanent Alliance diplomatic action (locked for the rest of the
+# game). Off by default.
+var permanent_alliances: bool = false
+
 # Founded beliefs and econ orgs (globally tracked)
 var founded_beliefs: Dictionary = {}   # belief_id -> founder player_id
 var founded_econ_orgs: Dictionary = {} # org_id -> founder player_id
@@ -214,6 +219,7 @@ func serialize() -> Dictionary:
 		"enabled_win_conditions": enabled_win_conditions.duplicate(),
 		"winning_alliance_id": winning_alliance_id,
 		"wild_aggressive": wild_aggressive,
+		"permanent_alliances": permanent_alliances,
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
 		"endgame_project_stages": endgame_project_stages.duplicate(),
@@ -248,6 +254,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.enabled_win_conditions = d.get("enabled_win_conditions", []).duplicate()
 	gs.winning_alliance_id = int(d.get("winning_alliance_id", -1))
 	gs.wild_aggressive = bool(d.get("wild_aggressive", false))
+	gs.permanent_alliances = bool(d.get("permanent_alliances", false))
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
 	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()
