@@ -25,26 +25,47 @@ June 2, 2026, 6:09pm EDT (Currently fixed, do not investigate)
 -- ensure units on the same square can be toggled between, perhaps with additional clicks on the unit stack
 -- fog of war should not have any transparency
 
-June 8, 19:30 EDT
+June 8, 19:30 EDT (All fixed June 9, 2026 — see status notes per item)
 (any updates to rules or data or ui can be added provisionally)
--- New game should show initial player count (currently shows nothing until clicked)
--- Currently limited to 4 players, however this should be tied to world size (4 minimum)
--- all advisors should show close button at the bottom (but tech tree show cancel to the right)
--- overall game option for turning on/off a minimap display (lower right) showing all revealed area)
--- movement should cancel Fortify state (currently once fortify is selected, unit always shows as fortified)
--- workers do not show any work action buttons
--- map should wrap around (ask if clarification is needed)
--- scroll wheel map zoom should be centered on mouse (right now it appears to zoom diagonally)
--- when injured, units should have option to either sleep until healed or fortify until healed (if they can normally fortify)
--- you can't disband the capital, only non-capital cities
--- if a barbarian attacks the capital with a unit on it, the barbarian appears to get stuck inside the capital?
--- clicking on something in the production queue should remove it from the queue
--- scouts should have option to Explore, which periodically picks a random point for the unit to move towards, avoiding attacking, and waking/alerting the user if there is a nearby enemy
--- right clicking on a square to move a unit should briefly flash the outline of that square to indicate action
--- barbarian captured the capital city somehow, which caused the fog of war to lift (barbcapture.sav)
--- city population does not appear to grow, there should already be predefined rules for this
--- Barbarians show as ?`s Warrior but it should show as Bandit <unit type> or Wild <animal>
--- Diplomacy advisor does not appear to show a menu, only a close button with map in the background
--- Event log doesn't show current players unit's dying
--- permanent alliances should be an optional rule at game creation that is off by default (friendly, defensive pact or fought against a common enemy)
--- in Debug Mode, need to have a button in Options to turn off fog of war
+-- [FIXED] New game should show initial player count (currently shows nothing until clicked)
+   > SetupScreen now shows the player count immediately on open.
+-- [FIXED] Currently limited to 4 players, however this should be tied to world size (4 minimum)
+   > Default scales by world size (Tiny/Small=4, Standard=6, Large=8, Huge=10) and is adjustable upward with no hard cap.
+-- [FIXED] all advisors should show close button at the bottom (but tech tree show cancel to the right)
+   > All advisor screens have a bottom Close button; tech chooser's Cancel is anchored to the right.
+-- [FIXED] overall game option for turning on/off a minimap display (lower right) showing all revealed area)
+   > Minimap overlay added in lower-right (respects per-player fog) with a Toggle Minimap option in the Options screen.
+-- [FIXED] movement should cancel Fortify state (currently once fortify is selected, unit always shows as fortified)
+   > Fortify (and the heal stances) now clear when a unit actually moves onto a new tile.
+-- [FIXED] workers do not show any work action buttons
+   > Selection panel shows Build <Improvement> buttons valid for the worker's current tile.
+-- [FIXED] map should wrap around (ask if clarification is needed)
+   > East-west (horizontal) wrap implemented; data-driven wrap_x flag, off for archipelago maps. Top/bottom do not wrap.
+-- [FIXED] scroll wheel map zoom should be centered on mouse (right now it appears to zoom diagonally)
+   > Wheel zoom now keeps the tile under the cursor fixed.
+-- [FIXED] when injured, units should have option to either sleep until healed or fortify until healed (if they can normally fortify)
+   > Sleep Until Healed / Fortify Until Healed stances added; appear when HP < max; auto-wake at full health.
+-- [FIXED] you can't disband the capital, only non-capital cities
+   > Disband is now blocked for the capital (the city holding the palace).
+-- [FIXED] if a barbarian attacks the capital with a unit on it, the barbarian appears to get stuck inside the capital?
+   > Wild unit no longer advances onto a city tile after beating the garrison; must assault the city separately.
+-- [FIXED] clicking on something in the production queue should remove it from the queue
+   > Queue entries are clickable buttons that dequeue the item (DEQUEUE_PRODUCTION).
+-- [FIXED] scouts should have option to Explore, which periodically picks a random point for the unit to move towards, avoiding attacking, and waking/alerting the user if there is a nearby enemy
+   > Explore mission added for recon units; auto-moves toward unexplored tiles, never attacks, wakes on nearby enemy.
+-- [FIXED] right clicking on a square to move a unit should briefly flash the outline of that square to indicate action
+   > Target tile flashes a fading outline (~0.4s) on a right-click move order.
+-- [FIXED] barbarian captured the capital city somehow, which caused the fog of war to lift (barbcapture.sav)
+   > Wild forces can no longer capture/raze a capital (HP clamped to 1); fog lift was a downstream symptom and is resolved. Save file removed.
+-- [FIXED] city population does not appear to grow, there should already be predefined rules for this
+   > Growth mechanic existed but was silent; now surfaces "X grew to population N!" notifications.
+-- [FIXED] Barbarians show as ?`s Warrior but it should show as Bandit <unit type> or Wild <animal>
+   > Wild units label as "Wild <type>" (animals) or "Bandit <type>" (raiders).
+-- [FIXED] Diplomacy advisor does not appear to show a menu, only a close button with map in the background
+   > Diplomacy screen lists every other player with relationship status and action buttons (Declare War / Make Peace / Propose Permanent Alliance).
+-- [FIXED] Event log doesn't show current players unit's dying
+   > Combat and wild-attack deaths of the current player's units now post "Your X was killed at (x,y)." messages.
+-- [FIXED] permanent alliances should be an optional rule at game creation that is off by default (friendly, defensive pact or fought against a common enemy)
+   > "Permanent alliances" setup toggle (off by default); gates the Propose Permanent Alliance diplomatic action.
+-- [FIXED] in Debug Mode, need to have a button in Options to turn off fog of war
+   > Debug-only "Toggle Fog of War" button added to the Options screen; never shown in release/CI.
