@@ -71,6 +71,10 @@ static func unit_state_text(u) -> String:
             + ((" (" + str(t) + " turn(s) left)") if t > 0 else "")
     if u.goto_x >= 0:
         return "Moving to (" + str(u.goto_x) + ", " + str(u.goto_y) + ")"
+    if u.is_sleep_until_healed:
+        return "Sleeping until healed"
+    if u.is_fortify_until_healed:
+        return "Fortified until healed"
     if u.is_sleeping:
         return "Sleeping"
     if u.is_fortified:

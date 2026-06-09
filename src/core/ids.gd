@@ -93,7 +93,11 @@ enum CommandType {
     # Conscript a military unit from a city's population (§6.4 Nationhood).
     DRAFT = 52,
     # Spread a religion to a city with a missionary unit (§8).
-    SPREAD_BELIEF = 53
+    SPREAD_BELIEF = 53,
+    # Heal-until-recovered stances (§3.3): unit skips turns until full health,
+    # then wakes idle. FORTIFY_UNTIL_HEALED also grants the fortify defence bonus.
+    MISSION_SLEEP_UNTIL_HEALED = 54,
+    MISSION_FORTIFY_UNTIL_HEALED = 55
 }
 
 # Win condition types
@@ -163,7 +167,8 @@ enum UnitMission {
     FOUND_SETTLEMENT = 4, BUILD_IMPROVEMENT = 5, BUILD_ROAD = 6,
     RANGED_ATTACK = 7, BOMBARD = 8, AIRLIFT = 9, PARADROP = 10,
     SENTRY = 11, HEAL = 12, MOVE_TO_UNIT = 13, RECON = 14,
-    AIR_PATROL = 15, SEA_PATROL = 16, CLEAN_FALLOUT = 17
+    AIR_PATROL = 15, SEA_PATROL = 16, CLEAN_FALLOUT = 17,
+    SLEEP_UNTIL_HEALED = 18, FORTIFY_UNTIL_HEALED = 19
 }
 
 # Phase flags for hooks

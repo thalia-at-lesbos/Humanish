@@ -149,11 +149,22 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	for u in gs.units:
 		if u.owner_player_id != player_id:
 			continue
+		# Heal-until-recovered stances hold position each turn: treat them as
+		# stationary for entrenchment and healing, even though the player issued
+		# no explicit move order. has_moved stays false so the heal path runs.
+		var in_heal_stance: bool = u.is_sleep_until_healed or u.is_fortify_until_healed
 		if not u.has_moved and not u.has_attacked:
 			u.stationary_turns += 1
 			var ent: int = u.stationary_turns * ent_per
 			u.entrenchment = ent_cap if ent > ent_cap else ent
 			_heal_unit(gs, u, player)
+		# Auto-wake when a heal-stance unit reaches full health (after healing above).
+		if in_heal_stance and u.health >= 100:
+			# Unit is now fully healed: drop the stance so it wakes idle next turn.
+			u.is_sleep_until_healed = false
+			if u.is_fortify_until_healed:
+				u.is_fortify_until_healed = false
+				u.is_fortified = false
 		u.movement_left = u.movement_total
 		u.has_moved = false
 		u.has_attacked = false

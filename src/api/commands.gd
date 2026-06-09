@@ -221,6 +221,16 @@ static func mission_sea_patrol(player_id: int, unit_id: int) -> Dictionary:
 static func mission_clean_fallout(player_id: int, unit_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.MISSION_CLEAN_FALLOUT, "player_id": player_id, "unit_id": unit_id}
 
+# Heal-until-recovered stances (Issue 9 / §3.3): the unit holds its tile until
+# it reaches full health, then wakes idle.  sleep_until_healed is available to
+# all units; fortify_until_healed is only for non-civilian units that can
+# normally fortify (the facade validates this).
+static func mission_sleep_until_healed(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_SLEEP_UNTIL_HEALED, "player_id": player_id, "unit_id": unit_id}
+
+static func mission_fortify_until_healed(player_id: int, unit_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.MISSION_FORTIFY_UNTIL_HEALED, "player_id": player_id, "unit_id": unit_id}
+
 # ── Missionary belief spread (§8) ─────────────────────────────────────────────
 
 # Spread the missionary's religion to the settlement on its tile; consumes the

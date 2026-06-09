@@ -95,6 +95,22 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 		btn.connect("pressed", self, "_on_action_pressed", [item])
 		add_child(btn)
 
+	# Heal-until-recovered buttons (Issue 9): shown when the unit is injured.
+	if u.health < 100:
+		var db = _facade._db
+		var sleep_btn: Button = Button.new()
+		sleep_btn.text = "Sleep Until Healed"
+		sleep_btn.connect("pressed", self, "_on_sleep_until_healed", [u.id])
+		add_child(sleep_btn)
+
+		# Fortify Until Healed: only for non-civilian units.
+		var cls: String = str(db.get_unit(u.unit_type_id).get("classification", ""))
+		if cls != "civilian":
+			var fort_btn: Button = Button.new()
+			fort_btn.text = "Fortify Until Healed"
+			fort_btn.connect("pressed", self, "_on_fortify_until_healed", [u.id])
+			add_child(fort_btn)
+
 func _build_city_panel(city_id: int, gs) -> void:
 	var s = gs.get_settlement(city_id)
 	if s == null:
@@ -186,6 +202,14 @@ func _on_open_city(_city_id: int) -> void:
 func _on_disband_city(city_id: int) -> void:
 	_facade.apply_command(Commands.disband_city(
 		_facade.get_state().current_player_id, city_id))
+
+func _on_sleep_until_healed(unit_id: int) -> void:
+	_facade.apply_command(Commands.mission_sleep_until_healed(
+		_facade.get_state().current_player_id, unit_id))
+
+func _on_fortify_until_healed(unit_id: int) -> void:
+	_facade.apply_command(Commands.mission_fortify_until_healed(
+		_facade.get_state().current_player_id, unit_id))
 
 func _clear_children() -> void:
 	# Remove from the tree immediately (queue_free alone is deferred, which can

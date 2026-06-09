@@ -295,7 +295,9 @@ func apply_command(cmd: Dictionary) -> bool:
 		IDs.CommandType.MISSION_SENTRY, IDs.CommandType.MISSION_HEAL, \
 		IDs.CommandType.MISSION_MOVE_TO_UNIT, IDs.CommandType.MISSION_RECON, \
 		IDs.CommandType.MISSION_AIR_PATROL, IDs.CommandType.MISSION_SEA_PATROL, \
-		IDs.CommandType.MISSION_CLEAN_FALLOUT:
+		IDs.CommandType.MISSION_CLEAN_FALLOUT, \
+		IDs.CommandType.MISSION_SLEEP_UNTIL_HEALED, \
+		IDs.CommandType.MISSION_FORTIFY_UNTIL_HEALED:
 			return _cmd_mission(cmd)
 		IDs.CommandType.NUCLEAR_STRIKE:
 			return _cmd_nuclear_strike(cmd)
@@ -465,6 +467,9 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			for u in moving_units:
 				u.movement_left = 0
 				u.has_moved = true
+				u.is_fortified = false
+				u.is_sleep_until_healed = false
+				u.is_fortify_until_healed = false
 			lead.has_attacked = true
 			break
 
@@ -494,6 +499,10 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			u.has_moved = true
 			u.stationary_turns = 0
 			u.entrenchment = 0
+			# Issue 5: moving cancels Fortify and any heal-stance (unit is now active).
+			u.is_fortified = false
+			u.is_sleep_until_healed = false
+			u.is_fortify_until_healed = false
 			# Carried units ride along with their transport (§5.2).
 			for cid in u.cargo:
 				var carried: Unit = _gs.get_unit(cid)
@@ -1574,6 +1583,8 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			u.is_patrolling = false
 			u.is_healing = false
 			u.is_sleeping = false
+			u.is_sleep_until_healed = false
+			u.is_fortify_until_healed = false
 			u.has_moved = false
 			u.movement_left = u.movement_total
 		IDs.CommandType.UNIT_SLEEP:
@@ -1590,6 +1601,8 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			u.building_improvement = ""
 			u.build_turns_left = 0
 			u.is_sleeping = false
+			u.is_sleep_until_healed = false
+			u.is_fortify_until_healed = false
 			u.goto_x = -1
 			u.goto_y = -1
 			u.has_moved = false
@@ -1736,6 +1749,29 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			if ftile == null or ftile.feature_id != "fallout":
 				return false
 			ftile.feature_id = ""
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_SLEEP_UNTIL_HEALED:
+			# Skip turns until full health, then wake idle (Issue 9). Available to
+			# all units. The auto-wake is handled in TurnEngine.player_step.
+			u.is_sleep_until_healed = true
+			u.is_fortify_until_healed = false
+			u.is_sleeping = false
+			u.is_healing = false
+			u.has_moved = true
+			u.movement_left = 0
+		IDs.CommandType.MISSION_FORTIFY_UNTIL_HEALED:
+			# Fortify (gaining the defence bonus) until full health, then wake idle.
+			# Only available to units that can normally fortify — civilians are
+			# excluded (classification == "civilian" or base_strength == 0).
+			var utype_fuh: Dictionary = _db.get_unit(u.unit_type_id)
+			if str(utype_fuh.get("classification", "")) == "civilian":
+				return false
+			u.is_fortify_until_healed = true
+			u.is_sleep_until_healed = false
+			u.is_fortified = true
+			u.is_healing = false
+			u.is_sleeping = false
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.MISSION_MOVE_TO_UNIT:
@@ -1902,7 +1938,9 @@ func cycle_idle_units(workers_only: bool = false) -> void:
 	for u in _gs.units:
 		if u.owner_player_id != _gs.current_player_id:
 			continue
-		if u.has_moved or u.is_fortified or u.is_sentry or u.is_patrolling or u.is_healing or u.is_sleeping:
+		if u.has_moved or u.is_fortified or u.is_sentry or u.is_patrolling \
+				or u.is_healing or u.is_sleeping \
+				or u.is_sleep_until_healed or u.is_fortify_until_healed:
 			continue
 		if workers_only and not _db.get_unit(u.unit_type_id).get("can_build", false):
 			continue
@@ -2022,7 +2060,8 @@ func get_end_turn_state() -> int:
 		return 1
 	for u in _gs.units:
 		if u.owner_player_id == _gs.current_player_id and not u.has_moved \
-				and not u.is_fortified and not u.is_sleeping:
+				and not u.is_fortified and not u.is_sleeping \
+				and not u.is_sleep_until_healed and not u.is_fortify_until_healed:
 			return 2
 	return 0
 

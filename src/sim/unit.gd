@@ -78,6 +78,11 @@ var is_healing: bool = false
 # Asleep: skips its turns (no entrench/defence intent, unlike is_fortified) until
 # woken or disturbed. Distinct from fortify so the UI can show the actual order.
 var is_sleeping: bool = false
+# Heal-until-recovered stances: like is_sleeping/is_fortified but auto-clear on
+# full health.  is_sleep_until_healed: pure skip; is_fortify_until_healed: also
+# grants the fortify defence bonus while waiting.
+var is_sleep_until_healed: bool = false
+var is_fortify_until_healed: bool = false
 
 func has_promotion(promo_id: String) -> bool:
 	return promo_id in promotions
@@ -155,7 +160,9 @@ func serialize() -> Dictionary:
 		"is_fortified": is_fortified, "is_wild": is_wild,
 		"is_animal": is_animal, "xp_from_animals": xp_from_animals,
 		"is_sentry": is_sentry, "is_patrolling": is_patrolling,
-		"is_healing": is_healing, "is_sleeping": is_sleeping
+		"is_healing": is_healing, "is_sleeping": is_sleeping,
+		"is_sleep_until_healed": is_sleep_until_healed,
+		"is_fortify_until_healed": is_fortify_until_healed
 	}
 
 static func deserialize(d: Dictionary):
@@ -188,4 +195,6 @@ static func deserialize(d: Dictionary):
 	u.is_patrolling = bool(d.get("is_patrolling", false))
 	u.is_healing = bool(d.get("is_healing", false))
 	u.is_sleeping = bool(d.get("is_sleeping", false))
+	u.is_sleep_until_healed = bool(d.get("is_sleep_until_healed", false))
+	u.is_fortify_until_healed = bool(d.get("is_fortify_until_healed", false))
 	return u
