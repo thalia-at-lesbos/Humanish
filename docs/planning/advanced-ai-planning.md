@@ -1,7 +1,8 @@
 # Plan: Advanced Player AI
 
-> **Status: PHASE A COMPLETE** (2026-06-09). Phase A (difficulty handicap) landed
-> on `feat/phase-a-ai-handicap`, merged to `main`. Phases B–D not yet started.
+> **Status: PHASES A & B COMPLETE** (2026-06-09). Phase A (difficulty handicap)
+> landed on `feat/phase-a-ai-handicap`; Phase B (competent brain) landed on
+> `feat/phase-b-ai-brain` — both merged to `main`. Phases C–D not yet started.
 > Supersedes nothing — builds on the existing `PlayerAI` (`src/api/player_ai.gd`),
 > which stays a pure static `SimFacade` *client* throughout. This document is the
 > design record and the step list; the live code is authoritative once work begins.
@@ -98,13 +99,28 @@ The AI is still strategically simple — that is Phase B.
 
 ---
 
-## Phase B — Competent brain
+## Phase B — Competent brain ✓ COMPLETE
 
 Replaces random unit/production play with a flat, ordered priority playbook. No
 planner, no tree — a handful of deterministic `_score_*` helpers. Each step is a
 self-contained behavior with its own test, landable independently.
 
-### B1. Expansion: settlers seek the best site and found
+> **Landed 2026-06-09** on `feat/phase-b-ai-brain`. `manage_units` is now a
+> wholly deterministic four-pass playbook (settlers → garrison → free military →
+> workers/recon); `_sorted_options` is role-ranked (defender → economy →
+> expansion → fallback). New AI tuning constants live in `data/constants.json`
+> (`ai_city_target`, `ai_min_defenders`, `ai_threat_radius`, `ai_attack_margin`,
+> `ai_settle_search_radius`, `ai_site_*`). No RNG is drawn in unit management —
+> every choice is deterministic, so determinism gates pass unchanged.
+>
+> **Full-game gate (B7):** the all-AI `ai_full_game_smoke.gd` reaches a win with
+> exit 0 / zero errors across seeds 42/99/7/123/2024; the seed-123 run plays the
+> full 500 turns (10 cities founded, 28 combats, 48 techs, 2 era advances),
+> proving the brain expands, fights, and never stalls or loops. (Several seeds win
+> early by the engine's small-map Domination quirk — a pre-existing trait: the old
+> random AI also won by turn 7–11 — not a Phase-B regression.)
+
+### B1. Expansion: settlers seek the best site and found ✓ DONE
 - **Goal:** Settlers walk toward the highest-scoring legal unclaimed city site
   and found there, instead of founding at random.
 - **Changes:** Add `_best_city_site(gs, unit, player)` scoring candidate tiles
@@ -119,7 +135,7 @@ self-contained behavior with its own test, landable independently.
 - **Complexity: Medium.** Site scoring is the most new logic in the phase, but
   it is a single pure helper.
 
-### B2. City-count target: keep expanding while good land remains
+### B2. City-count target: keep expanding while good land remains ✓ DONE
 - **Goal:** The AI builds settlers until it hits a city-count target or runs out
   of good sites, instead of relying on random settler production.
 - **Changes:** A `_wants_settler(gs, player)` predicate (city count below target
@@ -131,7 +147,7 @@ self-contained behavior with its own test, landable independently.
   spam with nowhere to go).
 - **Complexity: Low–Medium.**
 
-### B3. Directed production priority
+### B3. Directed production priority ✓ DONE
 - **Goal:** Replace cheapest-first-everything with a role-ordered build list:
   needed defender → growth/economy structure → settler/worker if expanding →
   cheapest remaining fallback.
@@ -145,7 +161,7 @@ self-contained behavior with its own test, landable independently.
 - **Complexity: Medium.** Touches the most-tested existing helper — keep the
   current cheapest-first as the final tiebreak so nothing regresses.
 
-### B4. Military floor: garrison to strength
+### B4. Military floor: garrison to strength ✓ DONE
 - **Goal:** Each city maintains ≥ `ai_min_defenders` fortified defenders;
   surplus units are freed for other roles instead of the 50/50 coin flip.
 - **Changes:** Replace the `rand_bool_percent(50)` garrison split with a
@@ -157,7 +173,7 @@ self-contained behavior with its own test, landable independently.
   fortifying. No RNG in the assignment.
 - **Complexity: Medium.**
 
-### B5. Threat response
+### B5. Threat response ✓ DONE
 - **Goal:** When an enemy/wild stack is within `ai_threat_radius` of a city whose
   garrison is under strength, build and/or route a defender to it.
 - **Changes:** A `_threats_near(gs, settlement)` scan (reuses `gs.map.distance`
@@ -168,7 +184,7 @@ self-contained behavior with its own test, landable independently.
   alarm when the nearest stack is friendly or out of radius.
 - **Complexity: Medium.**
 
-### B6. Opportunistic offense
+### B6. Opportunistic offense ✓ DONE
 - **Goal:** A local stack that clearly out-powers an adjacent enemy/wild target
   attacks; otherwise it consolidates. Deliberately conservative — no long-range
   invasions in v1.
@@ -180,7 +196,7 @@ self-contained behavior with its own test, landable independently.
   holds against a strong one. Determinism through a combat resolution + save/load.
 - **Complexity: Medium.**
 
-### B7. Brain integration + full-game gate
+### B7. Brain integration + full-game gate ✓ DONE
 - **Goal:** All B-steps cooperate over a whole game without stalls, loops, or
   errors.
 - **Changes:** Wire the helpers into `manage_units`/`manage_production`; ensure
@@ -193,7 +209,7 @@ self-contained behavior with its own test, landable independently.
 - **Complexity: Medium.** Mostly integration/tuning; the risk is per-turn cost,
   so keep every scan O(units × cities), not O(tiles²).
 
-**Phase B exit:** one competent strategy that expands, defends, and fights, the
+**Phase B exit:** ✓ one competent strategy that expands, defends, and fights, the
 same at every difficulty. Phase A's handicap now scales a strategy worth scaling.
 
 ---

@@ -170,7 +170,19 @@ static func manage_assembly(facade, player_id: int) -> void:
 		return
 	facade.apply_command(Commands.cast_vote(player_id, Assembly.ai_vote(gs, player_id)))
 
-# ── Cities: rotate through every buildable item, cheapest first ────────────────
+# ── Cities: a role-ordered build list (§B3) ────────────────────────────────────
+#
+# Replaces the old cheapest-first-everything queue with a deterministic priority
+# playbook: a needed garrison defender first, then growth/economy structures, then
+# settlers/workers while the empire is still expanding, then everything else as a
+# cheapest-first fallback. Ties at every level resolve by (cost, type, id) so the
+# plan is fully reproducible without touching the RNG.
+
+# Role ranks — lower builds first.
+const ROLE_DEFENDER: int = 0    # a military land unit while the city is under its floor
+const ROLE_ECONOMY: int = 1     # any structure (growth/commerce/infrastructure)
+const ROLE_EXPANSION: int = 2   # settler/worker while the empire still wants them
+const ROLE_FALLBACK: int = 3    # extra military and everything else, cheapest-first
 
 static func manage_production(facade, player_id: int) -> void:
 	var gs = facade.get_state()
@@ -181,7 +193,7 @@ static func manage_production(facade, player_id: int) -> void:
 		if s.owner_player_id != player_id:
 			continue
 		# Only (re)plan when the city has run dry, so it works steadily through the
-		# whole cheapest-first list rather than restarting on the cheapest each turn.
+		# whole priority list rather than restarting on the top item each turn.
 		if not s.production_queue.empty():
 			continue
 		var queue: Array = []
@@ -190,11 +202,16 @@ static func manage_production(facade, player_id: int) -> void:
 		if not queue.empty():
 			facade.apply_command(Commands.set_production(player_id, s.id, queue))
 
-# Every unit and structure this city could build right now, sorted cheapest-first.
-# Great People (born, never built) and already-built structures are excluded.
+# Every unit and structure this city could build right now, role-ranked then
+# cheapest-first within a rank. Great People (born, never built), already-built
+# structures, and expansion units the empire does not currently want are excluded.
 static func _sorted_options(gs, s, player) -> Array:
 	var db = gs.db
 	var pace: Dictionary = db.get_pace(gs.pace_id)
+	# Build context: does this city need a defender, and is the empire expanding?
+	var needs_defender: bool = _city_defender_count(gs, s, player.id) < _defender_target(gs, s, player.id)
+	var wants_settler: bool = _wants_settler(gs, player)
+	var wants_worker: bool = _wants_worker(gs, player)
 	var opts: Array = []
 	for uid in db.units:
 		var u: Dictionary = db.units[uid]
@@ -206,8 +223,14 @@ static func _sorted_options(gs, s, player) -> Array:
 		# (trains_missionaries) or the Organized Religion civic (§8).
 		if "requires_religion" in u.get("tags", []) and not _can_train_missionary(gs, s, player):
 			continue
+		# Drop expansion units the empire does not currently want, so the AI never
+		# spams settlers with nowhere to go or workers it cannot use.
+		if bool(u.get("can_found", false)) and not wants_settler:
+			continue
+		if _is_worker_unit(u) and not wants_worker:
+			continue
 		var item_u: Dictionary = {"type": "unit", "id": uid}
-		opts.append({"type": "unit", "id": uid,
+		opts.append({"type": "unit", "id": uid, "role": _unit_role(u, needs_defender),
 			"cost": TurnEngine._item_cost(item_u, db, player, pace)})
 	for sid in db.structures:
 		if s.has_structure(sid):
@@ -216,10 +239,10 @@ static func _sorted_options(gs, s, player) -> Array:
 		if not _tech_ok(st.get("tech_required", null), player):
 			continue
 		var item_s: Dictionary = {"type": "structure", "id": sid}
-		opts.append({"type": "structure", "id": sid,
+		opts.append({"type": "structure", "id": sid, "role": ROLE_ECONOMY,
 			"cost": TurnEngine._item_cost(item_s, db, player, pace)})
 	# Selection sort: Godot 3 cannot stably sort arrays of dictionaries via sort(),
-	# and a custom comparator over (cost, type, id) keeps the order deterministic.
+	# and a custom comparator over (role, cost, type, id) keeps the order determined.
 	var n: int = opts.size()
 	for i in range(n):
 		var best: int = i
@@ -232,39 +255,419 @@ static func _sorted_options(gs, s, player) -> Array:
 			opts[best] = tmp
 	return opts
 
-# True if option `a` should be built before `b`: cheaper first, ties broken by type
-# then id so the ordering is fully determined.
+# Role rank for a unit option, given whether the city still needs a garrison.
+# A military land unit fills the defender slot first; otherwise (and for every
+# non-military unit) it is a cheapest-first fallback, with expansion units ranked
+# between economy and the fallback when the empire wants them.
+static func _unit_role(u: Dictionary, needs_defender: bool) -> int:
+	if _is_military_unit(u):
+		return ROLE_DEFENDER if needs_defender else ROLE_FALLBACK
+	if bool(u.get("can_found", false)) or _is_worker_unit(u):
+		return ROLE_EXPANSION
+	return ROLE_FALLBACK
+
+# True if option `a` should be built before `b`: lower role first, then cheaper,
+# ties broken by type then id so the ordering is fully determined.
 static func _option_better(a: Dictionary, b: Dictionary) -> bool:
+	if int(a.get("role", ROLE_FALLBACK)) != int(b.get("role", ROLE_FALLBACK)):
+		return int(a.get("role", ROLE_FALLBACK)) < int(b.get("role", ROLE_FALLBACK))
 	if int(a["cost"]) != int(b["cost"]):
 		return int(a["cost"]) < int(b["cost"])
 	if str(a["type"]) != str(b["type"]):
 		return str(a["type"]) < str(b["type"])
 	return str(a["id"]) < str(b["id"])
 
-# ── Units: half garrison, the rest wander and act at random ────────────────────
+# ── Units: a flat, deterministic playbook (§B1–B6) ─────────────────────────────
+#
+# Wholly deterministic — no RNG. Each unit is handled exactly once per turn, in
+# four ordered passes:
+#   1. Settlers walk toward the best legal city site and found there (§B1).
+#   2. Garrisons: each city's defender slots are filled nearest-first from idle
+#      military units, which fortify in place (§B4); a threatened city raises its
+#      target by one so a free unit is pulled in (§B5).
+#   3. Free military units attack an adjacent target they clearly out-power, else
+#      advance on the nearest threat or fortify (§B6).
+#   4. Workers improve their tile; recon explores; anything else digs in.
 
 static func manage_units(facade, player_id: int) -> void:
 	var gs = facade.get_state()
-	# Snapshot ids up front: a command may remove a unit (found a city, disband),
-	# so we re-fetch and null-check before acting on each one.
+	var player = gs.get_player(player_id)
+	if player == null:
+		return
+	# Snapshot ids up front: a command may remove a unit (found a city), so we
+	# re-fetch and null-check before acting on each one. `handled` guarantees each
+	# unit acts in exactly one pass.
 	var unit_ids: Array = []
 	for u in gs.units:
-		if u.owner_player_id == player_id:
+		if u.owner_player_id == player_id and u.transported_by < 0:
 			unit_ids.append(u.id)
+	var handled: Dictionary = {}
+
+	# Pass 1 — settlers.
 	for uid in unit_ids:
+		var su = gs.get_unit(uid)
+		if su == null or not bool(gs.db.get_unit(su.unit_type_id).get("can_found", false)):
+			continue
+		_manage_settler(facade, gs, su, player)
+		handled[uid] = true
+
+	# Pass 2 — garrison assignment (nearest-first, deterministic).
+	for uid in _assign_garrisons(facade, gs, unit_ids, handled, player_id):
+		handled[uid] = true
+
+	# Pass 3 & 4 — remaining units by role.
+	for uid in unit_ids:
+		if handled.get(uid, false):
+			continue
 		var u = gs.get_unit(uid)
 		if u == null:
 			continue
-		# Carried units ride with their transport; they are not moved independently.
-		if u.transported_by >= 0:
-			continue
-		if gs.rng.rand_bool_percent(50):
-			_garrison_unit(facade, gs, u, player_id)
+		var udata: Dictionary = gs.db.get_unit(u.unit_type_id)
+		if _is_military_unit(udata):
+			_manage_free_military(facade, gs, u, player_id)
+		elif _is_worker_unit(udata):
+			_manage_worker(facade, gs, u, player_id)
+		elif str(udata.get("classification", "")) == "recon":
+			facade.apply_command(Commands.mission_explore(player_id, u.id))
 		else:
-			_random_action(facade, gs, u, player_id)
+			facade.apply_command(Commands.unit_fortify(player_id, u.id))
+
+# ── §B1 Expansion: settlers seek the best site and found ───────────────────────
+
+# Walk toward the best legal city site and found on arrival. With no positive site
+# in range, found in place if legal, else wander toward open land.
+static func _manage_settler(facade, gs, u, player) -> void:
+	var player_id: int = player.id
+	var site = _best_city_site(gs, u, player)
+	if site == null:
+		if _legal_site(gs, u.x, u.y):
+			facade.apply_command(Commands.found_settlement(player_id, u.id))
+		else:
+			_seek_open_land(facade, gs, u, player_id)
+		return
+	if u.x == int(site["x"]) and u.y == int(site["y"]):
+		facade.apply_command(Commands.found_settlement(player_id, u.id))
+		return
+	# Move toward the site; if the move reaches it this turn, found immediately.
+	facade.apply_command(Commands.mission_move_to(player_id, u.id, int(site["x"]), int(site["y"])))
+	var after = gs.get_unit(u.id)
+	if after != null and after.x == int(site["x"]) and after.y == int(site["y"]):
+		facade.apply_command(Commands.found_settlement(player_id, after.id))
+
+# The highest-scoring legal unclaimed city site within the settler's search radius,
+# or null if none scores above the floor. Fully deterministic: ties resolve by
+# higher score then lower tile id (y * width + x).
+static func _best_city_site(gs, u, player):
+	var db = gs.db
+	var radius: int = db.get_constant("ai_settle_search_radius", 6)
+	var dist_penalty: int = db.get_constant("ai_site_distance_penalty", 2)
+	var min_score: int = db.get_constant("ai_site_min_score", 1)
+	var best = null
+	var best_score: int = 0
+	var best_key: int = 0
+	for t in gs.map.tiles_in_range(u.x, u.y, radius):
+		if not _legal_site(gs, t.x, t.y):
+			continue
+		var score: int = _site_score(gs, t.x, t.y) \
+			- gs.map.distance(u.x, u.y, t.x, t.y) * dist_penalty
+		if score < min_score:
+			continue
+		var key: int = t.y * gs.map.width + t.x
+		if best == null or score > best_score or (score == best_score and key < best_key):
+			best = {"x": t.x, "y": t.y}
+			best_score = score
+			best_key = key
+	return best
+
+# Sum of the surrounding tiles' weighted base yields over the city work radius (2).
+static func _site_score(gs, cx: int, cy: int) -> int:
+	var db = gs.db
+	var fw: int = db.get_constant("ai_site_yield_food_weight", 2)
+	var pw: int = db.get_constant("ai_site_yield_production_weight", 2)
+	var cw: int = db.get_constant("ai_site_yield_commerce_weight", 1)
+	var total: int = 0
+	for t in gs.map.tiles_in_range(cx, cy, 2):
+		var bo: Dictionary = db.get_terrain(t.terrain_id).get("base_output", {})
+		total += int(bo.get("food", 0)) * fw + int(bo.get("production", 0)) * pw \
+			+ int(bo.get("commerce", 0)) * cw
+	return total
+
+# A tile is a legal settlement site when it is passable land and no existing
+# settlement is closer than the minimum spacing — mirrors SimFacade._cmd_found.
+static func _legal_site(gs, cx: int, cy: int) -> bool:
+	var tile = gs.map.get_tile(cx, cy)
+	if tile == null:
+		return false
+	var ter: Dictionary = gs.db.get_terrain(tile.terrain_id)
+	if str(ter.get("domain", "land")) != "land" or bool(ter.get("impassable", false)):
+		return false
+	var min_dist: int = gs.db.get_constant("min_settlement_distance", 3)
+	for s in gs.settlements:
+		if gs.map.distance(cx, cy, s.x, s.y) < min_dist:
+			return false
+	return true
+
+# No good site in range: step toward open land (the neighbour that maximises the
+# distance to the nearest settlement), so the settler keeps seeking. Falls back to
+# fortify when nothing improves, so it never stalls the turn loop.
+static func _seek_open_land(facade, gs, u, player_id: int) -> void:
+	var here: int = _nearest_settlement_distance(gs, u.x, u.y)
+	var best = null
+	var best_d: int = here
+	var best_key: int = 0
+	for t in gs.map.neighbours8(u.x, u.y):
+		var ter: Dictionary = gs.db.get_terrain(t.terrain_id)
+		if str(ter.get("domain", "land")) != "land" or bool(ter.get("impassable", false)):
+			continue
+		var d: int = _nearest_settlement_distance(gs, t.x, t.y)
+		var key: int = t.y * gs.map.width + t.x
+		if d > best_d or (d == best_d and best != null and key < best_key):
+			best = t
+			best_d = d
+			best_key = key
+	if best != null:
+		facade.apply_command(Commands.mission_move_to(player_id, u.id, best.x, best.y))
+	else:
+		facade.apply_command(Commands.unit_fortify(player_id, u.id))
+
+static func _nearest_settlement_distance(gs, x: int, y: int) -> int:
+	var best: int = -1
+	for s in gs.settlements:
+		var d: int = gs.map.distance(x, y, s.x, s.y)
+		if best < 0 or d < best:
+			best = d
+	return best if best >= 0 else 0
+
+# ── §B2 City-count target: keep expanding while good land remains ──────────────
+
+# True while the empire is below its city target AND a positive-scoring open site
+# exists near one of its cities (or it has no city yet). Drives both settler
+# production (§B3) and whether a settler bothers to look for a site.
+static func _wants_settler(gs, player) -> bool:
+	var target: int = gs.db.get_constant("ai_city_target", 6)
+	if _owned_city_count(gs, player.id) >= target:
+		return false
+	return _open_site_exists(gs, player)
+
+# A worker is wanted while the empire has fewer workers than cities.
+static func _wants_worker(gs, player) -> bool:
+	var workers: int = 0
+	for u in gs.units:
+		if u.owner_player_id == player.id and _is_worker_unit(gs.db.get_unit(u.unit_type_id)):
+			workers += 1
+	return workers < _owned_city_count(gs, player.id)
+
+# Is there a legal, positive-scoring city site within settling range of the empire?
+# Scanned around each city (and a no-city player always qualifies so it can settle
+# its first one). The scan is O(cities × tiles_in_range), never O(tiles²).
+static func _open_site_exists(gs, player) -> bool:
+	var radius: int = gs.db.get_constant("ai_settle_search_radius", 6)
+	var min_score: int = gs.db.get_constant("ai_site_min_score", 1)
+	var anchors: Array = []
+	for s in gs.settlements:
+		if s.owner_player_id == player.id:
+			anchors.append(s)
+	if anchors.empty():
+		return true
+	var seen: Dictionary = {}
+	for s in anchors:
+		for t in gs.map.tiles_in_range(s.x, s.y, radius):
+			var key: int = t.y * gs.map.width + t.x
+			if seen.has(key):
+				continue
+			seen[key] = true
+			if _legal_site(gs, t.x, t.y) and _site_score(gs, t.x, t.y) >= min_score:
+				return true
+	return false
+
+static func _owned_city_count(gs, player_id: int) -> int:
+	var n: int = 0
+	for s in gs.settlements:
+		if s.owner_player_id == player_id:
+			n += 1
+	return n
+
+# ── §B4/§B5 Military floor: garrison each city to strength ─────────────────────
+
+# Fill every city's defender slots from the nearest idle military units, deciding
+# the whole assignment before issuing orders so it is order-independent. An
+# assigned unit standing on its city fortifies; otherwise it marches to it.
+# Returns the ids it handled. A threatened city's target is raised by one (§B5).
+static func _assign_garrisons(facade, gs, unit_ids: Array, handled: Dictionary, player_id: int) -> Array:
+	var military: Array = []
+	for uid in unit_ids:
+		if handled.get(uid, false):
+			continue
+		var u = gs.get_unit(uid)
+		if u != null and _is_military_unit(gs.db.get_unit(u.unit_type_id)):
+			military.append(uid)
+	# Cities in id order for a stable assignment.
+	var cities: Array = []
+	for s in gs.settlements:
+		if s.owner_player_id == player_id:
+			cities.append(s)
+	_sort_by_id(cities)
+
+	var assigned: Dictionary = {}   # uid -> settlement
+	for s in cities:
+		var target: int = _defender_target(gs, s, player_id)
+		var count: int = 0
+		while count < target:
+			var pick: int = _nearest_unassigned(gs, military, assigned, s)
+			if pick < 0:
+				break
+			assigned[pick] = s
+			count += 1
+	var done: Array = []
+	for uid in assigned:
+		var u = gs.get_unit(uid)
+		if u == null:
+			continue
+		var s = assigned[uid]
+		if u.x == s.x and u.y == s.y:
+			facade.apply_command(Commands.unit_fortify(player_id, u.id))
+		else:
+			facade.apply_command(Commands.mission_move_to(player_id, u.id, s.x, s.y))
+		done.append(uid)
+	return done
+
+# The id of the nearest military unit not yet assigned, or -1. Ties resolve by
+# lower unit id so the choice is fully determined.
+static func _nearest_unassigned(gs, military: Array, assigned: Dictionary, s) -> int:
+	var best: int = -1
+	var best_d: int = 0
+	for uid in military:
+		if assigned.has(uid):
+			continue
+		var u = gs.get_unit(uid)
+		if u == null:
+			continue
+		var d: int = gs.map.distance(u.x, u.y, s.x, s.y)
+		if best < 0 or d < best_d or (d == best_d and uid < best):
+			best = uid
+			best_d = d
+	return best
+
+# A city's defender target: the base floor, +1 while a hostile stack is near (§B5).
+static func _defender_target(gs, s, player_id: int) -> int:
+	var target: int = gs.db.get_constant("ai_min_defenders", 1)
+	if _threats_near(gs, s, player_id):
+		target += 1
+	return target
+
+# How many of the player's military units currently stand on this city's tile.
+static func _city_defender_count(gs, s, player_id: int) -> int:
+	var n: int = 0
+	for u in gs.units:
+		if u.owner_player_id == player_id and u.x == s.x and u.y == s.y \
+				and _is_military_unit(gs.db.get_unit(u.unit_type_id)):
+			n += 1
+	return n
+
+# Any hostile (enemy or wild) unit within the threat radius of the settlement.
+static func _threats_near(gs, s, player_id: int) -> bool:
+	var radius: int = gs.db.get_constant("ai_threat_radius", 3)
+	for u in gs.units:
+		if not _is_hostile_owner(gs, player_id, u.owner_player_id):
+			continue
+		if gs.map.distance(s.x, s.y, u.x, u.y) <= radius:
+			return true
+	return false
+
+# ── §B6 Threat response & opportunistic offense ────────────────────────────────
+
+# A free military unit attacks an adjacent target it clearly out-powers; otherwise
+# it advances on the nearest threat (consolidating toward the front) or, with none
+# in range, fortifies. Deliberately conservative — no long-range invasions in v1.
+static func _manage_free_military(facade, gs, u, player_id: int) -> void:
+	var target = _adjacent_attack_target(gs, u, player_id)
+	if target != null:
+		facade.apply_command(Commands.mission_move_to(player_id, u.id, int(target["x"]), int(target["y"])))
+		return
+	var threat = _nearest_threat(gs, u, player_id)
+	if threat != null:
+		facade.apply_command(Commands.mission_move_to(player_id, u.id, int(threat["x"]), int(threat["y"])))
+	else:
+		facade.apply_command(Commands.unit_fortify(player_id, u.id))
+
+# An adjacent tile holding a hostile target this unit should attack: a defender it
+# out-powers by the data margin, or an undefended hostile city. Scans neighbours in
+# the map's deterministic order and returns the first qualifying tile.
+static func _adjacent_attack_target(gs, u, player_id: int):
+	var db = gs.db
+	var margin: int = db.get_constant("ai_attack_margin", 20)
+	var atk_power: int = _attack_power(u, db)
+	for t in gs.map.neighbours8(u.x, u.y):
+		var s = gs.get_settlement_at(t.x, t.y)
+		var hostile_city: bool = s != null and _is_hostile_owner(gs, player_id, s.owner_player_id)
+		var defender = Stack.get_defender(gs.units, t.x, t.y, player_id, gs)
+		if defender != null:
+			# A non-owned unit is only a target if it is actually hostile (at war or
+			# wild) — never attack a neutral. Then only when clearly stronger.
+			if not _is_hostile_owner(gs, player_id, defender.owner_player_id):
+				continue
+			if atk_power * 100 >= _defence_power(gs, defender) * (100 + margin):
+				return {"x": t.x, "y": t.y}
+		elif hostile_city:
+			# Undefended hostile city: safe to assault.
+			return {"x": t.x, "y": t.y}
+	return null
+
+# The nearest *non-adjacent* hostile unit within twice the threat radius, or null.
+# Lets a free unit advance toward the front instead of milling at home. Adjacent
+# enemies are deliberately excluded — the attack decision (_adjacent_attack_target)
+# already ruled on them, so a unit that declined a too-strong neighbour holds rather
+# than blundering into it.
+static func _nearest_threat(gs, u, player_id: int):
+	var reach: int = gs.db.get_constant("ai_threat_radius", 3) * 2
+	var best = null
+	var best_d: int = 0
+	var best_key: int = 0
+	for other in gs.units:
+		if not _is_hostile_owner(gs, player_id, other.owner_player_id):
+			continue
+		var d: int = gs.map.distance(u.x, u.y, other.x, other.y)
+		if d <= 1 or d > reach:
+			continue
+		var key: int = other.y * gs.map.width + other.x
+		if best == null or d < best_d or (d == best_d and key < best_key):
+			best = {"x": other.x, "y": other.y}
+			best_d = d
+			best_key = key
+	return best
+
+# Attacker / defender power proxies: effective strength scaled by current health,
+# in the same units, so the margin comparison is apples-to-apples. Neutral terrain
+# for the attacker; the defender's own tile (terrain + settlement bonus) for it.
+static func _attack_power(u, db) -> int:
+	return u.effective_strength(db, true, {}, {}, "", false, 0) * u.health
+
+static func _defence_power(gs, d) -> int:
+	var db = gs.db
+	var tile = gs.map.get_tile(d.x, d.y)
+	var ter: Dictionary = db.get_terrain(tile.terrain_id) if tile != null else {}
+	var feat: Dictionary = db.get_feature(tile.feature_id) if tile != null and tile.feature_id != "" else {}
+	var at_settlement: bool = gs.get_settlement_at(d.x, d.y) != null
+	return d.effective_strength(db, false, ter, feat, "", at_settlement, 0) * d.health
+
+# ── §B-units worker handling ───────────────────────────────────────────────────
+
+# A worker builds a road on its tile when there is none, else marches to the
+# nearest owned city to await orders. Simple and stall-free.
+static func _manage_worker(facade, gs, u, player_id: int) -> void:
+	var tile = gs.map.get_tile(u.x, u.y)
+	if tile != null and tile.improvement_id == "" \
+			and facade.apply_command(Commands.mission_build_road(player_id, u.id)):
+		return
+	var target = _nearest_owned_city(gs, u, player_id)
+	if target != null and not (u.x == target.x and u.y == target.y):
+		facade.apply_command(Commands.mission_move_to(player_id, u.id, target.x, target.y))
+	else:
+		facade.apply_command(Commands.mission_skip_turn(player_id, u.id))
 
 # A garrison unit holds its city. If it is not standing on one of the player's own
 # settlements, it heads for the nearest one; with no city to hold, it simply digs in.
+# Retained for the per-unit garrison path and exercised directly by tests.
 static func _garrison_unit(facade, gs, u, player_id: int) -> void:
 	var here = gs.get_settlement_at(u.x, u.y)
 	if here != null and here.owner_player_id == player_id:
@@ -288,45 +691,42 @@ static func _nearest_owned_city(gs, u, player_id: int):
 			best_d = d
 	return best
 
-# Pick one of the actions this unit can currently take and do it. The candidate set
-# depends on the unit (settlers can found, workers can build, etc.); a uniform draw
-# over it gives the "cycle through actions randomly" behaviour.
-static func _random_action(facade, gs, u, player_id: int) -> void:
-	var udata: Dictionary = gs.db.get_unit(u.unit_type_id)
-	var actions: Array = ["move", "fortify", "sleep", "skip"]
-	if bool(udata.get("can_found", false)):
-		actions.append("found")
-	if bool(udata.get("can_build", false)):
-		actions.append("build_road")
-	var tile = gs.map.get_tile(u.x, u.y)
-	if tile != null and tile.improvement_id != "":
-		actions.append("pillage")
+# ── Unit classification (data-driven) ──────────────────────────────────────────
 
-	var pick: String = actions[gs.rng.randi_range(0, actions.size() - 1)]
-	match pick:
-		"move":
-			_move_random(facade, gs, u, player_id)
-		"fortify":
-			facade.apply_command(Commands.unit_fortify(player_id, u.id))
-		"sleep":
-			facade.apply_command(Commands.unit_sleep(player_id, u.id))
-		"skip":
-			facade.apply_command(Commands.mission_skip_turn(player_id, u.id))
-		"found":
-			# May be rejected (too close to another city); wander instead if so.
-			if not facade.apply_command(Commands.found_settlement(player_id, u.id)):
-				_move_random(facade, gs, u, player_id)
-		"build_road":
-			facade.apply_command(Commands.mission_build_road(player_id, u.id))
-		"pillage":
-			facade.apply_command(Commands.mission_pillage(player_id, u.id))
+# A land combat unit able to garrison/attack: has strength, is land-domain, and is
+# neither a civilian nor a wild animal.
+static func _is_military_unit(udata: Dictionary) -> bool:
+	var cls: String = str(udata.get("classification", ""))
+	if cls == "civilian" or cls == "animal" or cls == "great_person":
+		return false
+	if str(udata.get("domain", "land")) != "land":
+		return false
+	return int(udata.get("base_strength", 0)) > 0
 
-static func _move_random(facade, gs, u, player_id: int) -> void:
-	var nbs: Array = gs.map.neighbours8(u.x, u.y)
-	if nbs.empty():
-		return
-	var t = nbs[gs.rng.randi_range(0, nbs.size() - 1)]
-	facade.apply_command(Commands.mission_move_to(player_id, u.id, t.x, t.y))
+static func _is_worker_unit(udata: Dictionary) -> bool:
+	return bool(udata.get("can_build", false)) and not bool(udata.get("can_found", false))
+
+# True when `owner` is hostile to `player_id`: a different player at war, or any
+# wild force (negative owner id, e.g. -2).
+static func _is_hostile_owner(gs, player_id: int, owner: int) -> bool:
+	if owner == player_id:
+		return false
+	if owner < 0:
+		return true
+	return gs.are_at_war(player_id, owner)
+
+# In-place selection sort of a settlement array by id, ascending (deterministic).
+static func _sort_by_id(arr: Array) -> void:
+	var n: int = arr.size()
+	for i in range(n):
+		var best: int = i
+		for j in range(i + 1, n):
+			if arr[j].id < arr[best].id:
+				best = j
+		if best != i:
+			var tmp = arr[i]
+			arr[i] = arr[best]
+			arr[best] = tmp
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
