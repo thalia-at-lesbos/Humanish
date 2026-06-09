@@ -102,6 +102,64 @@ func test_world_size_change_updates_count_and_rows_until_user_override() -> void
 	assert_eq(_visible_row_count(screen), 5,
 		"Visible rows still match the user-chosen count")
 
+func test_leader_picker_populates_and_flows_chosen_leader() -> void:
+	var screen = load("res://scenes/setup/setup_screen.gd").new()
+	screen.anchor_right = 1.0
+	screen.anchor_bottom = 1.0
+	add_child_autofree(screen)
+	screen.init(make_db(), funcref(self, "_on_start"))
+	_started = false
+	_started_facade = null
+	screen._player_count_spin.value = 2
+
+	var db = make_db()
+	# Greek has two leaders (alexander = society default, plus pericles).
+	var greek_pos = screen._player_rows[0]["society_ids"].find("greek")
+	assert_true(greek_pos >= 0, "greek society exists")
+	# select() does not emit item_selected, so drive the handler as the UI would.
+	screen._player_rows[0]["society_btn"].select(greek_pos + 1)  # +1 for No Society
+	screen._populate_leaders(0)
+
+	var leader_ids = screen._player_rows[0]["leader_ids"]
+	assert_true("alexander" in leader_ids and "pericles" in leader_ids,
+		"Greek leader picker lists the faction's leaders")
+	assert_eq(leader_ids[screen._player_rows[0]["leader_btn"].selected], "alexander",
+		"Leader picker defaults to the society's own leader")
+
+	# Choose the non-default leader.
+	screen._player_rows[0]["leader_btn"].select(leader_ids.find("pericles"))
+	# Player 2 just needs any society so Start proceeds.
+	screen._player_rows[1]["society_btn"].select(1)
+
+	screen._on_start_pressed()
+	assert_true(_started, "Start proceeds with a valid setup")
+	var p1 = _started_facade.get_state().get_player(1)
+	assert_eq(p1.leader_id, "pericles", "Chosen leader flows into the player")
+	assert_eq(p1.traits, db.get_leader("pericles").get("traits"),
+		"Player receives the chosen leader's traits, not the society default")
+
+func test_society_default_leader_used_when_picker_untouched() -> void:
+	# Regression: selecting only a society (no leader interaction) preserves the
+	# old behaviour — the society's default leader and traits.
+	var screen = load("res://scenes/setup/setup_screen.gd").new()
+	screen.anchor_right = 1.0
+	screen.anchor_bottom = 1.0
+	add_child_autofree(screen)
+	screen.init(make_db(), funcref(self, "_on_start"))
+	_started = false
+	_started_facade = null
+	screen._player_count_spin.value = 2
+	screen._player_rows[0]["society_btn"].select(1)
+	screen._player_rows[1]["society_btn"].select(1)
+
+	screen._on_start_pressed()
+	assert_true(_started, "Start proceeds")
+	var db = make_db()
+	var sid = screen._player_rows[0]["society_ids"][0]
+	var p1 = _started_facade.get_state().get_player(1)
+	assert_eq(p1.leader_id, db.get_society(sid).get("leader_id"),
+		"Untouched picker yields the society's default leader")
+
 func test_ai_toggle_flows_into_player_is_ai() -> void:
 	var screen = load("res://scenes/setup/setup_screen.gd").new()
 	screen.anchor_right = 1.0

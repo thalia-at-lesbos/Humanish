@@ -127,6 +127,23 @@ func get_societies() -> Dictionary:
 func get_society(id: String) -> Dictionary:
 	return get_societies().get(id, {})
 
+func get_leaders() -> Dictionary:
+	return leaders_traits.get("leaders", {})
+
+func get_leader(id: String) -> Dictionary:
+	return get_leaders().get(id, {})
+
+# The leader ids belonging to a society — every leader whose `faction` matches the
+# society id (e.g. society "greek" → ["alexander", "pericles"]). The society's own
+# `leader_id` is always among them. Returned in the leaders table's declared order.
+func get_society_leaders(society_id: String) -> Array:
+	var result: Array = []
+	var leaders: Dictionary = get_leaders()
+	for lid in leaders.keys():
+		if str(leaders[lid].get("faction", "")) == society_id:
+			result.append(lid)
+	return result
+
 # Derive a player's opening units from their starting techs (game-data.md §3):
 # always a settler, plus a single escort unit — a scout when a starting tech
 # grants one (Hunting → Scout), otherwise the default warrior. The rule lives in

@@ -82,6 +82,13 @@ func _build_ui() -> void:
 		society_btn.add_item("— No Society —")
 		for sid in society_ids:
 			society_btn.add_item(societies[sid].get("name", sid))
+		society_btn.connect("item_selected", self, "_on_society_selected", [i])
+		# Leader picker — populated from the chosen society's leaders (faction match).
+		# Disabled with a placeholder until a society is selected; defaults to the
+		# society's own leader so leaving it untouched preserves the old behaviour.
+		var leader_btn: OptionButton = OptionButton.new()
+		leader_btn.add_item("—")
+		leader_btn.disabled = true
 		# Per-player computer-control toggle. Player 1 defaults to human; the
 		# rest default to AI so a solo player gets opponents out of the box.
 		var ai_check: CheckBox = CheckBox.new()
@@ -90,9 +97,11 @@ func _build_ui() -> void:
 		row.add_child(lbl)
 		row.add_child(edit)
 		row.add_child(society_btn)
+		row.add_child(leader_btn)
 		row.add_child(ai_check)
 		_player_rows.append({"row": row, "name_edit": edit, "society_btn": society_btn,
-				"society_ids": society_ids, "ai_check": ai_check})
+				"society_ids": society_ids, "leader_btn": leader_btn, "leader_ids": [],
+				"ai_check": ai_check})
 		vbox.add_child(row)
 		# Visibility is synced to the player count by _apply_player_count() below.
 		row.visible = false
@@ -239,6 +248,37 @@ func _players_missing_society(count: int) -> Array:
 			missing.append(i + 1)
 	return missing
 
+# Society dropdown changed for a player row → refresh that row's leader picker.
+func _on_society_selected(_society_idx: int, row_idx: int) -> void:
+	_populate_leaders(row_idx)
+
+# Fill a row's leader picker with the leaders of its selected society (faction
+# match), defaulting to the society's own leader. With no society selected the
+# picker is disabled and shows a placeholder.
+func _populate_leaders(row_idx: int) -> void:
+	var row_data: Dictionary = _player_rows[row_idx]
+	var leader_btn: OptionButton = row_data["leader_btn"]
+	leader_btn.clear()
+	var society_idx: int = row_data["society_btn"].selected - 1  # 0 = "No Society"
+	if society_idx < 0:
+		leader_btn.add_item("—")
+		leader_btn.disabled = true
+		row_data["leader_ids"] = []
+		return
+	var sid: String = row_data["society_ids"][society_idx]
+	var leader_ids: Array = _db.get_society_leaders(sid)
+	row_data["leader_ids"] = leader_ids
+	leader_btn.disabled = leader_ids.empty()
+	var default_leader: String = str(_db.get_society(sid).get("leader_id", ""))
+	var default_idx: int = 0
+	for j in range(leader_ids.size()):
+		var leader: Dictionary = _db.get_leader(leader_ids[j])
+		leader_btn.add_item(leader.get("name", leader_ids[j]))
+		if leader_ids[j] == default_leader:
+			default_idx = j
+	if not leader_ids.empty():
+		leader_btn.select(default_idx)
+
 func _on_start_pressed() -> void:
 	var count: int = int(_player_count_spin.value)
 	if count > _player_rows.size():
@@ -270,6 +310,15 @@ func _on_start_pressed() -> void:
 			traits = society.get("traits", []).duplicate()
 			starting_gold = int(society.get("starting_gold", 100))
 			starting_techs = society.get("starting_techs", starting_techs).duplicate()
+			# Use the player's chosen leader (and its traits) when the picker has been
+			# populated for this society; otherwise fall back to the society default.
+			var leader_ids: Array = row_data["leader_ids"]
+			var leader_sel: int = row_data["leader_btn"].selected
+			if leader_sel >= 0 and leader_sel < leader_ids.size():
+				leader_id = leader_ids[leader_sel]
+			var leader: Dictionary = _db.get_leader(leader_id)
+			if not leader.empty():
+				traits = leader.get("traits", traits).duplicate()
 		# Opening units are derived from the starting techs (settler + warrior, or a
 		# scout when Hunting is known); see DataDB.starting_units_for_techs.
 		player_configs.append({
