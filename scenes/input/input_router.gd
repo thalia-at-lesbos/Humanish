@@ -104,6 +104,9 @@ func _handle_move_click(tx: int, ty: int, gs) -> void:
 	else:
 		_facade.apply_command(Commands.move_stack(
 			gs.current_player_id, head.x, head.y, tx, ty, ids))
+	# Issue 14: flash the target tile to confirm the move order.
+	if _world_view != null and _world_view.has_method("flash_move_tile"):
+		_world_view.flash_move_tile(tx, ty)
 	_maybe_auto_advance(gs)
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:

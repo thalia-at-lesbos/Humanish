@@ -69,6 +69,8 @@ var _zoom: float = 1.0               # camera zoom factor
 
 # Flash data: tile → flash expiry time (for combat)
 var _flash_tiles: Dictionary = {}
+# Move-order flash: tile → flash expiry time (for right-click move feedback)
+var _move_flash_tiles: Dictionary = {}
 
 func init(facade) -> void:
 	_facade = facade
@@ -90,7 +92,14 @@ func _process(delta: float) -> void:
 			expired.append(key)
 	for key in expired:
 		_flash_tiles.erase(key)
-	if not expired.empty():
+	# Expire move-order flash tiles
+	var move_expired: Array = []
+	for key in _move_flash_tiles:
+		if now >= _move_flash_tiles[key]:
+			move_expired.append(key)
+	for key in move_expired:
+		_move_flash_tiles.erase(key)
+	if not expired.empty() or not move_expired.empty():
 		update()
 
 	if _facade.get_dirty().is_dirty(IDs.DirtyRegion.WORLD):
@@ -163,6 +172,16 @@ func _draw() -> void:
 			# Combat flash
 			if _flash_tiles.has(tile_key) and now < _flash_tiles[tile_key]:
 				draw_rect(rect, Color(1, 0.1, 0.1, 0.4))
+
+			# Move-order flash: a brief cyan outline fading over 0.4 s
+			if _move_flash_tiles.has(tile_key):
+				var expiry: float = _move_flash_tiles[tile_key]
+				if now < expiry:
+					var age: float = 0.4 - (expiry - now)   # 0 → 0.4
+					var alpha: float = 1.0 - (age / 0.4)    # 1.0 → 0.0
+					var border: Rect2 = rect.grow(-2 * _zoom)
+					draw_rect(border, Color(0.2, 1.0, 0.9, alpha), false)
+					draw_rect(rect, Color(0.2, 1.0, 0.9, alpha * 0.25))
 
 			# Selection highlight
 			if highlights.has(tile_key):
@@ -422,6 +441,14 @@ func _camera_changed() -> void:
 	var fog = get_node_or_null("FogLayer")
 	if fog != null and fog.has_method("sync_camera"):
 		fog.sync_camera(_zoom, _offset)
+
+# Flash the tile at (tx, ty) with a brief cyan outline for ~0.4 s to confirm a
+# move order was received (Issue 14). Called by InputRouter after a right-click
+# move command is issued.
+func flash_move_tile(tx: int, ty: int) -> void:
+	var key: String = str(tx) + "," + str(ty)
+	_move_flash_tiles[key] = OS.get_ticks_msec() / 1000.0 + 0.4
+	update()
 
 # ── Signal handlers ───────────────────────────────────────────────────────────
 

@@ -2091,10 +2091,21 @@ func tile_info_text(tx: int, ty: int) -> String:
 			lines.append(owner_name + "'s city: " + s.name + "  (pop " + str(s.population) + ")")
 	for u in _gs.units:
 		if u.x == tx and u.y == ty and u.owner_player_id != _gs.current_player_id:
-			var owner: Player = _gs.get_player(u.owner_player_id)
-			var owner_name: String = owner.name if owner != null else "?"
-			var uname: String = _db.get_unit(u.unit_type_id).get("name", u.unit_type_id.capitalize())
-			lines.append(owner_name + "'s " + uname + "  (HP " + str(u.health) + ")")
+			var udata: Dictionary = _db.get_unit(u.unit_type_id)
+			var uname: String = udata.get("name", u.unit_type_id.capitalize())
+			var unit_label: String
+			if u.owner_player_id == -2:
+				# Wild/barbarian forces: animals show as "Wild <type>", raiders as "Bandit <type>"
+				var cls: String = str(udata.get("classification", ""))
+				if cls == "animal":
+					unit_label = "Wild " + uname
+				else:
+					unit_label = "Bandit " + uname
+			else:
+				var owner: Player = _gs.get_player(u.owner_player_id)
+				var owner_name: String = owner.name if owner != null else "?"
+				unit_label = owner_name + "'s " + uname
+			lines.append(unit_label + "  (HP " + str(u.health) + ")")
 
 	return PoolStringArray(lines).join("\n")
 

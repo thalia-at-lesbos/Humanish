@@ -311,6 +311,27 @@ func test_tile_info_text_omits_own_subjects() -> void:
 	var text = facade.tile_info_text(4, 4)
 	assert_eq(text.find("Rome's"), -1, "Own units/cities are not duplicated in tile info")
 
+# Issue 17: wild units (owner -2) show "Bandit <type>" or "Wild <type>" in tile info.
+func test_tile_info_text_wild_raider_shows_bandit_label() -> void:
+	var facade = setup_facade(1503, "small",
+		[{"name": "Rome", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	make_unit(gs, "warrior", -2, 7, 7)
+	var text = facade.tile_info_text(7, 7)
+	assert_true(text.find("Bandit") >= 0, "Wild raider (warrior) shows 'Bandit' prefix")
+	assert_eq(text.find("?"), -1, "No '?' owner placeholder for wild units")
+
+func test_tile_info_text_wild_animal_shows_wild_label() -> void:
+	var facade = setup_facade(1504, "small",
+		[{"name": "Rome", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	make_unit(gs, "wolf", -2, 8, 8)
+	var text = facade.tile_info_text(8, 8)
+	assert_true(text.find("Wild") >= 0, "Wild animal (wolf) shows 'Wild' prefix")
+	assert_eq(text.find("?"), -1, "No '?' owner placeholder for wild animals")
+
 func test_mission_move_to_is_per_unit() -> void:
 	# MISSION_MOVE_TO is a per-unit move command: only the named unit leaves a
 	# shared tile, so it can be peeled off a stack.
