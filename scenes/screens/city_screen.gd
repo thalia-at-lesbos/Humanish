@@ -215,7 +215,12 @@ func _build() -> void:
 	]
 	var grid := GridContainer.new()
 	grid.columns = 3
+	# A sea unit (e.g. work_boat / fishing boats) can only be built in a coastal
+	# city; every option also requires its prerequisite tech (Jun 9 bug report).
+	var coastal: bool = TurnEngine._is_coastal(gs, s.x, s.y)
 	for opt in options:
+		if not _can_offer_production(opt[0], opt[1], db, techs, coastal):
+			continue
 		var btn := Button.new()
 		btn.text = "+ " + opt[1]
 		var already: bool = false
@@ -344,6 +349,20 @@ func _on_specialist(stype: String, new_count: int) -> void:
 		return
 	_facade.apply_command(Commands.assign_specialist(s.owner_player_id, _city_id, stype, new_count))
 	rebuild()
+
+# Whether a quick-build option is offered to this city: its prerequisite tech
+# must be researched, and a sea-domain unit requires a coastal city (Jun 9 bug
+# report — work_boat / other water units only appear once buildable).
+func _can_offer_production(kind: String, id: String, db, techs: Array, coastal: bool) -> bool:
+	var data: Dictionary = db.get_unit(id) if kind == "unit" else db.get_structure(id)
+	if data.empty():
+		return false
+	var tech: String = str(data.get("tech_required", ""))
+	if tech != "" and not (tech in techs):
+		return false
+	if kind == "unit" and str(data.get("domain", "land")) == "sea" and not coastal:
+		return false
+	return true
 
 func _on_build(itype: String, iid: String) -> void:
 	var gs = _facade.get_state()

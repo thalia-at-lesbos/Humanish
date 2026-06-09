@@ -72,6 +72,53 @@ func test_city_screen_shows_health_and_growth() -> void:
 	assert_true("growing" in text,
 		"A city with a positive food surplus must report it is growing")
 
+func test_work_boat_offered_only_when_coastal_and_teched() -> void:
+	var facade = setup_facade(76, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var owner = gs.get_player(pid)
+	owner.technologies = ["fishing"]  # the work_boat prerequisite
+
+	# Inland city surrounded by land: no water neighbour → not coastal.
+	for t in gs.map.all_tiles():
+		t.terrain_id = "grassland"
+	var inland = make_settlement(gs, pid, 5, 5, 2)
+	var screen = _screen(facade)
+	screen._city_id = inland.id
+	screen.visible = true
+	screen._build()
+	assert_false("+ work_boat" in _all_text(screen),
+		"An inland city must not offer a sea unit even with the tech")
+	screen.queue_free()
+
+	# Coastal city: one adjacent water tile makes it coastal.
+	var coastal = make_settlement(gs, pid, 10, 10, 2)
+	gs.map.get_tile(11, 10).terrain_id = "coast"
+	var screen2 = _screen(facade)
+	screen2._city_id = coastal.id
+	screen2.visible = true
+	screen2._build()
+	assert_true("+ work_boat" in _all_text(screen2),
+		"A coastal city with the fishing tech must offer the work_boat")
+
+func test_work_boat_hidden_without_tech() -> void:
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.get_player(pid).technologies = []  # no fishing tech
+	var coastal = make_settlement(gs, pid, 10, 10, 2)
+	gs.map.get_tile(11, 10).terrain_id = "coast"
+	var screen = _screen(facade)
+	screen._city_id = coastal.id
+	screen.visible = true
+	screen._build()
+	assert_false("+ work_boat" in _all_text(screen),
+		"A coastal city without the fishing tech must not offer the work_boat")
+
 func test_city_view_add_to_production_queues_item() -> void:
 	var facade = setup_facade(72, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
