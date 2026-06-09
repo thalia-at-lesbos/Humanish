@@ -272,6 +272,9 @@ the built-in rule is skipped. This seam lets content packs replace any rule.
   rules: minimum spacing from existing settlements and valid landform/terrain. Founding
   consumes the unit and creates a size-one settlement that immediately claims its own
   tile and a small surrounding area of cultural influence.
+  *(⚠️ Provisional: a new settlement must be at least two empty squares away from
+  any existing settlement (Chebyshev distance ≥ 3). Enforced by
+  `min_settlement_distance = 3` in `data/constants.json`.)*
 
 ### 4.2 Population growth
 Surplus sustenance accumulates in a "store" each turn:
