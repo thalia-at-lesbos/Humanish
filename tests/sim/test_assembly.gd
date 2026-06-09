@@ -316,16 +316,20 @@ func test_vassal_backs_overlord_candidate() -> void:
 
 # ── Apostolic Palace two-candidate runoff (§7.3) ────────────────────────────────
 
-# Religious state where the wonder owner (player 1, pop 2) is NOT the front-runner
-# (player 2, pop 6), so the supreme-leadership motion fields a two-candidate runoff.
+# Religious state for a two-candidate runoff: the wonder owner (player 1, weight 3)
+# is not the strongest full member. Player 2 runs the faith as state religion, so it
+# is a "full member" and — with weight doubled to 8 — the rival candidate. Player 3
+# holds the faith (a voting member, weight 3) but does not run it as state religion,
+# so it cannot stand. Total chamber weight 14.
 func _runoff_gs(seed_val = 5):
 	var gs = make_gs(3, seed_val)
-	var c1 = make_settlement(gs, 1, 3, 3, 2)
+	var c1 = make_settlement(gs, 1, 3, 3, 3)
 	c1.belief_id = "christianity"
 	c1.structures.append(APOSTOLIC)
-	var c2 = make_settlement(gs, 2, 8, 8, 6)
+	var c2 = make_settlement(gs, 2, 8, 8, 4)
 	c2.belief_id = "christianity"
-	var c3 = make_settlement(gs, 3, 14, 14, 2)
+	gs.get_player(2).state_religion = "christianity"
+	var c3 = make_settlement(gs, 3, 14, 14, 3)
 	c3.belief_id = "christianity"
 	gs.enabled_win_conditions = ["diplomatic"]
 	return gs
@@ -338,31 +342,86 @@ func test_ap_runoff_fields_owner_and_front_runner() -> void:
 	assert_eq(int(pending["candidates"][0]), 1, "The wonder owner is the primary candidate")
 	assert_eq(int(pending["candidates"][1]), 2, "The strongest member is the rival candidate")
 
-func test_ap_runoff_collapses_when_owner_is_front_runner() -> void:
-	var gs = _religious_gs()   # owner (player 1, weight 5) is also the front-runner
+func test_ap_runoff_collapses_when_no_other_full_member() -> void:
+	var gs = _religious_gs()   # no player runs christianity as state religion
 	var pending = _open_ap_victory(gs)
-	assert_eq(pending["candidates"].size(), 1, "An owner who already leads stands alone")
-	assert_eq(int(pending["candidates"][0]), 1, "The lone candidate is the owner/front-runner")
+	assert_eq(pending["candidates"].size(), 1,
+		"With no rival full member (adherent), only the owner stands")
+	assert_eq(int(pending["candidates"][0]), 1, "The lone candidate is the wonder owner")
+
+func test_ap_runoff_second_candidate_must_be_a_full_member() -> void:
+	# Player 2 is the strongest member by far but does NOT run the faith as state
+	# religion, so it is passed over for the weaker adherent, player 3.
+	var gs = make_gs(3)
+	var c1 = make_settlement(gs, 1, 3, 3, 3)
+	c1.belief_id = "christianity"
+	c1.structures.append(APOSTOLIC)
+	var c2 = make_settlement(gs, 2, 8, 8, 10)   # huge, but not an adherent
+	c2.belief_id = "christianity"
+	var c3 = make_settlement(gs, 3, 14, 14, 3)
+	c3.belief_id = "christianity"
+	gs.get_player(3).state_religion = "christianity"
+	gs.enabled_win_conditions = ["diplomatic"]
+	var pending = _open_ap_victory(gs)
+	assert_eq(pending["candidates"].size(), 2, "Owner plus the strongest full member stand")
+	assert_eq(int(pending["candidates"][1]), 3,
+		"The adherent, not the larger non-adherent, is the rival candidate")
+
+func test_ap_runoff_excludes_a_defiant_adherent() -> void:
+	# Two adherents; the stronger (player 2) is in defiance, so the next adherent
+	# (player 3) takes the rival candidacy.
+	var gs = make_gs(3)
+	var c1 = make_settlement(gs, 1, 3, 3, 3)
+	c1.belief_id = "christianity"
+	c1.structures.append(APOSTOLIC)
+	var c2 = make_settlement(gs, 2, 8, 8, 8)
+	c2.belief_id = "christianity"
+	gs.get_player(2).state_religion = "christianity"
+	var c3 = make_settlement(gs, 3, 14, 14, 4)
+	c3.belief_id = "christianity"
+	gs.get_player(3).state_religion = "christianity"
+	gs.enabled_win_conditions = ["diplomatic"]
+	Assembly._establish(gs, "religious")
+	gs.assembly["defiant"] = [2]
+	gs.turn_number = gs.db.get_constant("ap_diplo_victory_interval", 50)
+	Assembly.world_tick(gs, gs.rng)
+	var slate = Assembly.pending_proposal(gs)["candidates"]
+	assert_eq(slate.size(), 2, "Owner plus the strongest non-defiant adherent stand")
+	assert_eq(int(slate[1]), 3, "The defiant stronger adherent is passed over")
+
+func test_nay_vote_on_a_passed_mandate_marks_defiance() -> void:
+	var gs = _religious_gs()   # weights 5 / 3 / 2
+	Assembly._establish(gs, "religious")
+	gs.assembly["resident_player_id"] = 1
+	gs.get_player(1).policies["government"] = "despotism"
+	gs.assembly["pending"] = Assembly._make_proposal(gs, "civic_mandate", 1, -1)
+	Assembly.cast_vote(gs, 1, Assembly.VOTE_YEA)   # 5
+	Assembly.cast_vote(gs, 2, Assembly.VOTE_NAY)   # 3 (defies)
+	Assembly.cast_vote(gs, 3, Assembly.VOTE_YEA)   # 2 -> 7/10 = 70% passes
+	Assembly.world_tick(gs, gs.rng)
+	assert_true(Assembly._is_defiant(gs, 2),
+		"A member that voted Nay on a passed mandate is recorded in defiance")
+	assert_false(Assembly._is_defiant(gs, 3), "A Yea voter is not in defiance")
 
 func test_ap_runoff_won_when_a_candidate_clears_the_bar() -> void:
 	var gs = _runoff_gs()
 	_open_ap_victory(gs)
-	# All weight (10/10) is cast for candidate 2 — past the 75% bar.
-	Assembly.cast_vote(gs, 1, "2")
-	Assembly.cast_vote(gs, 2, "2")
-	Assembly.cast_vote(gs, 3, "2")
+	# Candidate 2 takes 11 of 14 weight (~78%) — past the 75% bar.
+	Assembly.cast_vote(gs, 1, "1")   # weight 3 -> candidate 1
+	Assembly.cast_vote(gs, 2, "2")   # weight 8 -> candidate 2
+	Assembly.cast_vote(gs, 3, "2")   # weight 3 -> candidate 2
 	Assembly.world_tick(gs, gs.rng)
 	assert_eq(gs.winning_alliance_id, 2, "The candidate clearing 75% wins for its alliance")
 
 func test_ap_runoff_split_below_bar_elects_no_one() -> void:
 	var gs = _runoff_gs()
 	_open_ap_victory(gs)
-	# 6 for candidate 2, 4 for candidate 1 — neither reaches 75%.
-	Assembly.cast_vote(gs, 2, "2")   # weight 6 -> candidate 2
-	Assembly.cast_vote(gs, 1, "1")   # weight 2 -> candidate 1
-	Assembly.cast_vote(gs, 3, "1")   # weight 2 -> candidate 1
+	# 8 for candidate 2 (~57%), 6 for candidate 1 — neither reaches 75%.
+	Assembly.cast_vote(gs, 2, "2")   # weight 8 -> candidate 2
+	Assembly.cast_vote(gs, 1, "1")   # weight 3 -> candidate 1
+	Assembly.cast_vote(gs, 3, "1")   # weight 3 -> candidate 1
 	Assembly.world_tick(gs, gs.rng)
-	assert_eq(gs.winning_alliance_id, -1, "A 60/40 split runoff elects no World Leader")
+	assert_eq(gs.winning_alliance_id, -1, "A 57/43 split runoff elects no World Leader")
 
 func test_ai_runoff_backs_self_bloc_then_overlord() -> void:
 	var gs = _runoff_gs()

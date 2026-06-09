@@ -136,6 +136,10 @@ static func _establish(gs, body: String) -> void:
 		"resident_player_id": -1,
 		"last_session_turn": -1,
 		"standing": {},
+		# Player ids currently in defiance of the assembly's rulings (§4.5): a member
+		# that voted against a binding mandate it was bound by. Such a member is not a
+		# "full member" and cannot stand in a supreme-leadership runoff (§7.3).
+		"defiant": [],
 		"pending": {}
 	}
 
@@ -320,8 +324,10 @@ static func apply_effect(gs, res_id: String, pending: Dictionary) -> void:
 			gs.assembly["standing"]["trade_embargo"] = int(pending.get("target_alliance_id", -1))
 		"civic_mandate":
 			_civic_mandate(gs)
+			_mark_defiance(gs, pending)
 		"religion_mandate":
 			_religion_mandate(gs, str(pending.get("belief_id", "")))
+			_mark_defiance(gs, pending)
 		"free_religion_spread":
 			gs.assembly["standing"]["free_religion_spread"] = true
 		"no_nuclear":
@@ -526,21 +532,61 @@ static func _ap_owner(gs) -> int:
 
 # The candidate slate for a supreme-leadership motion (player ids, primary first).
 # Secular (UN): the single strongest Mass-Media holder. Religious (Apostolic Palace):
-# the wonder owner plus the strongest member — a two-candidate runoff when they
-# differ, collapsing to one when the owner is already the front-runner. Empty when no
-# one may stand.
+# the wonder owner (who stands by right of the wonder) plus the strongest "full
+# member" — a member running the assembly belief as its state religion and not in
+# defiance (§7.3) — a two-candidate runoff when they differ, collapsing to one when no
+# other full member qualifies. Empty when no one may stand.
 static func _diplo_candidates(gs, body: String, members: Array) -> Array:
 	if body != "religious":
 		var c: int = _diplo_candidate(gs, body, members)
 		return [c] if c >= 0 else []
 	var owner: int = _ap_owner(gs)
-	var top: int = _diplo_candidate(gs, body, members)
 	var slate: Array = []
 	if owner >= 0 and gs.get_player(owner) != null:
 		slate.append(owner)
+	var top: int = _top_full_member(gs, members, owner)
 	if top >= 0 and top != owner:
 		slate.append(top)
 	return slate
+
+# The strongest "full member" eligible to stand as the rival candidate: a religious
+# member that runs the assembly belief as its state religion and is not in defiance,
+# excluding the wonder owner. Ties → lowest id; -1 when none qualify.
+static func _top_full_member(gs, members: Array, exclude_pid: int) -> int:
+	var belief: String = _religious_belief(gs)
+	if belief == "":
+		return -1
+	var best_id: int = -1
+	var best_w: int = -1
+	for p in members:
+		if p.id == exclude_pid:
+			continue
+		if str(p.state_religion) != belief:
+			continue
+		if _is_defiant(gs, p.id):
+			continue
+		var w: int = vote_weight(gs, p, "religious")
+		if w > best_w or (w == best_w and (best_id < 0 or p.id < best_id)):
+			best_w = w
+			best_id = p.id
+	return best_id
+
+# Whether a player is currently in defiance of the assembly's rulings (§4.5).
+static func _is_defiant(gs, player_id: int) -> bool:
+	for d in gs.assembly.get("defiant", []):
+		if int(d) == player_id:
+			return true
+	return false
+
+# Record every member that voted against a passed binding mandate as in defiance of
+# the assembly (§4.5 / §7.3). Such a member forfeits "full member" standing.
+static func _mark_defiance(gs, pending: Dictionary) -> void:
+	var votes: Dictionary = pending.get("votes", {})
+	var defiant: Array = gs.assembly.get("defiant", [])
+	for member in _members(gs, str(gs.assembly.get("kind", ""))):
+		if str(votes.get(str(member.id), VOTE_ABSTAIN)) == VOTE_NAY and not _is_defiant(gs, member.id):
+			defiant.append(member.id)
+	gs.assembly["defiant"] = defiant
 
 # Read-out text naming both candidates of a runoff (single-candidate motions keep the
 # resolution's own {candidate} text).

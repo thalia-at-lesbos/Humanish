@@ -909,15 +909,23 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
 * **Apostolic Palace (religious).** The supreme-leadership motion **appears automatically every
   `ap_diplo_victory_interval` (50) turns**, independent of the resident's agenda, but only while
   **every living civilisation holds the assembly belief** in at least one city (the *AP
-  eligibility rule*). It is a **two-candidate runoff**: the **wonder owner** and the **strongest
-  member** (the front-runner; "the full member with the most votes" — approximated by raw vote
-  weight, which already doubles adherents) both stand, collapsing to a single candidate when the
-  owner is already the front-runner. Each member casts its full weight **for one candidate or
-  abstains** (no Yea/Nay); the **leading** candidate (ties → lowest id) wins if its share of the
-  whole chamber's weight reaches **`ap_diplo_pass_share` (75%)** — so a roughly even split elects
-  no one. Religious vote weight is the population of a member's cities holding the belief,
-  **doubled** for a member running that belief as its **state religion** (§8.1); a member need
-  **not** run it as state religion to vote, nor to be elected.
+  eligibility rule*). It is a **two-candidate runoff**: the **wonder owner** (who stands by right
+  of holding the wonder, regardless of weight or faith) and the strongest **full member** both
+  stand. A *full member* is a member that runs the assembly belief as its **state religion**
+  (§8.1) and is **not in defiance** of the assembly (§4.5); the wonder owner aside, only a full
+  member may be elected. The slate collapses to a single candidate when no other full member
+  qualifies. Each member casts its full weight **for one candidate or abstains** (no Yea/Nay); the
+  **leading** candidate (ties → lowest id) wins if its share of the whole chamber's weight reaches
+  **`ap_diplo_pass_share` (75%)** — so a roughly even split elects no one. Religious vote weight is
+  the population of a member's cities holding the belief, **doubled** for a member running that
+  belief as its state religion; a member need **not** run it as state religion (nor be a full
+  member) to **vote**, only to **stand** as the rival candidate.
+
+> **Defiance (provisional).** A member enters **defiance** of the assembly when it votes against a
+> binding **mandate** that passes (`civic_mandate` / `religion_mandate`); a defiant member is no
+> longer a "full member" and cannot stand in a runoff. The set is recorded on `GameState.assembly`
+> (reset when the founding wonder changes or is lost). The matching §4.5 *defiance-of-rulings*
+> contentment penalty is still **not wired** — defiance currently affects only candidacy.
 
 * **The "too big" rule.** Regardless of the tally, a candidate **cannot win** if its own
   **alliance** already casts **`diplo_too_big_share` (75%)** or more of the total vote weight —
