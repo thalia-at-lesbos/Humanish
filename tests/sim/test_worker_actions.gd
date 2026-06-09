@@ -71,6 +71,68 @@ func test_worker_can_build_mine_on_hills() -> void:
 	var ok: bool = facade.apply_command(Commands.build_improvement(1, w.id, "mine"))
 	assert_true(ok, "Worker can build a mine on hills")
 
+# ── Worker build completion (Jun 9 bug report) ───────────────────────────────
+
+func test_worker_build_completes_and_places_improvement() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"  # flat
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "farm")),
+		"Worker should start building a farm")
+	var build_turns: int = w.build_turns_left
+	assert_true(build_turns > 0, "Build should take a positive number of turns")
+	# End turns until the build finishes (cap well above build_turns to avoid a
+	# hang if completion never fires).
+	for _i in range(build_turns + 3):
+		if gs.map.get_tile(5, 5).improvement_id == "farm":
+			break
+		facade.apply_command(Commands.end_turn(1))
+	assert_eq(gs.map.get_tile(5, 5).improvement_id, "farm",
+		"Farm should be placed on the tile once the worker finishes building")
+	assert_eq(w.building_improvement, "",
+		"Build state should clear when the improvement completes")
+	assert_eq(w.build_turns_left, 0,
+		"build_turns_left should be 0 after completion")
+
+func test_worker_makes_no_build_progress_on_the_issuing_turn() -> void:
+	# On the turn the build is issued the worker has already acted (has_moved),
+	# so the first end-turn must not decrement the build counter.
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade.apply_command(Commands.build_improvement(1, w.id, "farm"))
+	var before: int = w.build_turns_left
+	facade.apply_command(Commands.end_turn(1))  # issuing turn — no progress yet
+	assert_eq(w.build_turns_left, before,
+		"No build progress should be made on the turn the order was issued")
+	facade.apply_command(Commands.end_turn(1))  # held the tile — now progresses
+	assert_eq(w.build_turns_left, before - 1,
+		"Build should advance by one on a turn the worker holds its tile")
+
+func test_building_worker_not_flagged_idle() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade.apply_command(Commands.build_improvement(1, w.id, "farm"))
+	# Advance one full turn so has_moved is reset; the worker is still building.
+	facade.apply_command(Commands.end_turn(1))
+	assert_true(w.building_improvement != "",
+		"Worker should still be building after the turn rolls over")
+	assert_true(facade.get_end_turn_state() != 2,
+		"A worker mid-build must not raise the idle-units end-turn prompt")
+
 # ── Issue 13: Scout Explore mission ──────────────────────────────────────────
 
 func test_explore_command_accepted_for_scout() -> void:

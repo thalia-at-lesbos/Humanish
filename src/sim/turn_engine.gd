@@ -165,6 +165,12 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 			var ent: int = u.stationary_turns * ent_per
 			u.entrenchment = ent_cap if ent > ent_cap else ent
 			_heal_unit(gs, u, player)
+			# A worker that held its tile this turn advances its build order; on
+			# completion the improvement is placed on the tile (§5). The build was
+			# started by SimFacade._cmd_build_improvement on an earlier turn (which
+			# set has_moved, so no progress is made on the issuing turn).
+			if u.building_improvement != "":
+				_advance_worker_build(gs, u)
 		# Auto-wake when a heal-stance unit reaches full health (after healing above).
 		if in_heal_stance and u.health >= 100:
 			# Unit is now fully healed: drop the stance so it wakes idle next turn.
@@ -847,6 +853,28 @@ static func _grow_cottages(gs: GameState, player: Player) -> void:
 			if need > 0 and t.improvement_age >= need:
 				t.improvement_id = next_id
 				t.improvement_age = 0
+
+# Advance a worker's in-progress improvement build by one turn. When the build
+# completes, the improvement is placed on the worker's tile and the build state
+# is cleared; a record is queued for SimFacade to surface as a notification.
+# Called once per turn for a worker that held its tile (see player_step).
+static func _advance_worker_build(gs: GameState, u: Unit) -> void:
+	if u.build_turns_left > 0:
+		u.build_turns_left -= 1
+	if u.build_turns_left > 0:
+		return
+	var tile: Tile = gs.map.get_tile(u.x, u.y)
+	if tile != null:
+		tile.improvement_id = u.building_improvement
+		# Reset cottage-line maturation so a freshly placed improvement starts fresh.
+		tile.improvement_age = 0
+		gs.pending_improvements.append({
+			"player_id": u.owner_player_id,
+			"improvement_id": u.building_improvement,
+			"x": u.x, "y": u.y
+		})
+	u.building_improvement = ""
+	u.build_turns_left = 0
 
 static func _settlement_culture(gs: GameState, s: Settlement, player: Player) -> void:
 	var db: DataDB = gs.db

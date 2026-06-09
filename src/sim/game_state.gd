@@ -103,6 +103,12 @@ var pending_productions: Array = []
 # Each entry is {"player_id": int, "settlement_name": String, "population": int}.
 var pending_growth: Array = []
 
+# Transient worker-build completions produced by TurnEngine._advance_worker_build
+# when a worker finishes constructing an improvement, drained by SimFacade into
+# notifications. Not serialized (always empty between turns).
+# Each entry is {"player_id": int, "improvement_id": String, "x": int, "y": int}.
+var pending_improvements: Array = []
+
 # Auto-incrementing IDs
 var _next_unit_id: int = 1
 var _next_settlement_id: int = 1

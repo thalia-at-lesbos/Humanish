@@ -411,6 +411,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 	_drain_great_people()
 	_drain_productions()
 	_drain_growth_events()
+	_drain_improvement_completions()
 
 	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
@@ -2183,7 +2184,7 @@ func cycle_idle_units(workers_only: bool = false) -> void:
 		if u.has_moved or u.is_fortified or u.is_sentry or u.is_patrolling \
 				or u.is_healing or u.is_sleeping \
 				or u.is_sleep_until_healed or u.is_fortify_until_healed \
-				or u.is_exploring:
+				or u.is_exploring or u.building_improvement != "":
 			continue
 		if workers_only and not _db.get_unit(u.unit_type_id).get("can_build", false):
 			continue
@@ -2305,7 +2306,7 @@ func get_end_turn_state() -> int:
 		if u.owner_player_id == _gs.current_player_id and not u.has_moved \
 				and not u.is_fortified and not u.is_sleeping \
 				and not u.is_sleep_until_healed and not u.is_fortify_until_healed \
-				and not u.is_exploring:
+				and not u.is_exploring and u.building_improvement == "":
 			return 2
 	return 0
 
@@ -2556,6 +2557,21 @@ func _drain_growth_events() -> void:
 		_add_notification(city + " grew to population " + str(pop) + "!", "major")
 	_gs.pending_growth = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface completed worker improvement builds (§5) as notifications for the
+# current player, and repaint the world so the new improvement renders.
+func _drain_improvement_completions() -> void:
+	if _gs.pending_improvements.empty():
+		return
+	for entry in _gs.pending_improvements:
+		if int(entry.get("player_id", -1)) == _gs.current_player_id:
+			var imp_id: String = str(entry.get("improvement_id", ""))
+			var imp_name: String = str(_db.get_improvement(imp_id).get("name", imp_id.capitalize()))
+			_add_notification(imp_name + " completed at ("
+				+ str(int(entry.get("x", 0))) + ", " + str(int(entry.get("y", 0))) + ").", "info")
+	_gs.pending_improvements = []
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 
 # Compose a brief combat notification from the attacker and defender units.
