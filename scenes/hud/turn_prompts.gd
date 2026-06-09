@@ -119,6 +119,8 @@ func _next_idle_city(gs, player_id: int) -> int:
 			continue
 		if not s.production_queue.empty():
 			continue
+		if s.produce_nothing:
+			continue
 		if _cities_offered.has(s.id):
 			continue
 		return s.id

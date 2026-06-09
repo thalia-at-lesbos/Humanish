@@ -103,7 +103,17 @@ func _build() -> void:
 	# ── Current production ─────────────────────────────────────────────────────
 	_header(v, "Production")
 	if s.production_queue.empty():
-		_line(v, "Currently building: (nothing queued)")
+		if s.produce_nothing:
+			var nothing_btn := Button.new()
+			nothing_btn.text = "Producing: Nothing  [click to resume]"
+			nothing_btn.connect("pressed", self, "_on_resume_production")
+			v.add_child(nothing_btn)
+		else:
+			_line(v, "Currently building: (nothing queued)")
+			var nothing_btn := Button.new()
+			nothing_btn.text = "Produce Nothing"
+			nothing_btn.connect("pressed", self, "_on_produce_nothing")
+			v.add_child(nothing_btn)
 	else:
 		var item = s.production_queue[0]
 		var pace = db.get_pace(gs.pace_id)
@@ -323,6 +333,24 @@ func _on_build(itype: String, iid: String) -> void:
 	var q = s.production_queue.duplicate(true)
 	q.append({"type": itype, "id": iid})
 	_facade.apply_command(Commands.set_production(s.owner_player_id, _city_id, q))
+	rebuild()
+
+func _on_produce_nothing() -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.set_production(
+		s.owner_player_id, _city_id, [], true))
+	rebuild()
+
+func _on_resume_production() -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.set_production(
+		s.owner_player_id, _city_id, [], false))
 	rebuild()
 
 func _on_move_up(index: int) -> void:

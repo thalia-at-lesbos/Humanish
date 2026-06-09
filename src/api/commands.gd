@@ -48,12 +48,13 @@ static func set_sliders(player_id: int, finance: int, research: int,
 	}
 
 static func set_production(player_id: int, settlement_id: int,
-		queue: Array) -> Dictionary:
+		queue: Array, produce_nothing: bool = false) -> Dictionary:
 	return {
 		"type": IDs.CommandType.SET_PRODUCTION,
 		"player_id": player_id,
 		"settlement_id": settlement_id,
-		"queue": queue.duplicate(true)
+		"queue": queue.duplicate(true),
+		"produce_nothing": produce_nothing
 	}
 
 static func set_research(player_id: int, tech_id: String) -> Dictionary:

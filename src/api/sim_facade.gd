@@ -778,6 +778,9 @@ func _cmd_set_production(cmd: Dictionary) -> bool:
 	if s == null or s.owner_player_id != int(cmd["player_id"]):
 		return false
 	s.production_queue = cmd.get("queue", []).duplicate(true)
+	s.produce_nothing = bool(cmd.get("produce_nothing", false))
+	if not s.production_queue.empty():
+		s.produce_nothing = false
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 

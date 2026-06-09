@@ -86,6 +86,7 @@ var defence_value: int = 0
 var health: int = -1            # -1 = "full"; normalised to max on first use
 var peak_population: int = 1
 var revolt_turns: int = 0
+var produce_nothing: bool = false
 # Cultural-revolt progress (§4.9): successful revolt checks accumulated against
 # this settlement; it flips once they reach revolt_required_successes, and resets
 # to 0 whenever no rival out-cultures the owner on its tile (pressure relieved).
@@ -135,6 +136,7 @@ func serialize() -> Dictionary:
 		"defence_value": defence_value,
 		"health": health, "peak_population": peak_population,
 		"revolt_turns": revolt_turns, "revolt_progress": revolt_progress,
+		"produce_nothing": produce_nothing,
 		"alert_turns": alert_turns, "alert_target_x": alert_target_x,
 		"alert_target_y": alert_target_y, "alert_cooldown": alert_cooldown
 	}
@@ -177,6 +179,7 @@ static func deserialize(d: Dictionary):
 	s.peak_population = int(d.get("peak_population", s.population))
 	s.revolt_turns = int(d.get("revolt_turns", 0))
 	s.revolt_progress = int(d.get("revolt_progress", 0))
+	s.produce_nothing = bool(d.get("produce_nothing", false))
 	s.alert_turns = int(d.get("alert_turns", 0))
 	s.alert_target_x = int(d.get("alert_target_x", -1))
 	s.alert_target_y = int(d.get("alert_target_y", -1))
