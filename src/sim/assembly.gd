@@ -193,6 +193,9 @@ static func _make_proposal(gs, res_id: String, candidate_pid: int, target_aid: i
 		"resolution_id": res_id,
 		"name": str(res.get("name", res_id)),
 		"candidate_player_id": candidate_pid,
+		# The candidate slate. A single entry for ordinary elections; a supreme-
+		# leadership motion may carry a two-candidate runoff (set by the opener).
+		"candidates": ([candidate_pid] if candidate_pid >= 0 else []),
 		"target_alliance_id": target_aid,
 		"belief_id": belief,
 		"pass_share": int(res.get("pass_share", gs.db.get_constant("resolution_pass_share", 50))),
@@ -206,6 +209,16 @@ static func _make_proposal(gs, res_id: String, candidate_pid: int, target_aid: i
 static func _resolve_pending(gs) -> void:
 	var pending: Dictionary = gs.assembly.get("pending", {})
 	var body: String = str(gs.assembly.get("kind", ""))
+	if _is_diplo_motion(gs, pending):
+		_resolve_diplo_victory(gs, pending, body)
+	else:
+		_resolve_simple(gs, pending, body)
+	gs.assembly["pending"] = {}
+
+# An ordinary Yea/Nay/Abstain proposal: passes when the Yea share of the whole
+# chamber's weight reaches the threshold (abstentions count present but not for, so
+# they make passage harder — as in a real quorum body).
+static func _resolve_simple(gs, pending: Dictionary, body: String) -> void:
 	var votes: Dictionary = pending.get("votes", {})
 	var yea: int = 0
 	var nay: int = 0
@@ -220,9 +233,6 @@ static func _resolve_pending(gs) -> void:
 			yea += w
 		elif choice == VOTE_NAY:
 			nay += w
-	# Yea share of the whole chamber's weight (abstentions count present but not for,
-	# so they make passage harder — as in a real quorum body). The supreme-leadership
-	# motion uses a body-dependent threshold (UN 60% / Apostolic Palace 75%).
 	var pass_share: int = _pass_share_for(gs, pending)
 	var passed: bool = total > 0 and (yea * 100) / total >= pass_share
 	var res_id: String = str(pending["resolution_id"])
@@ -235,7 +245,52 @@ static func _resolve_pending(gs) -> void:
 		"passed": passed,
 		"yea": yea, "nay": nay, "total": total
 	})
-	gs.assembly["pending"] = {}
+
+# A supreme-leadership election: members cast their weight for one candidate (or
+# abstain). The leading candidate (ties → lowest id) wins if its share of the whole
+# chamber's weight reaches the body-dependent threshold (UN 60% / Apostolic Palace
+# 75%) and clears the eligibility / "too big" gate in apply_effect.
+static func _resolve_diplo_victory(gs, pending: Dictionary, body: String) -> void:
+	var votes: Dictionary = pending.get("votes", {})
+	var tally: Dictionary = {}   # candidate id (int) -> weight cast for it
+	for c in pending.get("candidates", []):
+		tally[int(c)] = 0
+	var total: int = 0
+	for member in _members(gs, body):
+		var w: int = vote_weight(gs, member, body)
+		if w <= 0:
+			continue
+		total += w
+		var choice: String = str(votes.get(str(member.id), VOTE_ABSTAIN))
+		if choice == VOTE_ABSTAIN:
+			continue
+		var cid: int = int(choice)
+		if tally.has(cid):
+			tally[cid] += w
+	var lead_id: int = -1
+	var lead_w: int = -1
+	for cid in tally:
+		var w: int = int(tally[cid])
+		if w > lead_w or (w == lead_w and (lead_id < 0 or int(cid) < lead_id)):
+			lead_w = w
+			lead_id = int(cid)
+	var pass_share: int = _pass_share_for(gs, pending)
+	var passed: bool = total > 0 and lead_id >= 0 and (lead_w * 100) / total >= pass_share
+	if passed:
+		# Run the shared award/eligibility/too-big gate for the winning candidate.
+		var resolved: Dictionary = pending.duplicate(true)
+		resolved["candidate_player_id"] = lead_id
+		apply_effect(gs, str(pending["resolution_id"]), resolved)
+	gs.pending_assembly_events.append({
+		"kind": "resolution_resolved",
+		"resolution_id": str(pending["resolution_id"]),
+		"name": str(pending.get("name", "")),
+		"passed": passed,
+		"winner_player_id": lead_id,
+		"yea": (lead_w if lead_w > 0 else 0),
+		"nay": (total - lead_w if total > lead_w else 0),
+		"total": total
+	})
 
 # Apply a passed proposal's binding effect. Provisional: elect_resident,
 # diplomatic_victory, force_peace, civic_mandate, religion_mandate and resident_aid
@@ -327,11 +382,19 @@ static func has_voted(gs, player_id: int) -> bool:
 	return pending.get("votes", {}).has(str(player_id))
 
 # Record one member's vote on the open proposal. Returns false if there is no open
-# session, the player is not an eligible member, or the choice is not recognised.
+# session, the player is not an eligible member, or the choice is not recognised. A
+# supreme-leadership motion takes a candidate id (as a string) or VOTE_ABSTAIN; every
+# other proposal takes VOTE_YEA / VOTE_NAY / VOTE_ABSTAIN.
 static func cast_vote(gs, player_id: int, choice: String) -> bool:
 	if not has_open_session(gs):
 		return false
-	if not (choice == VOTE_YEA or choice == VOTE_NAY or choice == VOTE_ABSTAIN):
+	var pending: Dictionary = gs.assembly["pending"]
+	var valid: bool
+	if _is_diplo_motion(gs, pending):
+		valid = choice == VOTE_ABSTAIN or choice in _candidate_choices(pending)
+	else:
+		valid = choice == VOTE_YEA or choice == VOTE_NAY or choice == VOTE_ABSTAIN
+	if not valid:
 		return false
 	var body: String = str(gs.assembly.get("kind", ""))
 	var p = gs.get_player(player_id)
@@ -339,6 +402,19 @@ static func cast_vote(gs, player_id: int, choice: String) -> bool:
 		return false
 	gs.assembly["pending"]["votes"][str(player_id)] = choice
 	return true
+
+# Whether the open proposal is a supreme-leadership election (candidate-id ballot).
+static func _is_diplo_motion(gs, pending: Dictionary) -> bool:
+	if pending.empty():
+		return false
+	return str(gs.db.get_resolution(str(pending.get("resolution_id", ""))).get("effect", "")) == "diplomatic_victory"
+
+# The valid vote tokens for a runoff: each candidate id rendered as a string.
+static func _candidate_choices(pending: Dictionary) -> Array:
+	var out: Array = []
+	for c in pending.get("candidates", []):
+		out.append(str(int(c)))
+	return out
 
 # Deterministic computer vote: self-interest, no RNG. Defaults to abstain.
 static func ai_vote(gs, player_id: int) -> String:
@@ -357,11 +433,10 @@ static func ai_vote(gs, player_id: int) -> String:
 				return VOTE_YEA
 			return VOTE_NAY
 		"diplomatic_victory":
-			# Back your own bloc; a vassal always backs its overlord's candidate.
-			# Otherwise never hand the game to a rival (AI rivals vote you down).
-			if cand_friendly or _is_vassal_of(gs, player_id, cand):
-				return VOTE_YEA
-			return VOTE_NAY
+			# Cast for a candidate from your own bloc (your own id first, then a
+			# bloc-mate, then your overlord if you are its vassal); otherwise abstain
+			# — never hand the game to a rival (AI rivals will not vote you in).
+			return _ai_diplo_vote(gs, player_id, pending, me)
 		"force_peace":
 			var at_war: bool = false
 			var a = gs.get_player_alliance(player_id)
@@ -381,6 +456,26 @@ static func ai_vote(gs, player_id: int) -> String:
 		_:
 			return VOTE_ABSTAIN
 
+# Pick the candidate a computer member backs in a supreme-leadership runoff: itself
+# if it stands, then a bloc-mate, then its overlord (vassal loyalty). With no friendly
+# candidate it abstains rather than help a rival reach the threshold.
+static func _ai_diplo_vote(gs, player_id: int, pending: Dictionary, me) -> String:
+	var candidates: Array = pending.get("candidates", [])
+	for c in candidates:
+		if int(c) == player_id:
+			return str(player_id)
+	for c in candidates:
+		var cp = gs.get_player(int(c))
+		if cp != null and me != null and cp.alliance_id == me.alliance_id:
+			return str(int(c))
+	var my_alliance = gs.get_player_alliance(player_id)
+	if my_alliance != null and my_alliance.is_subordinate_to >= 0:
+		for c in candidates:
+			var cp = gs.get_player(int(c))
+			if cp != null and cp.alliance_id == my_alliance.is_subordinate_to:
+				return str(int(c))
+	return VOTE_ABSTAIN
+
 # ── Diplomatic victory (§7.2 / §10) ─────────────────────────────────────────────
 
 # True on a turn the Apostolic Palace must put forward the supreme-leadership motion:
@@ -399,18 +494,20 @@ static func _ap_victory_due(gs) -> bool:
 # Open the Apostolic Palace supreme-leadership motion (its own cadence, not the
 # random pool). The candidate is the strongest religious member (the wonder owner is
 # also a nominal candidate; with one Yea/Nay ballot we run whichever polls highest,
-# which is the front-runner — see game-rules.md §7.2 for this simplification).
+# two candidates — the wonder owner and the strongest member — when they differ.
 static func _open_diplo_session(gs) -> void:
 	var body: String = str(gs.assembly.get("kind", ""))
 	var members: Array = _members(gs, body)
 	if members.empty():
 		return
-	var candidate: int = _diplo_candidate(gs, body, members)
-	if candidate < 0:
+	var slate: Array = _diplo_candidates(gs, body, members)
+	if slate.empty():
 		return
-	var pending: Dictionary = _make_proposal(gs, "diplomatic_victory", candidate, -1)
+	var pending: Dictionary = _make_proposal(gs, "diplomatic_victory", int(slate[0]), -1)
 	if pending.empty():
 		return
+	pending["candidates"] = slate
+	pending["text"] = _fill_diplo_text(gs, pending, slate)
 	gs.assembly["pending"] = pending
 	gs.assembly["last_session_turn"] = gs.turn_number
 	gs.pending_assembly_events.append({
@@ -419,6 +516,41 @@ static func _open_diplo_session(gs) -> void:
 		"name": pending["name"],
 		"text": pending["text"]
 	})
+
+# The Apostolic Palace wonder owner — the natural primary candidate, or -1.
+static func _ap_owner(gs) -> int:
+	for s in gs.settlements:
+		if s.has_structure("apostolic_palace"):
+			return s.owner_player_id
+	return -1
+
+# The candidate slate for a supreme-leadership motion (player ids, primary first).
+# Secular (UN): the single strongest Mass-Media holder. Religious (Apostolic Palace):
+# the wonder owner plus the strongest member — a two-candidate runoff when they
+# differ, collapsing to one when the owner is already the front-runner. Empty when no
+# one may stand.
+static func _diplo_candidates(gs, body: String, members: Array) -> Array:
+	if body != "religious":
+		var c: int = _diplo_candidate(gs, body, members)
+		return [c] if c >= 0 else []
+	var owner: int = _ap_owner(gs)
+	var top: int = _diplo_candidate(gs, body, members)
+	var slate: Array = []
+	if owner >= 0 and gs.get_player(owner) != null:
+		slate.append(owner)
+	if top >= 0 and top != owner:
+		slate.append(top)
+	return slate
+
+# Read-out text naming both candidates of a runoff (single-candidate motions keep the
+# resolution's own {candidate} text).
+static func _fill_diplo_text(gs, pending: Dictionary, slate: Array) -> String:
+	if slate.size() < 2:
+		return str(pending.get("text", ""))
+	return ("The assembly is called to elect the foremost power of the age. "
+		+ _player_name(gs, int(slate[0])) + " and " + _player_name(gs, int(slate[1]))
+		+ " stand before the chamber; cast your weight for one, that the world might "
+		+ "be settled by acclamation rather than the sword.")
 
 # The candidate run for a supreme-leadership motion: the strongest eligible member
 # (ties → lowest id). For the secular UN only a Mass-Media holder may stand (and thus

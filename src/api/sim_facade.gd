@@ -2573,12 +2573,19 @@ func _maybe_raise_vote_popup(player_id: int) -> void:
 	if not Assembly.is_member(_gs, p, body):
 		return
 	var pending: Dictionary = Assembly.pending_proposal(_gs)
+	# Carry the candidate slate so the ballot can offer a runoff choice (a supreme-
+	# leadership motion has 1–2 candidates; other proposals carry none / one).
+	var candidates: Array = []
+	for c in pending.get("candidates", []):
+		var cp: Player = _gs.get_player(int(c))
+		candidates.append({"id": int(c), "name": (cp.name if cp != null else "")})
 	push_popup({
 		"type": IDs.PopupType.CHOOSE_ELECTION,
 		"player_id": player_id,
 		"resolution_id": str(pending.get("resolution_id", "")),
 		"name": str(pending.get("name", "")),
-		"text": str(pending.get("text", ""))
+		"text": str(pending.get("text", "")),
+		"candidates": candidates
 	})
 
 func _cmd_cast_vote(cmd: Dictionary) -> bool:

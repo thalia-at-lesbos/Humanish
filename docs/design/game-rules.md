@@ -909,13 +909,15 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
 * **Apostolic Palace (religious).** The supreme-leadership motion **appears automatically every
   `ap_diplo_victory_interval` (50) turns**, independent of the resident's agenda, but only while
   **every living civilisation holds the assembly belief** in at least one city (the *AP
-  eligibility rule*). The candidate is the strongest religious member; the wonder owner is also a
-  nominal candidate, but because the engine runs a single Yea/Nay ballot the motion fields
-  whichever of them polls highest — i.e. the front-runner — a deliberate simplification of the
-  reference game's two-candidate runoff. The motion carries at **`ap_diplo_pass_share` (75%)**.
-  Religious vote weight is the population of a member's cities holding the belief, **doubled** for
-  a member running that belief as its **state religion** (§8.1); a member need **not** run it as
-  state religion to vote, nor to be elected.
+  eligibility rule*). It is a **two-candidate runoff**: the **wonder owner** and the **strongest
+  member** (the front-runner; "the full member with the most votes" — approximated by raw vote
+  weight, which already doubles adherents) both stand, collapsing to a single candidate when the
+  owner is already the front-runner. Each member casts its full weight **for one candidate or
+  abstains** (no Yea/Nay); the **leading** candidate (ties → lowest id) wins if its share of the
+  whole chamber's weight reaches **`ap_diplo_pass_share` (75%)** — so a roughly even split elects
+  no one. Religious vote weight is the population of a member's cities holding the belief,
+  **doubled** for a member running that belief as its **state religion** (§8.1); a member need
+  **not** run it as state religion to vote, nor to be elected.
 
 * **The "too big" rule.** Regardless of the tally, a candidate **cannot win** if its own
   **alliance** already casts **`diplo_too_big_share` (75%)** or more of the total vote weight —
@@ -925,11 +927,12 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
   the single candidate civ of the reference rule — keeps it consistent with the alliance-based
   resolution of every other win condition, §10.)
 
-* **AI voting.** Computer members back their own bloc's candidate, and a **vassal** (a
-  subordinate alliance, §7) automatically backs its **overlord's** candidate; otherwise an AI
-  votes the motion down — it never hands the game to a rival. *(Provisional: the reference game
-  also keys votes on diplomatic attitude — Pleased/Friendly — which this engine does not yet
-  model, so relationship has no effect on the vote here.)*
+* **AI voting.** A computer member casts its weight for a candidate from its own bloc — itself
+  if it stands, else a bloc-mate, else its **overlord** if it is that overlord's **vassal** (a
+  subordinate alliance, §7). With no friendly candidate it **abstains** rather than push a rival
+  past the threshold — an AI never casts for a rival. *(Provisional: the reference game also keys
+  votes on diplomatic attitude — Pleased/Friendly — which this engine does not yet model, so
+  relationship has no effect on the vote here.)*
 
 ---
 

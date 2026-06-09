@@ -230,26 +230,31 @@ func test_ap_victory_motion_suppressed_when_a_civ_lacks_the_belief() -> void:
 	assert_false(Assembly.has_open_session(gs),
 		"With an unfaithful civ the AP victory motion is not put forward")
 
-func test_ap_victory_needs_three_quarters() -> void:
-	# Religious chamber, weights 5/3/2 (total 10).
-	var gs = _religious_gs()
+# Open the diplomatic-victory motion through the AP cadence (so its candidate slate
+# is built) and return the pending proposal. Player 1 owns the Apostolic Palace.
+func _open_ap_victory(gs):
 	gs.enabled_win_conditions = ["diplomatic"]
-	Assembly._establish(gs, "religious")
-	gs.assembly["pending"] = Assembly._make_proposal(gs, "diplomatic_victory", 1, -1)
-	Assembly.cast_vote(gs, 1, Assembly.VOTE_YEA)   # 5
-	Assembly.cast_vote(gs, 2, Assembly.VOTE_YEA)   # 3  -> 8/10 = 80%
-	Assembly.cast_vote(gs, 3, Assembly.VOTE_NAY)   # 2
-	Assembly.world_tick(gs, gs.rng)                # resolves the pending motion
+	gs.turn_number = gs.db.get_constant("ap_diplo_victory_interval", 50)
+	Assembly.world_tick(gs, gs.rng)
+	return Assembly.pending_proposal(gs)
+
+func test_ap_victory_needs_three_quarters() -> void:
+	# Religious chamber, weights 5/3/2 (total 10). Player 1 is the sole candidate
+	# (owner and front-runner), so members vote for "1" or abstain.
+	var gs = _religious_gs()
+	_open_ap_victory(gs)
+	Assembly.cast_vote(gs, 1, "1")   # 5
+	Assembly.cast_vote(gs, 2, "1")   # 3  -> 8/10 = 80%
+	Assembly.cast_vote(gs, 3, Assembly.VOTE_ABSTAIN)   # 2
+	Assembly.world_tick(gs, gs.rng)  # resolves the pending motion
 	assert_eq(gs.winning_alliance_id, 1, "80% clears the 75% Apostolic bar")
 
 func test_ap_victory_fails_below_three_quarters() -> void:
 	var gs = _religious_gs()
-	gs.enabled_win_conditions = ["diplomatic"]
-	Assembly._establish(gs, "religious")
-	gs.assembly["pending"] = Assembly._make_proposal(gs, "diplomatic_victory", 1, -1)
-	Assembly.cast_vote(gs, 1, Assembly.VOTE_YEA)   # 5
-	Assembly.cast_vote(gs, 3, Assembly.VOTE_YEA)   # 2  -> 7/10 = 70%
-	Assembly.cast_vote(gs, 2, Assembly.VOTE_NAY)   # 3
+	_open_ap_victory(gs)
+	Assembly.cast_vote(gs, 1, "1")   # 5
+	Assembly.cast_vote(gs, 3, "1")   # 2  -> 7/10 = 70%
+	Assembly.cast_vote(gs, 2, Assembly.VOTE_ABSTAIN)   # 3
 	Assembly.world_tick(gs, gs.rng)
 	assert_eq(gs.winning_alliance_id, -1, "70% misses the 75% Apostolic bar")
 
@@ -285,9 +290,9 @@ func test_un_victory_passes_above_sixty_below_apostolic_bar() -> void:
 	Assembly._establish(gs, "secular")
 	gs.get_player(1).technologies.append("mass_media")
 	gs.assembly["pending"] = Assembly._make_proposal(gs, "diplomatic_victory", 1, -1)
-	Assembly.cast_vote(gs, 1, Assembly.VOTE_YEA)   # 5
-	Assembly.cast_vote(gs, 3, Assembly.VOTE_YEA)   # 2  -> 7/10 = 70%
-	Assembly.cast_vote(gs, 2, Assembly.VOTE_NAY)   # 3
+	Assembly.cast_vote(gs, 1, "1")   # 5
+	Assembly.cast_vote(gs, 3, "1")   # 2  -> 7/10 = 70%
+	Assembly.cast_vote(gs, 2, Assembly.VOTE_ABSTAIN)   # 3
 	Assembly.world_tick(gs, gs.rng)
 	assert_eq(gs.winning_alliance_id, 1,
 		"70% clears the UN's 60% bar (which the 75% Apostolic bar would reject)")
@@ -303,11 +308,89 @@ func test_vassal_backs_overlord_candidate() -> void:
 	Assembly._establish(gs, "religious")
 	gs.assembly["pending"] = Assembly._make_proposal(gs, "diplomatic_victory", 1, -1)
 	gs.get_alliance(2).is_subordinate_to = 1
-	assert_eq(Assembly.ai_vote(gs, 2), Assembly.VOTE_YEA,
-		"A vassal backs its overlord's candidate")
+	assert_eq(Assembly.ai_vote(gs, 2), "1",
+		"A vassal casts its weight for its overlord's candidacy")
 	gs.get_alliance(2).is_subordinate_to = -1
-	assert_eq(Assembly.ai_vote(gs, 2), Assembly.VOTE_NAY,
-		"An independent rival votes the motion down")
+	assert_eq(Assembly.ai_vote(gs, 2), Assembly.VOTE_ABSTAIN,
+		"An independent rival abstains rather than hand a rival the game")
+
+# ── Apostolic Palace two-candidate runoff (§7.3) ────────────────────────────────
+
+# Religious state where the wonder owner (player 1, pop 2) is NOT the front-runner
+# (player 2, pop 6), so the supreme-leadership motion fields a two-candidate runoff.
+func _runoff_gs(seed_val = 5):
+	var gs = make_gs(3, seed_val)
+	var c1 = make_settlement(gs, 1, 3, 3, 2)
+	c1.belief_id = "christianity"
+	c1.structures.append(APOSTOLIC)
+	var c2 = make_settlement(gs, 2, 8, 8, 6)
+	c2.belief_id = "christianity"
+	var c3 = make_settlement(gs, 3, 14, 14, 2)
+	c3.belief_id = "christianity"
+	gs.enabled_win_conditions = ["diplomatic"]
+	return gs
+
+func test_ap_runoff_fields_owner_and_front_runner() -> void:
+	var gs = _runoff_gs()
+	var pending = _open_ap_victory(gs)
+	assert_eq(str(pending["resolution_id"]), "diplomatic_victory", "Victory motion opens")
+	assert_eq(pending["candidates"].size(), 2, "Owner and front-runner both stand")
+	assert_eq(int(pending["candidates"][0]), 1, "The wonder owner is the primary candidate")
+	assert_eq(int(pending["candidates"][1]), 2, "The strongest member is the rival candidate")
+
+func test_ap_runoff_collapses_when_owner_is_front_runner() -> void:
+	var gs = _religious_gs()   # owner (player 1, weight 5) is also the front-runner
+	var pending = _open_ap_victory(gs)
+	assert_eq(pending["candidates"].size(), 1, "An owner who already leads stands alone")
+	assert_eq(int(pending["candidates"][0]), 1, "The lone candidate is the owner/front-runner")
+
+func test_ap_runoff_won_when_a_candidate_clears_the_bar() -> void:
+	var gs = _runoff_gs()
+	_open_ap_victory(gs)
+	# All weight (10/10) is cast for candidate 2 — past the 75% bar.
+	Assembly.cast_vote(gs, 1, "2")
+	Assembly.cast_vote(gs, 2, "2")
+	Assembly.cast_vote(gs, 3, "2")
+	Assembly.world_tick(gs, gs.rng)
+	assert_eq(gs.winning_alliance_id, 2, "The candidate clearing 75% wins for its alliance")
+
+func test_ap_runoff_split_below_bar_elects_no_one() -> void:
+	var gs = _runoff_gs()
+	_open_ap_victory(gs)
+	# 6 for candidate 2, 4 for candidate 1 — neither reaches 75%.
+	Assembly.cast_vote(gs, 2, "2")   # weight 6 -> candidate 2
+	Assembly.cast_vote(gs, 1, "1")   # weight 2 -> candidate 1
+	Assembly.cast_vote(gs, 3, "1")   # weight 2 -> candidate 1
+	Assembly.world_tick(gs, gs.rng)
+	assert_eq(gs.winning_alliance_id, -1, "A 60/40 split runoff elects no World Leader")
+
+func test_ai_runoff_backs_self_bloc_then_overlord() -> void:
+	var gs = _runoff_gs()
+	_open_ap_victory(gs)
+	assert_eq(Assembly.ai_vote(gs, 2), "2", "A candidate backs itself")
+	assert_eq(Assembly.ai_vote(gs, 3), Assembly.VOTE_ABSTAIN,
+		"A rival of both candidates abstains")
+	gs.get_alliance(3).is_subordinate_to = 1
+	assert_eq(Assembly.ai_vote(gs, 3), "1",
+		"A vassal backs its overlord's candidacy even in a runoff")
+
+func test_runoff_rejects_a_vote_for_a_non_candidate() -> void:
+	var gs = _runoff_gs()
+	_open_ap_victory(gs)
+	assert_false(Assembly.cast_vote(gs, 1, "3"), "A vote for a non-candidate is rejected")
+	assert_false(Assembly.cast_vote(gs, 1, Assembly.VOTE_YEA), "Yea/Nay are not valid in a runoff")
+	assert_true(Assembly.cast_vote(gs, 1, "2"), "A vote for a listed candidate is accepted")
+	assert_true(Assembly.cast_vote(gs, 1, Assembly.VOTE_ABSTAIN), "Abstain is always valid")
+
+func test_runoff_state_round_trips_through_save_load() -> void:
+	var gs = _runoff_gs()
+	_open_ap_victory(gs)
+	Assembly.cast_vote(gs, 2, "2")
+	var restored = load("res://src/sim/game_state.gd").deserialize(gs.serialize(), gs.db)
+	var pending = restored.assembly["pending"]
+	assert_eq(int(pending["candidates"][0]), 1, "The candidate slate survives save/load")
+	assert_eq(int(pending["candidates"][1]), 2, "Both candidates survive save/load")
+	assert_eq(str(pending["votes"]["2"]), "2", "A cast runoff vote survives save/load")
 
 # ── Determinism / persistence ──────────────────────────────────────────────────
 
