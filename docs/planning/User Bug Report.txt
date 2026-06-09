@@ -74,7 +74,10 @@ Jun 9, 2026 17:21 — All fixed Jun 9, 2026
 -- [FIXED] map should also move by click and drag
    > Middle-mouse-button drag pans the camera; supplements arrow-key and wheel-zoom.
 -- [FIXED] city menu should show city health, and if city is growing (added to ui design as provisional)
-   > Requirement added to UI design doc as provisional.
+   > City screen now has a "City status" section: Health X/MAX (full/recovering)
+     from TurnEngine.city_max_health, and a Growth line (growing/stagnant/
+     starving with net food/turn) derived from the same surplus math as
+     _settlement_growth.
 -- [FIXED] dont allow adding something to the city production queue if it's already in the queue
    > Duplicate check in _on_build; build-chooser buttons disabled for already-queued items.
 -- [FIXED] user should be able to rearrange items in the city production queue

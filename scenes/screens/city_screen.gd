@@ -74,6 +74,29 @@ func _build() -> void:
 	if s.in_disorder:
 		_line(v, "!! IN DISORDER — production is halted")
 
+	# ── City status (health + growth) ──────────────────────────────────────────
+	# Jun 9 bug report: the city menu must show the city's defensive health and
+	# whether it is growing.
+	_header(v, "City status")
+	var maxh: int = TurnEngine.city_max_health(s, db)
+	# health < 0 is the "full" sentinel; a shrunk city may sit above the new cap.
+	var cur_h: int = maxh if (s.health < 0 or s.health > maxh) else s.health
+	_line(v, "Health: " + str(cur_h) + "/" + str(maxh) \
+		+ ("   (full)" if cur_h >= maxh else "   (recovering)"))
+	# Net food per turn = raw food output, less the wellbeing deficit, less what the
+	# population eats (mirrors TurnEngine._settlement_growth's surplus calculation).
+	var food_per: int = db.get_constant("food_per_citizen", 2)
+	var net_food: int = s.output_food - s.wellbeing_deficit - s.population * food_per
+	var growth_txt: String
+	if net_food > 0:
+		growth_txt = "growing (+" + str(net_food) + " food/turn, store " \
+			+ str(s.food_store) + ")"
+	elif net_food < 0:
+		growth_txt = "starving (" + str(net_food) + " food/turn)"
+	else:
+		growth_txt = "stagnant (no food surplus)"
+	_line(v, "Growth: " + growth_txt)
+
 	# ── Output ────────────────────────────────────────────────────────────────
 	_header(v, "Output")
 	_line(v, "Food " + _sgn(s.output_food) + "    Production " + _sgn(s.output_production) \

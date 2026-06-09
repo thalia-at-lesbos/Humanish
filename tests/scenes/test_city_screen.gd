@@ -42,6 +42,36 @@ func test_city_view_builds_from_settlement() -> void:
 	assert_true(screen.get_child_count() > 0,
 		"City screen must build content (background + info) from the settlement")
 
+# Recursively collect the text of every Label/Button under a node.
+func _all_text(node) -> String:
+	var out := ""
+	if node is Label or node is Button:
+		out += str(node.text) + "\n"
+	for c in node.get_children():
+		out += _all_text(c)
+	return out
+
+func test_city_screen_shows_health_and_growth() -> void:
+	var facade = setup_facade(75, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 3)
+	s.name = "Healthville"
+	s.output_food = 10      # net food: 10 - 0 - 3*2 = +4 → growing
+	s.wellbeing_deficit = 0
+	s.health = 5            # below max → "recovering"
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var text := _all_text(screen)
+	assert_true("Health:" in text, "City screen must show a Health line")
+	assert_true("Growth:" in text, "City screen must show a Growth line")
+	assert_true("growing" in text,
+		"A city with a positive food surplus must report it is growing")
+
 func test_city_view_add_to_production_queues_item() -> void:
 	var facade = setup_facade(72, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
