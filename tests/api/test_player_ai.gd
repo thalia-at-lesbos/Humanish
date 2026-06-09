@@ -205,6 +205,93 @@ func test_nearest_owned_city_picks_closest() -> void:
 	var got = PlayerAI._nearest_owned_city(gs, u, 1)
 	assert_eq(got.id, near.id, "Should target the nearest owned settlement")
 
+# ── §B-units: worker construction automation ──────────────────────────────────
+
+func test_worker_improves_resource_on_its_tile() -> void:
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["animal_husbandry"]
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "grassland"; t.resource_id = "cow"; t.owner_player_id = 1
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	PlayerAI._manage_worker(f, gs, w, 1)
+	assert_eq(w.building_improvement, "pasture",
+		"AI worker improves a visible resource on its own tile first (over a road)")
+
+func test_worker_does_not_reissue_an_active_build() -> void:
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	w.building_improvement = "pasture"
+	w.build_turns_left = 3
+	PlayerAI._manage_worker(f, gs, w, 1)
+	assert_eq(w.building_improvement, "pasture", "An in-progress build is kept")
+	assert_eq(w.build_turns_left, 3,
+		"The AI must not restart an active build — that would reset its progress")
+
+func test_worker_moves_toward_nearest_resource() -> void:
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["animal_husbandry"]
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var rt = gs.map.get_tile(9, 5)
+	rt.resource_id = "cow"; rt.owner_player_id = 1
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	PlayerAI._manage_worker(f, gs, w, 1)
+	assert_true(w.has_moved, "Worker heads for a resource it cannot yet reach")
+	assert_true(gs.map.distance(w.x, w.y, 9, 5) < gs.map.distance(5, 5, 9, 5),
+		"Movement reduces the distance to the resource tile")
+
+func test_worker_roads_territory_when_no_resources() -> void:
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	gs.map.get_tile(5, 5).owner_player_id = 1   # owned, bare, flat
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	PlayerAI._manage_worker(f, gs, w, 1)
+	assert_eq(w.building_improvement, "road",
+		"With no resources left, the worker roads bare tiles inside our territory")
+
+func test_worker_sleeps_when_no_work() -> void:
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	# No owned territory at all → nothing to improve or road.
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	PlayerAI._manage_worker(f, gs, w, 1)
+	assert_true(w.is_sleeping, "An AI worker with no territory to work sleeps")
+
+func test_ai_worker_build_completes_over_turns() -> void:
+	# End-to-end: an AI worker on an owned resource tile builds the improvement
+	# and — because the AI no longer re-issues the order each turn — it completes.
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).is_ai = true
+	gs.get_player(1).technologies = ["animal_husbandry"]
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	make_settlement(gs, 1, 10, 10, 3)             # spreads culture over the resource
+	var rt = gs.map.get_tile(11, 10)
+	rt.resource_id = "cow"; rt.owner_player_id = 1
+	make_unit(gs, "worker", 1, 11, 10)
+	var built := false
+	for _i in range(12):
+		PlayerAI.take_turn(f, 1)
+		if gs.map.get_tile(11, 10).improvement_id == "pasture":
+			built = true
+			break
+	assert_true(built,
+		"An AI-driven worker's build finishes and places the improvement over turns")
+
 func test_manage_units_is_deterministic() -> void:
 	# Two identical worlds (same seed) must reach an identical state hash after a
 	# pass of unit management — proving the AI draws only from the shared gs.rng.

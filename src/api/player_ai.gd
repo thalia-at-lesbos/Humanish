@@ -733,18 +733,109 @@ static func _defence_power(gs, d) -> int:
 
 # ── §B-units worker handling ───────────────────────────────────────────────────
 
-# A worker builds a road on its tile when there is none, else marches to the
-# nearest owned city to await orders. Simple and stall-free.
+# A worker automates construction in priority order: finish whatever it is
+# already building, then improve a visible resource (on its tile, else walk to the
+# nearest owned resource that needs it), then road a bare tile in our territory
+# (here, else walk to the nearest one), and finally sleep when nothing remains.
+# Critically it never re-issues a build that is already underway (which would
+# reset its progress), so builds actually complete.
 static func _manage_worker(facade, gs, u, player_id: int) -> void:
-	var tile = gs.map.get_tile(u.x, u.y)
-	if tile != null and tile.improvement_id == "" \
-			and facade.apply_command(Commands.mission_build_road(player_id, u.id)):
+	# Already building: hold the tile (issue no command) so the build advances to
+	# completion in the turn pipeline instead of being restarted every turn.
+	if u.building_improvement != "":
 		return
-	var target = _nearest_owned_city(gs, u, player_id)
-	if target != null and not (u.x == target.x and u.y == target.y):
-		facade.apply_command(Commands.mission_move_to(player_id, u.id, target.x, target.y))
-	else:
-		facade.apply_command(Commands.mission_skip_turn(player_id, u.id))
+
+	# 1. Resources first — improve the current tile's resource, else head for the
+	#    nearest owned resource tile that still needs improving.
+	var here = gs.map.get_tile(u.x, u.y)
+	var here_res: String = _resource_improvement_for(gs, here, player_id)
+	if here_res != "":
+		_wake_if_sleeping(facade, u, player_id)
+		if facade.apply_command(Commands.build_improvement(player_id, u.id, here_res)):
+			return
+	var res_tile = _nearest_work_tile(gs, u, player_id, true)
+	if res_tile != null:
+		_wake_if_sleeping(facade, u, player_id)
+		if facade.apply_command(Commands.mission_move_to(player_id, u.id, res_tile.x, res_tile.y)):
+			return
+
+	# 2. Roads in our territory — road the current bare owned tile, else walk to the
+	#    nearest owned tile that still lacks a road.
+	if _needs_road(gs, here, player_id):
+		_wake_if_sleeping(facade, u, player_id)
+		if facade.apply_command(Commands.mission_build_road(player_id, u.id)):
+			return
+	var road_tile = _nearest_work_tile(gs, u, player_id, false)
+	if road_tile != null:
+		_wake_if_sleeping(facade, u, player_id)
+		if facade.apply_command(Commands.mission_move_to(player_id, u.id, road_tile.x, road_tile.y)):
+			return
+
+	# 3. Nothing left to build — sleep until there is.
+	if not u.is_sleeping:
+		facade.apply_command(Commands.unit_sleep(player_id, u.id))
+
+static func _wake_if_sleeping(facade, u, player_id: int) -> void:
+	if u.is_sleeping:
+		facade.apply_command(Commands.unit_wake(player_id, u.id))
+
+# The resource improvement a worker should build on `tile` for this player, or ""
+# when the tile carries no improvable, visible resource — i.e. it is unowned, has
+# no resource, is already improved, the resource is not yet revealed (its tech is
+# unresearched), or the improvement's tech/landform requirement is unmet.
+static func _resource_improvement_for(gs, tile, player_id: int) -> String:
+	if tile == null or tile.resource_id == "" or tile.owner_player_id != player_id:
+		return ""
+	var db = gs.db
+	var res: Dictionary = db.get_resource(tile.resource_id)
+	var imp_id: String = str(res.get("improvement_required", ""))
+	if imp_id == "" or tile.improvement_id == imp_id:
+		return ""
+	var player = gs.get_player(player_id)
+	if player == null:
+		return ""
+	var reveal = res.get("tech_required", null)   # resource visibility tech
+	if reveal != null and str(reveal) != "" and not player.has_tech(str(reveal)):
+		return ""
+	var imp: Dictionary = db.get_improvement(imp_id)
+	if imp.empty():
+		return ""
+	var itech = imp.get("tech_required", null)
+	if itech != null and str(itech) != "" and not player.has_tech(str(itech)):
+		return ""
+	var landform: String = str(db.get_terrain(tile.terrain_id).get("landform", "flat"))
+	var allowed: Array = imp.get("allowed_landforms", [])
+	return imp_id if (allowed.empty() or landform in allowed) else ""
+
+# True when `tile` is owned land that can take a road and has no improvement yet
+# (a road occupies the single improvement slot, so only bare tiles qualify).
+static func _needs_road(gs, tile, player_id: int) -> bool:
+	if tile == null or tile.owner_player_id != player_id or tile.improvement_id != "":
+		return false
+	var road: Dictionary = gs.db.get_improvement("road")
+	var landform: String = str(gs.db.get_terrain(tile.terrain_id).get("landform", "flat"))
+	var allowed: Array = road.get("allowed_landforms", [])
+	return allowed.empty() or landform in allowed
+
+# Nearest owned tile (excluding the worker's own) that needs work: a resource to
+# improve when `resources` is true, otherwise a road site. Deterministic — least
+# distance, ties broken by (y, x) — so the AI stays reproducible from gs.rng alone.
+static func _nearest_work_tile(gs, u, player_id: int, resources: bool):
+	var best = null
+	var best_d: int = 0
+	for t in gs.map.all_tiles():
+		if t.x == u.x and t.y == u.y:
+			continue
+		var wanted: bool = (_resource_improvement_for(gs, t, player_id) != "") if resources \
+			else _needs_road(gs, t, player_id)
+		if not wanted:
+			continue
+		var d: int = gs.map.distance(u.x, u.y, t.x, t.y)
+		if best == null or d < best_d \
+				or (d == best_d and (t.y < best.y or (t.y == best.y and t.x < best.x))):
+			best = t
+			best_d = d
+	return best
 
 # A garrison unit holds its city. If it is not standing on one of the player's own
 # settlements, it heads for the nearest one; with no city to hold, it simply digs in.

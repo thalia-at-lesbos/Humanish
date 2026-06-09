@@ -105,6 +105,9 @@ Jun 9, 2026 17:21 — All fixed Jun 9, 2026
      pending_improvements notification). Building workers are excluded from the
      idle-unit cycle and end-turn prompt. Tile inspection already reports the
      improvement name; world rendering already draws the improvement indicator.
+     AI workers (PlayerAI._manage_worker) automate construction in priority order:
+     improve visible resources first, then road bare tiles inside our territory,
+     then sleep — and never re-issue an active build, so AI builds complete too.
 -- [FIXED] city should be able to produce nothing. explicitly choosing nothing means the user is not prompted for what to build next.
    > "Produce Nothing" button in city screen; produce_nothing flag on Settlement; turn prompts skip flagged cities.
 
