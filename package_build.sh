@@ -11,7 +11,7 @@ if [ -f "$BUILD/linux/Humanish-linux-amd64" ]; then
   tmp="$(mktemp -d)"
   cp "$BUILD/linux/Humanish-linux-amd64" "$tmp/"
   cp -r data "$tmp/"
-  cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
+  cp docs/user/quick-start.md docs/user/user-reference.md CHANGELOG.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-linux-amd64.zip" .)
   rm -rf "$tmp" "$BUILD/linux"
   echo "Created $BUILD/Humanish-linux-amd64.zip"
@@ -22,7 +22,7 @@ if [ -f "$BUILD/windows/Humanish-windows-amd64.exe" ]; then
   tmp="$(mktemp -d)"
   cp "$BUILD/windows/Humanish-windows-amd64.exe" "$tmp/"
   cp -r data "$tmp/"
-  cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
+  cp docs/user/quick-start.md docs/user/user-reference.md CHANGELOG.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-windows-amd64.zip" .)
   rm -rf "$tmp" "$BUILD/windows"
   echo "Created $BUILD/Humanish-windows-amd64.zip"
@@ -33,7 +33,7 @@ if [ -f "$BUILD/macos/Humanish-macos.zip" ]; then
   tmp="$(mktemp -d)"
   unzip -q "$BUILD/macos/Humanish-macos.zip" -d "$tmp"
   cp -r data "$tmp/"
-  cp docs/user/quick-start.md docs/user/user-reference.md "$tmp/"
+  cp docs/user/quick-start.md docs/user/user-reference.md CHANGELOG.md "$tmp/"
   (cd "$tmp" && zip -r "$OLDPWD/$BUILD/Humanish-macos.zip" .)
   rm -rf "$tmp" "$BUILD/macos"
   echo "Created $BUILD/Humanish-macos.zip"
