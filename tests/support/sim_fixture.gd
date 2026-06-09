@@ -112,11 +112,16 @@ func make_settlement(gs, player_id, x, y, pop = 1):
 
 # Wrap an existing game state in a facade without running setup() — for exercising
 # command handlers (`_cmd_*`) and combat application against a hand-built state.
+# `_hooks` is initialized to a real (empty) Hooks registry, exactly as production
+# setup()/init_for_load() do, so a command that drives the turn pipeline
+# (end_turn → world_step/player_step, which call hooks.run()) works instead of
+# raising a "Nonexistent function 'run' in base 'Nil'" error that GUT swallows.
 func bare_facade(gs):
 	var f = load("res://src/api/sim_facade.gd").new()
 	f._gs = gs
 	f._db = gs.db
 	f._dirty = load("res://src/api/dirty_flags.gd").new()
+	f._hooks = hooks()
 	return f
 
 # A fully set-up facade via the real new-game path. Defaults to two society-less

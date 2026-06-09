@@ -74,6 +74,15 @@ func test_trade_peace_clause_ends_war() -> void:
 	f._cmd_accept_trade({"player_id": 2, "trade_id": tid})
 	assert_false(gs.alliances[0].is_at_war_with(2), "Peace clause ended the war (proposer)")
 	assert_false(gs.alliances[1].is_at_war_with(1), "Peace clause ended the war (accepter)")
+	# The peace notification must render the alliances' labels (Alliance has no
+	# `name` field — referencing it used to raise a swallowed SCRIPT ERROR and emit
+	# a corrupted "Null and Null agreed to peace" line).
+	var peace_note: String = ""
+	for n in f.get_notification_queue():
+		if "agreed to peace" in str(n.get("text", "")):
+			peace_note = str(n["text"])
+	assert_eq(peace_note, "P1 and P2 agreed to peace.",
+		"Peace clause emits a well-formed notification naming both powers")
 
 func test_trade_reject_removes_without_effect() -> void:
 	var gs = make_gs(2)

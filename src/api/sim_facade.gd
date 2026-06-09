@@ -1118,7 +1118,8 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 		if a_from != null and a_to != null:
 			a_from.at_war_with.erase(a_to.id)
 			a_to.at_war_with.erase(a_from.id)
-			_add_notification(a_from.name + " and " + a_to.name + " agreed to peace.", "major")
+			_add_notification(_alliance_label(a_from.id) + " and " + _alliance_label(a_to.id)
+				+ " agreed to peace.", "major")
 
 # ── Subordination (§7) ────────────────────────────────────────────────────────
 
