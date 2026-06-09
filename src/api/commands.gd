@@ -332,6 +332,16 @@ static func set_citizen_automation(player_id: int, settlement_id: int,
 		"auto": auto
 	}
 
+static func move_production_item(player_id: int, settlement_id: int,
+		from_index: int, to_index: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.MOVE_PRODUCTION_ITEM,
+		"player_id": player_id,
+		"settlement_id": settlement_id,
+		"from_index": from_index,
+		"to_index": to_index
+	}
+
 static func disband_city(player_id: int, settlement_id: int) -> Dictionary:
 	# Voluntarily raze one of your own cities (§4.8). Blocked for the capital.
 	return {

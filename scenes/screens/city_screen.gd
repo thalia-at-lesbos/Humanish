@@ -108,18 +108,30 @@ func _build() -> void:
 		var item = s.production_queue[0]
 		var pace = db.get_pace(gs.pace_id)
 		var cost = TurnEngine._item_cost(item, db, owner, pace)
+		var head_row := HBoxContainer.new()
 		var head_btn := Button.new()
 		head_btn.text = "Building: " + str(item.get("id", "?")) + " (" \
 			+ str(item.get("type", "")) + ")   " \
 			+ str(s.production_store) + "/" + str(cost) + "  [click to remove]"
 		head_btn.connect("pressed", self, "_on_dequeue", [0])
-		v.add_child(head_btn)
+		head_row.add_child(head_btn)
+		v.add_child(head_row)
 		for i in range(1, s.production_queue.size()):
+			var q_row := HBoxContainer.new()
+			var up_btn := Button.new()
+			up_btn.text = "^"
+			up_btn.connect("pressed", self, "_on_move_up", [i])
+			q_row.add_child(up_btn)
+			var down_btn := Button.new()
+			down_btn.text = "v"
+			down_btn.connect("pressed", self, "_on_move_down", [i])
+			q_row.add_child(down_btn)
 			var q_btn := Button.new()
 			q_btn.text = "   next: " + str(s.production_queue[i].get("id", "?")) \
 				+ "  [click to remove]"
 			q_btn.connect("pressed", self, "_on_dequeue", [i])
-			v.add_child(q_btn)
+			q_row.add_child(q_btn)
+			v.add_child(q_row)
 
 	# ── City actions: hurry production / draft ─────────────────────────────────
 	_header(v, "City Actions")
@@ -311,6 +323,26 @@ func _on_build(itype: String, iid: String) -> void:
 	var q = s.production_queue.duplicate(true)
 	q.append({"type": itype, "id": iid})
 	_facade.apply_command(Commands.set_production(s.owner_player_id, _city_id, q))
+	rebuild()
+
+func _on_move_up(index: int) -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null or index <= 0:
+		return
+	_facade.apply_command(Commands.move_production_item(
+		s.owner_player_id, _city_id, index, index - 1))
+	rebuild()
+
+func _on_move_down(index: int) -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	if index >= s.production_queue.size() - 1:
+		return
+	_facade.apply_command(Commands.move_production_item(
+		s.owner_player_id, _city_id, index, index + 1))
 	rebuild()
 
 func _on_dequeue(index: int) -> void:

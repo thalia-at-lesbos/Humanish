@@ -104,7 +104,9 @@ enum CommandType {
     DEQUEUE_PRODUCTION = 57,
     # Diplomacy: propose a permanent alliance with another alliance (requires the
     # permanent_alliances optional rule to be active in GameState).
-    PROPOSE_PERMANENT_ALLIANCE = 58
+    PROPOSE_PERMANENT_ALLIANCE = 58,
+    # Move an item in the city production queue to a new position (§11 city screen).
+    MOVE_PRODUCTION_ITEM = 59
 }
 
 # Win condition types

@@ -332,6 +332,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_disband_city(cmd)
 		IDs.CommandType.DEQUEUE_PRODUCTION:
 			return _cmd_dequeue_production(cmd)
+		IDs.CommandType.MOVE_PRODUCTION_ITEM:
+			return _cmd_move_production_item(cmd)
 		IDs.CommandType.ESPIONAGE_MISSION:
 			return _cmd_espionage_mission(cmd)
 		IDs.CommandType.LOAD_UNIT:
@@ -788,6 +790,24 @@ func _cmd_dequeue_production(cmd: Dictionary) -> bool:
 	if idx < 0 or idx >= s.production_queue.size():
 		return false
 	s.production_queue.remove(idx)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
+
+func _cmd_move_production_item(cmd: Dictionary) -> bool:
+	var s: Settlement = _gs.get_settlement(int(cmd.get("settlement_id", -1)))
+	if s == null or s.owner_player_id != int(cmd["player_id"]):
+		return false
+	var from_idx: int = int(cmd.get("from_index", -1))
+	var to_idx: int = int(cmd.get("to_index", -1))
+	if from_idx < 0 or from_idx >= s.production_queue.size():
+		return false
+	if to_idx < 0 or to_idx >= s.production_queue.size():
+		return false
+	if from_idx == to_idx:
+		return true
+	var item = s.production_queue[from_idx]
+	s.production_queue.remove(from_idx)
+	s.production_queue.insert(to_idx, item)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
