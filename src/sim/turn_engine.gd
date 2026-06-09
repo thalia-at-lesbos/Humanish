@@ -391,6 +391,16 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 	# Fresh water from an adjacent water body or a river/oasis feature (§4.6)
 	if _has_fresh_water(gs, s, db):
 		pos += db.get_constant("fresh_water_health", 2)
+	# Worked-tile feature wellbeing (§4.6): healthful features (forest, oasis) add to
+	# positive; unhealthful ones (jungle, flood plains, fallout) add to negative. Mirrors
+	# the worked-tile scan the happiness model uses for forests (§4.5).
+	for wt in s.worked_tiles:
+		var tile: Tile = gs.map.get_tile(int(wt[0]), int(wt[1]))
+		if tile == null or tile.feature_id == "":
+			continue
+		var feat: Dictionary = db.get_feature(tile.feature_id)
+		pos += int(feat.get("health_bonus", 0))
+		neg += int(feat.get("health_penalty", 0))
 	s.wellbeing_positive = pos
 	s.wellbeing_negative = neg
 	s.wellbeing_deficit = max(0, neg - pos)
