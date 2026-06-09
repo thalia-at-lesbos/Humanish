@@ -277,9 +277,10 @@ func test_difficulty_growth_bonus_speeds_growth() -> void:
 	assert_eq(grew_settler, 2, "Easier difficulty lowers the threshold and the city grows")
 	assert_eq(grew_deity, 1, "Harder difficulty raises the threshold and the city holds")
 
-func _grow_pop_for_difficulty(diff: String) -> int:
+func _grow_pop_for_difficulty(diff, is_ai = false) -> int:
 	var gs = make_gs(1)
 	gs.difficulty_id = diff
+	gs.get_player(1).is_ai = is_ai
 	var s = make_settlement(gs, 1, 5, 5, 1)
 	s.structures = ["hospital"]            # +3 health → deficit 0 on every level
 	gs.map.get_tile(6, 5).terrain_id = "coast"  # fresh water → +2 health
@@ -292,9 +293,10 @@ func test_difficulty_health_bonus_affects_wellbeing() -> void:
 	assert_true(_deficit_for_difficulty("deity") > _deficit_for_difficulty("settler"),
 		"Harder difficulty worsens city wellbeing (larger deficit)")
 
-func _deficit_for_difficulty(diff: String) -> int:
+func _deficit_for_difficulty(diff, is_ai = false) -> int:
 	var gs = make_gs(1)
 	gs.difficulty_id = diff
+	gs.get_player(1).is_ai = is_ai
 	var s = make_settlement(gs, 1, 2, 2, 5)  # dry inland city, no structures
 	TurnEngine._update_wellbeing(gs, s, gs.get_player(1), gs.db)
 	return s.wellbeing_deficit
@@ -303,12 +305,27 @@ func test_difficulty_happiness_bonus_affects_contentment() -> void:
 	assert_true(_positive_for_difficulty("settler") > _positive_for_difficulty("deity"),
 		"Easier difficulty grants more comfort (higher positive sentiment)")
 
-func _positive_for_difficulty(diff: String) -> int:
+func _positive_for_difficulty(diff, is_ai = false) -> int:
 	var gs = make_gs(1)
 	gs.difficulty_id = diff
+	gs.get_player(1).is_ai = is_ai
 	var s = make_settlement(gs, 1, 2, 2, 1)
 	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
 	return s.positive_sentiment
+
+# Handicaps are a player aid: AI players (is_ai) get none, so difficulty makes no
+# difference to their cities (their handicap is the separate ai_bonus).
+
+func test_difficulty_handicaps_skip_ai_players() -> void:
+	assert_eq(_grow_pop_for_difficulty("settler", true),
+		_grow_pop_for_difficulty("deity", true),
+		"Growth handicap does not apply to AI players")
+	assert_eq(_deficit_for_difficulty("settler", true),
+		_deficit_for_difficulty("deity", true),
+		"Health handicap does not apply to AI players")
+	assert_eq(_positive_for_difficulty("settler", true),
+		_positive_for_difficulty("deity", true),
+		"Happiness handicap does not apply to AI players")
 
 # ── Leader/society trait wellbeing (§4.6) ────────────────────────────────────
 
