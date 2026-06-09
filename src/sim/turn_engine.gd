@@ -530,6 +530,14 @@ static func _settlement_production(gs: GameState, s: Settlement,
 	var pace_scale: int = int(pace.get("build_scale", 100))
 	var prod: int = Fixed.scale(s.output_production, pace_scale)
 
+	# AI production handicap (§2.2): higher difficulties give AI extra hammers.
+	# Mirrors the human-only growth handicap block; gated is_ai so the two aids
+	# stay symmetric and never cross-apply.
+	if player != null and player.is_ai:
+		var ai_bonus: int = int(db.get_difficulty(gs.difficulty_id).get("ai_bonus", 0))
+		if ai_bonus != 0:
+			prod = Fixed.scale(prod, 100 + ai_bonus)
+
 	var item: Dictionary = s.production_queue[0]
 	# Civic production effects depend on what is currently being built (§8).
 	prod += _policy_production_delta(gs, s, player, db, item, prod)
@@ -1140,6 +1148,13 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		if fin_income > 0:
 			research_income += Fixed.scale(fin_income,
 				db.get_constant("finance_research_supplement_pct", 50))
+
+	# AI research handicap (§2.2): higher difficulties give AI extra beakers.
+	# Same is_ai gate as the production bonus; one data column controls both.
+	if player.is_ai:
+		var ai_bonus: int = int(db.get_difficulty(gs.difficulty_id).get("ai_bonus", 0))
+		if ai_bonus != 0:
+			research_income = Fixed.scale(research_income, 100 + ai_bonus)
 
 	player.research_store += research_income
 
