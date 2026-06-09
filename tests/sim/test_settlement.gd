@@ -320,6 +320,41 @@ func test_traitless_player_has_no_trait_health() -> void:
 	# No traits, no structures, dry inland: positive is purely difficulty (prince=0).
 	assert_eq(s.wellbeing_positive, 0, "A traitless prince city has no positive wellbeing")
 
+# ── Worked-tile feature wellbeing (§4.6) ─────────────────────────────────────
+
+func test_worked_forest_improves_wellbeing() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	var p = gs.get_player(1)
+	s.worked_tiles = [[2, 3]]
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var base_pos: int = s.wellbeing_positive
+	gs.map.get_tile(2, 3).feature_id = "forest"  # health_bonus 1
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	assert_eq(s.wellbeing_positive, base_pos + 1, "A worked forest adds +1 health")
+
+func test_worked_jungle_worsens_wellbeing() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	var p = gs.get_player(1)
+	s.worked_tiles = [[2, 3]]
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var base_neg: int = s.wellbeing_negative
+	gs.map.get_tile(2, 3).feature_id = "jungle"  # health_penalty 1
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	assert_eq(s.wellbeing_negative, base_neg + 1, "A worked jungle adds +1 unhealthiness")
+
+func test_unworked_feature_does_not_affect_wellbeing() -> void:
+	# Only worked tiles count; an unworked jungle in the wild is harmless.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	var p = gs.get_player(1)
+	s.worked_tiles = []
+	gs.map.get_tile(2, 3).feature_id = "jungle"
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	assert_eq(s.wellbeing_negative, s.population,
+		"An unworked jungle contributes no unhealthiness")
+
 # ── Specialist output (§6.5) ─────────────────────────────────────────────────
 
 func test_specialists_add_commerce() -> void:

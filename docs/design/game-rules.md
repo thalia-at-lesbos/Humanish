@@ -326,11 +326,19 @@ contributions from population, polluting structures, unhealthful resources, and 
 terrain/features. A net wellbeing deficit reduces the settlement's sustenance surplus each
 turn.
 
-Currently wired positive contributions: per-population base (negative), structure
+Currently wired contributions: per-population base (negative), structure
 `health_bonus`/`health_penalty`, the adopted belief's `health_bonus`, the empire-wide
 `health_empire` civic effect, the owner's **leader/society trait** `health_bonus`
 (`data/leaders_traits.json` — e.g. **Expansive grants +2 health per city**, the Beyond the
-Sword value), the difficulty `health_bonus` handicap (§2.2), and fresh water.
+Sword value), the difficulty `health_bonus` handicap (§2.2), fresh water, and **worked-tile
+feature** health (below).
+
+* **Worked-tile features (`data/features.json`).** Each **worked** tile carrying a feature
+  contributes its `health_bonus` to the positive total and its `health_penalty` to the
+  negative total — healthful features (forest, oasis +1) and unhealthful ones (jungle,
+  flood plains, fallout −1). Only worked tiles count, mirroring the happiness model's
+  worked-forest scan (§4.5); an unworked feature in the city radius is inert. This is also
+  the path by which **Fallout** (§5.7) harms a city working a contaminated tile.
 
 ### 4.7 Culture & borders
 * Each settlement accumulates cultural output and crosses **influence-level thresholds**
