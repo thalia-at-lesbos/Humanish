@@ -117,6 +117,28 @@ func test_worker_makes_no_build_progress_on_the_issuing_turn() -> void:
 	assert_eq(w.build_turns_left, before - 1,
 		"Build should advance by one on a turn the worker holds its tile")
 
+func test_moving_a_building_worker_cancels_the_build() -> void:
+	# A worker that walks away mid-build must abandon the build, so it cannot
+	# complete the improvement on whatever tile it ends up on.
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade.apply_command(Commands.build_improvement(1, w.id, "farm"))
+	assert_eq(w.building_improvement, "farm", "Build should be in progress")
+	# Refresh movement (the build consumed it) and move the worker one tile.
+	w.movement_left = w.movement_total
+	w.has_moved = false
+	facade.apply_command(Commands.mission_move_to(1, w.id, 6, 5))
+	assert_eq(w.building_improvement, "",
+		"Moving must cancel the in-progress build")
+	assert_eq(w.build_turns_left, 0,
+		"build_turns_left must reset when the build is cancelled by movement")
+
 func test_building_worker_not_flagged_idle() -> void:
 	var gs = make_gs(1)
 	gs.get_player(1).treasury = 10000

@@ -523,6 +523,10 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			u.is_fortified = false
 			u.is_sleep_until_healed = false
 			u.is_fortify_until_healed = false
+			# A worker that leaves its tile abandons any in-progress improvement
+			# build, so the build never completes on the wrong tile.
+			u.building_improvement = ""
+			u.build_turns_left = 0
 			# Carried units ride along with their transport (§5.2).
 			for cid in u.cargo:
 				var carried: Unit = _gs.get_unit(cid)
