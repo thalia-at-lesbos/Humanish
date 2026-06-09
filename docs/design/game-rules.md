@@ -208,10 +208,12 @@ research does).
 > wired exactly as described (`TurnEngine._settlement_growth`, `_update_wellbeing`,
 > `_update_contentment`, reading `data/difficulties.json`), but the per-level magnitudes are
 > placeholders carried over from a preliminary tuning pass and have not been balanced.
-> Unlike the reference game, these handicaps apply to **every** player (human and computer
-> alike), not only the human — the AI handicap (`ai_bonus`) is a separate field.
+> As in the reference game, these handicaps are a **player aid applied to human players
+> only** (`player.is_ai == false`); a computer player's cities receive none of them. The
+> AI's own handicap is the separate `ai_bonus` field.
 
-Each difficulty level (`settler` … `deity`) carries three city modifiers, all integer:
+Each difficulty level (`settler` … `deity`) carries three city modifiers, all integer,
+applied to human-owned cities only:
 
 * **`growth_bonus`** (percent, e.g. `+25` Settler … `−20` Deity) scales the food-to-grow
   **threshold** inversely: the threshold is multiplied by `(100 − growth_bonus)`, so a
@@ -278,9 +280,9 @@ Surplus sustenance accumulates in a "store" each turn:
   increases by one and a configurable portion of the store is carried over. If the store
   goes negative, the settlement starves and population may decrease.
 * The growth threshold rises with current population, is scaled by the global pacing
-  setting and the starting age, and by the difficulty's `growth_bonus` handicap (§2.2,
-  applied to every player). A fraction of stored sustenance may be retained across growth,
-  capped relative to the threshold.
+  setting and the starting age, and (for human players) by the difficulty's `growth_bonus`
+  handicap (§2.2). A fraction of stored sustenance may be retained across growth, capped
+  relative to the threshold.
 
 ### 4.3 Output & the economic split
 * A settlement's base output for each type is the sum of its worked tiles, assigned

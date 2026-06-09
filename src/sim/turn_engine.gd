@@ -339,12 +339,15 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	var threshold: int = Fixed.scale(Fixed.scale(base * s.population, pace_scale), era_scale)
 	# Difficulty growth handicap (§2): a positive growth_bonus (easier levels) lowers
 	# the food-to-grow threshold; a negative one (harder levels) raises it. Read from
-	# data/difficulties.json. growth_bonus is bounded so (100 - it) stays positive.
-	var diff_growth: int = int(db.get_difficulty(gs.difficulty_id).get("growth_bonus", 0))
-	if diff_growth != 0:
-		threshold = Fixed.scale(threshold, 100 - diff_growth)
-		if threshold < 1:
-			threshold = 1
+	# data/difficulties.json. growth_bonus is bounded so (100 - it) stays positive. The
+	# handicap is a player aid — applied to human players only (the AI's separate
+	# ai_bonus is its handicap); see §2.2.
+	if player != null and not player.is_ai:
+		var diff_growth: int = int(db.get_difficulty(gs.difficulty_id).get("growth_bonus", 0))
+		if diff_growth != 0:
+			threshold = Fixed.scale(threshold, 100 - diff_growth)
+			if threshold < 1:
+				threshold = 1
 
 	if s.food_store >= threshold:
 		s.population += 1
@@ -385,9 +388,10 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 		for trait_id in player.traits:
 			pos += int(db.get_trait(trait_id).get("health_bonus", 0))
 	# Difficulty wellbeing handicap (§2): per-level health bonus (easier levels) or
-	# penalty (harder levels) applied to every city. A negative value lowers `pos`,
-	# widening the deficit. Read from data/difficulties.json.
-	pos += int(db.get_difficulty(gs.difficulty_id).get("health_bonus", 0))
+	# penalty (harder levels). A negative value lowers `pos`, widening the deficit. Read
+	# from data/difficulties.json; a player aid applied to human players only (§2.2).
+	if player != null and not player.is_ai:
+		pos += int(db.get_difficulty(gs.difficulty_id).get("health_bonus", 0))
 	# Fresh water from an adjacent water body or a river/oasis feature (§4.6)
 	if _has_fresh_water(gs, s, db):
 		pos += db.get_constant("fresh_water_health", 2)
@@ -426,8 +430,10 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 	pos += max(0, 3 - (s.population / 4))
 
 	# Difficulty comfort handicap (§2): per-level happiness bonus (easier levels) or
-	# penalty (harder levels) applied to every city. Read from data/difficulties.json.
-	pos += int(db.get_difficulty(gs.difficulty_id).get("happiness_bonus", 0))
+	# penalty (harder levels). Read from data/difficulties.json; a player aid applied to
+	# human players only (§2.2).
+	if player != null and not player.is_ai:
+		pos += int(db.get_difficulty(gs.difficulty_id).get("happiness_bonus", 0))
 
 	# Structures. A structure that requires the state religion (e.g. Cathedrals)
 	# only comforts the city while that religion is the player's adopted one and is
