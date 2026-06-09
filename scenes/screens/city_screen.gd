@@ -173,6 +173,12 @@ func _build() -> void:
 	for opt in options:
 		var btn := Button.new()
 		btn.text = "+ " + opt[1]
+		var already: bool = false
+		for existing in s.production_queue:
+			if existing.get("type") == opt[0] and existing.get("id") == opt[1]:
+				already = true
+				break
+		btn.disabled = already
 		btn.connect("pressed", self, "_on_build", [opt[0], opt[1]])
 		grid.add_child(btn)
 	v.add_child(grid)
@@ -299,6 +305,9 @@ func _on_build(itype: String, iid: String) -> void:
 	var s = gs.get_settlement(_city_id)
 	if s == null:
 		return
+	for existing in s.production_queue:
+		if existing.get("type") == itype and existing.get("id") == iid:
+			return
 	var q = s.production_queue.duplicate(true)
 	q.append({"type": itype, "id": iid})
 	_facade.apply_command(Commands.set_production(s.owner_player_id, _city_id, q))
