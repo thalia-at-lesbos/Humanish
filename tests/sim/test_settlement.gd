@@ -252,6 +252,51 @@ func test_river_border_gives_fresh_water() -> void:
 	TurnEngine._update_wellbeing(gs, s, gs.get_player(1), gs.db)
 	assert_gt(s.wellbeing_positive, dry_pos, "A river border supplies fresh water")
 
+# ── Difficulty handicaps (§2) ────────────────────────────────────────────────
+# data/difficulties.json carries per-level growth_bonus, health_bonus and
+# happiness_bonus that apply to every city; these assert the wiring.
+
+func test_difficulty_growth_bonus_speeds_growth() -> void:
+	# Equalise wellbeing across difficulties (hospital + fresh water so the deficit
+	# is 0 even on Deity) so the only difference is the growth threshold itself.
+	var grew_settler: int = _grow_pop_for_difficulty("settler")
+	var grew_deity: int = _grow_pop_for_difficulty("deity")
+	assert_eq(grew_settler, 2, "Easier difficulty lowers the threshold and the city grows")
+	assert_eq(grew_deity, 1, "Harder difficulty raises the threshold and the city holds")
+
+func _grow_pop_for_difficulty(diff: String) -> int:
+	var gs = make_gs(1)
+	gs.difficulty_id = diff
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.structures = ["hospital"]            # +3 health → deficit 0 on every level
+	gs.map.get_tile(6, 5).terrain_id = "coast"  # fresh water → +2 health
+	s.worked_tiles = []                    # no food: surplus is a fixed -2
+	s.food_store = 20                       # → 18 after consumption; crosses 15 not 24
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	return s.population
+
+func test_difficulty_health_bonus_affects_wellbeing() -> void:
+	assert_true(_deficit_for_difficulty("deity") > _deficit_for_difficulty("settler"),
+		"Harder difficulty worsens city wellbeing (larger deficit)")
+
+func _deficit_for_difficulty(diff: String) -> int:
+	var gs = make_gs(1)
+	gs.difficulty_id = diff
+	var s = make_settlement(gs, 1, 2, 2, 5)  # dry inland city, no structures
+	TurnEngine._update_wellbeing(gs, s, gs.get_player(1), gs.db)
+	return s.wellbeing_deficit
+
+func test_difficulty_happiness_bonus_affects_contentment() -> void:
+	assert_true(_positive_for_difficulty("settler") > _positive_for_difficulty("deity"),
+		"Easier difficulty grants more comfort (higher positive sentiment)")
+
+func _positive_for_difficulty(diff: String) -> int:
+	var gs = make_gs(1)
+	gs.difficulty_id = diff
+	var s = make_settlement(gs, 1, 2, 2, 1)
+	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
+	return s.positive_sentiment
+
 # ── Specialist output (§6.5) ─────────────────────────────────────────────────
 
 func test_specialists_add_commerce() -> void:

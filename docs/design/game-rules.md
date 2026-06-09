@@ -30,7 +30,7 @@ key_files:
   - data/constants.json          # all tunable numeric constants
 sections:
   "§1  World model":           "Map & tiles, adjacency, tile output, rivers"
-  "§2  Time, ages, pacing":    "Turn length, eras (§2.1 provisional)"
+  "§2  Time, ages, pacing":    "Turn length, eras (§2.1 provisional), difficulty city handicaps (§2.2 provisional)"
   "§3  Turn structure":        "Authoritative world-step / player-step order"
   "§4  Settlements":           "Growth, output split, production, contentment, wellbeing, culture, conquest (§4.8), cultural revolt (§4.9 provisional), tile maturation (§4.10 provisional)"
   "§5  Units":                 "Definition, movement, combat strength, combat resolution, XP & upgrades, healing & entrenchment, nuclear weapons (§5.7 provisional), naval blockade (§5.8 provisional)"
@@ -45,6 +45,7 @@ sections:
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
+  - "§2.2  Difficulty city handicaps — per-level growth/health/happiness magnitudes placeholder"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
   - "§4.10 Tile maturation — cottage upgrade rates"
   - "§5.7  Nuclear weapons — all blast/radiation magnitudes placeholder"
@@ -158,7 +159,8 @@ connected chain of tile-edge segments that runs from an inland high point down t
   and influence presentation and AI behavior. See §2.1 for the implemented model.
 * A **difficulty setting** supplies a family of per-level modifiers (handicaps and
   bonuses for computer players, free starting units, comfort/health bonuses, and a number
-  of "free" early combat wins against wild/raider forces).
+  of "free" early combat wins against wild/raider forces). See §2.2 for the implemented
+  per-city handicaps.
 
 ### 2.1 Eras (provisional)
 > **⚠️ Provisional — preliminary, not verified.** This subsection documents a first-pass
@@ -200,6 +202,25 @@ advancement for the notification; every rule above reads the era **live** (recom
 techs), so the cache can never desync a mechanic. The `start_turn` field in
 `data/ages.json` is currently **descriptive only** (it does not force or gate era entry —
 research does).
+
+### 2.2 Difficulty city handicaps (provisional)
+> **⚠️ Provisional — implemented, not verified.** The three per-city handicaps below are
+> wired exactly as described (`TurnEngine._settlement_growth`, `_update_wellbeing`,
+> `_update_contentment`, reading `data/difficulties.json`), but the per-level magnitudes are
+> placeholders carried over from a preliminary tuning pass and have not been balanced.
+> Unlike the reference game, these handicaps apply to **every** player (human and computer
+> alike), not only the human — the AI handicap (`ai_bonus`) is a separate field.
+
+Each difficulty level (`settler` … `deity`) carries three city modifiers, all integer:
+
+* **`growth_bonus`** (percent, e.g. `+25` Settler … `−20` Deity) scales the food-to-grow
+  **threshold** inversely: the threshold is multiplied by `(100 − growth_bonus)`, so a
+  positive bonus on easier levels lowers it (cities grow sooner) and a negative one on
+  harder levels raises it. Applied on top of the pace and era threshold scaling (§4.2).
+* **`health_bonus`** (e.g. `+2` Settler … `−2` Deity) is added to each city's wellbeing
+  **positive** total (§4.6); a negative value lowers it and widens the deficit.
+* **`happiness_bonus`** (e.g. `+2` Settler … `−2` Deity) is added to each city's
+  contentment **positive** sentiment (§4.5).
 
 ---
 
@@ -257,9 +278,9 @@ Surplus sustenance accumulates in a "store" each turn:
   increases by one and a configurable portion of the store is carried over. If the store
   goes negative, the settlement starves and population may decrease.
 * The growth threshold rises with current population, is scaled by the global pacing
-  setting and the starting age, and (for computer players) by difficulty modifiers. A
-  fraction of stored sustenance may be retained across growth, capped relative to the
-  threshold.
+  setting and the starting age, and by the difficulty's `growth_bonus` handicap (§2.2,
+  applied to every player). A fraction of stored sustenance may be retained across growth,
+  capped relative to the threshold.
 
 ### 4.3 Output & the economic split
 * A settlement's base output for each type is the sum of its worked tiles, assigned
