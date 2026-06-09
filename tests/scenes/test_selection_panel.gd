@@ -88,6 +88,35 @@ func test_unit_panel_omits_open_city_button() -> void:
 		"A selected unit must not show an Open City button (no city is selected)")
 	assert_true(panel.get_child_count() > 0, "The unit panel should still show unit info")
 
+func test_capital_panel_hides_disband_button() -> void:
+	# The capital (the city holding the Palace) cannot be disbanded, so its panel
+	# must not offer a Disband button; a non-capital city still does.
+	var facade = setup_facade(92, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+
+	var capital = make_settlement(gs, pid, 7, 7)
+	capital.name = "Capital"
+	capital.structures.append("palace")
+	var other = make_settlement(gs, pid, 9, 9)
+	other.name = "Town"
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+
+	facade.select_city(capital.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Disband City"), 0,
+		"The capital must not show a Disband City button")
+
+	facade.select_city(other.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Disband City"), 1,
+		"A non-capital city still shows a Disband City button")
+
 func _has_label_starting(node, prefix) -> bool:
 	for c in node.get_children():
 		if c is Label and c.text.begins_with(prefix):

@@ -164,11 +164,14 @@ func _build_city_panel(city_id: int, gs) -> void:
 	add_child(city_btn)
 
 	# Disband (raze) — the at-any-time disband, and the "raze" choice for a
-	# just-conquered city (§4.8).
-	var disband_btn: Button = Button.new()
-	disband_btn.text = "Disband City"
-	disband_btn.connect("pressed", self, "_on_disband_city", [city_id])
-	add_child(disband_btn)
+	# just-conquered city (§4.8). The capital (the city holding the Palace) cannot
+	# be disbanded, so it shows no Disband button at all (the command is also
+	# rejected facade-side; this keeps the UI honest about what is allowed).
+	if not s.has_structure("palace"):
+		var disband_btn: Button = Button.new()
+		disband_btn.text = "Disband City"
+		disband_btn.connect("pressed", self, "_on_disband_city", [city_id])
+		add_child(disband_btn)
 
 # Terrain readout for an inspected (unoccupied / illegal-target) tile.
 func _build_tile_panel(tx: int, ty: int) -> void:
