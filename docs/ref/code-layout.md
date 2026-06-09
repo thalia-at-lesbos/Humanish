@@ -228,7 +228,6 @@ gs.turn_number
 gs.current_player_id
 gs.winning_alliance_id
 gs.founded_beliefs / gs.founded_econ_orgs / gs.endgame_project_stages
-gs.diplomatic_votes              alliance_id → vote weight
 gs.assembly                      §7.2 world-assembly state (body, resident, open session, tallies)
 gs.pending_assembly_events / gs.pending_flips / gs.pending_era_advances / gs.pending_wild_events
 ```
@@ -245,7 +244,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 4. Spawn wild/raider forces (`WildForces`), then let them act (`WildAI.run` — §9 scouts, camp alerts, mustered raid waves; pushes fights/razes onto `gs.pending_wild_events`)
 5. Environmental degradation (`Pollution`)
 6. Assign special sites (stub)
-7. Assembly/voting (`_resolve_assembly` — tallies population-weighted `gs.diplomatic_votes` per alliance — then `Assembly.world_tick` runs the §7.2 world-assembly lifecycle: sessions, resident elections, resolutions; gated on a built Apostolic Palace / United Nations)
+7. Assembly/voting (`Assembly.world_tick` runs the §7.2 world-assembly lifecycle: sessions, resident elections, resolutions; gated on a built Apostolic Palace / United Nations. Diplomatic victory is delivered here via the UN election — `Assembly.apply_effect "diplomatic_victory"` — not by a standalone population poll)
 8. Increment `turn_number`
 9. Advance `current_player_id`
 10. Check win conditions (`WinConditions`)

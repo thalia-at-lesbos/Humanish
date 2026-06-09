@@ -179,7 +179,18 @@ Two `TurnEngine` phases are intentional no-ops awaiting their subsystem:
 (For the record, two phases previously labelled "stub" in `code-layout.md` are in
 fact implemented and have been corrected there: `WORLD_TILE_UPKEEP` →
 `_tile_upkeep` charges improvement maintenance, and `WORLD_ASSEMBLY` →
-`_resolve_assembly` tallies population-weighted `gs.diplomatic_votes`.)
+`Assembly.world_tick` runs the §7.2 world-assembly lifecycle.)
+
+**Diplomatic win condition (interim, rework pending).** The crude
+`_resolve_assembly` population poll and its `gs.diplomatic_votes` /
+`WinConditions._diplomatic` consumer were **removed** — they handed the game to
+whoever momentarily governed a 67% population majority, which one early city
+trivially does (an all-AI smoke won by turn 2). Diplomatic victory now flows
+**solely** through the §7.2 assembly's UN election
+(`Assembly.apply_effect "diplomatic_victory"`). `WinConditions._check_one`'s
+`"diplomatic"` case is now an explicit no-op. A full diplomatic-win rework is
+slated next; the design docs (`game-rules.md` §10/§16, `game-data.md` §18) still
+describe the old poll and need updating as part of that rework.
 
 ---
 
