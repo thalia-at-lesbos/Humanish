@@ -100,6 +100,25 @@ func test_friendly_occupied_destination_is_legal() -> void:
 	var friend_last = path[path.size() - 1]
 	assert_eq([int(friend_last[0]), int(friend_last[1])], [3, 2], "Path ends on the friendly tile")
 
+# ── Wrap-x pathfinding ──────────────────────────────────────────────────────
+
+func test_pathfinding_wraps_east_west_seam() -> void:
+	# On a wrap_x map, a unit at column 1 should find a short path to (width-1)
+	# going west through column 0→(width-1) rather than all the way east.
+	var db = make_db()
+	var m = load("res://src/world/world_map.gd").new()
+	m.init(10, 6, true, false)  # wrap_x=true, 10 wide
+	for t in m.all_tiles():
+		t.terrain_id = "grassland"
+	var u = _bare_unit("warrior", 1, 1, 2); u.id = 1
+	# From (1,2) to (9,2): direct east path = 8 steps; wrap path = 2 steps (via col 0)
+	var path = Pathfinding.find_path(m, 1, 2, 9, 2, u, db, [], 1)
+	assert_false(path.empty(), "Wrap-x: path must exist from col 1 to col 9")
+	var last = path[path.size() - 1]
+	assert_eq([int(last[0]), int(last[1])], [9, 2], "Path ends at destination")
+	# The shortest wrap path should be 2 steps (1→0→9), not 8 steps going east
+	assert_eq(path.size(), 2, "Wrap-x: shortest path through seam is 2 steps, not 8")
+
 # ── Zone of control (§5.2) ───────────────────────────────────────────────────
 
 func test_zone_of_control_halts_movement() -> void:

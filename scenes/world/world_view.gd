@@ -364,11 +364,9 @@ func screen_to_tile(screen_pos: Vector2) -> Vector2:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == BUTTON_WHEEL_UP and event.pressed:
-			_zoom = min(_zoom * 1.1, 4.0)
-			_camera_changed()
+			_zoom_toward_cursor(min(_zoom * 1.1, 4.0), event.position)
 		elif event.button_index == BUTTON_WHEEL_DOWN and event.pressed:
-			_zoom = max(_zoom / 1.1, 0.25)
-			_camera_changed()
+			_zoom_toward_cursor(max(_zoom / 1.1, 0.25), event.position)
 	elif event is InputEventKey and event.pressed:
 		var step: float = TILE_SIZE * _zoom
 		if event.scancode == KEY_LEFT:
@@ -383,6 +381,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.scancode == KEY_DOWN:
 			_offset.y -= step
 			_camera_changed()
+
+# Zoom to a new level while keeping the world point under `cursor_pos` fixed on
+# screen. The invariant is: world_pos = (cursor_pos - offset) / zoom must be the
+# same before and after the zoom, so the new offset is derived from that.
+func _zoom_toward_cursor(new_zoom: float, cursor_pos: Vector2) -> void:
+	var world_pos: Vector2 = (cursor_pos - _offset) / _zoom
+	_zoom = new_zoom
+	_offset = cursor_pos - world_pos * _zoom
+	_camera_changed()
 
 func pan_to_tile(tx: int, ty: int) -> void:
 	var vp: Vector2 = get_viewport_rect().size

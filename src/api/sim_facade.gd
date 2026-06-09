@@ -77,12 +77,18 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	var ws: Dictionary = db.get_world_size(world_size_id)
 	_gs.max_turns = int(db.get_pace(pace_id).get("max_turns", 500))
 
+	# The map-type spec may override the world-size wrap flags (e.g. "archipelago"
+	# sets wrap_x=false so island maps have a hard east/west edge).
+	var mt: Dictionary = db.get_map_type(map_type_id)
+	var map_wrap_x: bool = bool(mt.get("wrap_x", ws.get("wrap_x", true)))
+	var map_wrap_y: bool = bool(mt.get("wrap_y", ws.get("wrap_y", false)))
+
 	_gs.map = WorldMap.new()
 	_gs.map.init(
 		int(ws.get("width", 80)),
 		int(ws.get("height", 48)),
-		bool(ws.get("wrap_x", true)),
-		bool(ws.get("wrap_y", false))
+		map_wrap_x,
+		map_wrap_y
 	)
 	# Populate the blank grid with the chosen map script. Uses gs.rng so the result
 	# is deterministic for the seed and is captured by save/load (tiles serialize).

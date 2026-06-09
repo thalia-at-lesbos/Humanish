@@ -11,7 +11,8 @@
     "mountain_chance": 4,
     "hills_chance": 16,
     "forest_chance": 12,
-    "jungle_chance": 8
+    "jungle_chance": 8,
+    "wrap_x": false
   },
   "continents": {
     "id": "continents",

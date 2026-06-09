@@ -68,6 +68,36 @@ func test_ring_at_distance_1() -> void:
 	var m = _map(10, 10, false, false)
 	assert_eq(m.ring_at_distance(5, 5, 1).size(), 8, "Ring at distance 1 = 8 tiles")
 
+# ── Wrap: neighbours at east/west seam ──────────────────────────────────────
+
+func test_neighbours4_wrap_x_right_edge() -> void:
+	var m = _map(10, 10, true, false)
+	# Right edge tile (9,5): with wrap_x, the east neighbour is (0,5)
+	var nbs = m.neighbours4(9, 5)
+	assert_eq(nbs.size(), 4, "Right-edge tile with wrap_x has 4 cardinal neighbours")
+	var xs = []
+	for nb in nbs:
+		xs.append(nb.x)
+	assert_true(xs.has(0), "East neighbour of right-edge tile wraps to column 0")
+
+func test_neighbours8_wrap_x_right_edge() -> void:
+	var m = _map(10, 10, true, false)
+	var nbs = m.neighbours8(9, 5)
+	assert_eq(nbs.size(), 8, "Right-edge interior tile with wrap_x has 8 diagonal neighbours")
+
+func test_neighbours4_no_wrap_right_edge() -> void:
+	var m = _map(10, 10, false, false)
+	var nbs = m.neighbours4(9, 5)
+	assert_eq(nbs.size(), 3, "Right-edge tile without wrap_x has 3 cardinal neighbours")
+
+func test_normalize_wraps_x() -> void:
+	var m = _map(10, 10, true, false)
+	var norm = m.normalize(10, 3)  # x == width → 0
+	assert_eq(int(norm[0]), 0, "normalize wraps x==width to 0")
+	assert_eq(int(norm[1]), 3, "y unchanged by x-wrap")
+	var norm2 = m.normalize(-1, 3)  # x == -1 → 9
+	assert_eq(int(norm2[0]), 9, "normalize wraps x==-1 to width-1")
+
 # ── Serialization ────────────────────────────────────────────────────────────
 
 func test_serialize_roundtrip() -> void:

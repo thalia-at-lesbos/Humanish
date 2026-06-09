@@ -11,7 +11,8 @@
 extends "res://tests/support/sim_fixture.gd"
 
 # WorldView presentation: turn-start centering on the current player's units (or
-# a settlement), and fog-of-war that tracks movement and is fully opaque.
+# a settlement), fog-of-war that tracks movement and is fully opaque, and
+# zoom-toward-cursor behaviour (Issue 8).
 
 func _world_view(facade):
 	var wv = load("res://scenes/world/world_view.tscn").instance()
@@ -132,3 +133,53 @@ func test_fog_color_is_fully_opaque() -> void:
 	add_child_autofree(fog)
 	assert_eq(fog.FOG_COLOR.a, 1.0,
 		"Fog of war must be fully opaque so hidden terrain never shows through")
+
+# ── Wrap-x fog of war ──────────────────────────────────────────────────────
+
+func test_fog_wraps_sight_across_east_west_seam() -> void:
+	# A unit at the right edge of a wrap_x map must reveal tiles on the left edge.
+	var facade = setup_facade(9901, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# Place a unit one tile from the right edge; with sight_radius >= 2 it should
+	# see column 0 through the wrap seam.
+	var w: int = gs.map.width
+	assert_true(gs.map.wrap_x, "small map must have wrap_x enabled")
+	make_unit(gs, "warrior", pid, w - 1, gs.map.height / 2)
+
+	var wv = _world_view(facade)
+	var fog = wv.get_node_or_null("FogLayer")
+	assert_not_null(fog, "FogLayer must exist")
+	fog.init(facade)
+	fog.rebuild(pid)
+
+	# The tile at column 0, same row, must be visible through the east-west wrap.
+	assert_true(fog.get_visible_tiles().has("0," + str(gs.map.height / 2)),
+		"Wrap-x: sight from right-edge unit must reveal column 0 across the seam")
+
+# ── Zoom toward cursor (Issue 8) ──────────────────────────────────────────────
+
+func test_zoom_toward_cursor_keeps_world_point_fixed() -> void:
+	# After zooming, the world point that was under the cursor must remain at the
+	# same screen position. The _zoom_toward_cursor helper encodes this invariant.
+	var facade = setup_facade(8001, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var wv = _world_view(facade)
+
+	# Start with a known pan so the offset is non-zero, making the test meaningful.
+	wv.pan_to_tile(5, 5)
+
+	# Pick an arbitrary cursor position and record the world point under it.
+	var cursor: Vector2 = Vector2(120.0, 80.0)
+	var world_before: Vector2 = (cursor - wv._offset) / wv._zoom
+
+	# Zoom in; the helper must adjust the offset to keep world_before fixed.
+	wv._zoom_toward_cursor(wv._zoom * 1.1, cursor)
+
+	var world_after: Vector2 = (cursor - wv._offset) / wv._zoom
+	assert_true(abs(world_after.x - world_before.x) < 0.5,
+		"Zoom-toward-cursor: world x under cursor must not drift")
+	assert_true(abs(world_after.y - world_before.y) < 0.5,
+		"Zoom-toward-cursor: world y under cursor must not drift")

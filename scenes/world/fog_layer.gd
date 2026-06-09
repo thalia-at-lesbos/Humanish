@@ -98,7 +98,10 @@ func _add_visible_range(cx: int, cy: int, radius: int, wmap) -> void:
 				var tx: int = cx + dx
 				var ty: int = cy + dy
 				if wmap.is_valid(tx, ty):
-					_visible_tiles[str(tx) + "," + str(ty)] = true
+					# Normalize through the map so wrap-x keys are canonical
+					# (e.g. x == width → 0) and always match the renderer's lookup.
+					var norm: Array = wmap.normalize(tx, ty)
+					_visible_tiles[str(norm[0]) + "," + str(norm[1])] = true
 
 func sync_camera(zoom: float, offset: Vector2) -> void:
 	_zoom = zoom
