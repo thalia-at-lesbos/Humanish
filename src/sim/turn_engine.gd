@@ -64,11 +64,11 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.WORLD_ASSIGN_SITES, gs):
 		pass
 
-	# 7. Resolve assembly/voting bodies: the population poll that feeds the
-	#    diplomatic standing (§10), then the §7.2 world-assembly lifecycle
-	#    (sessions, elections, resolutions) — gated on a founding wonder.
+	# 7. Resolve the §7.2 world-assembly lifecycle (sessions, elections,
+	#    resolutions) — gated on a founding wonder. Diplomatic victory now flows
+	#    solely from its UN election (Assembly.apply_effect "diplomatic_victory");
+	#    the old standalone population poll was removed (see WinConditions).
 	if not hooks.run(IDs.Phase.WORLD_ASSEMBLY, gs):
-		_resolve_assembly(gs)
 		Assembly.world_tick(gs, gs.rng)
 
 	# 8. Increment turn counter
@@ -1352,17 +1352,6 @@ static func _collect_tribute(gs: GameState) -> void:
 			p.treasury -= tribute
 			if recipient != null:
 				recipient.treasury += tribute
-
-# Diplomatic assembly (§3.7): each alliance's voting weight is the population it
-# governs. The tally feeds the diplomatic win condition (§10).
-static func _resolve_assembly(gs: GameState) -> void:
-	var votes := {}
-	for s in gs.settlements:
-		var p: Player = gs.get_player(s.owner_player_id)
-		if p == null:
-			continue
-		votes[p.alliance_id] = int(votes.get(p.alliance_id, 0)) + s.population
-	gs.diplomatic_votes = votes
 
 static func _advance_alliances(gs: GameState) -> void:
 	for alliance in gs.alliances:

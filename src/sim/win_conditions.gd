@@ -38,7 +38,15 @@ static func _check_one(wc: Dictionary, game_state) -> int:
 		"cultural":
 			return _cultural(wc, game_state)
 		"diplomatic":
-			return _diplomatic(wc, game_state)
+			# Diplomatic victory is delivered *solely* by the world assembly's
+			# UN election: Assembly.apply_effect("diplomatic_victory") sets
+			# winning_alliance_id directly once the institution passes the motion
+			# (gated on "diplomatic" being enabled). The old crude population-share
+			# tally was removed — it awarded the game to whoever momentarily
+			# governed a 67% population majority, which one early city trivially
+			# does. This periodic check therefore never awards on its own. The full
+			# diplomatic condition is slated for a follow-up rework.
+			return -1
 		"time":
 			return _time(game_state)
 	return -1
@@ -112,23 +120,6 @@ static func _cultural(wc: Dictionary, game_state) -> int:
 	for aid in by_alliance:
 		if by_alliance[aid] >= cities_req:
 			return aid
-	return -1
-
-static func _diplomatic(wc: Dictionary, game_state) -> int:
-	# An alliance wins if its candidate holds the required share of cast votes.
-	# Votes are tallied by the assembly/voting phase into gs.diplomatic_votes;
-	# until that phase produces votes the tally is empty and no one wins.
-	var share_req: int = int(wc.get("vote_share_required", 67))
-	var votes: Dictionary = game_state.diplomatic_votes
-	var total: int = 0
-	for aid in votes:
-		total += int(votes[aid])
-	if total <= 0:
-		return -1
-	for aid in votes:
-		var pct: int = (int(votes[aid]) * 100) / total
-		if pct >= share_req:
-			return int(aid)
 	return -1
 
 static func _time(game_state) -> int:

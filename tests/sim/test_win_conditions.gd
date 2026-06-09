@@ -27,58 +27,29 @@ func test_last_standing_win() -> void:
 	var winner: int = WinConditions.check_all(gs)
 	assert_eq(winner, gs.players[0].alliance_id, "The sole survivor's alliance wins last_standing")
 
-# ── Diplomatic win ─────────────────────────────────────────────────────────────
+# ── Diplomatic win is delivered solely by the world assembly ───────────────────
+# The old crude population-share tally was removed: governing a momentary 67%
+# population majority no longer wins on its own (one early city trivially holds
+# 100% of the world's tiny early population). Diplomatic victory now comes
+# exclusively from the §7.2 assembly's UN election — covered end-to-end by
+# test_assembly.gd (test_diplomatic_victory_elects_a_winner_when_enabled). These
+# guard the removal so the regression cannot creep back.
 
-func test_diplomatic_win_on_supermajority() -> void:
+func test_population_majority_is_not_a_diplomatic_win() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["diplomatic"]
-	gs.diplomatic_votes = {1: 70, 2: 30}  # 70% >= 67% required
-	assert_eq(WinConditions.check_all(gs), 1, "Alliance with the required vote share wins")
-
-func test_diplomatic_no_win_below_threshold() -> void:
-	var gs = make_gs(2)
-	gs.enabled_win_conditions = ["diplomatic"]
-	gs.diplomatic_votes = {1: 60, 2: 40}  # 60% < 67%
-	assert_eq(WinConditions.check_all(gs), -1, "No diplomatic win below the required share")
-
-func test_diplomatic_no_win_without_votes() -> void:
-	var gs = make_gs(2)
-	gs.enabled_win_conditions = ["diplomatic"]
+	make_settlement(gs, 1, 3, 3, 7)   # the only city → 100% of the population
 	assert_eq(WinConditions.check_all(gs), -1,
-		"No diplomatic win when the assembly has cast no votes")
+		"A population majority alone never triggers the diplomatic win")
 
-func test_diplomatic_votes_survive_save_load() -> void:
-	var gs = make_gs(2)
-	gs.diplomatic_votes = {1: 5, 2: 9}
-	var restored = load("res://src/sim/game_state.gd").deserialize(gs.serialize(), gs.db)
-	assert_eq(int(restored.diplomatic_votes.get(2, 0)), 9,
-		"diplomatic_votes round-trips through serialization")
-
-# ── Assembly drives the diplomatic vote (§3.7) ─────────────────────────────────
-
-func test_assembly_tallies_votes_by_population() -> void:
-	var gs = make_gs(2)
-	make_settlement(gs, 1, 3, 3, 7)
-	make_settlement(gs, 2, 9, 9, 3)
-	TurnEngine._resolve_assembly(gs)
-	assert_eq(int(gs.diplomatic_votes.get(1, 0)), 7, "Alliance 1 polls its population")
-	assert_eq(int(gs.diplomatic_votes.get(2, 0)), 3, "Alliance 2 polls its population")
-
-func test_assembly_enables_diplomatic_victory() -> void:
+func test_population_supermajority_does_not_win_over_a_world_step() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["diplomatic"]
-	make_settlement(gs, 1, 3, 3, 7)  # 70% of 10 votes
-	make_settlement(gs, 2, 9, 9, 3)
+	make_settlement(gs, 1, 3, 3, 7)   # 70% of the population…
+	make_settlement(gs, 2, 9, 9, 3)   # …but no UN institution exists
 	TurnEngine.world_step(gs, _hooks())
-	assert_eq(gs.winning_alliance_id, 1, "A population supermajority wins the assembly vote")
-
-func test_no_diplomatic_win_when_split() -> void:
-	var gs = make_gs(2)
-	gs.enabled_win_conditions = ["diplomatic"]
-	make_settlement(gs, 1, 3, 3, 5)
-	make_settlement(gs, 2, 9, 9, 5)
-	TurnEngine.world_step(gs, _hooks())
-	assert_eq(gs.winning_alliance_id, -1, "An even split elects no one")
+	assert_eq(gs.winning_alliance_id, -1,
+		"Without the assembly's UN election no one wins diplomatically")
 
 # ── Dominance ──────────────────────────────────────────────────────────────────
 # The data condition (data/win_conditions.json) needs 66% of both land and
