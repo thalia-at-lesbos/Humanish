@@ -84,7 +84,12 @@ Jun 9, 2026 17:21 — All fixed Jun 9, 2026
 -- [FIXED] settlers must be at least two empty squares away from another city before they can found a city (update game-rules with this provisionally)
    > Rule documented in game-rules.md as provisional; code already enforces Chebyshev distance ≥ 3.
 -- [FIXED] workers (and fishing boats) should only should build actions for what's possible on their current tile given current player technologies for visible resources. also if an improvement is made to a resource tile before that resource is shown to player, ensure that only the tile itself is counted for the improvement. Once player exposes the resource due to new tech, the improvement can work with the actual resource. (updates to ui design doc, as provisional)
-   > Requirements added to UI design doc as provisional.
+   > Resource-bound improvements (pasture/camp/plantation/quarry/winery/well/
+     fishing_boats/whaling_boats) carry a new requires_resource flag. They are
+     only offered/buildable on a tile holding a matching resource the player can
+     already see (its reveal tech researched) — enforced in both the selection
+     panel and _cmd_build_improvement via _tile_offers_resource_improvement.
+     Generic improvements (farm, mine, cottage, road, …) are unaffected.
 -- [FIXED] workers should keep building on a tile until complete (currently only starts working), and then tile should show highlighted outline to indicate it has improvement (clicking on tile should show improvement name)
    > TurnEngine._advance_worker_build now ticks build_turns_left each turn a worker
      holds its tile and places the improvement on completion (queued as a

@@ -290,6 +290,12 @@ func _add_worker_buttons(unit, gs) -> void:
 		var tech_req = imp.get("tech_required", null)
 		if tech_req != null and tech_req != "" and not player.has_tech(str(tech_req)):
 			continue
+		# Check resource requirement: a resource-bound improvement (pasture,
+		# plantation, fishing boats, …) only shows on a tile with a matching
+		# resource the player can already see (its reveal tech researched).
+		if bool(imp.get("requires_resource", false)) \
+				and not _facade._tile_offers_resource_improvement(tile, imp_id, player):
+			continue
 		# All checks passed: show a button for this improvement.
 		var imp_name: String = str(imp.get("name", imp_id.capitalize()))
 		var btn: Button = Button.new()

@@ -1039,6 +1039,12 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 	var req_feat: String = str(imp.get("requires_feature", ""))
 	if req_feat != "" and tile.feature_id != req_feat:
 		return false
+	# Validate resource requirement: a resource-bound improvement (pasture,
+	# plantation, fishing boats, …) is only buildable on a tile carrying a
+	# matching resource the player can already see (its reveal tech researched).
+	if bool(imp.get("requires_resource", false)) \
+			and not _tile_offers_resource_improvement(tile, imp_id, p):
+		return false
 	u.building_improvement = imp_id
 	# Serfdom speeds improvement construction (§8): fewer build turns.
 	var bt: int = int(imp.get("build_turns", 5))
@@ -1051,6 +1057,20 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 	u.has_moved = true
 	u.movement_left = 0
 	return true
+
+# True when `tile` carries a resource that `imp_id` improves and that resource is
+# visible to `player` (its reveal tech is researched). A resource is "visible"
+# once the player holds the resource's tech_required; until then the tile shows no
+# resource bonus and resource-bound improvements are not offered on it (§5, Jun 9
+# bug report). Used by both _cmd_build_improvement and the worker action panel.
+func _tile_offers_resource_improvement(tile: Tile, imp_id: String, player: Player) -> bool:
+	if tile == null or tile.resource_id == "":
+		return false
+	var res: Dictionary = _db.get_resource(tile.resource_id)
+	if str(res.get("improvement_required", "")) != imp_id:
+		return false
+	var reveal_tech: String = str(res.get("tech_required", ""))
+	return reveal_tech == "" or player.has_tech(reveal_tech)
 
 # ── Trades (§7) ───────────────────────────────────────────────────────────────
 
