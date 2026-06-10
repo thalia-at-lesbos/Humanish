@@ -119,6 +119,27 @@ func test_work_boat_hidden_without_tech() -> void:
 	assert_false("+ work_boat" in _all_text(screen),
 		"A coastal city without the fishing tech must not offer the work_boat")
 
+func test_base_units_offered_regardless_of_tech() -> void:
+	# Warrior/Settler/Worker have "tech_required": null. The chooser must offer
+	# them even to a player with no techs at all — str(null) is "Null" in Godot 3,
+	# so a naive tech check used to filter these base units out entirely.
+	var facade = setup_facade(78, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.get_player(pid).technologies = []  # no research at all
+	var s = make_settlement(gs, pid, 5, 5, 2)
+
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var text := _all_text(screen)
+	assert_true("+ warrior" in text, "Warrior must be offered with no tech")
+	assert_true("+ settler" in text, "Settler must be offered with no tech")
+	assert_true("+ worker" in text, "Worker must be offered with no tech")
+
 func test_city_view_add_to_production_queues_item() -> void:
 	var facade = setup_facade(72, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])

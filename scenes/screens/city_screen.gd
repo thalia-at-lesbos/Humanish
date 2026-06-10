@@ -357,7 +357,11 @@ func _can_offer_production(kind: String, id: String, db, techs: Array, coastal: 
 	var data: Dictionary = db.get_unit(id) if kind == "unit" else db.get_structure(id)
 	if data.empty():
 		return false
-	var tech: String = str(data.get("tech_required", ""))
+	# tech_required is `null` for base units (warrior/settler/worker). In Godot 3
+	# str(null) is "Null", not "", so guard the null explicitly — otherwise these
+	# units fail the "is this tech researched?" test and vanish from the chooser.
+	var tech_val = data.get("tech_required", null)
+	var tech: String = str(tech_val) if tech_val != null else ""
 	if tech != "" and not (tech in techs):
 		return false
 	if kind == "unit" and str(data.get("domain", "land")) == "sea" and not coastal:
