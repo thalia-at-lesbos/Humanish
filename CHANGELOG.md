@@ -3,6 +3,50 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.5.0] - 2026-06-09
+
+### Added
+- **Three-phase AI overhaul.** Phase A — difficulty handicap (`ai_bonus`) wired
+  to AI production and research (§2.2). Phase B — competent deterministic
+  `PlayerAI` brain: role-ranked production, four-pass unit playbook, settler
+  city-site scoring, worker automation, recon exploration (§B1–B7). Phase C —
+  trait-driven strategic focus (`expand`/`military`/`economy`/`science` axes)
+  layered on top (§C1–C5). Phase D — AI tuning, per-turn cost audit, and
+  documentation (§D1–D3).
+- **Diplomatic victory.** UN / Apostolic Palace elections with a two-candidate
+  runoff; the rival candidate must be a non-defiant full member (§7.3).
+- **Worker chop/clear orders.** Explicit forest and jungle removal (chop)
+  with tech bonus and border-based scaling (§4.11).
+- **City health and growth display.** The city screen now shows health and
+  growth status.
+- **Production queue editing.** Up/down reorder buttons; duplicate-item
+  prevention.
+- **Leader selection.** Pick a leader for your society in the New Game menu.
+- **Left-button click-and-drag** pans the map; middle-click drag also pans.
+- **City produce-nothing.** Cities can explicitly choose to produce nothing.
+- **Base unit availability.** City build chooser always offers warrior,
+  settler, and worker.
+- **Difficulty per-city handicaps.** Growth, health, and happiness modifiers
+  per difficulty, limited to human players (§2.2).
+- **Trait health.** Leader/society trait health (Expansive +2) wired into
+  wellbeing.
+- **Feature health.** Worked-tile feature health wired into wellbeing (§4.6).
+
+### Changed
+- Difficulty city handicaps apply to human players only (§2.2).
+- Diplomatic victory comes solely from the assembly UN election (§10).
+
+### Fixed
+- Peace-clause trade notification and bare\_facade null hooks.
+- City build chooser missing base units (warrior/settler/worker).
+- AI workers now automate construction (resources, then roads, then sleep).
+- Work boat gated by tech and coastal access; water units in general.
+- Resource-bound worker improvements require a visible resource.
+- Moving a worker cancels its in-progress improvement build.
+- Worker improvement builds complete over time.
+- City health/growth display now visible.
+- Middle-click panning was unreliable on some setups.
+
 ## [0.4.4] - 2026-06-09
 
 ### Added

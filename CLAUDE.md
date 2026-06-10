@@ -184,3 +184,34 @@ Hard-won failure modes that have bitten more than once. Each one *passes CI or l
 - **New command**: add a factory to `Commands`, add a case to `SimFacade.apply_command()`, implement a `_cmd_*` handler.
 - **New advisor/info screen (§3.1 UI vocabulary)**: add a `ControlType` value to `IDs`, list it in the `screen_requested` emit group in `SimFacade._cmd_do_control`, write `scenes/screens/<name>_screen.gd` extending the read-only `info_screen.gd` scaffold (set `_title`, override `_populate(vbox)` using `_add_line`), register it in `scenes/main.gd:_init_extra_screens()` keyed by the control, and add a button for it to the HUD advisor bar (`scenes/hud/menu_bar.gd` `ENTRIES`) so it is reachable without a hotkey. (Interactive screens that need their own `.tscn` node — like `CityScreen`/`DiplomacyScreen` — are instead listed in the `main.gd` screens-init loop and routed in the `screen_requested` `match`.) A screen that issues an action routes it back through `apply_command` (see `options_screen.gd`). New `UnitCmd`/`UnitMission` verbs follow the §3.2/§3.3 pattern: enum value + `CommandType` + `Commands` factory + a case in `_cmd_unit_command`/`_cmd_mission` (stance flags live on `Unit` and are serialized). See `docs/planning/designgaps.md` §3 for what is built vs. deferred.
 - **New debug console command**: add a `case` to `DebugConsole._dispatch()` and a line to `_help()` (read commands query `facade.get_state()`; write commands mutate state then call `_refresh()`), and a test in `tests/api/test_debug_console.gd`. A presentation-only helper (camera/fog) goes in `debug_overlay.gd:_run()` instead, before delegating to the shared engine. See `docs/design/debug.md` §8.
+
+## Releasing
+
+To cut a release:
+
+1. **Bump the version** in `project.godot` (`config/version`). Follow semver:
+   - Patch (`0.4.x`) for bug fixes and small docs changes.
+   - Minor (`0.x.0`) for new features or substantial rewrites.
+   - Major (`1.0.0`) for breaking API or save-format changes.
+2. **Update `CHANGELOG.md`**: add a `## [VERSION] - YYYY-MM-DD` entry above the
+   previous one. Group changes under `### Added`, `### Changed`, `### Fixed`.
+   Read the `git log` since the last tag (`git log --oneline --no-merges <last-tag>..HEAD`)
+   to find candidate entries; write human-readable bullet points.
+3. **Commit** the version and changelog bump:
+   ```
+   git add project.godot CHANGELOG.md
+   git commit -m "chore: bump to v<version>"
+   ```
+4. **Tag** the commit:
+   ```
+   git tag v<version>
+   ```
+   (Use `git tag -a v<version> -m "v<version>"` for an annotated tag.)
+5. **Push** the commit and tag:
+   ```
+   git push origin main --follow-tags
+   ```
+   Or, if you tagged separately:
+   ```
+   git push origin main && git push origin v<version>
+   ```
