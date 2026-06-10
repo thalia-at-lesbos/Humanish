@@ -887,9 +887,11 @@ static func _advance_worker_build(gs: GameState, u: Unit) -> void:
 # lumbermills, forest preserves and forts keep their forest (flagged
 # preserves_feature in data/improvements.json), as does any improvement that
 # requires that feature. Clearing a forest delivers its chop_yield to the nearest
-# owned city as production, reduced by chop_falloff_per_tile for each tile of
-# distance (so it falls to zero far from any city); jungle has no chop_yield and
-# clears for nothing. Records the outcome on `entry` for the facade to surface.
+# owned city as production: the researched chop tech (Mathematics) raises the
+# yield by chop_yield_tech_bonus_pct, and the full amount lands when the chopped
+# tile is inside the player's borders, scaled to chop_outside_borders_pct when it
+# is not. Jungle has no chop_yield and clears for nothing. Records the outcome on
+# `entry` for the facade to surface.
 static func _apply_feature_clearing(gs: GameState, u: Unit, tile: Tile,
 		imp_id: String, entry: Dictionary) -> void:
 	var feat_id: String = tile.feature_id
@@ -910,13 +912,18 @@ static func _apply_feature_clearing(gs: GameState, u: Unit, tile: Tile,
 	var city: Settlement = _nearest_owned_city(gs, u.owner_player_id, u.x, u.y)
 	if city == null:
 		return
-	var d: int = gs.map.distance(u.x, u.y, city.x, city.y)
-	var falloff: int = gs.db.get_constant("chop_falloff_per_tile", 4)
-	var delivered: int = chop - (d - 1) * falloff
-	if delivered <= 0:
+	var player: Player = gs.get_player(u.owner_player_id)
+	# Tech bonus: a researched chop tech (Mathematics) raises the yield.
+	var tech_id: String = str(gs.db.constants.get("chop_yield_tech", ""))
+	if tech_id != "" and player != null and player.has_tech(tech_id):
+		chop = Fixed.scale_up(chop, gs.db.get_constant("chop_yield_tech_bonus_pct", 50))
+	# Border scaling: full inside the player's own borders, reduced outside.
+	if tile.owner_player_id != u.owner_player_id:
+		chop = Fixed.scale(chop, gs.db.get_constant("chop_outside_borders_pct", 50))
+	if chop <= 0:
 		return
-	city.production_store += delivered
-	entry["chop_yield"] = delivered
+	city.production_store += chop
+	entry["chop_yield"] = chop
 	entry["chop_city_id"] = city.id
 
 # Nearest settlement owned by `player_id` to (x, y), by map distance; null if the

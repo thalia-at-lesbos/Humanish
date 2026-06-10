@@ -9,7 +9,7 @@
     "health_bonus": 1,
     "chop_yield": 20,
     "removable": true,
-    "notes": "Chopped when a non-preserving improvement is built: +chop_yield production to the nearest city, less chop_falloff_per_tile per tile of distance"
+    "notes": "Chopped when a non-preserving improvement is built: chop_yield production to the nearest city, +50% with the chop tech (Mathematics), full inside borders / half outside"
   },
   "jungle": {
     "id": "jungle",

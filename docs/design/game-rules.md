@@ -32,7 +32,7 @@ sections:
   "§1  World model":           "Map & tiles, adjacency, tile output, rivers"
   "§2  Time, ages, pacing":    "Turn length, eras (§2.1 provisional), difficulty city handicaps (§2.2 provisional)"
   "§3  Turn structure":        "Authoritative world-step / player-step order"
-  "§4  Settlements":           "Growth, output split, production, contentment, wellbeing, culture, conquest (§4.8), cultural revolt (§4.9 provisional), tile maturation (§4.10 provisional)"
+  "§4  Settlements":           "Growth, output split, production, contentment, wellbeing, culture, conquest (§4.8), cultural revolt (§4.9 provisional), tile maturation (§4.10 provisional), feature clearing & chopping (§4.11 provisional)"
   "§5  Units":                 "Definition, movement, combat strength, combat resolution, XP & upgrades, healing & entrenchment, nuclear weapons (§5.7 provisional), naval blockade (§5.8 provisional)"
   "§6  Economy & research":    "Treasury, sliders, research graph, policies, specialists & Great People, draft (§6.6 provisional), trade routes (§6.7 provisional)"
   "§7  Diplomacy & war":       "Alliances, trades, subordination, espionage (§7.1 provisional), world assemblies (§7.2 provisional), diplomatic victory (§7.3 provisional)"
@@ -48,6 +48,7 @@ provisional_sections:
   - "§2.2  Difficulty city handicaps — per-level growth/health/happiness magnitudes placeholder"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
   - "§4.10 Tile maturation — cottage upgrade rates"
+  - "§4.11 Feature clearing & chopping — base chop yield, tech bonus, and border scaling placeholder"
   - "§5.7  Nuclear weapons — all blast/radiation magnitudes placeholder"
   - "§5.8  Naval blockade"
   - "§6.6  Conscription / draft"
@@ -471,6 +472,35 @@ than the last.
 * Each stage's output is still gated by the owning player's technology in the normal way, so an
   advanced stage reached before its enabling tech yields its lower, tech-gated output until the
   tech is researched.
+
+### 4.11 Feature clearing and chopping (provisional)
+
+> **⚠️ Provisional — implemented, not verified.** The base chop yield lives in
+> `features.json` (`chop_yield`); the tech-bonus and border magnitudes live in
+> `constants.json` (`chop_yield_tech`, `chop_yield_tech_bonus_pct`,
+> `chop_outside_borders_pct`) and are placeholders to be tuned against the reference game.
+
+When a worker **completes an improvement** on a tile carrying a *removable* surface feature
+(forest or jungle, flagged `removable` in `features.json`), the feature is **cleared** as part
+of placing the improvement — **unless** the improvement preserves it. An improvement preserves
+the feature when it is flagged `preserves_feature` (camp, lumbermill, forest preserve, fort) or
+when it `requires_feature` that same feature; those keep their vegetation.
+
+Clearing a **forest** yields a one-time burst of **production** (the *chop*), delivered to the
+**nearest city the clearing player owns**:
+
+* The base amount is the feature's `chop_yield` (forest = 20).
+* **Tech bonus.** Once the player has researched the **chop tech** (`chop_yield_tech`, Mathematics)
+  the yield is raised by `chop_yield_tech_bonus_pct` (+50% → 30).
+* **Border scaling.** The full amount lands when the chopped tile lies **inside the clearing
+  player's borders**; a tile **outside** their borders delivers `chop_outside_borders_pct` of the
+  amount (half). The tech bonus is applied first, then the border scaling.
+* **Jungle** has no `chop_yield`, so clearing it removes the feature but produces nothing.
+* If the player owns **no city**, the feature is still cleared but no production is delivered.
+
+Delivery is deterministic — the nearest city is chosen by integer map distance in settlement
+order, and no randomness is consumed — so it is reproducible and captured by save/load through
+the existing tile-feature and city-production serialization.
 
 ---
 

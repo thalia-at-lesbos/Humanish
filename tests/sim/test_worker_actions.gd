@@ -101,58 +101,74 @@ func test_worker_build_completes_and_places_improvement() -> void:
 # ── Forest/jungle clearing & chop (feature/worker-forest-clearing) ───────────
 #
 # Completing a non-preserving improvement on a forested/jungle tile strips the
-# feature; a felled forest sends chop_yield production to the nearest owned city,
-# reduced by chop_falloff_per_tile per tile of distance. These drive the
-# completion helper directly to avoid the full end-turn pipeline consuming the
-# delivered production.
+# feature; a felled forest sends chop_yield (base 20) production to the nearest
+# owned city — +50% with the chop tech (Mathematics), full inside the player's
+# borders and half outside. These drive the completion helper directly to avoid
+# the full end-turn pipeline consuming the delivered production.
 
 func _complete_build(gs, w, imp_id) -> void:
 	w.building_improvement = imp_id
 	w.build_turns_left = 1
 	TurnEngine._advance_worker_build(gs, w)
 
-func test_building_clears_forest_and_chops_to_nearest_city() -> void:
+func test_chop_full_inside_borders() -> void:
 	var gs = make_gs(1)
-	var city = make_settlement(gs, 1, 5, 5, 3)        # city at (5,5)
-	var w = make_unit(gs, "worker", 1, 6, 5)          # distance 1 from city
+	var city = make_settlement(gs, 1, 5, 5, 3)
+	var w = make_unit(gs, "worker", 1, 6, 5)
 	var tile = gs.map.get_tile(6, 5)
 	tile.terrain_id = "grassland"
 	tile.feature_id = "forest"
+	tile.owner_player_id = 1                           # inside the player's borders
 	var before: int = city.production_store
 	_complete_build(gs, w, "farm")
 	assert_eq(tile.improvement_id, "farm", "Farm should be placed")
 	assert_eq(tile.feature_id, "",
 		"Forest is cleared when a non-preserving improvement completes")
-	# chop_yield 20, distance 1 → 20 - (1-1)*4 = 20 (full).
 	assert_eq(city.production_store - before, 20,
-		"The adjacent city receives the full chop yield")
+		"A forest inside borders delivers the full base yield (20)")
 
-func test_chop_yield_falls_off_with_distance() -> void:
+func test_chop_half_outside_borders() -> void:
 	var gs = make_gs(1)
 	var city = make_settlement(gs, 1, 5, 5, 3)
-	var w = make_unit(gs, "worker", 1, 8, 5)          # distance 3 from city
-	var tile = gs.map.get_tile(8, 5)
+	var w = make_unit(gs, "worker", 1, 6, 5)
+	var tile = gs.map.get_tile(6, 5)
 	tile.terrain_id = "grassland"
 	tile.feature_id = "forest"
+	tile.owner_player_id = -1                          # unowned → outside borders
 	var before: int = city.production_store
 	_complete_build(gs, w, "farm")
-	# 20 - (3-1)*4 = 12.
-	assert_eq(city.production_store - before, 12,
-		"Chop yield is reduced by distance to the receiving city")
+	assert_eq(city.production_store - before, 10,
+		"A forest outside borders delivers half the yield (10)")
 
-func test_distant_chop_delivers_nothing() -> void:
+func test_chop_tech_bonus_inside_borders() -> void:
 	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["mathematics"]    # the chop tech
 	var city = make_settlement(gs, 1, 5, 5, 3)
-	var w = make_unit(gs, "worker", 1, 12, 5)         # distance 7 → past falloff
-	var tile = gs.map.get_tile(12, 5)
+	var w = make_unit(gs, "worker", 1, 6, 5)
+	var tile = gs.map.get_tile(6, 5)
 	tile.terrain_id = "grassland"
 	tile.feature_id = "forest"
+	tile.owner_player_id = 1
 	var before: int = city.production_store
 	_complete_build(gs, w, "farm")
-	assert_eq(tile.feature_id, "",
-		"A forest far from any city is still cleared")
-	assert_eq(city.production_store - before, 0,
-		"Beyond the falloff range the chop delivers no production")
+	# 20 +50% = 30, full inside borders.
+	assert_eq(city.production_store - before, 30,
+		"Mathematics raises the inside-borders chop to 30")
+
+func test_chop_tech_bonus_outside_borders() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["mathematics"]
+	var city = make_settlement(gs, 1, 5, 5, 3)
+	var w = make_unit(gs, "worker", 1, 6, 5)
+	var tile = gs.map.get_tile(6, 5)
+	tile.terrain_id = "grassland"
+	tile.feature_id = "forest"
+	tile.owner_player_id = -1
+	var before: int = city.production_store
+	_complete_build(gs, w, "farm")
+	# 20 +50% = 30, halved outside borders → 15.
+	assert_eq(city.production_store - before, 15,
+		"Mathematics then the outside-borders halving gives 15")
 
 func test_nearest_city_receives_chop() -> void:
 	var gs = make_gs(1)
@@ -162,10 +178,11 @@ func test_nearest_city_receives_chop() -> void:
 	var tile = gs.map.get_tile(9, 5)
 	tile.terrain_id = "grassland"
 	tile.feature_id = "forest"
+	tile.owner_player_id = 1
 	var far_before: int = far.production_store
 	var near_before: int = near.production_store
 	_complete_build(gs, w, "farm")
-	assert_eq(near.production_store - near_before, 20, "The nearer city is chopped to")
+	assert_eq(near.production_store - near_before, 20, "The nearer city receives the chop")
 	assert_eq(far.production_store - far_before, 0, "The farther city receives nothing")
 
 func test_camp_preserves_forest_and_gives_no_chop() -> void:
