@@ -1,6 +1,6 @@
 ---
 title: "Test Suite Optimization"
-role: design
+role: planning
 summary: >
   Targeted refactors for the GUT test suite that reduce computational load while
   preserving coverage and abstraction. The suite runs 915+ tests across 71 files
