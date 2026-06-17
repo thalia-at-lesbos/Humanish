@@ -52,10 +52,11 @@ sections:
   "§13  Promotions":             "All promotion lines with prerequisites and effects"
   "§14  Great People":           "GP types, thresholds, Golden Ages, specialist slots, corporations"
   "§15  Global Constants":       "Combat formulas, growth formulas, healing rates, difficulty scales"
-  "§16  Victory Conditions":     "Six win condition types and their trigger criteria"
+  "§16  Victory Conditions":     "Seven win condition types (incl. Score) and their trigger criteria"
   "§17  Spaceship Parts":        "Space Race component list"
   "§18  Assembly & Resolutions": "World-government assembly mechanics and resolution catalogue (provisional)"
   "§19  Data field reference":   "JSON field schemas (§19.1–§19.4) and serialized entity fields (§19.5) — provisional"
+  "§20  Reference-parity data domains": "Data tables to add for reference parity (specialists, corporations, events+triggers, goody huts, espionage missions, diplomacy, score victory, map normalize)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1134,6 +1135,16 @@ Cities have limited specialist slots by default. Extra slots come from buildings
 
 Each corporation is founded by a Great Merchant and spreads like a religion, but consumes input resources to produce output. Competing corporations cannot coexist in the same city.
 
+**Full corporation model (reference parity).** Each corporation should carry, in a
+`data/corporations.json`-style table: a **headquarters structure** built once in the founding
+city (earning the founder gold per unit of input consumed worldwide), an **executive unit**
+that spreads the corporation to a new city for a treasury cost (the corporate missionary), the
+**input-resource set** whose access **count** scales the per-city output, a **per-city
+maintenance** cost, and civic interactions (e.g. a state-property economy bans corporations).
+The output scales with the **number of distinct/total input resources** the owner can access,
+not a flat amount. *(The current `econ_orgs` model omits the HQ-gold share, the executive-unit
+spread cost, the resource-count scaling, and per-city maintenance — close these for parity.)*
+
 | Corporation | Input Resources | Output per City |
 |-------------|-----------------|-----------------|
 | Cereal Mills | Wheat, Rice, Corn | +1 Food per resource type |
@@ -1153,20 +1164,32 @@ Each corporation is founded by a Great Merchant and spreads like a religion, but
 ### 15.1 Combat
 
 ```
-Effective Strength = Base_Strength × (1 + sum_of_all_modifiers/100) × (current_HP / max_HP)
+Effective Strength = Base_Strength × (100 + sum_of_all_modifiers)/100 × (current_HP / max_HP)
 
-Combat odds (attacker wins round) = Attacker_Effective_Str / (Attacker + Defender effective str)
+Combat odds (per round, in thousandths) =
+    theirOdds = COMBAT_DIE_SIDES × theirStr / (ourStr + theirStr)
+    COMBAT_DIE_SIDES = 1000 ; clamped so neither side is below 10% (100) or above 90% (900)
 
-Per-hit damage (to attacker) =
-    ROUND[ max_HP × (Defender_Firepower / (Attacker_Firepower + Defender_Firepower)) ]
-    minimum 1 HP
+Per-hit damage (the canonical reference model) =
+    strengthFactor = (ourFirepower + theirFirepower + 1) / 2
+    ourDamage      = max(1, COMBAT_DAMAGE × (theirFirepower + strengthFactor)
+                                         / (ourFirepower   + strengthFactor))
+    COMBAT_DAMAGE = 20  →  ≈20 HP/hit vs an even opponent, ≈5 hits to a kill
 
-Firepower = Effective_Strength (for most units)
+Firepower = Effective_Strength (for most units; siege/special carry a distinct firepower)
 Max HP = 100 (all units)
 ```
 
+> **Supersede note.** The earlier `max_HP × Def_FP/(Atk_FP+Def_FP)` damage formula gave ≈50
+> HP/hit (≈2 hits to kill); the reference's `COMBAT_DAMAGE = 20` blended-firepower model above
+> is canonical (≈5 hits). Constants live in `data/constants.json` (`combat_scale = 1000`,
+> `combat_damage = 20`, `max_hp = 100`).
+
 | Constant | Value | Notes |
 |----------|-------|-------|
+| Combat die sides (`combat_scale`) | 1000 | Odds expressed in thousandths; per-round draw in [0,999] |
+| Odds clamp | 10% / 90% | Neither side ever below 100 or above 900 of the die |
+| Base combat damage (`combat_damage`) | 20 | Damage coefficient in the per-hit formula |
 | Max HP | 100 | All units |
 | Min damage per hit | 1 HP | Floor on hit damage |
 | First-strike advantage | 1 round per strike | Defender cannot deal damage during attacker's first strikes |
@@ -1182,19 +1205,26 @@ Max HP = 100 (all units)
 ### 15.2 Cities & Growth
 
 ```
-Growth threshold = 18 + (2 × current_population) [× pace multiplier]
-Surplus food stored = food_produced − (food_consumed = population × 2)
-At threshold: population +1; stored food reset to 0 (or small carry-over)
+Surplus food stored = food_produced − food_consumed
+food_consumed = (population − angryPop) × FOOD_CONSUMPTION_PER_POPULATION − healthRate
+              # angry/discontented citizens do NOT eat; net unhealthiness drains consumption
+FOOD_CONSUMPTION_PER_POPULATION = 2
 
-Unhappy citizens = max(0, unhappy_count − happy_count)
-Unhealthy (sick) citizens = max(0, sick_count − healthy_count)
-Sick citizens reduce food surplus by 1 per sick citizen
+Growth threshold = base × f(current_population) × speed_multiplier × era_scale [× difficulty growth_bonus]
+              # rises with population AND game speed (reference growthThreshold curve),
+              # not strictly linear; carry-over capped at threshold × max_food_kept_percent/100
+At threshold: population +1; keep granary carry-over, spill the rest. If store < 0: starve
+              (a size-1 city is floored so it does not starve to zero)
 ```
+
+> **Supersede note.** Consumption excludes **angry** citizens and folds net unhealthiness in
+> as a food drain (not a separate after-the-fact `wellbeing_deficit`); the growth threshold
+> follows the reference's pop-and-speed curve rather than the flat `18 + 2×pop`.
 
 | Constant | Value |
 |----------|-------|
-| Food consumed per citizen | 2 Food/turn |
-| Base growth threshold | 18 + 2×population |
+| Food consumed per (non-angry) citizen | 2 Food/turn |
+| Base growth threshold | reference `growthThreshold(pop, speed)` curve (pop- and speed-scaled) |
 | City maintenance formula | (distance_to_capital + 0.5×num_cities) × size_factor |
 | Minimum city spacing | 2 tiles (cities cannot be adjacent) |
 | Cultural border flip threshold | 2× opponent's accumulated culture on a tile |
@@ -1215,12 +1245,22 @@ Sick citizens reduce food surplus by 1 per sick citizen
 ### 15.4 Research
 
 ```
-Research cost = base_cost × pace_multiplier × difficulty_modifier
-              × (1 − trading_discount) × (1 − prerequisite_discount)
+# Canonical reference percent chain (integer, floored at 1):
+Research cost = base_cost
+              × handicap_research_percent / 100   # difficulty: Settler 60 … Noble 100 … Deity 130
+              × world_research_percent    / 100   # map size
+              × speed_research_percent    / 100   # Quick 67 / Normal 100 / Epic 150 / Marathon 300
+              × era_research_percent       / 100   # advanced-start era
+              × max(0, TECH_COST_EXTRA_TEAM_MEMBER_MODIFIER × (teamMembers−1) + 100) / 100
 
-Trading discount = 0.10 per known faction that has researched this tech (up to ~50%)
-Prerequisite discount = small bonus for having all prerequisites
+# Humanish discounts applied AFTER the chain (intentional extensions, not in the reference):
+Trading discount     = 5% per other faction that already knows this tech (capped ~25%)
+Prerequisite discount = 10% per held prerequisite of this tech
 ```
+
+> **Supersede note.** The authoritative cost is the percent chain above. The engine currently
+> applies only the speed scalar and folds difficulty into an AI beaker bonus; add the
+> handicap/world/era/team factors. The two discounts remain as this game's extensions.
 
 ### 15.5 Espionage
 
@@ -1262,17 +1302,27 @@ A unit does not heal on any turn it moves or fights.
 
 ### 15.9 Difficulty Levels
 
-| Level | Player Handicap | AI Bonus |
-|-------|----------------|----------|
-| Settler | Significant bonuses | None |
-| Chieftain | Some bonuses | None |
-| Warlord | Slight bonuses | Slight AI assist |
-| Noble | Balanced | Balanced |
-| Prince | None | Minor AI bonus |
-| Monarch | None | Moderate AI bonus |
-| Emperor | None | Large AI bonus |
-| Immortal | None | Very large AI bonus |
-| Deity | None | Maximum AI bonus |
+The two **canonical** knobs (reference-grounded) are the **player research %**
+(`handicap_research_percent`, scaling the player's own tech cost, §15.4) and the **AI per-era
+research modifier** (`ai_research_per_era`, making AI techs cheaper as the game advances).
+`noble` is the balanced baseline (research 100, every bonus 0). The `ai_bonus` (flat AI yield
+handicap) and the human-only city aids (`growth_bonus`/`health_bonus`/`happiness_bonus`) are
+this game's additional levers. All apply to human players only except the AI knobs.
+
+| Level | Player research % | AI per-era modifier | AI yield bonus | City aids (human only) |
+|-------|:----------------:|:-------------------:|----------------|------------------------|
+| Settler | 60 | 0 | None | Large (+growth/health/happiness) |
+| Chieftain | ~70 | 0 | None | Some |
+| Warlord | ~85 | 0 | Slight | Slight |
+| Noble (baseline) | 100 | 0 | Balanced | None |
+| Prince | ~110 | 0 | Minor | None |
+| Monarch | ~115 | −1 | Moderate | None |
+| Emperor | ~120 | −2 | Large | None |
+| Immortal | ~125 | −3 | Very large | None |
+| Deity | 130 | −5 | Maximum | None |
+
+*(Settler/Noble/Deity research % and the Deity per-era −5 are the reference anchors; the
+intermediate rows are interpolated targets to balance.)*
 
 ### 15.10 Wild-forces spawn tables (provisional)
 
@@ -1320,7 +1370,12 @@ era check (BtS `bNoBarbUnits`).
 | Cultural | 3 cities each accumulate 50,000+ culture (Legendary level) | Only 3 cities need to reach this threshold |
 | Space Race | Complete and launch the spaceship (Apollo Program + all 9 parts built) | Parts: SS Casing, Cockpit, Docking Bay, Engine, Life Support, Stasis Chamber, Thrusters + 2 more |
 | Diplomatic | Win UN election with required % of votes | United Nations wonder must exist |
+| Score | Reach a configured absolute score threshold first | The reference's 7th condition; expose as its own selectable win (currently folded into Time) |
 | Time | Highest score at turn limit (2050 AD on standard) | Score = weighted sum of population, tiles, techs, wonders |
+
+> **Seven canonical conditions** (reference): Conquest, Domination, Cultural, Space Race,
+> Diplomatic, **Score**, and Time. This game previously shipped six — add **Score** as its own
+> selectable condition (`data/win_conditions.json`).
 
 ---
 
@@ -1654,3 +1709,27 @@ and related combat code (§5.3):
 | `is_patrolling` | bool | false | Air/sea patrol stance |
 | `is_healing` | bool | false | Heal-in-place stance |
 | `is_sleeping` | bool | false | Sleep stance (stays idle until manually woken) |
+
+---
+
+## 20. Reference-parity data domains (to add)
+
+The reference data set defines several **first-class data domains** this project currently
+models implicitly, partially, or not at all. Promoting them to explicit data tables is a
+parity goal; the development sequencing is in
+`docs/planning/full-feature-from-reference-plan.md`.
+
+| Domain | Reference shape | Current state in this project | Target table |
+|--------|-----------------|-------------------------------|--------------|
+| **Specialists** | 14 types (`citizen, priest, artist, scientist, merchant, engineer, spy` + 7 great-person counterparts); each with output vector, GP-point type, slots | Implicit via unit `generated_by` tags + per-structure slot counts (§14.5) | `data/specialists.json` |
+| **Corporations** | 7 corporations, each with HQ building, executive unit, input-resource set, per-city maintenance, resource-count-scaled output | `econ_orgs` (9), lighter model — no HQ-gold share, executive unit, or maintenance (§14.6) | `data/corporations.json` |
+| **Random events + triggers** | Large catalogue (hundreds) with trigger predicates, choice popups, apply + expire phases, weights, chaining | One-shot `data/events.json` (1 record), single treasury delta, no triggers/choices/expiry (§9) | `data/events.json` (expanded) + `data/event_triggers.json` |
+| **Goody huts** | Map-placed huts (`GOODY_HUT` improvement) with a weighted reward table consumed by the first land unit | "Discovery sites" on Terra maps only; no general placement or reward table | `data/goodies.json` + map placement stage |
+| **Espionage missions** | ~18 mission records (steal tech, sabotage, incite, …) with costs, target gates, interception | Alliance-scope EP accrual + 3 hard-coded screen missions; spy-unit missions deferred (§7.1) | `data/espionage_missions.json` |
+| **Diplomacy: deals, attitude, memory** | Persistent deal objects (one-off + per-turn), AI attitude (5 levels) from weighted factors, decaying memory of acts, denial reasons | Trades = expiring dicts; no attitude/memory layer (§7) | `data/diplomacy.json` (attitude factors, memory kinds/decay, denial reasons) |
+| **Score victory** | 7th victory condition (`SCORE`) | Folded into Time (6 conditions, §16) | `data/win_conditions.json` (add `score`) |
+| **Map start-fairness (`normalize*`)** | 9-step post-placement pass: add river/lake, remove peaks/bad features/terrain, add food bonuses/good terrain/extras; plus resource (`BonusBalancer`) equalisation near starts | `find_start_positions` maximises spacing only; no rebalancing, no resource balancing | `MapGen` algorithm + `data/map_types.json` tunables |
+
+> These rows are the data-side companion to the rules updates in `game-rules.md`
+> (§4.2/§4.3/§5.4/§6.3/§6.5/§7/§8/§9/§10) and supersede the prior, lighter models where they
+> conflict.
