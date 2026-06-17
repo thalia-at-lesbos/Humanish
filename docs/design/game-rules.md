@@ -30,7 +30,7 @@ key_files:
   - data/constants.json          # all tunable numeric constants
 sections:
   "§1  World model":           "Map & tiles, adjacency, tile output, rivers"
-  "§2  Time, ages, pacing":    "Turn length, eras (§2.1 provisional), difficulty city handicaps (§2.2 provisional)"
+  "§2  Time, ages, pacing":    "Turn length, eras (§2.1 provisional), difficulty handicaps (§2.2: research %, AI per-era cost, city aids)"
   "§3  Turn structure":        "Authoritative world-step / player-step order"
   "§4  Settlements":           "Growth, output split, production, contentment, wellbeing, culture, conquest (§4.8), cultural revolt (§4.9 provisional), tile maturation (§4.10 provisional), feature clearing & chopping (§4.11 provisional)"
   "§5  Units":                 "Definition, movement, combat strength, combat resolution, XP & upgrades, healing & entrenchment, nuclear weapons (§5.7 provisional), naval blockade (§5.8 provisional)"
@@ -45,7 +45,6 @@ sections:
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
-  - "§2.2  Difficulty city handicaps — per-level growth/health/happiness magnitudes placeholder"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
   - "§4.10 Tile maturation — cottage upgrade rates"
   - "§4.11 Feature clearing & chopping — base chop yield, tech bonus, and border scaling placeholder"
@@ -205,17 +204,29 @@ techs), so the cache can never desync a mechanic. The `start_turn` field in
 `data/ages.json` is currently **descriptive only** (it does not force or gate era entry —
 research does).
 
-### 2.2 Difficulty city handicaps (provisional)
-> **⚠️ Provisional — implemented, not verified.** The three per-city handicaps below are
-> wired exactly as described (`TurnEngine._settlement_growth`, `_update_wellbeing`,
-> `_update_contentment`, reading `data/difficulties.json`), but the per-level magnitudes are
-> placeholders carried over from a preliminary tuning pass and have not been balanced.
-> As in the reference game, these handicaps are a **player aid applied to human players
-> only** (`player.is_ai == false`); a computer player's cities receive none of them. The
-> AI's own handicap is the separate `ai_bonus` field.
+### 2.2 Difficulty handicaps
 
-Each difficulty level (`settler` … `deity`) carries three city modifiers, all integer,
-applied to human-owned cities only:
+> **Canonical handicap ladder (reference-grounded).** The nine difficulty levels are
+> `settler, chieftain, warlord, noble, prince, monarch, emperor, immortal, deity`, with
+> **`noble` as the balanced baseline** (every percentage = 100, every bonus = 0). Each level
+> is a player aid applied to **human players only** (`player.is_ai == false`); a computer
+> player's cities receive none of the city handicaps below. The AI's own catch-up is the
+> separate `ai_bonus` / per-era cost modifier.
+
+**The two canonical handicap knobs (these supersede any earlier model):**
+
+* **Player research percent** (`handicap_research_percent`) scales the **player's own tech
+  cost** (§6.3): `settler 60` (techs 40% cheaper) … `noble 100` (baseline) … `deity 130`
+  (techs 30% dearer). This is the primary lever that makes harder levels harder, replacing
+  the previous approach of folding all difficulty into an AI-side beaker bonus.
+* **AI per-era cost modifier** (`ai_research_per_era`) makes the **AI's** research cheaper as
+  the game progresses on the higher levels (e.g. `deity −5` per era), the reference's way of
+  letting the AI keep pace late. This is distinct from the flat `ai_bonus` yield handicap.
+
+**Humanish city handicaps (additive extensions, applied to human cities only).** On top of
+the canonical knobs, each difficulty level also carries three integer city modifiers — magnitudes
+still subject to balancing (`TurnEngine._settlement_growth`, `_update_wellbeing`,
+`_update_contentment`, reading `data/difficulties.json`):
 
 * **`growth_bonus`** (percent, e.g. `+25` Settler … `−20` Deity) scales the food-to-grow
   **threshold** inversely: the threshold is multiplied by `(100 − growth_bonus)`, so a
@@ -278,24 +289,49 @@ the built-in rule is skipped. This seam lets content packs replace any rule.
   `min_settlement_distance = 3` in `data/constants.json`.)*
 
 ### 4.2 Population growth
-Surplus sustenance accumulates in a "store" each turn:
+Surplus sustenance accumulates in a "store" (food box) each turn:
 
-* The per-turn change equals produced sustenance minus consumed sustenance (consumption
-  scales with population). If the store reaches a **growth threshold**, population
-  increases by one and a configurable portion of the store is carried over. If the store
-  goes negative, the settlement starves and population may decrease.
-* The growth threshold rises with current population, is scaled by the global pacing
-  setting and the starting age, and (for human players) by the difficulty's `growth_bonus`
-  handicap (§2.2). A fraction of stored sustenance may be retained across growth, capped
-  relative to the threshold.
+* **Surplus** = produced sustenance − **consumption**, where consumption is the
+  reference's food box: `consumption = (population − angryPop) × FOOD_CONSUMPTION_PER_POPULATION
+  − healthRate`. That is, **angry/discontented citizens do not eat**, and net unhealthiness
+  is **subtracted from consumption** (it is a food drain), not booked as a separate deficit.
+  `FOOD_CONSUMPTION_PER_POPULATION` is the canonical 2 food/citizen (`data/constants.json`
+  `food_per_citizen`). *(This supersedes the earlier model that consumed full `population`
+  and subtracted a separate `wellbeing_deficit` from food after the fact.)*
+* If the store reaches the **growth threshold**, population increases by one and the granary
+  carry-over (a configurable fraction, capped at `threshold × max_food_kept_percent / 100`)
+  is retained while the rest spills. If the store goes negative the settlement starves and
+  population may decrease (a size-1 city is floored so it does not starve to zero).
+* The **growth threshold** rises with current population on the reference's `growthThreshold`
+  curve — a base scaled by population **and** by game speed (`GameSpeedInfo.getGrowthPercent`,
+  e.g. Marathon 300 = ×3) and the starting age — and (for human players) by the difficulty's
+  `growth_bonus` handicap (§2.2). Larger cities need a larger box. *(The engine currently
+  scales the threshold strictly linearly in population; the canonical curve is the
+  pop+speed table — align it for reference-faithful pacing.)*
 
 ### 4.3 Output & the economic split
 * A settlement's base output for each type is the sum of its worked tiles, assigned
-  specialists, structures, and trade routes, then scaled by a percentage modifier.
-* The generic economic output is partitioned by the player's adjustable **allocation
-  sliders** into finance, research, culture, and intelligence. The slider values sum to a
-  whole, may be constrained to allowed increments by the player's governing policies, and
-  some channels may have enforced minimums.
+  specialists, structures, and trade routes, then scaled by a **percentage-modifier chain**.
+  The canonical form is the reference's floored sum:
+
+  ```
+  yield = baseYield × max(0, 100 + Σ(yield-rate modifiers)) / 100
+  ```
+
+  where the modifiers (buildings/policies on the city, connected resources, powered-building
+  bonus, region-wide and empire-wide modifiers, and the capital modifier) are **summed as
+  percentages** and applied as one `(100 + Σ)/100` multiply — the leading `100 +` being the
+  identity baseline. *(The engine currently adds most city food/production bonuses as flat
+  deltas; route the percentage bonuses through this chain — the same `apply_stacked_bonus`
+  idiom already used for combat strength — so structures/policies that grant `+x%` yield
+  behave as the reference specifies.)*
+* The generic economic (commerce) output is partitioned by the player's adjustable
+  **allocation sliders** into the four commerce types — **finance (gold), research,
+  culture, and intelligence (espionage)** — by `commerce = commerceYield × sliderPercent /
+  100`. The slider values sum to 100 (the last channel takes the remainder so no commerce is
+  lost to rounding), may be constrained to allowed increments by the player's governing
+  policies, and some channels may have enforced minimums. Per-commerce building/specialist
+  bonuses and a further commerce-rate modifier layer on after the split.
 
 ### 4.4 Production
 * A settlement processes an **order queue** of buildable items (units, structures,
@@ -523,10 +559,14 @@ build/work abilities. A unit is owned by a player, occupies a tile, and belongs 
 **stack** that shares orders.
 
 ### 5.2 Movement
-* A unit has a movement allowance per turn (tracked at higher precision to support
-  fractional terrain costs). Entering a tile costs the destination's terrain/feature
-  movement cost, reduced by transport links, with a guarantee that a unit can always move
-  at least one tile per turn.
+* A unit has a movement allowance per turn, held internally at a fixed higher precision so
+  fractional terrain and route costs divide cleanly. The canonical reference granularity is
+  **`MOVE_DENOMINATOR = 60`** (one whole tile of movement = 60 internal points; a unit's XML
+  `iMoves` is multiplied up by 60). Entering a tile subtracts that tile's movement cost
+  (terrain/feature `iMovement × 60`, reduced by transport links/routes) from the remaining
+  allowance, with a guarantee that a unit with **any** movement left can always move at
+  least one tile. *(The current engine carries movement at a `MOVE_PRECISION = 100` scale;
+  align it to `60` to match the reference's route/terrain divisions exactly.)*
 * Domain rules constrain travel: land units require transport to cross deep water; naval
   units remain in water (and adjacent tiles for bombardment); air units are based in
   settlements or carriers and fly limited-range missions. Zones of control and impassable
@@ -551,22 +591,50 @@ Effective strength is further scaled by the unit's current health fraction (a da
 fights at reduced strength). A separate **firepower** quantity feeds the damage model.
 
 ### 5.4 Combat resolution
-Before a fight, the engine derives each side's per-round win odds and per-hit damage:
 
-* **Odds** for a side are proportional to that side's strength relative to the combined
-  strength of both sides. Special clamping applies for the "free early wins" rule against
-  wild/raider forces.
-* **Per-hit damage** for each side is proportional to the opponent's firepower relative to
-  its own firepower, blended with a combined-firepower factor, and is at least one point
-  per hit.
+> **Canonical values (reference-grounded).** The combat scale, the per-hit damage
+> coefficient, and the hit-point ceiling below are the authoritative reference constants
+> and supersede any earlier placeholder. They live in `data/constants.json`
+> (`combat_scale = 1000`, `combat_damage = 20`, `max_hp = 100`).
+
+Before a fight, the engine derives each side's per-round win odds and per-hit damage. All
+work is integer math over each side's **effective strength** (§5.3) and a separate
+**firepower** quantity (for most units firepower equals strength; siege and a few special
+types carry a distinct firepower).
+
+* **Odds.** A side's per-round win chance is its strength over the combined strength,
+  expressed in thousandths against the combat die (`combat_scale = COMBAT_DIE_SIDES = 1000`):
+
+  ```
+  theirOdds = 1000 * theirStrength / (ourStrength + theirStrength)
+  ```
+
+  Each round draws one number in `[0, 999]` from the shared generator and compares it to the
+  defender's odds — this single draw is the **entire** source of combat randomness. The odds
+  are **clamped so neither side is ever hopeless**: a side's win chance is never below
+  `10%` nor above `90%` of the die (`min 100 / max 900` of 1000). The separate "free early
+  wins" clamp against wild/raider forces (a difficulty aid) is applied **on top** of this.
+* **Per-hit damage.** Damage is proportional to the opponent's firepower relative to one's
+  own, blended with a combined-firepower factor, scaled by the base damage coefficient
+  `combat_damage = COMBAT_DAMAGE = 20`, and floored at one point:
+
+  ```
+  strengthFactor = (ourFirepower + theirFirepower + 1) / 2
+  ourDamage      = max(1, 20 * (theirFirepower + strengthFactor)
+                            / (ourFirepower   + strengthFactor))
+  ```
+
+  Against an evenly-matched opponent a hit removes ≈ 20 of the loser's `max_hp = 100`, so a
+  fight runs **≈ 5 hits to a kill**. (This supersedes the earlier flat `strength × 10 /
+  strength` model, which ran combats roughly twice as long.)
 
 The fight proceeds in rounds until one unit dies (or a cap is reached):
 
 ```
-each round: draw from the shared generator
-  - one outcome: the attacker takes a hit (unless it has unspent first-strikes)
+each round: draw one number in [0,999] from the shared generator
+  - draw < defenderOdds: the attacker takes a hit (unless it has unspent first-strikes)
       * if the hit would be fatal, a withdrawal chance may let the attacker retreat
-  - other outcome: the defender takes a hit
+  - otherwise: the defender takes a hit
       * if cumulative damage would exceed a "combat limit" for the attacker's type,
         the defender is merely reduced to that limit and the fight ends (some units
         cannot deliver killing blows)
@@ -729,12 +797,30 @@ each settlement's generic economic output.
   finance when research is not independently funded). Each turn, the rate plus any carried
   surplus is applied to the current research project, shared across all members of an
   alliance.
-* Research cost is reduced by discounts: cheaper when known to players one has met or trades
-  openly with, cheaper when prerequisites are held, and cheaper per number of others who
-  already know it. A project completes when accumulated progress meets its cost (scaled by
-  pacing and difficulty). Completed research unlocks units, structures, policies,
-  improvements, resources, trade abilities, wonders, and victory projects, following a
-  prerequisite graph that supports both required-all and required-any dependencies.
+* **Tech cost — the canonical percent chain.** A technology's base cost is scaled by a fixed
+  chain of independent rule-table percentages, then floored at 1:
+
+  ```
+  cost = baseCost
+       × handicapResearchPercent / 100      # difficulty (§2.2): Settler 60 … Noble 100 … Deity 130
+       × worldResearchPercent    / 100      # map size (larger maps cost more)
+       × speedResearchPercent    / 100      # pace: Quick 67 / Normal 100 / Epic 150 / Marathon 300
+       × eraResearchPercent      / 100      # advanced-start era
+       × max(0, TECH_COST_EXTRA_TEAM_MEMBER_MODIFIER × (teamMembers − 1) + 100) / 100
+  cost = max(1, cost)
+  ```
+
+  *(The engine currently applies only the speed scalar and folds difficulty into an AI
+  beaker bonus instead of a player-side handicap. Add the handicap/world/era/team factors to
+  match the reference; see §2.2.)*
+* **Humanish discounts (additive on top).** Beyond the canonical chain, this game also makes
+  a tech **cheaper when prerequisites are held** and **cheaper per number of others who
+  already know it** (a catch-up discount). These are intentional extensions, not part of the
+  reference cost; they apply after the percent chain.
+* A project completes when accumulated progress meets its cost. Completed research unlocks
+  units, structures, policies, improvements, resources, trade abilities, wonders, and victory
+  projects, following a prerequisite graph that supports both required-all and required-any
+  dependencies.
 
 ### 6.4 Policies
 Governing choices are organized into several mutually exclusive categories (such as
@@ -749,6 +835,16 @@ Citizens may be assigned as **specialists** that yield economic output and point
 rising threshold, a special person is produced, who can settle for a permanent bonus,
 construct a wonder, grant a technology, trigger a celebration age, or seed an economic
 organization.
+
+**Specialists are a first-class data table** (reference parity). The canonical roster is
+**14 specialist types** — the working specialists `citizen, priest, artist, scientist,
+merchant, engineer, spy` plus their great-person counterparts `great_priest, great_artist,
+great_scientist, great_merchant, great_engineer, great_general, great_spy`. Each specialist
+record defines its per-head output vector (food/production/commerce, and which commerce
+type), the great-person points it generates and of which type, and any prerequisite. *(The
+engine currently models specialists only implicitly via unit `generated_by` tags and
+per-structure slot counts; promote them to an explicit `data/specialists.json` table so
+output, GP-point type, and slot rules are data-driven rather than hard-coded.)*
 
 ### 6.6 Conscription / the draft (provisional)
 
@@ -796,15 +892,32 @@ the city's output (§4.3):
 * **War and peace** are declared at the alliance level and toggle a war state. **War
   success** accrues from combat actions and feeds war-fatigue, which raises discontent over
   time.
-* **Trades** exchange treasury, recurring payments, resources, technologies, settlements,
-  maps, passage rights, mutual-defense agreements, and peace. They are resolved and expired
-  during the whole-world step. Computer willingness depends on attitude and a cost/benefit
-  evaluation.
-* **Subordination**: a weaker alliance may become a tributary of a stronger one, sharing
-  its wars and paying tribute, sometimes as a result of losing a war.
+* **Trades & deals.** A **deal** is a first-class, persistent object (reference parity): a
+  bundle of items given by each side, which may be **one-off** (gold, a technology, a city,
+  maps) or **recurring per-turn** (gold-per-turn, a resource, open-borders/passage rights, a
+  defensive pact). Deals are stored on the game state, **executed each whole-world step**
+  (recurring items deliver; one-off items deliver once then close), and **cancellable**
+  subject to a minimum duration. Tradeable item kinds: treasury, gold-per-turn, resources,
+  technologies, settlements, maps, passage/open-borders, mutual-defense pacts, and peace.
+  *(The engine currently models trades as plain expiring dictionaries; promote them to the
+  deal object with per-turn execution and cancellation.)*
+* **Attitude & memory (AI diplomacy).** Each AI player holds a per-rival **attitude**
+  (Furious → Annoyed → Cautious → Pleased → Friendly) computed from weighted factors:
+  shared/again belief, shared war, fair/again trades, border friction, recent demands, and a
+  decaying **memory** of past acts (declared war, broke a deal, razed a city, spread culture,
+  traded techs, …). Attitude gates what deals an AI will accept, whether it will declare war,
+  and how it votes in assemblies (§7.2). *(Not yet modelled — assembly voting currently
+  ignores attitude. Add an attitude/memory layer per `data/` tables: attitude factors, memory
+  kinds and decay, and denial reasons.)*
+* **Subordination / vassalage**: a weaker alliance may become a **tributary or vassal** of a
+  stronger one — sharing its wars, paying tribute, and (for full vassalage) capitulating after
+  a lost war and being freed when strong enough again. The reference models this on a **team**
+  tier that also groups tech-sharing and shared war/peace; this game folds the team concept
+  into the alliance object, so vassalage rules live on `Alliance` (`is_subordinate_to`,
+  `tributaries`). *(Capitulation/liberation thresholds are a parity gap to close.)*
 * **Intelligence/espionage**: each alliance accumulates intelligence points against every
   alliance it has met, spent on covert missions (stealing technology, sabotage, inciting
-  unrest, and more) with costs and interception chances governed by configuration.
+  unrest, and more) with costs and interception chances governed by configuration (§7.1).
 
 ### 7.1 Espionage points & missions (provisional)
 
@@ -996,9 +1109,24 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
   diplomatic, and (with dedicated structures) economic benefits. The principal site's
   dedicated structure yields finance scaled by the number of settlements worldwide holding
   that belief. A belief-based assembly may act as a diplomatic voting body.
-* **Economic organizations**: founded by a special person, they spread like beliefs but
-  consume input resources to produce output in member settlements; spreading them costs
-  treasury. Competing organizations cannot coexist in the same settlement.
+* **Economic organizations / corporations**: founded by a special person, they spread like
+  beliefs but consume input resources to produce output in member settlements; spreading them
+  costs treasury. Competing organizations cannot coexist in the same settlement. The reference
+  models these as a full **corporation** subsystem — **7 corporations**, each with:
+  * a **headquarters structure** (`BUILDING_CORPORATION_n`) built once, in the founding city,
+    which earns the founder a share of gold per resource the corporation consumes worldwide;
+  * an **executive unit** (`EXECUTIVE_n`, the corporate analogue of a missionary) that spreads
+    the corporation to a new city for a treasury cost;
+  * a set of **input resources** the corporation consumes in each member city to produce a
+    per-city output bonus (commerce/production/food/health), scaling with the **count of those
+    resources** the owner has access to;
+  * a **maintenance cost** per member city, and an exclusion rule (a city cannot host two
+    corporations that compete for the same inputs), plus interactions with civics (e.g. a
+    state-property economy bans corporations).
+
+  *(The engine's `econ_orgs` is a lighter version of this; to reach reference parity, add the
+  HQ-building/executive-unit/input-resource-count model and the per-city maintenance, keyed off
+  a `data/corporations.json`-style table. Magnitudes live in `data/constants.json`.)*
 
 ### 8.1 State religion (provisional)
 
@@ -1061,10 +1189,24 @@ Beyond the passive turn-by-turn spread (§8), a player may spread a religion del
   combat resolution). The spawning model — turn/era/city gates and the per-area density
   formula that governs *how many* wild units and cities appear — is detailed in §9.2; the
   behaviour of forces once spawned is §9.1.
-* **Exploration rewards**: investigating a discovery site yields, by weighted random,
-  treasury, map knowledge, experience, a unit, a technology, or a hostile ambush.
-* **Events**: periodic scripted/random events with prerequisites, player choices, and
-  effects, largely defined in external content data.
+* **Exploration rewards / goody huts**: the reference scatters **goody huts** (tribal
+  villages) across the map at generation time on land tiles away from starts, as a dedicated
+  generation stage with a placement predicate (`canPlaceGoodyAt`). The **first land unit** to
+  enter a hut consumes it and rolls a weighted reward from a `data/goodies.json`-style table:
+  treasury, map knowledge, experience, a free unit (scout/settler/worker), a free technology,
+  a heal, or a hostile ambush. *(The engine currently places "discovery sites" only on
+  Terra-style maps; generalise goody-hut placement to all map scripts and make the reward
+  table data-driven with per-difficulty weights.)*
+* **Events — the trigger/apply/expire lifecycle**: the reference's random-event system is far
+  richer than a one-shot table. Each event has a **trigger predicate** (gated on turn, tech,
+  buildings, terrain, war state, probability and game-speed-scaled timers), a **begin** phase
+  that may present the player a **choice popup**, an **apply** phase that commits the chosen
+  outcome (gold, units, buildings, tech, terrain/feature changes, happiness/health, a quest),
+  and an optional **expire** phase for timed events that persist and later end. Events are
+  weighted, can chain, and are almost entirely defined in external content data
+  (`data/events.json` + a triggers table). *(The engine currently runs a flat one-shot list
+  with a single treasury delta and no triggers/choices/expiry; build out the lifecycle and
+  grow the event/trigger catalogue toward the reference's large set.)*
 
 ### 9.1 Wild-forces behaviour (provisional)
 > **⚠️ Provisional — preliminary, not verified.** This subsection is a first-pass model of how
@@ -1242,7 +1384,13 @@ conditions:
 | **Endgame project** | An alliance completes and launches all parts of a multi-stage endgame project; its arrival ends the game. |
 | **Cultural** | A required number of an alliance's settlements each reach the highest influence level. |
 | **Diplomatic** | A candidate carries the supreme-leadership election in a world assembly — **60%** of the vote via the United Nations (candidate must hold Mass Media) or **75%** via the Apostolic Palace (every living civ must hold its belief). A candidate whose own alliance casts ≥ **75%** of the vote is barred ("too big"). See §7.3. |
-| **Time** | If no other condition is met by the final turn, the highest **score** wins. |
+| **Score** | The reference exposes **Score** as its own enabled condition (the 7th, alongside the six above). When enabled with a score target, the first alliance to reach a configured absolute **score** threshold wins immediately. |
+| **Time** | If no other condition is met by the final turn, the highest **score** wins (the time-limit tiebreak). |
+
+> **Seven canonical conditions.** The reference set is **Conquest (Last standing), Domination
+> (Dominance), Space Race (Endgame project), Cultural, Diplomatic, Score, and Time** — seven
+> in all. This game previously shipped six, folding Score into Time; expose **Score** as its
+> own selectable condition to match the reference.
 
 **Score** is a weighted sum of population, land, technologies, and wonders, normalized
 against the map and age.
