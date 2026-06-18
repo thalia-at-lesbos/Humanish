@@ -274,6 +274,23 @@ func test_production_carryover() -> void:
 	if gs.units.size() > units_before:
 		assert_eq(s.production_store, 2, "Surplus 2 should carry over")
 
+func test_structure_percent_production_applies_multiplicatively() -> void:
+	# A Forge (+25% production) scales the base production multiplicatively through
+	# the §4.3 percent chain rather than adding a flat amount.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.structures = ["forge"]                       # production_bonus: 25
+	s.production_queue = [{"type": "structure", "id": "library"}]  # high-cost, won't finish
+	s.production_store = 0
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	var base: int = Fixed.scale(8, build_scale)
+	var expected: int = Fixed.apply_stacked_bonus(base, 25)
+	TurnEngine._settlement_production(gs, s, p)
+	assert_eq(s.production_store, expected,
+		"Forge's +25% applies multiplicatively on base production, not as a flat add")
+
 # ── Culture ──────────────────────────────────────────────────────────────────
 
 func test_culture_ring_does_not_decrease() -> void:

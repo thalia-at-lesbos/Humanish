@@ -565,8 +565,15 @@ static func _settlement_production(gs: GameState, s: Settlement,
 			prod = Fixed.scale(prod, 100 + ai_bonus)
 
 	var item: Dictionary = s.production_queue[0]
-	# Civic production effects depend on what is currently being built (§8).
-	prod += _policy_production_delta(gs, s, player, db, item, prod)
+	# Percentage yield chain (§4.3): structure and civic +% production modifiers
+	# stack additively and apply once (multiplicatively on the base) via
+	# Fixed.apply_stacked_bonus — distinct from the flat deltas below.
+	var pct_mods: int = _production_percent_mods(gs, s, player, db, item)
+	if pct_mods < -100:
+		pct_mods = -100  # base × max(0, 100 + Σmods)/100
+	prod = Fixed.apply_stacked_bonus(prod, pct_mods)
+	# Flat civic production deltas depend on what is being built (§8).
+	prod += _policy_production_delta(gs, s, player, db, item)
 	if prod < 0:
 		prod = 0
 	s.production_store += prod
@@ -580,21 +587,53 @@ static func _settlement_production(gs: GameState, s: Settlement,
 		_complete_item(gs, s, player, item)
 		s.production_queue.remove(0)
 
-# Per-turn production adjustment from active civics for the item at the head of
-# the queue (§8): Police State's percentage bonus to military units, Organized
-# Religion's flat bonus for religious buildings, and Pacifism's drain per
-# garrisoned military unit. `base_prod` is this turn's settlement production,
-# which the percentage bonuses scale off.
+# Sum of percentage production modifiers active in a settlement for the item at
+# the head of its queue (§4.3). Structure bonuses apply to all production — Forge
+# / Factory / Assembly Plant `production_bonus`, a power plant's own
+# `power_production_bonus`, and the Factory's `powered_production_bonus` once the
+# city has power. Military builds additionally collect the structure
+# `military_production_city` (Heroic Epic / Military Academy) and the civic
+# `military_production` (Police State). All are summed so they stack additively
+# and the caller applies them once via Fixed.apply_stacked_bonus.
+static func _production_percent_mods(gs: GameState, s: Settlement,
+		player: Player, db: DataDB, item: Dictionary) -> int:
+	var pct: int = 0
+	var powered: bool = _settlement_has_power(s, db)
+	for sid in s.structures:
+		if not _structure_effect_active(db, sid, s, player):
+			continue
+		var st: Dictionary = db.get_structure(sid)
+		pct += int(st.get("production_bonus", 0))
+		var eff: Dictionary = st.get("effects", {})
+		pct += int(eff.get("power_production_bonus", 0))
+		if powered:
+			pct += int(eff.get("powered_production_bonus", 0))
+	if item.get("type", "unit") == "unit" and _is_military_unit(db, item.get("id", "")):
+		for sid in s.structures:
+			if not _structure_effect_active(db, sid, s, player):
+				continue
+			pct += int(db.get_structure(sid).get("effects", {}).get("military_production_city", 0))
+		pct += PolicyEffects.sum_int(player, db, "military_production")
+	return pct
+
+# Whether any built, active structure supplies power to the city (§4.3) — the gate
+# for the Factory's powered production bonus.
+static func _settlement_has_power(s: Settlement, db: DataDB) -> bool:
+	for sid in s.structures:
+		if bool(db.get_structure(sid).get("effects", {}).get("provides_power", false)):
+			return true
+	return false
+
+# Per-turn FLAT production adjustments from active civics for the item at the head
+# of the queue (§8): Organized Religion's flat bonus for religious buildings, and
+# Pacifism's drain per garrisoned military unit. Percentage modifiers are handled
+# separately by _production_percent_mods (§4.3).
 static func _policy_production_delta(gs: GameState, s: Settlement,
-		player: Player, db: DataDB, item: Dictionary, base_prod: int) -> int:
+		player: Player, db: DataDB, item: Dictionary) -> int:
 	var delta: int = 0
 	var itype: String = item.get("type", "unit")
 	var iid: String = item.get("id", "")
-	if itype == "unit":
-		if _is_military_unit(db, iid):
-			delta += Fixed.scale(base_prod,
-				PolicyEffects.sum_int(player, db, "military_production"))
-	elif itype == "structure":
+	if itype == "structure":
 		if PolicyEffects.is_religious_structure(db, iid):
 			delta += PolicyEffects.sum_int(player, db, "religious_building_production")
 	# Pacifism: each garrisoned military unit drains production (effect is negative).
