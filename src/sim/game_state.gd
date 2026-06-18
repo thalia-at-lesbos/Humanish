@@ -14,6 +14,10 @@ extends Reference
 # Root aggregate for the entire simulation. The single source of truth.
 # All mutable state lives here; nothing in sim/ maintains state outside this object.
 
+# Save format version. Bumped to 2 when the movement scale changed from 100 to
+# MOVE_DENOMINATOR=60 (§5.2); deserialize migrates pre-2 saves' unit movement.
+const SAVE_VERSION: int = 2
+
 var db: DataDB
 var rng: RNG
 var map: WorldMap
@@ -209,6 +213,7 @@ func serialize() -> Dictionary:
 		alliance_data.append(a.serialize())
 
 	return {
+		"save_version": SAVE_VERSION,
 		"rng_state": rng.get_state(),
 		"map": map.serialize(),
 		"players": player_data,
@@ -248,6 +253,12 @@ static func deserialize(d: Dictionary, db_ref):
 		gs.settlements.append(Settlement.deserialize(sd))
 	for ud in d["units"]:
 		gs.units.append(Unit.deserialize(ud))
+	# Migration: pre-2 saves stored movement on the old 100-unit scale; rescale to
+	# the MOVE_DENOMINATOR=60 scale so resumed units move the right distance (§5.2).
+	if int(d.get("save_version", 1)) < 2:
+		for u in gs.units:
+			u.movement_total = (u.movement_total * Fixed.MOVE_DENOMINATOR) / 100
+			u.movement_left = (u.movement_left * Fixed.MOVE_DENOMINATOR) / 100
 	for ad in d["alliances"]:
 		gs.alliances.append(Alliance.deserialize(ad))
 	gs.turn_number = int(d.get("turn_number", 0))

@@ -470,7 +470,7 @@ static func _spawn_wave_unit(game_state, camp: Settlement, unit_type_id: String)
 	u.owner_player_id = -2
 	u.x = camp.x; u.y = camp.y
 	u.base_strength = int(ud.get("base_strength", 5))
-	u.movement_total = int(ud.get("movement", 200))
+	u.movement_total = int(ud.get("movement", 120))
 	u.movement_left = 0  # spawned this step; marches from next world step
 	u.is_wild = true
 	u.goto_x = camp.alert_target_x

@@ -50,6 +50,22 @@ func test_save_load_roundtrip_fidelity() -> void:
 	facade.load_save(facade.save())
 	assert_eq(h1, facade.state_hash(), "Hash identical after save→load roundtrip")
 
+# A pre-2 save stored movement on the old 100-unit scale; loading it must rescale
+# unit movement to the MOVE_DENOMINATOR=60 scale (§5.2 migration).
+func test_pre_v2_save_migrates_movement_scale() -> void:
+	var facade = setup_facade(800)
+	run_turns(facade, 1)
+	var d: Dictionary = JSON.parse(facade.save()).result
+	# Forge an old save: drop the version and put a unit's movement on the 100 scale.
+	d.erase("save_version")
+	assert_true(d["units"].size() > 0, "fixture produced at least one unit")
+	d["units"][0]["movement_total"] = 200   # 2 tiles on the old scale
+	d["units"][0]["movement_left"] = 200
+	var migrated = GameState.deserialize(d, make_db())
+	assert_eq(migrated.units[0].movement_total, 120,
+		"Old 200 (2 tiles @100) migrates to 120 (2 tiles @60)")
+	assert_eq(migrated.units[0].movement_left, 120, "movement_left migrated too")
+
 # The start-menu "Load Game" path: a brand-new facade is scaffolded with
 # init_for_load() (no setup()) and then fed a save string.
 func test_init_for_load_loads_into_fresh_facade() -> void:

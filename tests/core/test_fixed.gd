@@ -33,9 +33,10 @@ func test_proportion() -> void:
 	assert_eq(Fixed.proportion(0, 10, 1000), 0, "0/10 * 1000 = 0")
 
 func test_move_conversion() -> void:
-	assert_eq(Fixed.tiles_to_move(2), 200, "2 tiles = 200 fixed units")
-	assert_eq(Fixed.move_to_tiles(200), 2, "200 units = 2 tiles")
-	assert_eq(Fixed.move_to_tiles(150), 1, "150 units = 1 tile (floor)")
+	# MOVE_DENOMINATOR = 60 units per tile (§5.2).
+	assert_eq(Fixed.tiles_to_move(2), 120, "2 tiles = 120 fixed units")
+	assert_eq(Fixed.move_to_tiles(120), 2, "120 units = 2 tiles")
+	assert_eq(Fixed.move_to_tiles(90), 1, "90 units = 1 tile (floor)")
 
 func test_clamp_min0() -> void:
 	assert_eq(Fixed.clamp_min0(-5), 0, "negative clamped to 0")

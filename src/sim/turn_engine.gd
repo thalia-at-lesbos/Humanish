@@ -694,7 +694,7 @@ static func _complete_item(gs: GameState, s: Settlement,
 			u.x = s.x; u.y = s.y
 			var udata: Dictionary = gs.db.get_unit(iid)
 			u.base_strength = int(udata.get("base_strength", 5))
-			u.movement_total = int(udata.get("movement", 200))
+			u.movement_total = int(udata.get("movement", 120))
 			u.movement_left = u.movement_total
 			# Civic starting experience for newly trained military units (§8):
 			# Vassalage's flat bonus, plus Theocracy's bonus when the unit is raised
