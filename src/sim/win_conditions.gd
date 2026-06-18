@@ -47,6 +47,8 @@ static func _check_one(wc: Dictionary, game_state) -> int:
 			# (>= 75% of the vote). See game-rules.md §7.2 and Assembly. This periodic
 			# check therefore never awards on its own.
 			return -1
+		"score":
+			return _score(wc, game_state)
 		"time":
 			return _time(game_state)
 	return -1
@@ -127,3 +129,18 @@ static func _time(game_state) -> int:
 		return -1
 	# Return highest-scoring alliance
 	return Scoring.highest_scoring_alliance(game_state)
+
+# Score victory (§10): the first alliance whose summed score reaches the
+# configured absolute threshold wins immediately — distinct from Time, which
+# only awards the highest score at the turn limit. Ties resolve to the lowest
+# alliance id for determinism.
+static func _score(wc: Dictionary, game_state) -> int:
+	var threshold: int = int(wc.get("score_threshold", 0))
+	if threshold <= 0:
+		return -1
+	var totals: Dictionary = Scoring.score_by_alliance(game_state)
+	var winner: int = -1
+	for aid in totals:
+		if totals[aid] >= threshold and (winner < 0 or aid < winner):
+			winner = aid
+	return winner

@@ -38,18 +38,23 @@ static func compute_all(game_state) -> void:
 	for p in game_state.players:
 		p.score = score_by_player.get(p.id, 0)
 
-static func highest_scoring_alliance(game_state) -> int:
+# Sum the (freshly computed) per-player scores into per-alliance totals.
+static func score_by_alliance(game_state) -> Dictionary:
 	compute_all(game_state)
-	var best_aid: int = -1
-	var best_score: int = -1
-	var score_by_alliance := {}
+	var totals := {}
 	for p in game_state.players:
 		if p.alliance_id < 0:
 			continue
-		score_by_alliance[p.alliance_id] = score_by_alliance.get(p.alliance_id, 0) + p.score
-	for aid in score_by_alliance:
-		if score_by_alliance[aid] > best_score:
-			best_score = score_by_alliance[aid]
+		totals[p.alliance_id] = totals.get(p.alliance_id, 0) + p.score
+	return totals
+
+static func highest_scoring_alliance(game_state) -> int:
+	var best_aid: int = -1
+	var best_score: int = -1
+	var totals: Dictionary = score_by_alliance(game_state)
+	for aid in totals:
+		if totals[aid] > best_score:
+			best_score = totals[aid]
 			best_aid = aid
 	return best_aid
 
