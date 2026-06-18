@@ -97,6 +97,29 @@ func test_research_cost_scales_with_team_size() -> void:
 	assert_eq(pair, Fixed.scale(50, 100 + mod), "A two-member team pays (100+modifier)%")
 	assert_gt(pair, solo, "Each extra team member raises the shared-research cost")
 
+# ── §2.2 difficulty research handicaps ───────────────────────────────────────
+
+func test_human_pays_handicap_but_ai_does_not() -> void:
+	var gs = make_gs(2)
+	var human = gs.get_player(1); human.is_ai = false
+	var ai = gs.get_player(2); ai.is_ai = true
+	ai.technologies = ["mining"]  # ancient → era 0, so no per-era modifier yet
+	var human_cost: int = Research._effective_cost("agriculture", human, gs.db, {}, "normal", "deity")
+	var ai_cost: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
+	assert_eq(human_cost, Fixed.scale(60, 130), "Human pays the Deity 130% research handicap")
+	assert_lt(ai_cost, human_cost, "The AI does not pay the human handicap")
+
+func test_ai_research_per_era_compounds() -> void:
+	var gs = make_gs(1)
+	var ai = gs.get_player(1); ai.is_ai = true
+	# agriculture has no prereqs, so no discount masks the per-era modifier.
+	ai.technologies = ["mining"]                      # ancient → era 0
+	var era0: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
+	assert_eq(era0, 60, "At era 0 the per-era modifier is a no-op")
+	ai.technologies = ["mining", "metal_casting"]     # classical → a later era
+	var later: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
+	assert_lt(later, era0, "A later-era Deity AI pays less per tech (per-era discount compounds)")
+
 func test_discount_applies_after_the_chain() -> void:
 	# The 10% prereq discount comes off the post-chain (marathon-scaled) cost.
 	var gs = make_gs(1)
