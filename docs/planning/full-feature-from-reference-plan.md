@@ -33,13 +33,23 @@ ordered from low-risk value/formula corrections to larger new subsystems.
 
 ---
 
-## Phase 0 — Formula & constant corrections (highest value, lowest risk)
+## Phase 0 — Formula & constant corrections (highest value, lowest risk) ✅ COMPLETE
 
 Pure rule-math corrections where the **code diverges from the reference** the design docs now
 specify. No new state, no new screens — bounded edits with exact expected values, so they are the
 safest first wins and they re-baseline balance for everything after.
 
-### 0.1 Combat per-hit damage → `COMBAT_DAMAGE` firepower model (§5.4, game-data §15.1)
+> **Status (all sub-steps landed on `main`, each as its own branch/commit/merge).** Full unit
+> suites (846 tests) + the integration save/load gate green; `tests/manual/ai_full_game_smoke.gd`
+> still reaches a win condition with zero errors on Prince and Deity. Each item's commit carries
+> the detail; the per-step notes below record what shipped.
+
+### 0.1 Combat per-hit damage → `COMBAT_DAMAGE` firepower model (§5.4, game-data §15.1) ✅
+**Done.** `Combat._per_hit_damage` now uses the firepower blend
+(`strengthFactor = (ourFP+theirFP+1)/2`, `dmg = max(1, combat_damage×(theirFP+sf)/(ourFP+sf))`);
+even matchups run ≈5 hits. Added `Unit.firepower()` (effective strength, with a `firepower` data
+override for siege/special), `combat_damage=20`, and the 10%/90% per-round odds clamp (free-early-
+wins applied on top). Tests in `tests/sim/test_combat.gd`.
 - **Change.** Replace the flat `opponent_str × 10 / self_str` per-hit damage in `src/sim/combat.gd`
   with the reference blend: `strengthFactor = (ourFP + theirFP + 1)/2`;
   `dmg = max(1, combat_damage × (theirFP + strengthFactor)/(ourFP + strengthFactor))`. Introduce a
@@ -54,7 +64,13 @@ safest first wins and they re-baseline balance for everything after.
 - **Risk.** Touches the most-tested path and shifts balance broadly; expect to re-tune AI attack
   margins afterward. Land this first so later phases build on correct combat length.
 
-### 0.2 City growth food box (§4.2, game-data §15.2)
+### 0.2 City growth food box (§4.2, game-data §15.2) ✅
+**Done.** Consumption is now `(population − discontented) × food_per_citizen` with net
+unhealthiness folded in as a drain (`Settlement.health_rate()`); the growth threshold uses the
+affine pop-and-speed curve (`growth_threshold_base=12`, `growth_threshold_per_pop=8`, replacing the
+flat `growth_base × pop`); granary carry-over capped at `threshold × max_food_kept_percent/100`
+(75%). Tests in `tests/sim/test_settlement.gd`.
+
 - **Change.** In `src/sim/turn_engine.gd` `_settlement_growth`: consumption =
   `(population − discontented) × food_per_citizen − health_rate` (angry citizens don't eat; net
   unhealthiness drains consumption) instead of `population × food_per_citizen` with a separate
@@ -66,7 +82,14 @@ safest first wins and they re-baseline balance for everything after.
   an unhealthy city grows slower; carry-over respects the cap; threshold rises with both pop and
   pace.
 
-### 0.3 City-yield percent-modifier chain (§4.3)
+### 0.3 City-yield percent-modifier chain (§4.3) ✅
+**Done.** `_settlement_production` routes +% production modifiers through
+`Fixed.apply_stacked_bonus` via the new `_production_percent_mods` (Forge/Factory/Assembly Plant
+`production_bonus`, power-plant `power_production_bonus`, Factory `powered_production_bonus` when
+powered, plus military `military_production_city` + the Police State `military_production` civic) —
+previously dead data, now wired and summed-then-applied-once. `_policy_production_delta` keeps only
+the genuinely flat sources. Tests in `tests/sim/test_settlement.gd` / `test_policy_effects.gd`.
+
 - **Change.** Route percentage yield bonuses (structures/policies that grant `+x%` food/production)
   through `Fixed.apply_stacked_bonus` — `base × max(0, 100 + Σmods)/100` — instead of flat deltas.
   Keep flat deltas only for genuinely additive sources (raw tile/specialist output).
@@ -75,7 +98,14 @@ safest first wins and they re-baseline balance for everything after.
 - **Tests.** `tests/sim/test_settlement.gd` / `test_policy_effects.gd`: a `+25%` production policy
   stacks multiplicatively on base, not as a fixed add; two `+%` sources sum then apply once.
 
-### 0.4 Tech-cost percent chain (§6.3, game-data §15.4)
+### 0.4 Tech-cost percent chain (§6.3, game-data §15.4) ✅
+**Done.** `Research._effective_cost` builds the chain
+`base × handicap% × world% × speed% × era% × team-penalty%` (floored at 1), with the prereq and
+known-by-others discounts as a labelled post-chain step. Added `handicap_research_percent` to
+`difficulties.json`, `research_percent` to `world_sizes.json`, `tech_cost_extra_team_member_modifier`
+to `constants.json`, and `Eras.research_scale` (era factor, no-op at 100). `GameState.world_size_id`
+is now stored/serialized; alliance size feeds the team factor. Tests in `tests/sim/test_research.gd`.
+
 - **Change.** In `src/sim/research.gd` `_effective_cost`, build the canonical chain
   `base × handicap% × world% × speed% × era% × team-penalty%` then `max(1, …)`. Keep this game's
   prereq/known-by-others discounts as a clearly-labelled **post-chain** step.
@@ -86,7 +116,15 @@ safest first wins and they re-baseline balance for everything after.
 - **Tests.** `tests/sim/test_research.gd`: tech cost scales with each factor independently;
   Marathon = 3×; Deity player pays 1.3× vs Noble; discounts apply after the chain.
 
-### 0.5 Movement denominator alignment (§5.2)
+### 0.5 Movement denominator alignment (§5.2) ✅
+**Done.** `Fixed.MOVE_PRECISION` renamed to `MOVE_DENOMINATOR = 60`; all movement data rescaled
+×3/5 (`units.json` movement, `terrains.json` movement_cost, `features.json` movement_cost_add,
+defaults, `constants.movement_precision`). `Pathfinding._move_cost` now reads route reductions from
+`transport.json`'s `movement_cost_divisor` (road = exact 20 = 1/3 tile, railroad floored at 1),
+retiring the hardcoded `/3` and the dead `movement_cost_override`. Save format bumped to
+`GameState.SAVE_VERSION=2` with a pre-2 deserialize migration (unit movement ×60/100). Tests in
+`tests/sim/test_pathfinding.gd`, `tests/core/test_fixed.gd`, `tests/api/test_save_load.gd`.
+
 - **Change.** Align internal movement granularity to `MOVE_DENOMINATOR = 60` so route/terrain costs
   divide cleanly (currently `MOVE_PRECISION = 100`). Update `Fixed`, `Pathfinding._move_cost`, the
   serialized `movement_total`/`movement_left` scale, and the dead `transport.json` route-reduction
@@ -96,7 +134,13 @@ safest first wins and they re-baseline balance for everything after.
 - **Tests.** `tests/sim/test_pathfinding.gd`: road = 1/3 tile resolves exactly at denom 60; a
   2-move unit crosses the expected tiles; "always move at least one tile" preserved.
 
-### 0.6 Difficulty handicap knobs (§2.2, game-data §15.9)
+### 0.6 Difficulty handicap knobs (§2.2, game-data §15.9) ✅
+**Done.** `Research._effective_cost` is now player-aware: the human pays `handicap_research_percent`
+while the AI does not (its handicap stays the `ai_bonus` beaker boost) and instead gets the new
+per-era `ai_research_per_era` modifier (compounds with era; negative on easy levels, positive on
+hard; Noble/Prince 0 so default balance is unchanged). City aids stay human-only. Tests in
+`tests/sim/test_research.gd` / `test_settlement.gd`.
+
 - **Change.** Add the AI **per-era research modifier** (`ai_research_per_era`) alongside the
   existing `ai_bonus`; wire the player-side `handicap_research_percent` consumed in 0.4. Keep the
   human-only city aids (`growth_bonus`/`health_bonus`/`happiness_bonus`).
