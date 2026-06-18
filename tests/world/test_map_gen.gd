@@ -183,6 +183,126 @@ func test_start_positions_are_land_and_spread() -> void:
 			assert_eq(ter.get("domain", "land"), "land", "%s: start tile must be land" % mt)
 			assert_false(ter.get("impassable", false), "%s: start tile must be passable" % mt)
 
+# ── Goody huts (§9) ──────────────────────────────────────────────────────────────
+
+# Generate a map and run the full start-dependent pipeline (find starts → normalize
+# → goody huts) on a single shared RNG, exactly like SimFacade.setup.
+func _gen_full(map_type, seed_val = 321, players = 4, w = 60, h = 40):
+	var db = make_db()
+	var map = load("res://src/world/world_map.gd").new()
+	map.init(w, h, true, false)
+	var rng = load("res://src/core/rng.gd").new()
+	rng.init(seed_val)
+	MapGen.generate(map, db, rng, map_type)
+	var starts = MapGen.find_start_positions(map, db, players, map_type)
+	MapGen.normalize_starts(map, db, rng, starts, map_type)
+	MapGen.place_goody_huts(map, db, rng, starts)
+	return {"map": map, "db": db, "starts": starts}
+
+func _hut_tiles(g) -> Array:
+	var huts = []
+	for t in g.map.all_tiles():
+		if t.has_discovery:
+			huts.append(t)
+	return huts
+
+func test_goody_huts_are_placed_on_passable_land() -> void:
+	var g = _gen_full("continents")
+	var huts = _hut_tiles(g)
+	assert_true(huts.size() > 0, "Goody huts should be scattered on a land map")
+	for t in huts:
+		var ter = g.db.get_terrain(t.terrain_id)
+		assert_eq(ter.get("domain", "land"), "land", "a hut must sit on land")
+		assert_false(ter.get("impassable", false), "a hut must sit on a passable tile")
+
+func test_goody_huts_keep_clear_of_starts() -> void:
+	var g = _gen_full("continents")
+	var min_dist = g.db.get_constant("goody_hut_min_distance_from_start", 4)
+	for t in _hut_tiles(g):
+		for s in g.starts:
+			assert_true(g.map.distance(t.x, t.y, int(s[0]), int(s[1])) >= min_dist,
+				"a hut must stay >= %d tiles from every start" % min_dist)
+
+func test_goody_huts_are_seed_deterministic() -> void:
+	var a = _gen_full("continents", 8080)
+	var b = _gen_full("continents", 8080)
+	var at = a.map.all_tiles()
+	var bt = b.map.all_tiles()
+	var same = true
+	for i in range(at.size()):
+		if at[i].has_discovery != bt[i].has_discovery:
+			same = false
+			break
+	assert_true(same, "the same seed must place the same goody huts")
+
+# ── Start fairness / normalize* (§1) ─────────────────────────────────────────────
+
+func _ring_has_fresh_water(g, sx, sy) -> bool:
+	var t = g.map.get_tile(sx, sy)
+	if t != null and t.feature_id == "oasis":
+		return true
+	if g.map.tile_has_river(sx, sy):
+		return true
+	for nb in g.map.neighbours8(sx, sy):
+		if g.db.get_terrain(nb.terrain_id).get("domain", "land") != "land":
+			return true
+	return false
+
+func test_normalize_guarantees_fresh_water_at_every_start() -> void:
+	for mt in ["pangaea", "continents", "great_plains"]:
+		var g = _gen_full(mt, 4567)
+		for s in g.starts:
+			assert_true(_ring_has_fresh_water(g, int(s[0]), int(s[1])),
+				"%s: every start must have fresh water after normalize" % mt)
+
+func test_normalize_removes_peaks_around_starts() -> void:
+	var g = _gen_full("highlands", 1212)
+	for s in g.starts:
+		for t in g.map.tiles_in_range(int(s[0]), int(s[1]), 1):
+			assert_ne(t.terrain_id, "mountain",
+				"no peak may sit on or next to a start after normalize")
+
+func test_normalize_adds_food_bonuses_to_inner_ring() -> void:
+	var min_food = make_db().get_constant("start_normalize_min_food_bonuses", 1)
+	var g = _gen_full("continents", 2323)
+	for s in g.starts:
+		var food = 0
+		for t in g.map.tiles_in_range(int(s[0]), int(s[1]), 1):
+			if t.resource_id != "" and str(g.db.get_resource(t.resource_id).get("type", "")) == "food":
+				food += 1
+		assert_true(food >= min_food,
+			"each start's inner ring must hold >= %d food bonuses (got %d)" % [min_food, food])
+
+func test_normalize_equalises_strategic_resources() -> void:
+	var db0 = make_db()
+	var radius = db0.get_constant("start_normalize_balance_radius", 2)
+	var tol = db0.get_constant("start_normalize_resource_tolerance", 1)
+	var g = _gen_full("continents", 9091)
+	var lo = 1 << 30
+	var hi = 0
+	for s in g.starts:
+		var c = 0
+		for t in g.map.tiles_in_range(int(s[0]), int(s[1]), radius):
+			if t.resource_id != "" and str(g.db.get_resource(t.resource_id).get("type", "")) == "strategic":
+				c += 1
+		lo = c if c < lo else lo
+		hi = c if c > hi else hi
+	assert_true(hi - lo <= tol,
+		"strategic-resource counts near starts must fall within tolerance %d (spread %d..%d)" % [tol, lo, hi])
+
+func test_normalize_is_seed_deterministic() -> void:
+	var a = _gen_full("continents", 5599)
+	var b = _gen_full("continents", 5599)
+	var at = a.map.all_tiles()
+	var bt = b.map.all_tiles()
+	var same = true
+	for i in range(at.size()):
+		if at[i].terrain_id != bt[i].terrain_id or at[i].resource_id != bt[i].resource_id \
+				or at[i].river_n != bt[i].river_n or at[i].river_w != bt[i].river_w:
+			same = false
+			break
+	assert_true(same, "normalize + goody placement must be reproducible for a seed")
+
 # ── Rivers ──────────────────────────────────────────────────────────────────────
 
 # Count river border segments on a map (each tile contributes up to its north and

@@ -546,3 +546,26 @@ func test_assign_unknown_specialist_type_rejected() -> void:
 	var s = make_settlement(gs, pid, 5, 5, 4)
 	assert_false(facade.apply_command(Commands.assign_specialist(pid, s.id, "wizard", 1)),
 		"An unknown specialist type is rejected")
+
+# ── Goody huts (§9) ──────────────────────────────────────────────────────────────
+
+func test_entering_goody_hut_consumes_it_and_applies_reward() -> void:
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 0}], ["time"])
+	var gs = facade.get_state()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	# Force a single deterministic reward so the effect is checkable.
+	gs.db.goodies = {"goodies": [{"id": "gold", "type": "treasury", "weight": 10, "min": 40, "max": 40}]}
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.get_player(pid).treasury = 0
+	gs.map.get_tile(3, 2).has_discovery = true
+	make_warrior(gs, pid, 2, 2)
+
+	watch_signals(facade)
+	assert_true(facade.apply_command(Commands.move_stack(pid, 2, 2, 3, 2)),
+		"Moving onto a goody hut succeeds")
+	assert_false(gs.map.get_tile(3, 2).has_discovery, "The hut is consumed on entry")
+	assert_eq(gs.get_player(pid).treasury, 40, "The goody reward is applied (gold banked)")
+	assert_signal_emitted(facade, "goody_received", "entering a hut emits goody_received")

@@ -720,7 +720,7 @@ func test_contrasting_leaders_play_rounded_game() -> void:
 		{"name": "Genghis", "leader_id": "genghis_khan", "traits": ["aggressive", "imperialistic"],
 			"starting_gold": 100, "starting_units": ["settler", "warrior"], "is_ai": true},
 	]
-	var f = setup_facade(20260609, "small", players, ["last_standing", "time"], "warlord")
+	var f = setup_facade(20260610, "small", players, ["last_standing", "time"], "warlord")
 
 	var peak_cities := {1: 0, 2: 0}
 	var ever_garrison := {1: false, 2: false}

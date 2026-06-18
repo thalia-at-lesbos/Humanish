@@ -37,6 +37,8 @@ var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
 var events: Dictionary = {}
+# Goody-hut / discovery-site reward table (§9).
+var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
 var resolutions: Dictionary = {}
 
@@ -67,6 +69,7 @@ func load_all() -> bool:
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
 	events       = _load_json("res://data/events.json")
+	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	_validate()
 	return _errors.empty()
@@ -102,6 +105,11 @@ func get_specialist(id: String) -> Dictionary:
 # callers iterating types must skip it).
 func get_specialists() -> Dictionary:
 	return specialists
+
+# The weighted goody-hut reward list (data/goodies.json "goodies" array). Empty
+# when the table failed to load.
+func get_goodies() -> Array:
+	return goodies.get("goodies", [])
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -193,6 +201,7 @@ func _validate() -> void:
 	_validate_unit_tech_refs()
 	_validate_improvement_tech_refs()
 	_validate_specialist_refs()
+	_validate_goody_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -234,3 +243,17 @@ func _validate_specialist_refs() -> void:
 			if not specialists.has(stype):
 				_errors.append("Structure '%s' specialist_slots type '%s' not in specialists table" % [
 					struct_id, stype])
+
+# Every goody must carry an id and a positive weight; a "unit" goody must name a
+# unit type that exists in the units table.
+func _validate_goody_refs() -> void:
+	for g in get_goodies():
+		var gid = str(g.get("id", ""))
+		if gid == "":
+			_errors.append("Goody entry missing an id")
+			continue
+		if int(g.get("weight", 0)) <= 0:
+			_errors.append("Goody '%s' must have a positive weight" % gid)
+		var ut = g.get("unit_type", "")
+		if ut != null and ut != "" and not units.has(str(ut)):
+			_errors.append("Goody '%s' unit_type '%s' not in units table" % [gid, ut])

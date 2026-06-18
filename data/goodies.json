@@ -1,0 +1,12 @@
+{
+  "_comment": "Goody-hut (discovery-site) reward table (§9). The first land unit to enter a hut consumes it and rolls one reward weighted by `weight`. A difficulty may override a goody's weight via difficulties.json `goody_weights` (id -> weight). Effect verbs are read by Events.exploration_reward: treasury (min..max gold), experience (min..max XP to the unit), heal (unit to full health), map (signal-only reveal of `radius` tiles, no sim state), unit (spawn `unit_type` for the discoverer), tech (grant a free researchable tech), ambush (the discoverer takes `damage`% and a hostile may be implied). Magnitudes live here so the table is the single source of reward tuning.",
+  "goodies": [
+    { "id": "gold",       "type": "treasury",   "weight": 30, "min": 20, "max": 80 },
+    { "id": "map",        "type": "map",        "weight": 18, "radius": 4 },
+    { "id": "experience", "type": "experience", "weight": 16, "min": 5,  "max": 15 },
+    { "id": "heal",       "type": "heal",       "weight": 10 },
+    { "id": "unit",       "type": "unit",       "weight": 11, "unit_type": "warrior" },
+    { "id": "tech",       "type": "tech",       "weight": 8 },
+    { "id": "ambush",     "type": "ambush",     "weight": 7,  "damage": 50 }
+  ]
+}

@@ -756,3 +756,210 @@ static func _candidate_land(map: WorldMap, db: DataDB, bounds: Dictionary) -> Ar
 		if ter.get("domain", "land") == "land" and not ter.get("impassable", false):
 			land.append(tile)
 	return land
+
+# ── Goody huts (§9) ──────────────────────────────────────────────────────────────
+
+# Scatter goody huts (discovery sites) across passable land, kept clear of the
+# players' start tiles so nobody pops a reward on turn one. Count scales with land
+# mass (one hut per `goody_hut_land_per_hut` land tiles). Tiles already flagged
+# (e.g. a Terra New-World discovery) are left as-is and never double-counted.
+# Draws from the shared map RNG, so placement is deterministic for the seed. Run
+# after find_start_positions so the start tiles to avoid are known.
+static func place_goody_huts(map: WorldMap, db: DataDB, rng: RNG, starts: Array) -> void:
+	var per: int = db.get_constant("goody_hut_land_per_hut", 28)
+	if per < 1:
+		per = 1
+	var min_dist: int = db.get_constant("goody_hut_min_distance_from_start", 4)
+
+	var land_count: int = 0
+	var candidates: Array = []
+	for t in map.all_tiles():
+		var ter: Dictionary = db.get_terrain(t.terrain_id)
+		if ter.get("domain", "land") != "land" or ter.get("impassable", false):
+			continue
+		land_count += 1
+		if t.has_discovery:
+			continue
+		var near: bool = false
+		for s in starts:
+			if map.distance(t.x, t.y, int(s[0]), int(s[1])) < min_dist:
+				near = true
+				break
+		if not near:
+			candidates.append(t)
+
+	var target: int = land_count / per
+	if target < 1 and land_count > 0:
+		target = 1
+	if target > candidates.size():
+		target = candidates.size()
+
+	# Sample `target` distinct candidates without replacement (swap-remove keeps the
+	# draw count predictable for the seed).
+	for _i in range(target):
+		var pick: int = rng.randi_range(0, candidates.size() - 1)
+		candidates[pick].has_discovery = true
+		candidates[pick] = candidates[candidates.size() - 1]
+		candidates.remove(candidates.size() - 1)
+
+# ── Start fairness (§1) ──────────────────────────────────────────────────────────
+
+# Reference `normalize*` pass: tidy each capital's surroundings so no player is
+# crippled by a hostile spawn. In fixed start order it removes adjacent peaks,
+# strips bad features/terrain, guarantees fresh water, and tops up food bonuses;
+# then a global pass equalises strategic-resource access across starts. Every
+# random choice comes from the shared map RNG in a fixed order, so the result is
+# deterministic for the seed. Per-map tunables may override the constants via a
+# `normalize` block in data/map_types.json.
+static func normalize_starts(map: WorldMap, db: DataDB, rng: RNG, starts: Array, map_type_id: String = "") -> void:
+	if starts.empty():
+		return
+	var spec: Dictionary = db.get_map_type(map_type_id) if map_type_id != "" else {}
+	var nz: Dictionary = spec.get("normalize", {})
+	var min_food: int = int(nz.get("min_food_bonuses",
+		db.get_constant("start_normalize_min_food_bonuses", 1)))
+	var balance_r: int = int(nz.get("balance_radius",
+		db.get_constant("start_normalize_balance_radius", 2)))
+	var tol: int = int(nz.get("resource_tolerance",
+		db.get_constant("start_normalize_resource_tolerance", 1)))
+
+	for s in starts:
+		var sx: int = int(s[0])
+		var sy: int = int(s[1])
+		_normalize_remove_peaks(map, sx, sy)
+		_normalize_strip_bad_features(map, sx, sy)
+		_normalize_fix_bad_terrain(map, sx, sy)
+		_normalize_add_fresh_water(map, db, sx, sy)
+		_normalize_add_food_bonuses(map, db, rng, sx, sy, min_food)
+
+	_balance_start_resources(map, db, rng, starts, balance_r, tol)
+
+# A capital has fresh water if its tile borders a river or an oasis, or any
+# neighbour is a water tile (mirrors TurnEngine._has_fresh_water).
+static func _start_has_fresh_water(map: WorldMap, db: DataDB, x: int, y: int) -> bool:
+	var t: Tile = map.get_tile(x, y)
+	if t != null and t.feature_id == "oasis":
+		return true
+	if map.tile_has_river(x, y):
+		return true
+	for nb in map.neighbours8(x, y):
+		if db.get_terrain(nb.terrain_id).get("domain", "land") != "land":
+			return true
+	return false
+
+# Turn any peak on the start tile or its inner ring into hills (the city tile is
+# already passable, so this only affects neighbours).
+static func _normalize_remove_peaks(map: WorldMap, sx: int, sy: int) -> void:
+	for t in map.tiles_in_range(sx, sy, 1):
+		if t.terrain_id == "mountain":
+			t.terrain_id = "hills"
+
+# Strip jungle (the only food-negative feature) from the start tile and ring.
+static func _normalize_strip_bad_features(map: WorldMap, sx: int, sy: int) -> void:
+	for t in map.tiles_in_range(sx, sy, 1):
+		if t.feature_id == "jungle":
+			t.feature_id = ""
+
+# Upgrade poor terrain: the city tile itself becomes grassland if it is snow or
+# desert; ring snow becomes tundra and ring desert becomes plains.
+static func _normalize_fix_bad_terrain(map: WorldMap, sx: int, sy: int) -> void:
+	var c: Tile = map.get_tile(sx, sy)
+	if c != null and (c.terrain_id == "snow" or c.terrain_id == "desert"):
+		c.terrain_id = "grassland"
+	for t in map.tiles_in_range(sx, sy, 1):
+		if t.x == sx and t.y == sy:
+			continue
+		if t.terrain_id == "snow":
+			t.terrain_id = "tundra"
+		elif t.terrain_id == "desert":
+			t.terrain_id = "plains"
+
+# Guarantee fresh water by carving a short river on the start tile's borders when
+# it has none nearby.
+static func _normalize_add_fresh_water(map: WorldMap, db: DataDB, sx: int, sy: int) -> void:
+	if _start_has_fresh_water(map, db, sx, sy):
+		return
+	var t: Tile = map.get_tile(sx, sy)
+	if t != null:
+		t.river_n = true
+		t.river_w = true
+
+# Ensure at least `min_food` food resources sit in the start's inner ring, adding
+# them on suitable empty tiles (deterministic via the map RNG).
+static func _normalize_add_food_bonuses(map: WorldMap, db: DataDB, rng: RNG, sx: int, sy: int, min_food: int) -> void:
+	if min_food <= 0:
+		return
+	var by_ter: Dictionary = _resources_by_terrain(db, "food")
+	var have: int = 0
+	var slots: Array = []
+	for t in map.tiles_in_range(sx, sy, 1):
+		if t.resource_id != "":
+			if str(db.get_resource(t.resource_id).get("type", "")) == "food":
+				have += 1
+			continue
+		if by_ter.has(t.terrain_id):
+			slots.append(t)
+	while have < min_food and not slots.empty():
+		var pick: int = rng.randi_range(0, slots.size() - 1)
+		var tile: Tile = slots[pick]
+		var opts: Array = by_ter[tile.terrain_id]
+		tile.resource_id = str(opts[rng.randi_range(0, opts.size() - 1)])
+		have += 1
+		slots[pick] = slots[slots.size() - 1]
+		slots.remove(slots.size() - 1)
+
+# Equalise strategic-resource access: no start may sit more than `tol` strategic
+# resources below the richest start (within Chebyshev `radius`). Poorer starts get
+# strategic resources added on suitable empty tiles until they reach the floor.
+static func _balance_start_resources(map: WorldMap, db: DataDB, rng: RNG, starts: Array, radius: int, tol: int) -> void:
+	var counts: Array = []
+	var max_c: int = 0
+	for s in starts:
+		var c: int = _count_resources_of_type(map, db, int(s[0]), int(s[1]), radius, "strategic")
+		counts.append(c)
+		if c > max_c:
+			max_c = c
+	var floor_c: int = max_c - tol
+	if floor_c < 0:
+		floor_c = 0
+	var by_ter: Dictionary = _resources_by_terrain(db, "strategic")
+	for i in range(starts.size()):
+		if counts[i] >= floor_c:
+			continue
+		var sx: int = int(starts[i][0])
+		var sy: int = int(starts[i][1])
+		var slots: Array = []
+		for t in map.tiles_in_range(sx, sy, radius):
+			if t.resource_id == "" and by_ter.has(t.terrain_id):
+				slots.append(t)
+		while counts[i] < floor_c and not slots.empty():
+			var pick: int = rng.randi_range(0, slots.size() - 1)
+			var tile: Tile = slots[pick]
+			var opts: Array = by_ter[tile.terrain_id]
+			tile.resource_id = str(opts[rng.randi_range(0, opts.size() - 1)])
+			counts[i] += 1
+			slots[pick] = slots[slots.size() - 1]
+			slots.remove(slots.size() - 1)
+
+# Count resources of a given table `type` within Chebyshev `radius` of (cx, cy).
+static func _count_resources_of_type(map: WorldMap, db: DataDB, cx: int, cy: int, radius: int, kind: String) -> int:
+	var n: int = 0
+	for t in map.tiles_in_range(cx, cy, radius):
+		if t.resource_id != "" and str(db.get_resource(t.resource_id).get("type", "")) == kind:
+			n += 1
+	return n
+
+# Index resources of a given table `type` by each allowed terrain id, for fast
+# per-tile placement lookups.
+static func _resources_by_terrain(db: DataDB, kind: String) -> Dictionary:
+	var by_ter: Dictionary = {}
+	for rid in db.resources:
+		var r: Dictionary = db.resources[rid]
+		if str(r.get("type", "")) != kind:
+			continue
+		for ter in r.get("allowed_terrains", []):
+			var k: String = str(ter)
+			if not by_ter.has(k):
+				by_ter[k] = []
+			by_ter[k].append(str(rid))
+	return by_ter
