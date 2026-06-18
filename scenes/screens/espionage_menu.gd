@@ -12,10 +12,11 @@ extends Control
 
 # Espionage mission popup (§7, §15.5). Shown when the player clicks
 # "Select Mission…" on the Espionage screen for a target alliance.
-# Lists the three mission types with their EP cost and interception risk;
-# buttons are disabled when the current player lacks enough points.
-# Choosing a mission fires it immediately and closes the popup; Abort
-# closes it without acting.
+# Lists the mission catalogue (data/espionage_missions.json) with each mission's
+# EP cost and interception risk; a button is disabled when the current player
+# lacks enough points or the mission's target gate does not hold. Choosing a
+# mission fires it immediately and closes the popup; Abort closes it without
+# acting.
 #
 # Usage:
 #   var menu = load("res://scenes/screens/espionage_menu.gd").new()
@@ -24,12 +25,6 @@ extends Control
 #
 # on_done_callback() is called after any action (mission fired or abort) so
 # the parent screen can rebuild.
-
-const MISSIONS = [
-	["steal_tech",    "Steal Tech"],
-	["sabotage",      "Sabotage"],
-	["incite_unrest", "Incite Unrest"],
-]
 
 var _facade
 var _alliance_id: int = -1
@@ -94,31 +89,25 @@ func _build() -> void:
 	target_lbl.align = Label.ALIGN_CENTER
 	vbox.add_child(target_lbl)
 
-	# Current EP and cost.
+	# Current EP banked against this target.
 	var have: int = int(p.intel_points.get(_alliance_id, 0)) if p != null else 0
-	var cost: int = _facade.get_espionage_mission_cost(_alliance_id)
-	var chance: int = _facade.get_espionage_interception_chance(_alliance_id)
 
 	var ep_lbl := Label.new()
-	ep_lbl.text = "Your EP vs. target: %d  |  Mission cost: %d" % [have, cost]
+	ep_lbl.text = "Your EP vs. target: %d" % have
 	ep_lbl.align = Label.ALIGN_CENTER
 	vbox.add_child(ep_lbl)
-
-	var intercept_lbl := Label.new()
-	intercept_lbl.text = "Interception chance: %d%%" % chance
-	intercept_lbl.align = Label.ALIGN_CENTER
-	vbox.add_child(intercept_lbl)
 
 	# Separator.
 	vbox.add_child(HSeparator.new())
 
-	# One button per mission. Disabled when the player cannot afford it.
-	var can_afford: bool = have >= cost
-	for m in MISSIONS:
+	# One button per catalogue mission, with its own cost and interception risk.
+	# Disabled when the player cannot afford it or its target gate does not hold.
+	for opt in _facade.espionage_mission_options(_alliance_id):
 		var btn := Button.new()
-		btn.text = "%s  (cost %d EP)" % [m[1], cost]
-		btn.disabled = not can_afford
-		btn.connect("pressed", self, "_on_mission", [m[0]])
+		btn.text = "%s  (cost %d EP · Interception %d%%)" % [
+			opt["name"], int(opt["cost"]), int(opt["interception"])]
+		btn.disabled = not (bool(opt["affordable"]) and bool(opt["available"]))
+		btn.connect("pressed", self, "_on_mission", [str(opt["id"])])
 		vbox.add_child(btn)
 
 	vbox.add_child(HSeparator.new())

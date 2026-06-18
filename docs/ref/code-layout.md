@@ -139,7 +139,7 @@ The only engine seam is on `SimFacade` (`set_remote_submit_handler` / `set_remot
 ## Core layer (`src/core/`)
 
 ### `DataDB`
-Loads 24 of the 25 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`) — every file except `hotkeys.json`, which `HotkeyMap` loads separately. Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
+Loads 25 of the 26 JSON tables from `data/` into typed dictionaries on startup (`db.load_all()`) — every file except `hotkeys.json`, which `HotkeyMap` loads separately. Every other module receives a `DataDB` reference and reads constants through it — no magic numbers in rule code. Cross-references (e.g. `tech_required` in unit definitions pointing at a technology ID) are validated on load.
 
 The tables and what they configure:
 
@@ -167,6 +167,7 @@ The tables and what they configure:
 | `event_triggers.json` | §9 trigger predicates that gate when an event fires: `event_id`, pace-scaled `min_turn`/`max_turn`, `tech_required`/`building_required`/`terrain_required`, `at_war`/`at_peace`, `probability`, `weight`, `one_shot` (read by `Events.trigger_holds`) |
 | `goodies.json` | §9 goody-hut / discovery-site reward table: weighted `type` (treasury/map/experience/heal/unit/tech/ambush) with per-reward magnitudes (read by `Events.exploration_reward`; per-difficulty weight overrides live in `difficulties.json` `goody_weights`) |
 | `resolutions.json` | §7.2 world-assembly resolutions: category, vote threshold, effect payload, eligibility gates (read by `Assembly`) |
+| `espionage_missions.json` | §7.1 espionage mission catalogue: per-mission `effect` verb (steal_tech/sabotage/incite_unrest/steal_gold/poison_water), `cost_multiplier` (× the base EP-advantage cost curve), `interception_modifier`, and per-verb magnitudes (read by `SimFacade._cmd_espionage_mission`; each verb's target gate lives in `_mission_target_valid`) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
 
 Typed getters follow the pattern `get_X(id) → Dictionary` for every table. Additional helpers: `get_societies() → Dictionary` (full societies map), `get_society(id) → Dictionary` (single entry), `get_leaders() → Dictionary` (full leaders map), `get_leader(id) → Dictionary` (single entry), `get_society_leaders(society_id) → Array` (leader ids whose `faction` matches the society), `get_map_types() → Dictionary` (full map-script map), `get_map_type(id) → Dictionary` (single entry, falling back to `continents`).

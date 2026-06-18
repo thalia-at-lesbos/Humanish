@@ -380,7 +380,8 @@ static func dequeue_production(player_id: int, settlement_id: int,
 
 static func espionage_mission(player_id: int, target_alliance_id: int,
 		mission: String) -> Dictionary:
-	# mission: "steal_tech", "sabotage", or "incite_unrest"
+	# mission: an id from data/espionage_missions.json (steal_tech, sabotage,
+	# incite_unrest, steal_gold, poison_water, …)
 	return {
 		"type": IDs.CommandType.ESPIONAGE_MISSION,
 		"player_id": player_id,

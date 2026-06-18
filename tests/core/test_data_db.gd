@@ -249,3 +249,24 @@ func test_corporation_refs_resolve() -> void:
 		for res_id in org.get("input_resources", []):
 			assert_true(db.resources.has(res_id),
 				"corporation '%s' input resource '%s' must exist" % [org_id, res_id])
+
+# ── Espionage missions (§7.1) ──────────────────────────────────────────────────
+
+func test_espionage_missions_table_is_well_formed() -> void:
+	var db = _db()
+	var missions = db.get_espionage_missions()
+	assert_true(missions.size() > 0, "espionage_missions.json must define some missions")
+	var known := ["steal_tech", "sabotage", "incite_unrest", "steal_gold", "poison_water"]
+	for m in missions:
+		assert_true(str(m.get("id", "")) != "", "every espionage mission needs an id")
+		assert_true(int(m.get("cost_multiplier", 0)) > 0,
+			"mission '%s' needs a positive cost_multiplier" % m.get("id", ""))
+		assert_true(str(m.get("effect", "")) in known,
+			"mission '%s' effect '%s' must be a known verb" % [m.get("id", ""), m.get("effect", "")])
+
+func test_get_espionage_mission_returns_record_and_empty() -> void:
+	var db = _db()
+	assert_eq(str(db.get_espionage_mission("steal_tech").get("id", "")), "steal_tech",
+		"get_espionage_mission resolves a known id")
+	assert_true(db.get_espionage_mission("no_such_mission").empty(),
+		"get_espionage_mission returns {} for an unknown id")
