@@ -213,29 +213,55 @@ all match the table); `tests/sim/test_great_people.gd` (birth maps through the t
 
 ---
 
-## Phase 3 — Goody huts & map start-fairness (§9, §1, game-data §20)
-Two map-generation parity items; ship as two sub-steps.
+## Phase 3 — Goody huts & map start-fairness (§9, §1, game-data §20) ✅ COMPLETE
+**Done.** Both map-generation parity items landed. `SimFacade.setup` now chooses start positions
+once (right after `MapGen.generate`) and runs two RNG-fixed-order post-passes on those starts —
+`MapGen.normalize_starts` then `MapGen.place_goody_huts` — before creating players/units, so the
+shared `gs.rng` stream stays deterministic and the same starts feed unit placement (no recompute).
+This shifted the seeded AI stream, so one seed-locked personality spot-check
+(`test_contrasting_leaders_play_rounded_game`) was re-pinned from `20260609` → `20260610` (the
+adjacent seed still exercises the intended rounded game; the all-AI `ai_full_game_smoke.gd` gate
+still wins with zero errors). No new serialized state — goody huts reuse the already-persisted
+`Tile.has_discovery`, so the integration save/load determinism gate covers them. Full unit suites +
+integration gate green. The reference's `BonusBalancer` is implemented as the strategic-resource
+equalisation pass; the dual map/gameplay RNG streams stay deliberately out of scope (one shared
+`gs.rng`, per the working principles).
 
-### 3.1 Goody huts
-- **Goal.** Place `GOODY_HUT`-style huts on land tiles away from starts at generation; first land
-  unit to enter consumes it and rolls a weighted reward (`data/goodies.json`): gold, map reveal,
-  XP, free unit, free tech, heal, or hostile ambush. Generalises the Terra-only "discovery site".
-- **Needs.** `map_gen.gd` placement stage + predicate; `data/goodies.json`; `sim_facade.gd`
-  on-enter resolution (reuse the discovery-site hook); per-difficulty reward weights in
-  `difficulties.json`; a `goody_received` signal.
-- **Tests.** `tests/world/test_map_gen.gd` (huts placed, min distance from starts, deterministic for
-  seed); `tests/api/test_sim_facade.gd` (entering consumes hut, applies reward, draws from `gs.rng`).
+### 3.1 Goody huts ✅
+**Done.** Added `data/goodies.json` — a weighted reward table (`treasury`/`map`/`experience`/`heal`/
+`unit`/`tech`/`ambush`) with per-reward magnitudes, loaded + validated by `DataDB`
+(`get_goodies()`, `_validate_goody_refs` checks ids/weights and that any `unit_type` resolves).
+`Events.exploration_reward` was rewritten data-driven: it rolls one goody from `gs.rng` (weights
+overridable per-difficulty via `difficulties.json` `goody_weights` — gentler on Settler, harsher on
+Deity) and applies pure-state effects in `_apply_goody` — gold to the owner, XP/heal to the
+discoverer, a free unit spawned on the tile (`_spawn_reward_unit`), the cheapest researchable tech
+granted (`_grant_free_tech`), a map-reveal descriptor (presentation-only), or an ambush that floors
+the discoverer at 1 HP (never killing it mid-move). `MapGen.place_goody_huts` scatters huts
+(generalising the Terra-only discovery site, still `Tile.has_discovery`) one per
+`goody_hut_land_per_hut` land tiles, kept `goody_hut_min_distance_from_start` clear of every start
+and skipping already-flagged tiles. `SimFacade` keeps the on-enter discovery hook, now also emitting
+the new `goody_received` signal (and `unit_created` for a spawned reward unit). The dead
+`exploration_reward_weights` constant was retired.
+- **Tests.** `tests/world/test_map_gen.gd` (huts on passable land, ≥ min distance from starts,
+  seed-deterministic); `tests/sim/test_events.gd` (table loads; each reward verb's effect via
+  `_apply_goody`; same-seed reward determinism); `tests/core/test_data_db.gd` (table well-formed,
+  unit refs resolve); `tests/api/test_facade.gd` (entering a hut consumes it, applies the reward,
+  emits `goody_received`).
 
-### 3.2 `normalize*` start-fairness pass
-- **Goal.** After `find_start_positions`, run the reference's fairness pass on each capital's
-  surroundings: guarantee fresh water, remove adjacent peaks, strip bad features/terrain, add food
-  bonuses/good terrain, and equalise strategic-resource access near starts (`BonusBalancer`).
-- **Needs.** New `MapGen.normalize_starts(...)` ordered steps; tunables in `map_types.json`; draws
-  from the shared map RNG in fixed order.
-- **Tests.** `tests/world/test_map_gen.gd`: every start has fresh water and ≥ the configured food
-  bonuses in its inner ring; no start sits on/adjacent to a peak; resource counts near starts fall
-  within the balance tolerance; output still deterministic for the seed.
-- **Risk.** Medium; interacts with determinism (fixed RNG draw order) and with start spacing.
+### 3.2 `normalize*` start-fairness pass ✅
+**Done.** `MapGen.normalize_starts(map, db, rng, starts, map_type_id)` runs the reference fairness
+pass per start in fixed order — remove adjacent peaks (→ hills), strip jungle, upgrade poor terrain
+on/around the city tile (snow/desert → grassland; ring snow → tundra, desert → plains), guarantee
+fresh water (carving a short river on the start tile when none is adjacent, matching
+`TurnEngine._has_fresh_water`), and top the inner ring up to `start_normalize_min_food_bonuses` food
+resources — then a global `_balance_start_resources` equalises strategic-resource access so no start
+sits more than `start_normalize_resource_tolerance` below the richest within
+`start_normalize_balance_radius`. Tunables live in `constants.json`; a per-script `normalize` block
+in `map_types.json` may override them. Every random choice draws from the shared map RNG in fixed
+order.
+- **Tests.** `tests/world/test_map_gen.gd`: every start has fresh water; no start tile/neighbour is a
+  peak; each inner ring holds ≥ the configured food bonuses; strategic-resource counts near starts
+  fall within tolerance; the full pass (normalize + goody placement) is seed-deterministic.
 
 ---
 

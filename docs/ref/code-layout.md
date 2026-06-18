@@ -164,6 +164,7 @@ The tables and what they configure:
 | `win_conditions.json` | Condition type and numeric thresholds |
 | `projects.json` | Endgame (spaceship-style) project stages: cost, tech/wonder gate, stage and count-needed; feeds the `endgame_project` win condition |
 | `events.json` | Scripted random-event definitions (min turn, treasury/effect delta, notice text) |
+| `goodies.json` | §9 goody-hut / discovery-site reward table: weighted `type` (treasury/map/experience/heal/unit/tech/ambush) with per-reward magnitudes (read by `Events.exploration_reward`; per-difficulty weight overrides live in `difficulties.json` `goody_weights`) |
 | `resolutions.json` | §7.2 world-assembly resolutions: category, vote threshold, effect payload, eligibility gates (read by `Assembly`) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
 
@@ -194,6 +195,8 @@ Pure static procedural generator that fills a blank `WorldMap` with the chosen *
 Everything is drawn from the shared `gs.rng` in a fixed order, so a script is fully deterministic for its seed and captured by save/load (tiles serialize in full). All ids are data-driven (`terrains.json`/`features.json`); per-script tunables live in `map_types.json`, while the structural shape-amplitude constants stay in `map_gen.gd`.
 
 `find_start_positions(map, db, count, map_type_id)` returns spread-out passable land tiles (greedily maximising the minimum inter-start distance). When a script defines `start_bounds` (e.g. Terra confines players to the Old World) candidates are clipped to that percentage-bounded region, falling back to the whole map if it cannot host everyone.
+
+Two start-dependent post-passes run after `find_start_positions` (wired by `SimFacade.setup`, both drawing from the shared map RNG in fixed order so the stream stays deterministic): `normalize_starts(map, db, rng, starts, map_type_id)` is the reference `normalize*` fairness pass — per start, in order, it removes adjacent peaks (→ hills), strips jungle, upgrades poor terrain near the city, guarantees fresh water (carving a short river when none is adjacent), and tops up the inner ring to `start_normalize_min_food_bonuses` food resources; a final global pass equalises strategic-resource access so no start sits more than `start_normalize_resource_tolerance` below the richest within `start_normalize_balance_radius`. `place_goody_huts(map, db, rng, starts)` scatters goody huts (the generalised discovery site, `Tile.has_discovery`) across passable land — one per `goody_hut_land_per_hut` land tiles — kept `goody_hut_min_distance_from_start` clear of every start. Tunables live in `constants.json`; a per-script `normalize` block in `map_types.json` may override the normalize parameters.
 
 ### `WorldMap` + `Tile`
 The map is a flat array `_tiles[y * width + x]`. `WorldMap` provides wrap-aware access: `get_tile(x, y)` applies modular arithmetic on wrapped axes before indexing. Distance is Chebyshev (8-directional). Key methods: `neighbours4`, `neighbours8`, `tiles_in_range(cx, cy, r)`, `ring_at_distance(cx, cy, r)`.

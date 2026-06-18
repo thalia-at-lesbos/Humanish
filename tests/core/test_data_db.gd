@@ -165,3 +165,21 @@ func test_structure_specialist_slots_name_known_types() -> void:
 		for stype in slots:
 			assert_false(db.get_specialist(stype).empty(),
 				"Structure '%s' specialist slot '%s' must be a known specialist" % [struct_id, stype])
+
+# ── Goody-hut table (§9) ─────────────────────────────────────────────────────────
+
+func test_goodies_table_loads_and_is_well_formed() -> void:
+	var db = _db()
+	var goodies = db.get_goodies()
+	assert_true(goodies.size() > 0, "goodies.json must define some rewards")
+	for g in goodies:
+		assert_true(str(g.get("id", "")) != "", "every goody needs an id")
+		assert_true(int(g.get("weight", 0)) > 0, "goody '%s' needs a positive weight" % g.get("id", ""))
+
+func test_goody_unit_types_resolve() -> void:
+	var db = _db()
+	for g in db.get_goodies():
+		var ut = g.get("unit_type", "")
+		if ut != null and ut != "":
+			assert_true(db.units.has(str(ut)),
+				"goody '%s' unit_type '%s' must be a real unit" % [g.get("id", ""), ut])

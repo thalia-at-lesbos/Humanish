@@ -25,6 +25,7 @@ signal city_razed(settlement_id, by_player_id)           # destroyed — §4.8
 signal city_flipped(settlement_id, from_player_id, to_player_id)  # cultural — §4.9
 signal technology_completed(player_id, tech_id)
 signal era_advanced(player_id, from_era, to_era)         # §1
+signal goody_received(reward)   # §9 goody-hut / discovery-site reward claimed
 signal combat_resolved(result_dict)
 signal player_turn_started(player_id)
 signal screen_requested(screen_id)
@@ -97,6 +98,14 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# is deterministic for the seed and is captured by save/load (tiles serialize).
 	MapGen.generate(_gs.map, db, _gs.rng, map_type_id)
 
+	# Choose start positions once (pure, no RNG draw), then run the map-fairness and
+	# goody-hut passes that depend on them. Order is fixed so the shared RNG stream
+	# stays deterministic: generate → normalize starts → scatter goody huts. The same
+	# starts feed unit placement below, so they are never recomputed.
+	var starts: Array = MapGen.find_start_positions(_gs.map, db, player_configs.size(), map_type_id)
+	MapGen.normalize_starts(_gs.map, db, _gs.rng, starts, map_type_id)
+	MapGen.place_goody_huts(_gs.map, db, _gs.rng, starts)
+
 	# Create players and alliances
 	var difficulty: Dictionary = db.get_difficulty(difficulty_id)
 	var default_techs: Array = db.constants.get("starting_techs", [])
@@ -136,7 +145,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# Place each player's opening units (data-driven via cfg["starting_units"]).
 	# Players with no starting units (e.g. headless test configs) get none, so
 	# the engine stays generic and society→unit mapping lives in the caller.
-	_place_all_starting_units(player_configs, map_type_id)
+	_place_all_starting_units(player_configs, starts)
 
 # Initialize only the non-serialized scaffolding (db, hooks, UI state) so a save
 # can be loaded into a fresh facade without running setup(). load_save() then
@@ -150,8 +159,7 @@ func init_for_load(db: DataDB) -> void:
 	_popup_queue = []
 	_notifications = []
 
-func _place_all_starting_units(player_configs: Array, map_type_id: String = "") -> void:
-	var starts: Array = MapGen.find_start_positions(_gs.map, _db, _gs.players.size(), map_type_id)
+func _place_all_starting_units(player_configs: Array, starts: Array) -> void:
 	for i in range(_gs.players.size()):
 		if i >= player_configs.size() or i >= starts.size():
 			break
@@ -536,14 +544,19 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 				if carried != null:
 					carried.x = sx; carried.y = sy
 
-		# Exploration: the first unit to enter a discovery site claims its
-		# reward, then the site is consumed (§9).
+		# Exploration: the first unit to enter a goody hut / discovery site claims
+		# its reward, then the site is consumed (§9). A "unit" reward spawns a free
+		# unit for the discoverer (Events appends it to gs.units); surface it with the
+		# usual unit_created so presentation paints it.
 		var entered: Tile = _gs.map.get_tile(sx, sy)
 		if entered != null and entered.has_discovery:
 			entered.has_discovery = false
 			var reward: Dictionary = Events.exploration_reward(lead, _gs, _gs.rng)
+			if reward.get("type", "") == "unit" and int(reward.get("unit_id", -1)) >= 0:
+				emit_signal("unit_created", int(reward["unit_id"]))
 			_add_notification("Discovery: " + str(reward.get("type", "")), "major")
 			emit_signal("event_emitted", reward)
+			emit_signal("goody_received", reward)
 
 		# Zone of control: entering a tile adjacent to a hostile unit ends the
 		# stack's movement for the turn (§5.2).
