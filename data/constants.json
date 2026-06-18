@@ -21,7 +21,7 @@
   "revolt_garrison_base": 1,
   "revolt_required_successes": 2,
   "revolt_shield_during_occupation": 1,
-  "movement_precision": 100,
+  "movement_precision": 60,
   "influence_per_turn_base": 10,
   "influence_distance_falloff": 2,
   "resource_tile_chance": 6,

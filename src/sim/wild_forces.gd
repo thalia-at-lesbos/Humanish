@@ -383,7 +383,7 @@ static func _spawn_naval_unit(x: int, y: int, game_state, unit_type_id: String) 
 	u.owner_player_id = -2  # -2 = wild
 	u.x = x; u.y = y
 	u.base_strength = int(ud.get("base_strength", 2))
-	u.movement_total = int(ud.get("movement", 200))
+	u.movement_total = int(ud.get("movement", 120))
 	u.movement_left = u.movement_total
 	u.is_wild = true
 	game_state.units.append(u)
@@ -608,7 +608,7 @@ static func _spawn_wild_unit(x: int, y: int, game_state, unit_type_id: String = 
 	u.owner_player_id = -2  # -2 = wild
 	u.x = x; u.y = y
 	u.base_strength = int(unit_data.get("base_strength", 5))
-	u.movement_total = int(unit_data.get("movement", 200))
+	u.movement_total = int(unit_data.get("movement", 120))
 	u.movement_left = u.movement_total
 	u.is_wild = true
 	game_state.units.append(u)

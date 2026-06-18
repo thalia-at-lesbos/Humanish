@@ -11,19 +11,21 @@
 class_name Fixed
 
 # Fixed-point helpers. Movement allowances are stored as integers scaled by
-# MOVE_PRECISION (100 = 1.00 tiles). This avoids floats entering sim code.
-# All other outputs (food, production, commerce) are plain integers.
+# MOVE_DENOMINATOR (60 = 1 tile). 60 divides cleanly by 2/3/4/5/6 so route and
+# terrain costs (e.g. a road's 1/3 tile) land on exact integers. This avoids
+# floats entering sim code. All other outputs (food/production/commerce) are
+# plain integers.
 
-const MOVE_PRECISION: int = 100   # internal units per 1 tile of movement
-const PERCENT_BASE: int = 100     # 100 = 100%, used for all percentage math
+const MOVE_DENOMINATOR: int = 60   # internal units per 1 tile of movement
+const PERCENT_BASE: int = 100      # 100 = 100%, used for all percentage math
 
 # Convert a whole-tile movement allowance to fixed-point units.
 static func tiles_to_move(tiles: int) -> int:
-	return tiles * MOVE_PRECISION
+	return tiles * MOVE_DENOMINATOR
 
 # Convert fixed-point movement units back to whole tiles (floor).
 static func move_to_tiles(fixed: int) -> int:
-	return fixed / MOVE_PRECISION
+	return fixed / MOVE_DENOMINATOR
 
 # Apply a percentage modifier to a value; returns integer result (floor).
 # e.g. scale(10, 25) = 2  (10 * 25 / 100)

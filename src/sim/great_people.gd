@@ -67,7 +67,7 @@ static func spawn_unit(gs: GameState, unit_type_id: String, player_id: int,
 	u.x = x
 	u.y = y
 	u.base_strength = int(udata.get("base_strength", 0))
-	u.movement_total = int(udata.get("movement", 200))
+	u.movement_total = int(udata.get("movement", 120))
 	u.movement_left = u.movement_total
 	gs.units.append(u)
 	return u

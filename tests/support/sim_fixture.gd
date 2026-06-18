@@ -71,7 +71,7 @@ func make_unit(gs, type_id, player_id, x, y):
 	var ud = gs.db.get_unit(type_id)
 	u.base_strength = int(ud.get("base_strength", 5))
 	u.health = 100
-	u.movement_total = int(ud.get("movement", 200))
+	u.movement_total = int(ud.get("movement", Fixed.tiles_to_move(2)))
 	u.movement_left = u.movement_total
 	gs.units.append(u)
 	return u
@@ -87,8 +87,8 @@ func make_warrior(gs, player_id, x, y, wild = false):
 	u.y = y
 	u.base_strength = 10
 	u.health = 100
-	u.movement_total = 200
-	u.movement_left = 200
+	u.movement_total = Fixed.tiles_to_move(2)  # 2 tiles at MOVE_DENOMINATOR 60
+	u.movement_left = u.movement_total
 	u.is_wild = wild
 	gs.units.append(u)
 	return u

@@ -119,6 +119,38 @@ func test_pathfinding_wraps_east_west_seam() -> void:
 	# The shortest wrap path should be 2 steps (1→0→9), not 8 steps going east
 	assert_eq(path.size(), 2, "Wrap-x: shortest path through seam is 2 steps, not 8")
 
+# ── Movement costs & the denominator (§5.2) ──────────────────────────────────
+
+func test_road_costs_one_third_tile_at_denom_60() -> void:
+	var gs = make_gs()
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "grassland"; t.feature_id = ""; t.improvement_id = "road"
+	var cost: int = Pathfinding._move_cost(t, gs.db, "land")
+	assert_eq(cost, Fixed.MOVE_DENOMINATOR / 3, "Road resolves to exactly 1/3 tile (20)")
+	assert_eq(cost, 20, "Road = 20 fixed units at MOVE_DENOMINATOR 60")
+
+func test_open_terrain_costs_one_full_tile() -> void:
+	var gs = make_gs()
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "grassland"; t.feature_id = ""; t.improvement_id = ""
+	assert_eq(Pathfinding._move_cost(t, gs.db, "land"), Fixed.MOVE_DENOMINATOR,
+		"Open grassland costs one full tile (60)")
+
+func test_two_move_unit_crosses_three_road_tiles() -> void:
+	# A 2-tile unit (120 units) on a road (20/tile) can cross many tiles; with the
+	# always-move-at-least-one guarantee it never stalls. Here it reaches a 3-tile
+	# road destination well within its allowance.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+		tile.feature_id = ""
+		tile.improvement_id = "road"
+	var u = make_warrior(gs, 1, 3, 5)  # movement_total = 120
+	gs.current_player_id = 1
+	f._cmd_move_stack({"player_id": 1, "from_x": 3, "from_y": 5, "to_x": 6, "to_y": 5})
+	assert_eq([u.x, u.y], [6, 5], "A 2-move unit crosses 3 road tiles (3×20 = 60 ≤ 120)")
+
 # ── Zone of control (§5.2) ───────────────────────────────────────────────────
 
 func test_zone_of_control_halts_movement() -> void:

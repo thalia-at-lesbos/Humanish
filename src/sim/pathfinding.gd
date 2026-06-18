@@ -94,19 +94,21 @@ static func _move_cost(tile: Tile, db: DataDB, domain: String) -> int:
 	var ter: Dictionary = db.get_terrain(tile.terrain_id)
 	if ter.get("impassable", false):
 		return -1
-	var base: int = int(ter.get("movement_cost", Fixed.MOVE_PRECISION))
+	var base: int = int(ter.get("movement_cost", Fixed.MOVE_DENOMINATOR))
 	# Feature adds movement cost
 	if tile.feature_id != "":
 		var feat: Dictionary = db.get_feature(tile.feature_id)
 		base += int(feat.get("movement_cost_add", 0))
-	# Transport link reduces movement cost
-	if tile.transport_id != "":
-		var tr: Dictionary = db.transport.get(tile.transport_id, {}) if false else {}
-		# Handled via improvement_id for roads
-		pass
-	if tile.improvement_id == "road":
-		base = Fixed.MOVE_PRECISION / 3  # road: 1/3 movement
-		base = max(1, base)
+	# Route improvements (road/railroad) reduce the entered tile's cost to a flat
+	# fraction of a tile (§5.2): the transport's movement_cost_divisor from
+	# data/transport.json, applied to the move denominator so a road resolves to
+	# an exact 1/divisor of a tile (road ÷3 = 20, railroad ÷100 → floored at 1).
+	if tile.improvement_id != "" and db.transport.has(tile.improvement_id):
+		var divisor: int = int(db.transport[tile.improvement_id].get("movement_cost_divisor", 1))
+		if divisor > 1:
+			base = Fixed.MOVE_DENOMINATOR / divisor
+			if base < 1:
+				base = 1
 	return base
 
 static func _domain_legal(tile: Tile, domain: String, db: DataDB) -> bool:

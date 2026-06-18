@@ -36,8 +36,8 @@ var experience_level: int = 0
 var promotions: Array = []     # Array of promotion IDs
 
 # Movement (fixed-point, see fixed.gd)
-var movement_total: int = 200  # Fixed.tiles_to_move(2)
-var movement_left: int = 200
+var movement_total: int = 120  # Fixed.tiles_to_move(2) at MOVE_DENOMINATOR 60
+var movement_left: int = 120
 
 # Entrenchment
 var entrenchment: int = 0

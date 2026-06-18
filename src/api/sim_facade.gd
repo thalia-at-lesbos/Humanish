@@ -185,7 +185,7 @@ func _spawn_unit(unit_type_id: String, player_id: int, x: int, y: int) -> int:
 	u.owner_player_id = player_id
 	u.x = x; u.y = y
 	u.base_strength = int(udata.get("base_strength", 0))
-	u.movement_total = int(udata.get("movement", 200))
+	u.movement_total = int(udata.get("movement", 120))
 	u.movement_left = u.movement_total
 	_gs.units.append(u)
 	emit_signal("unit_created", u.id)
@@ -1609,7 +1609,7 @@ func _cmd_draft(cmd: Dictionary) -> bool:
 	u.x = s.x; u.y = s.y
 	var udata: Dictionary = _db.get_unit(unit_id)
 	u.base_strength = int(udata.get("base_strength", 5))
-	u.movement_total = int(udata.get("movement", 200))
+	u.movement_total = int(udata.get("movement", 120))
 	u.movement_left = u.movement_total
 	u.experience = PolicyEffects.sum_int(p, _db, "new_unit_xp")
 	_gs.units.append(u)
