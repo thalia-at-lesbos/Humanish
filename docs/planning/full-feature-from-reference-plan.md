@@ -153,7 +153,17 @@ balance sanity via `tests/manual/ai_full_game_smoke.gd` (game still reaches a wi
 
 ---
 
-## Phase 1 — Score victory (small, self-contained) (§10, game-data §16)
+## Phase 1 — Score victory (small, self-contained) (§10, game-data §16) ✅ COMPLETE
+**Done.** Score is now the 7th enabled win condition, evaluated each periodic check independently
+of Time: `WinConditions._score` returns the lowest-id alliance whose summed score reaches the
+`score_threshold` (so it can award mid-game, unlike Time which only tiebreaks at the turn limit).
+Added the `score` entry (`type=score`, `score_threshold=400`, provisional) to
+`data/win_conditions.json`; extracted `Scoring.score_by_alliance` (shared by `highest_scoring_alliance`
+and the new evaluator); enabled `"score"` in `setup_screen.gd`'s condition list. No new serialized
+state. Tests in `tests/sim/test_win_conditions.gd` (at/over threshold wins, just-under does not,
+fires before the turn limit with Time also enabled). Full unit suites + integration save/load gate
+green; `ai_full_game_smoke.gd` still reaches a win condition with zero errors.
+
 - **Goal.** Expose **Score** as its own selectable win condition (7th), distinct from the Time
   tiebreak: first alliance past a configured absolute score threshold wins immediately.
 - **Needs.** `data/win_conditions.json` (+`score` entry with threshold), `src/sim/win_conditions.gd`

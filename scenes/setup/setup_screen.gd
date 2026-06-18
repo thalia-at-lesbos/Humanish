@@ -343,7 +343,7 @@ func _on_start_pressed() -> void:
 
 	_facade = load("res://src/api/sim_facade.gd").new()
 	_facade.setup(_db, seed_val, world_size_id, pace_id, difficulty_id,
-		player_configs, ["last_standing", "dominance", "cultural", "time"], map_type_id,
+		player_configs, ["last_standing", "dominance", "cultural", "score", "time"], map_type_id,
 		_aggressive_wild_check.pressed,
 		_permanent_alliances_check.pressed)
 

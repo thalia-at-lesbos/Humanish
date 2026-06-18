@@ -180,6 +180,46 @@ func test_no_time_win_before_turn_limit() -> void:
 
 # ── Scoring (§10) ────────────────────────────────────────────────────────────
 
+# ── Score victory (§10) — the standalone 7th condition ───────────────────────
+# Build a clearly-dominant player (all the land, all the population) so the
+# threshold can be pinned just at/over their score; the rival sits near 0.
+
+func _make_runaway(gs) -> void:
+	make_settlement(gs, 1, 3, 3, 9)
+	make_settlement(gs, 2, 15, 15, 1)
+	for tile in gs.map.all_tiles():
+		tile.owner_player_id = 1
+
+func test_score_win_when_alliance_reaches_threshold() -> void:
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["score"]
+	_make_runaway(gs)
+	Scoring.compute_all(gs)
+	gs.db.win_conditions["score"]["score_threshold"] = gs.get_player(1).score
+	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
+		"An alliance at/over the score threshold wins immediately")
+
+func test_no_score_win_below_threshold() -> void:
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["score"]
+	_make_runaway(gs)
+	Scoring.compute_all(gs)
+	gs.db.win_conditions["score"]["score_threshold"] = gs.get_player(1).score + 1
+	assert_eq(WinConditions.check_all(gs), -1,
+		"An alliance just under the score threshold does not win")
+
+func test_score_win_fires_before_the_turn_limit() -> void:
+	# Score is independent of Time: it can award mid-game, whereas Time only
+	# tiebreaks at the final turn (which has not arrived here).
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["score", "time"]
+	gs.turn_number = gs.max_turns - 1
+	_make_runaway(gs)
+	Scoring.compute_all(gs)
+	gs.db.win_conditions["score"]["score_threshold"] = gs.get_player(1).score
+	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
+		"Score awards before the turn limit even with Time also enabled")
+
 func test_wonder_raises_score() -> void:
 	var gs = make_gs(2)
 	gs.db.structures["great_wonder"] = {"id": "great_wonder", "is_wonder": true}
