@@ -1,7 +1,9 @@
 {
   "combat_scale": 1000,
   "combat_damage": 20,
-  "growth_base": 20,
+  "growth_threshold_base": 12,
+  "growth_threshold_per_pop": 8,
+  "max_food_kept_percent": 75,
   "anger_divisor": 100,
   "health_deficit_divisor": 100,
   "culture_distance_decay": 2,

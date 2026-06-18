@@ -107,6 +107,13 @@ func has_structure(struct_id: String) -> bool:
 func effective_workers() -> int:
 	return 0 if population <= discontented else population - discontented
 
+# Net health (§4.2 food box): positive = surplus health, negative = net
+# unhealthiness. Only the negative side drains the food box (it adds to
+# consumption); surplus health gives no food bonus. Computed by
+# TurnEngine._update_wellbeing each step.
+func health_rate() -> int:
+	return wellbeing_positive - wellbeing_negative
+
 func serialize() -> Dictionary:
 	return {
 		"id": id, "name": name, "owner_player_id": owner_player_id,

@@ -332,21 +332,33 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	s.output_production = total_prod
 	s.output_commerce   = total_commerce
 
-	# Wellbeing: deficit reduces food surplus
+	# Food box (§4.2): consumption is over non-angry citizens only, plus net
+	# unhealthiness as a drain. _update_wellbeing populates the health figures read
+	# via Settlement.health_rate(); the discontented count is last turn's value
+	# (refreshed at the end of this step by _update_contentment).
 	_update_wellbeing(gs, s, player, db)
-	var effective_food: int = total_food - s.wellbeing_deficit
-	var consumed: int = s.population * db.get_constant("food_per_citizen", 2)
-	var surplus: int = effective_food - consumed
+	var fpc: int = db.get_constant("food_per_citizen", 2)
+	var eaters: int = s.population - s.discontented
+	if eaters < 0:
+		eaters = 0
+	var consumed: int = eaters * fpc
+	var net_health: int = s.health_rate()
+	if net_health < 0:
+		consumed -= net_health  # net unhealthiness (negative) drains the food box
+	var surplus: int = total_food - consumed
 
 	s.food_store += surplus
 
-	# Growth threshold, scaled by both the game pace and the owner's era (§1): later
-	# eras raise the food needed per growth (growth_threshold_scale in ages.json).
-	var base: int = db.get_constant("growth_base", 20)
+	# Growth threshold (§4.2): the reference's pop-and-speed curve — an affine base +
+	# per-pop term (not strictly proportional), scaled by the game pace and the
+	# owner's era (later eras raise the food needed per growth; ages.json).
+	var t_base: int = db.get_constant("growth_threshold_base", 12)
+	var t_per_pop: int = db.get_constant("growth_threshold_per_pop", 8)
 	var pace: Dictionary = db.get_pace(gs.pace_id)
 	var pace_scale: int = int(pace.get("growth_scale", 100))
 	var era_scale: int = Eras.growth_threshold_scale(Eras.player_era(player, db), db)
-	var threshold: int = Fixed.scale(Fixed.scale(base * s.population, pace_scale), era_scale)
+	var threshold: int = Fixed.scale(Fixed.scale(
+		t_base + t_per_pop * s.population, pace_scale), era_scale)
 	# Difficulty growth handicap (§2): a positive growth_bonus (easier levels) lowers
 	# the food-to-grow threshold; a negative one (harder levels) raises it. Read from
 	# data/difficulties.json. growth_bonus is bounded so (100 - it) stays positive. The
@@ -366,7 +378,11 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		var carry_frac: int = 50  # carry 50% of threshold
 		if s.has_structure("granary"):
 			carry_frac = int(db.get_structure("granary").get("effects", {}).get("food_carry_over", 50))
-		s.food_store = Fixed.scale(threshold, carry_frac)
+		var kept: int = Fixed.scale(threshold, carry_frac)
+		# Cap granary carry-over at threshold × max_food_kept_percent/100 (§4.2): no
+		# structure can let a city bank more than this fraction of its next threshold.
+		var max_kept: int = Fixed.scale(threshold, db.get_constant("max_food_kept_percent", 75))
+		s.food_store = kept if kept < max_kept else max_kept
 		gs.pending_growth.append({
 			"player_id": s.owner_player_id,
 			"settlement_name": s.name,

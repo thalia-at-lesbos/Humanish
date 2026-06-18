@@ -75,6 +75,75 @@ func test_consumption_uses_food_per_citizen_constant() -> void:
 	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
 	assert_eq(s.food_store, expected, "Consumption is population * food_per_citizen")
 
+# ── Food box: angry citizens & unhealthiness (§4.2) ──────────────────────────
+
+func test_angry_citizens_do_not_eat() -> void:
+	# Consumption is over non-angry citizens only (population − discontented).
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 5)   # pop 5, dry inland
+	s.worked_tiles = []                        # no food produced
+	s.discontented = 2                         # two angry citizens this turn
+	s.food_store = 20
+	TurnEngine._update_wellbeing(gs, s, gs.get_player(1), gs.db)
+	var fpc: int = gs.db.get_constant("food_per_citizen", 2)
+	var net: int = s.health_rate()
+	var drain: int = -net if net < 0 else 0
+	var expected: int = 20 - ((5 - 2) * fpc + drain)
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	assert_eq(s.food_store, expected,
+		"Only pop−discontented citizens eat (plus the unhealthiness drain)")
+
+func test_unhealthy_city_grows_slower() -> void:
+	# Two same-size cities with no food production: the unhealthy one drains more
+	# of its food box (net unhealthiness adds to consumption), so it ends lower.
+	var gs = make_gs(1)
+	var healthy = make_settlement(gs, 1, 2, 2, 4)
+	healthy.worked_tiles = []
+	healthy.structures = ["hospital"]          # +3 health
+	healthy.food_store = 40
+	var sick = make_settlement(gs, 1, 8, 8, 4)
+	sick.worked_tiles = []
+	sick.structures = []                        # no health structures
+	sick.food_store = 40
+	TurnEngine._settlement_growth(gs, healthy, gs.get_player(1))
+	TurnEngine._settlement_growth(gs, sick, gs.get_player(1))
+	assert_lt(sick.food_store, healthy.food_store,
+		"An unhealthy city drains its food box faster than a healthy one")
+
+func test_carryover_capped_at_max_food_kept_percent() -> void:
+	# A granary that would carry over 90% of the threshold is capped at the
+	# configured max_food_kept_percent (75%).
+	var gs = make_gs(1)
+	var player = gs.get_player(1)
+	gs.db.structures["granary"]["effects"]["food_carry_over"] = 90
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.structures = ["granary"]
+	s.worked_tiles = []
+	# Compute the pre-growth threshold the engine will use (pop 2).
+	var t_base: int = gs.db.get_constant("growth_threshold_base", 12)
+	var t_per: int = gs.db.get_constant("growth_threshold_per_pop", 8)
+	var pace_scale: int = int(gs.db.get_pace(gs.pace_id).get("growth_scale", 100))
+	var era_scale: int = Eras.growth_threshold_scale(Eras.player_era(player, gs.db), gs.db)
+	var threshold: int = Fixed.scale(Fixed.scale(t_base + t_per * 2, pace_scale), era_scale)
+	s.food_store = threshold + 1000             # guaranteed growth
+	TurnEngine._settlement_growth(gs, s, player)
+	var max_kept: int = Fixed.scale(threshold, gs.db.get_constant("max_food_kept_percent", 75))
+	assert_eq(s.food_store, max_kept,
+		"Carry-over is capped at threshold × max_food_kept_percent/100, not the granary's 90%")
+
+func test_growth_threshold_rises_with_pop_and_pace() -> void:
+	# Guard the affine pop-and-speed curve: more population OR a slower pace both
+	# raise the food needed to grow.
+	var gs = make_gs(1)
+	var t_base: int = gs.db.get_constant("growth_threshold_base", 12)
+	var t_per: int = gs.db.get_constant("growth_threshold_per_pop", 8)
+	var pop1: int = t_base + t_per * 1
+	var pop5: int = t_base + t_per * 5
+	assert_gt(pop5, pop1, "Threshold rises with population")
+	var quick: int = Fixed.scale(pop5, int(gs.db.get_pace("quick").get("growth_scale", 67)))
+	var marathon: int = Fixed.scale(pop5, int(gs.db.get_pace("marathon").get("growth_scale", 300)))
+	assert_gt(marathon, quick, "Threshold rises with a slower pace")
+
 # ── Manual citizen management (worked-tile locks) ────────────────────────────
 
 func _has_pair(arr, x, y) -> bool:
