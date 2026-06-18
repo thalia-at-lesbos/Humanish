@@ -135,3 +135,93 @@ func test_get_espionage_mission_cost_returns_zero_for_invalid_target() -> void:
 	gs.current_player_id = 1
 	assert_eq(f.get_espionage_mission_cost(999), 0,
 		"Cost query returns 0 for a non-existent alliance")
+
+# ── Data-driven mission catalogue (§7.1, Phase 6) ──────────────────────────────
+
+func test_unknown_mission_id_rejected() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	assert_false(f._cmd_espionage_mission({"player_id": 1, "target_alliance_id": 2,
+		"mission": "not_a_real_mission"}), "A mission absent from the table is rejected")
+
+func test_per_mission_cost_multiplier_applies() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var base: int = gs.db.get_constant("intel_mission_cost", 100)
+	gs.current_player_id = 1
+	gs.get_player(1).intel_points = {2: base * 5}   # attacker ahead → base curve
+	# sabotage carries cost_multiplier 80 in the table → 80% of the base cost.
+	var sab: int = int(gs.db.get_espionage_mission("sabotage").get("cost_multiplier", 100))
+	assert_eq(f.get_espionage_mission_cost(2, "sabotage"), base * sab / 100,
+		"Per-mission cost scales by the mission's cost_multiplier")
+	assert_eq(f.get_espionage_mission_cost(2, "steal_tech"), base,
+		"steal_tech (multiplier 100) equals the base curve")
+
+func test_steal_tech_gate_rejects_when_no_unknown_tech() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	# Target knows nothing the attacker lacks → the steal_tech gate fails.
+	gs.get_player(1).technologies = ["mining"]
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	assert_false(f._cmd_espionage_mission({"player_id": 1, "target_alliance_id": 2,
+		"mission": "steal_tech"}), "steal_tech is refused with no stealable tech, EP untouched")
+	assert_eq(int(gs.get_player(1).intel_points.get(2, 0)), 100000,
+		"A gate-failed mission spends no EP")
+
+func test_steal_gold_transfers_treasury() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var amount: int = int(gs.db.get_espionage_mission("steal_gold").get("amount", 0))
+	gs.get_player(1).treasury = 0
+	gs.get_player(2).treasury = amount + 500
+	f._espionage_steal_gold(gs.get_player(1), gs.alliances[1], amount)
+	assert_eq(gs.get_player(1).treasury, amount, "Thief gains the stolen gold")
+	assert_eq(gs.get_player(2).treasury, 500, "Victim loses exactly the stolen amount")
+
+func test_steal_gold_caps_at_victim_treasury() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.get_player(1).treasury = 0
+	gs.get_player(2).treasury = 30
+	f._espionage_steal_gold(gs.get_player(1), gs.alliances[1], 100)
+	assert_eq(gs.get_player(1).treasury, 30, "Steal is capped at the victim's treasury")
+	assert_eq(gs.get_player(2).treasury, 0, "A broke victim is left at zero, not negative")
+
+func test_poison_water_removes_population_from_largest_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 2)
+	var big = make_settlement(gs, 2, 10, 10, 6)
+	var before: int = big.population
+	f._espionage_poison_water(gs.alliances[1])
+	assert_eq(big.population, before - 1, "Poison removes one population from the largest city")
+
+func test_mission_interception_modifier_raises_chance() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var base_chance: int = gs.db.get_constant("intel_interception_chance", 25)
+	var modifier: int = int(gs.db.get_espionage_mission("poison_water").get("interception_modifier", 0))
+	assert_true(modifier > 0, "poison_water carries a positive interception modifier")
+	assert_eq(f.get_espionage_interception_chance(2, "poison_water"), base_chance + modifier,
+		"The mission's interception_modifier adds to the base chance")
+
+func test_espionage_mission_options_lists_catalogue() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	var opts = f.espionage_mission_options(2)
+	assert_eq(opts.size(), gs.db.get_espionage_missions().size(),
+		"Options cover every catalogue mission")
+	var steal = null
+	for o in opts:
+		if o["id"] == "steal_tech":
+			steal = o
+	assert_not_null(steal, "steal_tech appears in the options")
+	assert_true(bool(steal["available"]) and bool(steal["affordable"]),
+		"With a stealable tech and ample EP, steal_tech is available and affordable")

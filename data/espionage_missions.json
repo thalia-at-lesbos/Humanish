@@ -1,0 +1,10 @@
+{
+  "_comment": "Espionage mission catalogue (§7.1, §15.5, provisional). Accrued intel points (EP) against a target alliance are spent on a mission picked from this table. Per-mission cost = intel_mission_cost × cost_multiplier/100 × (1 + EP_advantage/100); the EP-advantage curve and base interception live in constants.json and are computed in SimFacade. `effect` is the verb SimFacade._espionage_apply dispatches: steal_tech (copy one technology the attacker lacks from the target), sabotage (halve a target city's stored production), incite_unrest (tip the largest target city into disorder for its owner's next turn), steal_gold (transfer up to `amount` gold from the richest target member to the attacker), poison_water (remove 1 population from the largest target city of population >= 2). Each mission is only offered/accepted when its target gate holds (encoded per effect verb in SimFacade._mission_target_valid). `interception_modifier` adds (or subtracts) from the base interception percent before the cap. Magnitudes (`amount`, …) live here so the table is the single source of mission tuning. Spy-unit-on-tile missions are deferred; these are the alliance-scope screen missions.",
+  "missions": [
+    { "id": "steal_tech",    "name": "Steal Tech",     "effect": "steal_tech",    "cost_multiplier": 100, "interception_modifier": 0 },
+    { "id": "sabotage",      "name": "Sabotage",       "effect": "sabotage",      "cost_multiplier": 80,  "interception_modifier": 0 },
+    { "id": "incite_unrest", "name": "Incite Unrest",  "effect": "incite_unrest", "cost_multiplier": 120, "interception_modifier": 10 },
+    { "id": "steal_gold",    "name": "Steal Treasury", "effect": "steal_gold",    "cost_multiplier": 90,  "interception_modifier": 0, "amount": 100 },
+    { "id": "poison_water",  "name": "Poison Water",   "effect": "poison_water",  "cost_multiplier": 150, "interception_modifier": 20 }
+  ]
+}

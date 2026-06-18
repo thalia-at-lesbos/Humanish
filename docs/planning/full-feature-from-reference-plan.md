@@ -361,7 +361,43 @@ produce nothing, owe no maintenance, and cannot be spread into.
 
 ---
 
-## Phase 6 — Espionage missions (§7.1, game-data §20)
+## Phase 6 — Espionage missions (§7.1, game-data §20) ✅ COMPLETE
+**Done.** The three hard-coded screen missions are promoted to a first-class data table
+(`data/espionage_missions.json`), and `SimFacade` now reads every mission from it. Each record carries
+an `effect` verb, a `cost_multiplier` (percent, × the existing base EP-advantage cost curve), an
+`interception_modifier`, and per-verb magnitudes (e.g. `steal_gold`'s `amount`). Five missions ship:
+the original `steal_tech`/`sabotage`/`incite_unrest` plus `steal_gold` (transfers up to `amount` gold
+from the target alliance's richest member to the attacker) and `poison_water` (removes 1 population
+from the target's largest city of pop ≥ 2). `SimFacade._cmd_espionage_mission` now: rejects an
+unknown mission id; checks the per-verb **target gate** (`_mission_target_valid` — e.g. `steal_tech`
+needs a stealable tech, `steal_gold` a solvent member) **before spending any EP**; computes the
+per-mission cost via `_mission_cost` (base curve × `cost_multiplier`/100); rolls interception with the
+mission's modifier folded into `_espionage_interception_chance(target, extra)`; then dispatches the
+verb through `_espionage_apply`. All effects are deterministic (richest/largest picked with a
+lowest-id tiebreak), drawing from `gs.rng` only for the single interception roll.
+- **Data.** New `data/espionage_missions.json` (5 records); `DataDB` loads it
+  (`get_espionage_mission`/`get_espionage_missions`) and validates each record
+  (`_validate_espionage_mission_refs`: id present, positive `cost_multiplier`, known effect verb).
+- **UI.** `espionage_menu.gd` is now data-driven — it lists every catalogue mission via the new
+  `SimFacade.espionage_mission_options(target)` helper (id/name/cost/interception/available/affordable),
+  disabling a button when unaffordable **or** its gate fails. `get_espionage_mission_cost` and
+  `get_espionage_interception_chance` gained an optional `mission_id` so a screen can price each row;
+  their no-arg defaults preserve the old base-curve queries.
+- **No new serialized state** — missions still spend the already-persisted `Player.intel_points`, so
+  the integration save/load determinism gate already covers them.
+- **Tests.** `tests/sim/test_intelligence.gd` (unknown-id rejection; per-mission cost multiplier;
+  `steal_tech` gate refusal spends no EP; `steal_gold` transfer + victim-treasury cap; `poison_water`
+  pop removal; interception modifier; `espionage_mission_options` enumerates the catalogue).
+  `tests/core/test_data_db.gd` (table well-formed; getters resolve known/unknown ids). The existing
+  `test_info_screens.gd` espionage-menu canaries still pass against the data-driven menu. Full unit
+  suites (912) + integration gate (10) green in isolation and via `./run_tests.sh`;
+  `ai_full_game_smoke.gd` still reaches a win (alliance 1, turn 500) with **zero errors**, and no
+  seed-pinned test needed re-pinning.
+- **Deliberate scope.** Spy-unit-on-tile missions stay deferred (these are the alliance-scope screen
+  missions); there is still no AI espionage behaviour (the §7.1 provisional note holds). The reference
+  names ~18 missions — the five here exercise the full data-driven path and each remaining verb is a
+  one-record + one-handler addition.
+
 - **Goal.** Turn accrued intel points into spendable **missions** from a `data/espionage_missions.json`
   table (steal tech, sabotage production, incite unrest, …) with costs, target gates, and
   interception — both the alliance-scope screen path and (optionally) spy-unit-on-tile missions.

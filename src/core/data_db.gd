@@ -43,6 +43,8 @@ var event_triggers: Dictionary = {}
 var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
 var resolutions: Dictionary = {}
+# Espionage mission catalogue spent against rival alliances (§7.1, provisional).
+var espionage_missions: Dictionary = {}
 
 var _errors: Array = []
 
@@ -74,6 +76,7 @@ func load_all() -> bool:
 	event_triggers = _load_json("res://data/event_triggers.json")
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
+	espionage_missions = _load_json("res://data/espionage_missions.json")
 	_validate()
 	return _errors.empty()
 
@@ -129,6 +132,19 @@ func get_event_triggers() -> Dictionary:
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
 	return resolutions.get(id, {})
+
+# A single espionage-mission record (data/espionage_missions.json); empty for
+# unknown ids.
+func get_espionage_mission(id: String) -> Dictionary:
+	for m in get_espionage_missions():
+		if str(m.get("id", "")) == id:
+			return m
+	return {}
+
+# The espionage-mission catalogue (data/espionage_missions.json "missions" array).
+# Empty when the table failed to load.
+func get_espionage_missions() -> Array:
+	return espionage_missions.get("missions", [])
 
 func get_technology(id: String) -> Dictionary:
 	return technologies.get(id, {})
@@ -219,6 +235,7 @@ func _validate() -> void:
 	_validate_goody_refs()
 	_validate_event_refs()
 	_validate_econ_org_refs()
+	_validate_espionage_mission_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -294,6 +311,21 @@ func _validate_econ_org_refs() -> void:
 		for res_id in org.get("input_resources", []):
 			if not resources.has(res_id):
 				_errors.append("Corporation '%s' input_resource '%s' not in resources table" % [org_id, res_id])
+
+# Every espionage mission (§7.1) must carry an id, a positive cost_multiplier, and
+# an effect verb SimFacade._espionage_apply knows how to dispatch.
+func _validate_espionage_mission_refs() -> void:
+	var known := ["steal_tech", "sabotage", "incite_unrest", "steal_gold", "poison_water"]
+	for m in get_espionage_missions():
+		var mid = str(m.get("id", ""))
+		if mid == "":
+			_errors.append("Espionage mission missing an id")
+			continue
+		if int(m.get("cost_multiplier", 0)) <= 0:
+			_errors.append("Espionage mission '%s' must have a positive cost_multiplier" % mid)
+		var effect = str(m.get("effect", ""))
+		if not (effect in known):
+			_errors.append("Espionage mission '%s' has unknown effect '%s'" % [mid, effect])
 
 # Every trigger must name an event that exists; every event effect (begin, choice,
 # or expire) must use a known verb and resolve its unit/structure/tech reference.

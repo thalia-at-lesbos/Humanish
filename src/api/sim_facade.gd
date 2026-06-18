@@ -1353,29 +1353,91 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	var target_alliance: Alliance = _gs.get_alliance(target_aid)
 	if target_alliance == null or target_aid == p.alliance_id:
 		return false
+	# The mission must name a record in data/espionage_missions.json (§7.1).
+	var mission: Dictionary = _db.get_espionage_mission(str(cmd.get("mission", "")))
+	if mission.empty():
+		return false
+	# Reject a mission whose target gate does not hold (e.g. stealing a tech the
+	# target cannot offer) before spending any points.
+	if not _mission_target_valid(p, target_alliance, mission):
+		return false
 	var have: int = int(p.intel_points.get(target_aid, 0))
-	var cost: int = _espionage_mission_cost(p, target_alliance, have)
+	var cost: int = _mission_cost(p, target_alliance, have, mission)
 	if have < cost:
 		return false
 	p.intel_points[target_aid] = have - cost
-	# A defender's espionage_defense structures raise the interception chance;
-	# interception spends the points but fails the mission (§7, §15.5).
-	if _gs.rng.rand_bool_percent(_espionage_interception_chance(target_alliance)):
+	# A defender's espionage_defense structures plus the mission's own
+	# interception_modifier raise the chance; interception spends the points but
+	# fails the mission (§7, §15.5).
+	var chance: int = _espionage_interception_chance(target_alliance,
+		int(mission.get("interception_modifier", 0)))
+	if _gs.rng.rand_bool_percent(chance):
 		_add_notification("Espionage mission intercepted.", "info")
 		return true
-	match str(cmd.get("mission", "")):
-		"steal_tech":
-			_espionage_steal_tech(p, target_alliance)
-		"sabotage":
-			_espionage_sabotage(target_alliance)
-		"incite_unrest":
-			_espionage_incite_unrest(target_alliance)
+	_espionage_apply(p, target_alliance, mission)
 	return true
 
-# Public query: EP cost for the current player to run any mission against
+# Dispatch a mission's `effect` verb onto game state (§7.1). Each verb is a pure,
+# deterministic application; magnitudes come from the mission record / constants.
+func _espionage_apply(thief: Player, target: Alliance, mission: Dictionary) -> void:
+	match str(mission.get("effect", "")):
+		"steal_tech":
+			_espionage_steal_tech(thief, target)
+		"sabotage":
+			_espionage_sabotage(target)
+		"incite_unrest":
+			_espionage_incite_unrest(target)
+		"steal_gold":
+			_espionage_steal_gold(thief, target, int(mission.get("amount", 0)))
+		"poison_water":
+			_espionage_poison_water(target)
+
+# True when `mission` can produce its effect against `target` right now — the
+# per-verb target gate. A mission with no gate (default) is always valid.
+func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictionary) -> bool:
+	match str(mission.get("effect", "")):
+		"steal_tech":
+			# There must be a tech a target member knows that the attacker lacks.
+			for pid in target.member_player_ids:
+				var victim: Player = _gs.get_player(pid)
+				if victim == null:
+					continue
+				for tech in victim.technologies:
+					if not attacker.has_tech(tech):
+						return true
+			return false
+		"sabotage":
+			for s in _gs.settlements:
+				if _settlement_in_alliance(s, target) and s.production_store > 0:
+					return true
+			return false
+		"steal_gold":
+			for pid in target.member_player_ids:
+				var member: Player = _gs.get_player(pid)
+				if member != null and member.treasury > 0:
+					return true
+			return false
+		"poison_water":
+			for s in _gs.settlements:
+				if _settlement_in_alliance(s, target) and s.population >= 2:
+					return true
+			return false
+		_:
+			# incite_unrest and any future gateless verb only need a target city.
+			for s in _gs.settlements:
+				if _settlement_in_alliance(s, target):
+					return true
+			return false
+
+func _settlement_in_alliance(s: Settlement, target: Alliance) -> bool:
+	var owner: Player = _gs.get_player(s.owner_player_id)
+	return owner != null and owner.alliance_id == target.id
+
+# Public query: EP cost for the current player to run `mission_id` against
 # target_alliance_id. Returns 0 when state is unavailable or the target is
-# invalid, so callers can safely use the result to gate UI buttons.
-func get_espionage_mission_cost(target_alliance_id: int) -> int:
+# invalid, so callers can safely use the result to gate UI buttons. With the
+# default mission ("steal_tech", cost_multiplier 100) this returns the base curve.
+func get_espionage_mission_cost(target_alliance_id: int, mission_id: String = "steal_tech") -> int:
 	if _gs == null:
 		return 0
 	var p: Player = _gs.get_player(_gs.current_player_id)
@@ -1385,16 +1447,52 @@ func get_espionage_mission_cost(target_alliance_id: int) -> int:
 	if target == null:
 		return 0
 	var have: int = int(p.intel_points.get(target_alliance_id, 0))
-	return _espionage_mission_cost(p, target, have)
+	var mission: Dictionary = _db.get_espionage_mission(mission_id)
+	if mission.empty():
+		return _espionage_mission_cost(p, target, have)
+	return _mission_cost(p, target, have, mission)
 
-# Public query: interception percentage for missions against target_alliance_id.
-func get_espionage_interception_chance(target_alliance_id: int) -> int:
+# Public query: interception percentage for `mission_id` against
+# target_alliance_id (base defence plus the mission's interception_modifier).
+func get_espionage_interception_chance(target_alliance_id: int, mission_id: String = "") -> int:
 	if _gs == null:
 		return 0
 	var target: Alliance = _gs.get_alliance(target_alliance_id)
 	if target == null:
 		return 0
-	return _espionage_interception_chance(target)
+	var modifier: int = int(_db.get_espionage_mission(mission_id).get("interception_modifier", 0))
+	return _espionage_interception_chance(target, modifier)
+
+# Public query: the mission menu rows for the current player against a target —
+# id, name, cost, interception chance, and whether each is currently available
+# (its target gate holds) and affordable. Empty when state/target is invalid.
+func espionage_mission_options(target_alliance_id: int) -> Array:
+	var out: Array = []
+	if _gs == null:
+		return out
+	var p: Player = _gs.get_player(_gs.current_player_id)
+	var target: Alliance = _gs.get_alliance(target_alliance_id)
+	if p == null or target == null:
+		return out
+	var have: int = int(p.intel_points.get(target_alliance_id, 0))
+	for m in _db.get_espionage_missions():
+		var cost: int = _mission_cost(p, target, have, m)
+		out.append({
+			"id": str(m.get("id", "")),
+			"name": str(m.get("name", m.get("id", ""))),
+			"cost": cost,
+			"interception": _espionage_interception_chance(target,
+				int(m.get("interception_modifier", 0))),
+			"available": _mission_target_valid(p, target, m),
+			"affordable": have >= cost,
+		})
+	return out
+
+# Per-mission cost: the base EP-advantage curve scaled by the mission's
+# cost_multiplier percent (§15.5).
+func _mission_cost(attacker: Player, target: Alliance, attacker_ep: int, mission: Dictionary) -> int:
+	var base: int = _espionage_mission_cost(attacker, target, attacker_ep)
+	return base * int(mission.get("cost_multiplier", 100)) / 100
 
 # §15.5 mission cost (provisional): base × (1 + EP-advantage/100). The advantage
 # is how much more espionage the target holds against the attacker than the
@@ -1416,9 +1514,9 @@ func _espionage_mission_cost(attacker: Player, target: Alliance, attacker_ep: in
 	return base + base * advantage / 100
 
 # Interception chance against missions targeting this alliance: the base chance
-# plus the strongest espionage_defense structure across the target's cities,
-# capped (§15.5, provisional).
-func _espionage_interception_chance(target: Alliance) -> int:
+# plus the strongest espionage_defense structure across the target's cities, plus
+# the mission's own `extra` modifier, capped (§15.5, provisional).
+func _espionage_interception_chance(target: Alliance, extra: int = 0) -> int:
 	var defense: int = 0
 	for s in _gs.settlements:
 		var owner: Player = _gs.get_player(s.owner_player_id)
@@ -1428,7 +1526,9 @@ func _espionage_interception_chance(target: Alliance) -> int:
 			var d: int = int(_db.get_structure(struct_id).get("effects", {}).get("espionage_defense", 0))
 			if d > defense:
 				defense = d
-	var chance: int = _db.get_constant("intel_interception_chance", 25) + defense
+	var chance: int = _db.get_constant("intel_interception_chance", 25) + defense + extra
+	if chance < 0:
+		chance = 0
 	var cap: int = _db.get_constant("intel_interception_max", 90)
 	return cap if chance > cap else chance
 
@@ -1466,6 +1566,40 @@ func _espionage_incite_unrest(target: Alliance) -> void:
 		worst.in_disorder = true
 		worst.discontented = worst.population
 		_add_notification("Incited unrest in " + worst.name, "major")
+
+# Steal treasury: transfer up to `amount` gold from the target's richest member
+# to the attacker (§7.1). Deterministic — the richest member (lowest id on a tie)
+# is robbed; nothing happens when the target alliance is broke.
+func _espionage_steal_gold(thief: Player, target: Alliance, amount: int) -> void:
+	var richest: Player = null
+	for pid in target.member_player_ids:
+		var member: Player = _gs.get_player(pid)
+		if member == null or member.treasury <= 0:
+			continue
+		if richest == null or member.treasury > richest.treasury \
+				or (member.treasury == richest.treasury and member.id < richest.id):
+			richest = member
+	if richest == null:
+		return
+	var taken: int = amount if amount < richest.treasury else richest.treasury
+	richest.treasury -= taken
+	thief.treasury += taken
+	_add_notification("Stole %d gold from %s." % [taken, richest.name], "major")
+
+# Poison water supply: starve one population out of the target alliance's largest
+# city (§7.1). Deterministic — the most populous city (lowest id on a tie) of at
+# least population 2 loses a citizen.
+func _espionage_poison_water(target: Alliance) -> void:
+	var biggest: Settlement = null
+	for s in _gs.settlements:
+		if not _settlement_in_alliance(s, target) or s.population < 2:
+			continue
+		if biggest == null or s.population > biggest.population \
+				or (s.population == biggest.population and s.id < biggest.id):
+			biggest = s
+	if biggest != null:
+		biggest.population -= 1
+		_add_notification("Poisoned the water supply of " + biggest.name, "major")
 
 # ── Transport / embarkation (§5.2) ────────────────────────────────────────────
 
