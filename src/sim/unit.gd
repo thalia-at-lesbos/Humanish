@@ -149,6 +149,17 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 	effective = (effective * health) / 100
 	return 1 if effective < 1 else effective
 
+# Firepower feeds the §5.4 per-hit damage model, distinct from combat strength.
+# For most units firepower equals the effective strength passed in; siege and a
+# few special types carry a distinct value via the `firepower` data field (a
+# health-scaled flat quantity), so they deal damage decoupled from their odds.
+func firepower(db: DataDB, effective_str: int) -> int:
+	var data: Dictionary = db.get_unit(unit_type_id)
+	if not data.has("firepower"):
+		return effective_str
+	var fp: int = (int(data["firepower"]) * health) / 100
+	return 1 if fp < 1 else fp
+
 func serialize() -> Dictionary:
 	return {
 		"id": id, "unit_type_id": unit_type_id,
