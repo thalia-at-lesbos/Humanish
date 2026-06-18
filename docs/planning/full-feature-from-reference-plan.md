@@ -174,7 +174,30 @@ green; `ai_full_game_smoke.gd` still reaches a win condition with zero errors.
 
 ---
 
-## Phase 2 — Specialists as a first-class table (§6.5, game-data §14.5/§20)
+## Phase 2 — Specialists as a first-class table (§6.5, game-data §14.5/§20) ✅ COMPLETE
+**Done.** Specialists are now a first-class data table. Added `data/specialists.json` (14 types:
+7 working `citizen/priest/artist/scientist/merchant/engineer/spy` + 7 great-person counterparts),
+each carrying a per-head `output` vector over six yield channels
+(food/production/commerce/science/culture/espionage), `gp_points`/`gp_type`, the `great_person_unit`
+it births, and slot rules (`default_slots`, −1 = unlimited). New pure reader `Specialists`
+(`src/sim/specialists.gd`, registered in `project.godot`) is the single consumer of the table:
+`settlement_output`/`settlement_channel` sum the output vectors, `settlement_gp_points` weights GPP,
+`slots_for`/`assignable_types` drive slot ceilings and the city-screen roster. `TurnEngine` routes
+each channel into its pipeline — f/p/c into city output (`_settlement_growth`), science into
+`_apply_research`, culture into `_settlement_culture`, espionage into `_apply_intelligence` — and
+`_special_person_progress` banks GPP by table weight. `GreatPeople.gp_unit_for_type` now reads the
+table first (falling back to the unit `generated_by` scan for the General's `combat_xp`). `DataDB`
+gained the `specialists` table, `get_specialist`/`get_specialists`, and validation that every
+`great_person_unit` and structure `specialist_slots` key resolves. `SimFacade._cmd_assign_specialist`
+enforces the per-type slot ceiling (and rejects unknown types); `city_screen.gd` reads the table for
+the offered roster, per-type slot display, output tooltips, and a slot-capped + button (replacing the
+hard-coded `SPECIALIST_TYPES`). No new serialized state (specialist counts already persisted). Tests:
+`tests/core/test_data_db.gd` (14 types present, records well-formed, GP-unit/slot cross-refs resolve);
+`tests/sim/test_settlement.gd` (merchant→commerce, engineer→production, scientist→science-not-commerce
+all match the table); `tests/sim/test_great_people.gd` (birth maps through the table); `tests/api/test_facade.gd`
+(slot ceiling + unknown-type rejection). Full unit suites + integration save/load gate green;
+`ai_full_game_smoke.gd` reaches a win condition with zero errors.
+
 - **Goal.** Promote specialists to `data/specialists.json` (14 types: 7 working + 7 great-person)
   with per-head output vector, GP-point type/amount, and slot rules — replacing the implicit
   unit-tag/structure-slot model.

@@ -22,11 +22,16 @@ class_name GreatPeople
 
 # ── Type ↔ unit mapping ───────────────────────────────────────────────────────
 
-# The great-person unit id whose "generated_by" matches `gen_type`, or "" if
-# none. (e.g. "scientist" -> "great_scientist", "combat_xp" -> "great_general")
+# The great-person unit id a specialist type of `gen_type` births, or "" if none.
+# Reads the specialists table first (e.g. "scientist" -> "great_scientist"); for
+# non-specialist sources like the Great General's "combat_xp" it falls back to a
+# scan of unit `generated_by` tags.
 static func gp_unit_for_type(db: DataDB, gen_type: String) -> String:
 	if gen_type == "":
 		return ""
+	var from_table: String = Specialists.great_person_unit(db, gen_type)
+	if from_table != "":
+		return from_table
 	var ids: Array = db.units.keys()
 	ids.sort()
 	for unit_id in ids:

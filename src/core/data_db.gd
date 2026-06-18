@@ -27,6 +27,7 @@ var policies: Dictionary = {}
 var promotions: Dictionary = {}
 var beliefs: Dictionary = {}
 var econ_orgs: Dictionary = {}
+var specialists: Dictionary = {}
 var ages: Dictionary = {}
 var paces: Dictionary = {}
 var difficulties: Dictionary = {}
@@ -56,6 +57,7 @@ func load_all() -> bool:
 	promotions   = _load_json("res://data/promotions.json")
 	beliefs      = _load_json("res://data/beliefs.json")
 	econ_orgs    = _load_json("res://data/econ_orgs.json")
+	specialists  = _load_json("res://data/specialists.json")
 	ages         = _load_json("res://data/ages.json")
 	paces        = _load_json("res://data/paces.json")
 	difficulties = _load_json("res://data/difficulties.json")
@@ -92,6 +94,14 @@ func get_unit(id: String) -> Dictionary:
 
 func get_structure(id: String) -> Dictionary:
 	return structures.get(id, {})
+
+func get_specialist(id: String) -> Dictionary:
+	return specialists.get(id, {})
+
+# All specialist records (includes the leading "_comment" documentation key —
+# callers iterating types must skip it).
+func get_specialists() -> Dictionary:
+	return specialists
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -182,6 +192,7 @@ func _validate() -> void:
 	_validate_tech_prereqs()
 	_validate_unit_tech_refs()
 	_validate_improvement_tech_refs()
+	_validate_specialist_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -206,3 +217,20 @@ func _validate_improvement_tech_refs() -> void:
 		var req = imp.get("tech_required", null)
 		if req != null and req != "" and not technologies.has(req):
 			_errors.append("Improvement '%s' tech_required '%s' not found" % [imp_id, req])
+
+# Every great_person_unit referenced by a specialist must be a great-person unit,
+# and every specialist_slots key on a structure must name a known specialist type.
+func _validate_specialist_refs() -> void:
+	for sid in specialists:
+		if sid == "_comment":
+			continue
+		var spec: Dictionary = specialists[sid]
+		var gp_unit = spec.get("great_person_unit", "")
+		if gp_unit != null and gp_unit != "" and not units.has(gp_unit):
+			_errors.append("Specialist '%s' great_person_unit '%s' not found" % [sid, gp_unit])
+	for struct_id in structures:
+		var slots: Dictionary = structures[struct_id].get("specialist_slots", {})
+		for stype in slots:
+			if not specialists.has(stype):
+				_errors.append("Structure '%s' specialist_slots type '%s' not in specialists table" % [
+					struct_id, stype])

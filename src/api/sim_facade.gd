@@ -1211,6 +1211,14 @@ func _cmd_assign_specialist(cmd: Dictionary) -> bool:
 	var count: int = int(cmd.get("count", 0))
 	if stype == "" or count < 0:
 		return false
+	# The type must be a known specialist (data/specialists.json).
+	if _db.get_specialist(stype).empty():
+		return false
+	# Per-type slot ceiling (§14.5): default slots + per-structure slots, unless the
+	# Caste System civic lifts the cap (slots = -1).
+	var slots: int = Specialists.slots_for(_db, s, p, stype)
+	if slots >= 0 and count > slots:
+		return false
 	# Total specialists may not exceed the settlement's population.
 	var others: int = 0
 	for k in s.specialists:

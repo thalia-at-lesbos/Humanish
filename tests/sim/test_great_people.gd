@@ -28,6 +28,15 @@ func test_gp_unit_for_type_maps_specialists() -> void:
 	assert_eq(GreatPeople.gp_unit_for_type(gs.db, "nonsense"), "",
 		"an unknown generator maps to no unit")
 
+func test_gp_unit_for_type_reads_the_specialists_table() -> void:
+	# The mapping comes from data/specialists.json (great_person_unit), not a unit
+	# tag scan — every working specialist's table mapping resolves to its GP unit.
+	var gs = make_gs()
+	for stype in Specialists.assignable_types(gs.db):
+		assert_eq(GreatPeople.gp_unit_for_type(gs.db, stype),
+			Specialists.great_person_unit(gs.db, stype),
+			"%s births the table's great_person_unit" % stype)
+
 func test_dominant_specialist_picks_the_largest() -> void:
 	var gs = make_gs()
 	var s = _city(gs, 1, 5, 5)

@@ -520,3 +520,29 @@ func test_wild_event_drain_notifies_player_unit_death() -> void:
 		if txt.find("killed") >= 0 or txt.find("wild") >= 0 or txt.find("Wild") >= 0:
 			found = true
 	assert_true(found, "Draining a wild kill event produces a notification for the player")
+
+# ── Specialist assignment & slot ceiling (§14.5) ─────────────────────────────
+
+func test_assign_specialist_respects_slot_ceiling() -> void:
+	var facade = setup_facade(640, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 6)
+	# Default scientist slots = 1 (no Library), so one is allowed but two are not.
+	assert_true(facade.apply_command(Commands.assign_specialist(pid, s.id, "scientist", 1)),
+		"One scientist fits the default single slot")
+	assert_false(facade.apply_command(Commands.assign_specialist(pid, s.id, "scientist", 2)),
+		"A second scientist exceeds the slot ceiling")
+	assert_eq(int(s.specialists.get("scientist", 0)), 1, "The over-cap assignment is rejected")
+
+func test_assign_unknown_specialist_type_rejected() -> void:
+	var facade = setup_facade(641, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 4)
+	assert_false(facade.apply_command(Commands.assign_specialist(pid, s.id, "wizard", 1)),
+		"An unknown specialist type is rejected")
