@@ -220,3 +220,32 @@ func test_event_effect_refs_resolve() -> void:
 				elif str(eff.get("verb", "")) == "building":
 					assert_true(db.structures.has(str(eff.get("structure_id", ""))),
 						"event '%s' building effect must name a real structure" % eid)
+
+# ── Corporations (§14.6) ─────────────────────────────────────────────────────
+
+func test_corporations_table_is_well_formed() -> void:
+	var db = _db()
+	assert_false(db.econ_orgs.empty(), "corporations table must load")
+	for org_id in db.econ_orgs:
+		var org = db.econ_orgs[org_id]
+		assert_false(org.get("input_resources", []).empty(),
+			"corporation '%s' must list input resources" % org_id)
+		assert_true(org.has("hq_structure"), "corporation '%s' must name an HQ structure" % org_id)
+		assert_true(org.has("maintenance"), "corporation '%s' must set per-city maintenance" % org_id)
+		assert_true(org.has("hq_gold_per_input"), "corporation '%s' must set HQ gold rate" % org_id)
+
+func test_corporation_refs_resolve() -> void:
+	# The loader cross-checks HQ structure / executive unit / input resources; assert
+	# directly so a bad ref is caught here too.
+	var db = _db()
+	for org_id in db.econ_orgs:
+		var org = db.econ_orgs[org_id]
+		var hq = str(org.get("hq_structure", ""))
+		assert_true(db.structures.has(hq), "corporation '%s' HQ structure must exist" % org_id)
+		assert_true(bool(db.structures[hq].get("corporation_hq", false)),
+			"corporation HQ '%s' must carry the corporation_hq flag" % hq)
+		assert_true(db.units.has(str(org.get("executive_unit", ""))),
+			"corporation '%s' executive unit must exist" % org_id)
+		for res_id in org.get("input_resources", []):
+			assert_true(db.resources.has(res_id),
+				"corporation '%s' input resource '%s' must exist" % [org_id, res_id])

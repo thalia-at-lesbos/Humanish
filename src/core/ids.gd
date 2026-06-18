@@ -111,7 +111,9 @@ enum CommandType {
     # without placing an improvement; a felled forest yields production (§4.11).
     MISSION_CLEAR_FEATURE = 60,
     # Resolve a random-event choice popup (§9): commit the player's chosen branch.
-    RESOLVE_EVENT = 61
+    RESOLVE_EVENT = 61,
+    # Spread a corporation to a city with an executive unit (§14.6).
+    SPREAD_CORPORATION = 62
 }
 
 # Win condition types

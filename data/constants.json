@@ -172,5 +172,8 @@
   "ai_focus_defenders_divisor": 3,
   "ai_focus_margin_per_military": 5,
   "ai_focus_finance_per_economy": 10,
-  "ai_focus_finance_cap": 50
+  "ai_focus_finance_cap": 50,
+  "corporation_maintenance": 3,
+  "corporation_hq_gold_per_input": 2,
+  "corporation_executive_spread_cost": 100
 }

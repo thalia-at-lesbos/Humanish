@@ -218,6 +218,7 @@ func _validate() -> void:
 	_validate_specialist_refs()
 	_validate_goody_refs()
 	_validate_event_refs()
+	_validate_econ_org_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -273,6 +274,26 @@ func _validate_goody_refs() -> void:
 		var ut = g.get("unit_type", "")
 		if ut != null and ut != "" and not units.has(str(ut)):
 			_errors.append("Goody '%s' unit_type '%s' not in units table" % [gid, ut])
+
+# Every corporation (§14.6) must resolve its HQ structure, executive unit, and
+# input resources, and the HQ must be flagged so it is not offered as a normal build.
+func _validate_econ_org_refs() -> void:
+	for org_id in econ_orgs:
+		if org_id == "_comment":
+			continue
+		var org: Dictionary = econ_orgs[org_id]
+		var hq = str(org.get("hq_structure", ""))
+		if hq != "":
+			if not structures.has(hq):
+				_errors.append("Corporation '%s' hq_structure '%s' not in structures table" % [org_id, hq])
+			elif not bool(structures[hq].get("corporation_hq", false)):
+				_errors.append("Corporation '%s' hq_structure '%s' missing corporation_hq flag" % [org_id, hq])
+		var exe = str(org.get("executive_unit", ""))
+		if exe != "" and not units.has(exe):
+			_errors.append("Corporation '%s' executive_unit '%s' not in units table" % [org_id, exe])
+		for res_id in org.get("input_resources", []):
+			if not resources.has(res_id):
+				_errors.append("Corporation '%s' input_resource '%s' not in resources table" % [org_id, res_id])
 
 # Every trigger must name an event that exists; every event effect (begin, choice,
 # or expire) must use a known verb and resolve its unit/structure/tech reference.

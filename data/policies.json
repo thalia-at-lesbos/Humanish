@@ -196,7 +196,7 @@
       "slider_increment": 10,
       "anger_modifier": 0,
       "transition_turns": 3,
-      "effects": { "free_specialist_per_city": 1, "no_foreign_trade_routes": true }
+      "effects": { "free_specialist_per_city": 1, "no_foreign_trade_routes": true, "corporations_disabled": true }
     },
     "free_market": {
       "id": "free_market",
@@ -218,7 +218,7 @@
       "slider_increment": 10,
       "anger_modifier": 0,
       "transition_turns": 3,
-      "effects": { "no_distance_maintenance": true, "watermill_farm_production": 1 }
+      "effects": { "no_distance_maintenance": true, "watermill_farm_production": 1, "corporations_disabled": true }
     },
     "environmentalism": {
       "id": "environmentalism",

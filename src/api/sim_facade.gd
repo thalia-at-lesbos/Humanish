@@ -324,6 +324,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_draft(cmd)
 		IDs.CommandType.SPREAD_BELIEF:
 			return _cmd_spread_belief(cmd)
+		IDs.CommandType.SPREAD_CORPORATION:
+			return _cmd_spread_corporation(cmd)
 		IDs.CommandType.DO_CONTROL:
 			return _cmd_do_control(cmd)
 		IDs.CommandType.PROPOSE_TRADE:
@@ -1595,6 +1597,41 @@ func _belief_to_spread(p: Player) -> String:
 		if s.owner_player_id == p.id and s.belief_id != "":
 			return s.belief_id
 	return ""
+
+# Spread a corporation to a city with an executive unit (§14.6). The executive
+# must be the player's, carry the `spread_corporation` tag, and sit on the target
+# city's tile. It spreads the corporation the player founded into a city that has
+# none (and whose owner does not ban corporations), charging the spread cost. The
+# executive is consumed on success.
+func _cmd_spread_corporation(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var u: Unit = _gs.get_unit(int(cmd.get("unit_id", -1)))
+	if u == null or u.owner_player_id != p.id:
+		return false
+	if not ("spread_corporation" in _db.get_unit(u.unit_type_id).get("tags", [])):
+		return false
+	var s: Settlement = _gs.get_settlement(int(cmd.get("settlement_id", -1)))
+	if s == null or s.x != u.x or s.y != u.y:
+		return false
+	var org_id: String = EconOrgs.corporation_of_player(_gs, p.id)
+	if org_id == "":
+		return false
+	var cost: int = _db.get_constant("corporation_executive_spread_cost", 100)
+	if p.treasury < cost:
+		return false
+	if not EconOrgs.spread_to(org_id, s, _gs):
+		return false
+	p.treasury -= cost
+	Stack.remove_unit(_gs.units, u.id)
+	if _selection != null:
+		_selection.selected_unit_ids.erase(u.id)
+	var org_name: String = str(_db.econ_orgs.get(org_id, {}).get("name", org_id))
+	_add_notification(org_name + " spread to " + s.name + ".", "info")
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
 
 # Conscript a military unit from a city (§6.4). Requires the can_draft civic
 # (Nationhood); spends population and stirs unhappiness; the drafted unit is the
