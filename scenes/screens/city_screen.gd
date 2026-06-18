@@ -121,7 +121,7 @@ func _build() -> void:
 
 	# ── Specialists ────────────────────────────────────────────────────────────
 	_header(v, "Specialists")
-	_build_specialists(v, s)
+	_build_specialists(v, s, db, owner)
 
 	# ── Current production ─────────────────────────────────────────────────────
 	_header(v, "Production")
@@ -246,10 +246,6 @@ func _build() -> void:
 	close_btn.connect("pressed", self, "_on_close")
 	v.add_child(close_btn)
 
-# Specialist types the city screen lets the player assign. The sim caps the
-# total by population (there is no per-building slot ceiling yet — see
-# designgaps §2), so these are offered uniformly.
-const SPECIALIST_TYPES: Array = ["scientist", "merchant", "artist", "priest", "engineer"]
 
 # Citizen management: an automate toggle plus a simplified grid of the tiles in
 # the city's work radius. Each tile button shows its yield and whether it is
@@ -297,19 +293,24 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 		grid.add_child(btn)
 	v.add_child(grid)
 
-# Specialists: current counts and +/- buttons per type. Adding is capped by the
-# sim against the city's population.
-func _build_specialists(v, s) -> void:
+# Specialists: current counts and +/- buttons per assignable type, read from the
+# specialists data table (output, GP type, slot ceiling). Adding is capped by the
+# sim against the city's population and the per-type slot count (−1 = unlimited,
+# e.g. Caste System); the + button greys out at the ceiling.
+func _build_specialists(v, s, db, owner) -> void:
 	var total := 0
 	for k in s.specialists:
 		total += int(s.specialists[k])
 	_line(v, "Assigned specialists: " + str(total) + " / pop " + str(s.population))
 	var grid := GridContainer.new()
 	grid.columns = 4
-	for stype in SPECIALIST_TYPES:
+	for stype in Specialists.assignable_types(db):
 		var count: int = int(s.specialists.get(stype, 0))
+		var slots: int = Specialists.slots_for(db, s, owner, stype)
+		var slot_txt: String = "∞" if slots < 0 else str(slots)
 		var lbl := Label.new()
-		lbl.text = "  " + stype.capitalize() + ": " + str(count)
+		lbl.text = "  " + stype.capitalize() + ": " + str(count) + "/" + slot_txt
+		lbl.hint_tooltip = _specialist_tooltip(db, stype)
 		grid.add_child(lbl)
 		var minus := Button.new()
 		minus.text = "−"
@@ -318,11 +319,21 @@ func _build_specialists(v, s) -> void:
 		grid.add_child(minus)
 		var plus := Button.new()
 		plus.text = "+"
+		plus.disabled = (slots >= 0 and count >= slots) or total >= s.population
 		plus.connect("pressed", self, "_on_specialist", [stype, count + 1])
 		grid.add_child(plus)
 		var pad := Control.new()
 		grid.add_child(pad)
 	v.add_child(grid)
+
+# A one-line "+N foo, +M bar" summary of a specialist type's per-head output.
+func _specialist_tooltip(db, stype: String) -> String:
+	var parts := []
+	for ch in Specialists.CHANNELS:
+		var amt: int = int(Specialists.output(db, stype).get(ch, 0))
+		if amt != 0:
+			parts.append("+" + str(amt) + " " + ch)
+	return ", ".join(parts) if not parts.empty() else "no yield"
 
 func _on_toggle_automation(auto: bool) -> void:
 	var gs = _facade.get_state()

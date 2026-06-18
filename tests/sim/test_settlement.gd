@@ -479,9 +479,9 @@ func test_unworked_feature_does_not_affect_wellbeing() -> void:
 	assert_eq(s.wellbeing_negative, s.population,
 		"An unworked jungle contributes no unhealthiness")
 
-# ── Specialist output (§6.5) ─────────────────────────────────────────────────
+# ── Specialist output (§6.5, data-table driven) ──────────────────────────────
 
-func test_specialists_add_commerce() -> void:
+func test_merchant_specialists_add_table_commerce() -> void:
 	var gs = make_gs(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
 	var p = gs.get_player(1)
@@ -490,5 +490,35 @@ func test_specialists_add_commerce() -> void:
 	var base_commerce: int = s.output_commerce
 	s.specialists = {"merchant": 2}
 	TurnEngine._settlement_growth(gs, s, p)
-	var per: int = gs.db.get_constant("specialist_commerce", 3)
-	assert_eq(s.output_commerce, base_commerce + 2 * per, "Each specialist adds commerce")
+	var per: int = int(gs.db.get_specialist("merchant")["output"]["commerce"])
+	assert_eq(s.output_commerce, base_commerce + 2 * per,
+		"Each merchant adds the table's commerce output")
+
+func test_engineer_specialists_add_table_production() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	var p = gs.get_player(1)
+	s.worked_tiles = []
+	TurnEngine._settlement_growth(gs, s, p)
+	var base_prod: int = s.output_production
+	s.specialists = {"engineer": 3}
+	TurnEngine._settlement_growth(gs, s, p)
+	var per: int = int(gs.db.get_specialist("engineer")["output"]["production"])
+	assert_eq(s.output_production, base_prod + 3 * per,
+		"Each engineer adds the table's production output (not commerce)")
+
+func test_scientist_specialists_add_science_not_commerce() -> void:
+	# A scientist's output is science, routed to research — not raw city commerce.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	var p = gs.get_player(1)
+	s.worked_tiles = []
+	TurnEngine._settlement_growth(gs, s, p)
+	var base_commerce: int = s.output_commerce
+	s.specialists = {"scientist": 2}
+	TurnEngine._settlement_growth(gs, s, p)
+	assert_eq(s.output_commerce, base_commerce,
+		"Scientists yield science, not city commerce")
+	assert_eq(Specialists.settlement_channel(gs.db, s, "science"),
+		2 * int(gs.db.get_specialist("scientist")["output"]["science"]),
+		"Scientist science is exposed on the science channel")

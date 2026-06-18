@@ -197,7 +197,7 @@ func test_bureaucracy_capital_bonus() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 4)
-	s.specialists = {"merchant": 2}  # 2 * specialist_commerce(3) = 6 commerce
+	s.specialists = {"merchant": 2}  # 2 merchants * 3 commerce (table) = 6 commerce
 	var base = _grow_outputs(gs, s, p)[1]
 	p.policies = {"legal": "bureaucracy"}  # capital_commerce: 50
 	var boosted = _grow_outputs(gs, s, p)[1]

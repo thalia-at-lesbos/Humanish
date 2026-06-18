@@ -286,14 +286,18 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	total_prod     += org_delta[1]
 	total_commerce += org_delta[2]
 
-	# Specialist economic output (§6.5): assigned specialists yield commerce.
-	var spec_count: int = 0
-	for spec_type in s.specialists:
-		spec_count += int(s.specialists[spec_type])
-	# Mercantilism grants a free specialist per city — it yields commerce like any
-	# specialist but consumes no population (§8).
-	spec_count += PolicyEffects.sum_int(player, db, "free_specialist_per_city")
-	total_commerce += spec_count * db.get_constant("specialist_commerce", 3)
+	# Specialist economic output (§6.5): each assigned specialist yields its
+	# per-head output vector from data/specialists.json. Food/production/commerce
+	# fold into the city output here; science/culture/espionage route into their
+	# own pipelines (_apply_research / _settlement_culture / _apply_intelligence).
+	var spec_out: Dictionary = Specialists.settlement_output(db, s)
+	total_food     += int(spec_out["food"])
+	total_prod     += int(spec_out["production"])
+	total_commerce += int(spec_out["commerce"])
+	# Mercantilism grants a free, population-free specialist per city; it is not an
+	# assigned type, so it yields the generic specialist commerce directly (§8).
+	total_commerce += PolicyEffects.sum_int(player, db, "free_specialist_per_city") \
+		* db.get_constant("specialist_commerce", 3)
 
 	# Golden Age: every worked tile yields +1 food/production/commerce (§14.4).
 	var ga_bonus: int = GreatPeople.golden_age_tile_bonus(gs, player)
@@ -1049,6 +1053,9 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 		# Free Speech amplifies culture output in every city (§8).
 		culture_out += Fixed.scale(culture_out,
 			PolicyEffects.sum_int(player, db, "culture_all_cities"))
+	# Artist/priest specialists add culture directly (§6.5), outside the commerce
+	# split (it is yield, not taxed commerce).
+	culture_out += Specialists.settlement_channel(db, s, "culture")
 	s.culture_total += culture_out
 
 	# Ring expansion
@@ -1072,10 +1079,9 @@ static func _settlement_upkeep(gs: GameState, s: Settlement,
 		player.treasury -= int(struct.get("upkeep", 0))
 
 static func _special_person_progress(gs: GameState, s: Settlement) -> void:
-	# Accumulate special person points from specialists
-	var points: int = 0
-	for spec_type in s.specialists:
-		points += int(s.specialists[spec_type])
+	# Accumulate special person points from specialists, weighted by each type's
+	# gp_points from data/specialists.json (§14.3).
+	var points: int = Specialists.settlement_gp_points(gs.db, s)
 	# Pacifism accelerates Great Person birth (§8, §14).
 	var player: Player = gs.get_player(s.owner_player_id)
 	if player != null:
@@ -1317,6 +1323,9 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 			continue
 		var split: Array = player.split_commerce(s.output_commerce)
 		research_income += split[1]  # research
+		# Scientist specialists yield science directly (§6.5), outside the commerce
+		# split (it is yield, not taxed commerce).
+		research_income += Specialists.settlement_channel(db, s, "science")
 		scientists += int(s.specialists.get("scientist", 0))
 
 	# Representation: scientist specialists yield extra science directly (§8).
@@ -1396,7 +1405,8 @@ static func _apply_intelligence(gs: GameState, player: Player) -> void:
 		if s.owner_player_id != player.id:
 			continue
 		var city_out: int = player.split_commerce(s.output_commerce)[3] \
-			+ _settlement_espionage_flat(s, gs.db)
+			+ _settlement_espionage_flat(s, gs.db) \
+			+ Specialists.settlement_channel(gs.db, s, "espionage")
 		city_out += Fixed.scale(city_out, _settlement_espionage_output(s, gs.db))
 		total += city_out
 

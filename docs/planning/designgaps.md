@@ -97,14 +97,15 @@ dictionaries are read too, through the single helper `sim/policy_effects.gd`
 - **Unit/GP** (`_complete_item` / `_special_person_progress`): `new_unit_xp` and
   `state_religion_unit_xp` set a new military unit's starting experience;
   `great_person_rate` scales Great-Person point accrual.
+- **Specialists** (`Specialists.slots_for`, via `SimFacade._cmd_assign_specialist`):
+  `unlimited_specialists` (Caste System) now lifts the per-type slot ceiling —
+  the Phase 2 specialists table (`data/specialists.json`) added `default_slots`
+  plus per-structure `specialist_slots`, which the flag overrides to unlimited.
 
-Covered by `tests/sim/test_policy_effects.gd`.
+Covered by `tests/sim/test_policy_effects.gd` and `tests/api/test_facade.gd`.
 
 **Still inert — blocked on an unbuilt subsystem, not on the wiring:**
 
-- `unlimited_specialists` (Caste System) — the sim caps specialists only by
-  population; there is no per-building specialist *slot* ceiling to lift, so the
-  flag has nothing to relax until a slot system exists.
 - Emancipation's cross-faction unhappiness is not modelled (the cottage→hamlet→
   village→town upgrading it speeds *is* now modelled — see below;
   `faster_cottage_growth` is wired in `TurnEngine._grow_cottages`).

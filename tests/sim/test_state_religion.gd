@@ -101,9 +101,9 @@ func test_anarchy_zeroes_commerce_output() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 3)
-	s.specialists = {"scientist": 1}  # yields commerce via specialist_commerce
+	s.specialists = {"merchant": 1}  # merchant yields commerce per the specialists table
 	TurnEngine._settlement_growth(gs, s, p)
-	assert_gt(s.output_commerce, 0, "A specialist yields commerce in peacetime")
+	assert_gt(s.output_commerce, 0, "A merchant specialist yields commerce in peacetime")
 	p.transition_turns = 1
 	TurnEngine._settlement_growth(gs, s, p)
 	assert_eq(s.output_commerce, 0, "Anarchy zeroes all commerce output")

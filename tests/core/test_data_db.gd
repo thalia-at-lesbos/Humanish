@@ -121,3 +121,47 @@ func test_every_trait_has_ai_focus() -> void:
 			assert_true(focus.has(axis), "Trait '%s' ai_focus needs a '%s' axis" % [tid, axis])
 			assert_true(typeof(focus[axis]) == TYPE_REAL or typeof(focus[axis]) == TYPE_INT,
 				"Trait '%s' ai_focus.%s must be numeric" % [tid, axis])
+
+# ── Specialists table (§6.5 / §14.5) ────────────────────────────────────────────
+
+func test_specialists_table_has_fourteen_types() -> void:
+	var db = _db()
+	var working := ["citizen", "priest", "artist", "scientist", "merchant", "engineer", "spy"]
+	var great := ["great_priest", "great_artist", "great_scientist", "great_merchant",
+		"great_engineer", "great_general", "great_spy"]
+	for sid in working + great:
+		assert_false(db.get_specialist(sid).empty(),
+			"Specialist '%s' must exist in the table" % sid)
+
+func test_specialist_records_are_well_formed() -> void:
+	var db = _db()
+	for sid in db.get_specialists():
+		if sid == "_comment":
+			continue
+		var rec: Dictionary = db.get_specialist(sid)
+		assert_true(rec.has("output") and rec["output"] is Dictionary,
+			"Specialist '%s' needs an output dict" % sid)
+		assert_true(rec.has("gp_points"), "Specialist '%s' needs gp_points" % sid)
+		assert_true(rec.has("default_slots"), "Specialist '%s' needs default_slots" % sid)
+		# Output channels must be known yield channels.
+		for ch in rec["output"]:
+			assert_true(ch in Specialists.CHANNELS,
+				"Specialist '%s' output channel '%s' is not a known channel" % [sid, ch])
+
+func test_specialist_great_person_units_resolve() -> void:
+	var db = _db()
+	for sid in db.get_specialists():
+		if sid == "_comment":
+			continue
+		var gp_unit = db.get_specialist(sid).get("great_person_unit", "")
+		if gp_unit != "":
+			assert_true(db.units.has(gp_unit),
+				"Specialist '%s' great_person_unit '%s' must be a real unit" % [sid, gp_unit])
+
+func test_structure_specialist_slots_name_known_types() -> void:
+	var db = _db()
+	for struct_id in db.structures:
+		var slots: Dictionary = db.structures[struct_id].get("specialist_slots", {})
+		for stype in slots:
+			assert_false(db.get_specialist(stype).empty(),
+				"Structure '%s' specialist slot '%s' must be a known specialist" % [struct_id, stype])

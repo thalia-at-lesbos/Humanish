@@ -19,6 +19,11 @@ func _screen(facade):
 	screen.init(facade)
 	return screen
 
+# Canary: the script must compile so a parse error cannot hide behind a green run.
+func test_city_screen_script_compiles() -> void:
+	assert_true(load("res://scenes/screens/city_screen.gd").can_instance(),
+		"city_screen.gd must compile cleanly")
+
 func test_city_view_builds_from_settlement() -> void:
 	var facade = setup_facade(71, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
