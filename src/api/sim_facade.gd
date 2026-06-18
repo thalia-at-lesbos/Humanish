@@ -72,6 +72,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	_gs.rng.init(seed_val)
 	_gs.pace_id = pace_id
 	_gs.difficulty_id = difficulty_id
+	_gs.world_size_id = world_size_id
 	_gs.enabled_win_conditions = enabled_win_conditions.duplicate()
 	_gs.wild_aggressive = aggressive_wild
 	_gs.permanent_alliances = permanent_alliances

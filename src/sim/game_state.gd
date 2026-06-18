@@ -27,6 +27,7 @@ var turn_number: int = 0
 var max_turns: int = 500
 var pace_id: String = "normal"
 var difficulty_id: String = "prince"
+var world_size_id: String = "standard"  # feeds the §6.3 research cost chain
 var current_player_id: int = -1  # whose turn it is (-1 = world step)
 
 var enabled_win_conditions: Array = []
@@ -218,6 +219,7 @@ func serialize() -> Dictionary:
 		"max_turns": max_turns,
 		"pace_id": pace_id,
 		"difficulty_id": difficulty_id,
+		"world_size_id": world_size_id,
 		"current_player_id": current_player_id,
 		"enabled_win_conditions": enabled_win_conditions.duplicate(),
 		"winning_alliance_id": winning_alliance_id,
@@ -252,6 +254,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.max_turns = int(d.get("max_turns", 500))
 	gs.pace_id = str(d.get("pace_id", "normal"))
 	gs.difficulty_id = str(d.get("difficulty_id", "prince"))
+	gs.world_size_id = str(d.get("world_size_id", "standard"))
 	gs.current_player_id = int(d.get("current_player_id", -1))
 	gs.enabled_win_conditions = d.get("enabled_win_conditions", []).duplicate()
 	gs.winning_alliance_id = int(d.get("winning_alliance_id", -1))
