@@ -233,16 +233,45 @@ func test_free_speech_culture_all_cities() -> void:
 # ── Production-phase effects (via _policy_production_delta) ───────────────────
 
 func test_police_state_military_production() -> void:
+	# military_production is now a percentage modifier (§4.3): it stacks in the
+	# production percent chain rather than as a flat delta.
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 3)
 	p.policies = {"government": "police_state"}  # military_production: 25
 	var item = {"type": "unit", "id": "warrior"}
-	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, item, 100), 25,
-		"Police State adds 25% production toward a military unit")
+	assert_eq(TurnEngine._production_percent_mods(gs, s, p, gs.db, item), 25,
+		"Police State contributes +25% toward a military unit")
 	var civ_item = {"type": "unit", "id": "settler"}
-	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, civ_item, 100), 0,
+	assert_eq(TurnEngine._production_percent_mods(gs, s, p, gs.db, civ_item), 0,
 		"...but not toward a civilian unit")
+
+func test_two_percent_sources_sum_then_apply_once() -> void:
+	# A Forge (+25% all production) and Police State (+25% military) sum to +50%
+	# applied once on the base — not compounded (×1.25×1.25 ≈ +56%).
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	gs.db.units["test_titan"] = {
+		"id": "test_titan", "classification": "melee", "base_strength": 10,
+		"movement": 100, "cost": 100000, "upkeep": 0, "tags": []
+	}
+	s.structures = ["forge"]                       # production_bonus: 25
+	p.policies = {"government": "police_state"}    # military_production: 25
+	var mil = {"type": "unit", "id": "test_titan"}
+	assert_eq(TurnEngine._production_percent_mods(gs, s, p, gs.db, mil), 50,
+		"Two +% sources sum to +50% in the chain")
+	s.output_production = 100
+	s.production_queue = [mil]                     # too costly to finish this turn
+	s.production_store = 0
+	var base: int = Fixed.scale(100, int(gs.db.get_pace(gs.pace_id).get("build_scale", 100)))
+	var sum_once: int = Fixed.apply_stacked_bonus(base, 50)
+	var compounded: int = Fixed.apply_stacked_bonus(Fixed.apply_stacked_bonus(base, 25), 25)
+	TurnEngine._settlement_production(gs, s, p)
+	assert_eq(s.production_store, sum_once,
+		"Modifiers are summed and applied once on the base")
+	assert_ne(s.production_store, compounded,
+		"...not applied multiplicatively in sequence")
 
 func test_organized_religion_building_production() -> void:
 	var gs = make_gs(1)
@@ -250,10 +279,10 @@ func test_organized_religion_building_production() -> void:
 	var s = make_settlement(gs, 1, 5, 5, 3)
 	p.policies = {"religion": "organized_religion"}  # religious_building_production: 1
 	var temple = {"type": "structure", "id": "temple"}
-	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, temple, 50), 1,
+	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, temple), 1,
 		"Organized Religion adds flat production toward a religious building")
 	var lib = {"type": "structure", "id": "library"}
-	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, lib, 50), 0,
+	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, lib), 0,
 		"...but not toward a secular building")
 
 func test_pacifism_production_drain() -> void:
@@ -264,7 +293,7 @@ func test_pacifism_production_drain() -> void:
 	make_warrior(gs, 1, 5, 5)  # two garrisoned military units
 	p.policies = {"religion": "pacifism"}  # production_per_military_unit: -1
 	var item = {"type": "structure", "id": "library"}
-	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, item, 100), -2,
+	assert_eq(TurnEngine._policy_production_delta(gs, s, p, gs.db, item), -2,
 		"Pacifism drains 1 production per garrisoned military unit")
 
 # ── Research ─────────────────────────────────────────────────────────────────
