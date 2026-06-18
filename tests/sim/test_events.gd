@@ -18,22 +18,176 @@ func test_events_table_loads() -> void:
 	assert_true(gs.db.events.has("ancient_windfall"), "events.json loads into DataDB")
 	assert_true(gs.db.get_errors().empty(), "DataDB still loads cleanly with the events table")
 
+# Isolate the certain prob-100 ancient_windfall trigger by pre-firing the other
+# probabilistic one-shots so only it can arm — deterministic regardless of seed.
+func _only_windfall(gs) -> void:
+	var p = gs.get_player(1)
+	for tid in gs.db.get_event_triggers():
+		if tid != "_comment" and tid != "trig_ancient_windfall":
+			p.events_fired.append(tid)
+
 func test_scripted_event_fires_once_after_min_turn() -> void:
 	var gs = make_gs()
+	_only_windfall(gs)
 	var p = gs.get_player(1)
 	p.treasury = 0
 	gs.turn_number = 10  # >= min_turn 8
 	var fired = Events.process_player_events(p, gs, gs.rng)
-	assert_eq(fired.size(), 1, "Event fires when its min_turn is reached")
-	assert_eq(p.treasury, 50, "Event treasury effect applied")
+	assert_eq(fired.size(), 1, "Event fires when its trigger's min_turn is reached")
+	assert_eq(str(fired[0].get("event_id", "")), "ancient_windfall", "windfall fired")
+	assert_eq(p.treasury, 50, "Event gold effect applied")
 	Events.process_player_events(p, gs, gs.rng)
-	assert_eq(p.treasury, 50, "A once-fired event does not repeat")
+	assert_eq(p.treasury, 50, "A once-fired one-shot trigger does not repeat")
 
 func test_scripted_event_held_before_min_turn() -> void:
 	var gs = make_gs()
+	_only_windfall(gs)
 	gs.turn_number = 2  # < min_turn 8
 	var fired = Events.process_player_events(gs.get_player(1), gs, gs.rng)
-	assert_true(fired.empty(), "Event does not fire before its min_turn")
+	assert_true(fired.empty(), "Event does not fire before its trigger's min_turn")
+
+# ── Trigger predicates (§9) ──────────────────────────────────────────────────────
+
+func test_trigger_turn_window() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var trig = {"id": "t", "min_turn": 5, "max_turn": 10}
+	gs.turn_number = 4
+	assert_false(Events.trigger_holds(trig, p, gs), "before the window the trigger is inert")
+	gs.turn_number = 7
+	assert_true(Events.trigger_holds(trig, p, gs), "inside the window the trigger holds")
+	gs.turn_number = 11
+	assert_false(Events.trigger_holds(trig, p, gs), "past max_turn the trigger is inert")
+
+func test_trigger_tech_gate() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var trig = {"id": "t", "tech_required": "writing"}
+	assert_false(Events.trigger_holds(trig, p, gs), "no tech -> predicate fails")
+	p.technologies.append("writing")
+	assert_true(Events.trigger_holds(trig, p, gs), "with the tech -> predicate holds")
+
+func test_trigger_building_gate() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var trig = {"id": "t", "building_required": "granary"}
+	assert_false(Events.trigger_holds(trig, p, gs), "no granary -> predicate fails")
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")
+	assert_true(Events.trigger_holds(trig, p, gs), "owning a granary -> predicate holds")
+
+func test_trigger_war_gate() -> void:
+	var gs = make_gs()
+	var trig = {"id": "t", "at_war": true}
+	assert_false(Events.trigger_holds(trig, gs.get_player(1), gs), "at peace -> war predicate fails")
+	# Players 1 and 2 start in separate alliances (id == player id); set them at war.
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	assert_true(Events.trigger_holds(trig, gs.get_player(1), gs), "at war -> predicate holds")
+
+func test_trigger_one_shot_blocks_refire() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var trig = {"id": "trig_x", "one_shot": true}
+	assert_true(Events.trigger_holds(trig, p, gs), "unfired one-shot is eligible")
+	p.events_fired.append("trig_x")
+	assert_false(Events.trigger_holds(trig, p, gs), "a fired one-shot is no longer eligible")
+
+# ── Effect verbs (§9) ────────────────────────────────────────────────────────────
+
+func test_begin_effects_gold_and_unit_and_building() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 0
+	var cap = make_settlement(gs, 1, 5, 5)
+	var before_units = gs.units.size()
+	Events.apply_event_begin({
+		"effects": [
+			{"verb": "gold", "amount": 25},
+			{"verb": "unit", "unit_type": "worker", "count": 2},
+			{"verb": "building", "structure_id": "monument"}
+		]}, p, gs)
+	assert_eq(p.treasury, 25, "gold verb banks gold")
+	assert_eq(gs.units.size(), before_units + 2, "unit verb spawns count units at the capital")
+	assert_true(cap.has_structure("monument"), "building verb adds a free structure to the capital")
+
+func test_capital_of_prefers_palace() -> void:
+	var gs = make_gs()
+	make_settlement(gs, 1, 5, 5)            # lower id, no palace
+	var pal = make_settlement(gs, 1, 8, 8)  # higher id, palace
+	pal.structures.append("palace")
+	assert_eq(Events.capital_of(1, gs).id, pal.id, "the Palace city is the event capital")
+
+# ── Choice events (§9) ───────────────────────────────────────────────────────────
+
+func test_choice_event_ai_auto_resolves() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.is_ai = true
+	p.treasury = 0
+	make_settlement(gs, 1, 5, 5)
+	var trig = {"id": "trig_wandering_nomads", "event_id": "wandering_nomads"}
+	var d = Events._fire(trig, p, gs)
+	assert_eq(str(d.get("kind", "")), "event_fired", "an AI resolves a choice event in-pipeline")
+	assert_true(gs.pending_event_choices.empty(), "no human choice is queued for an AI")
+
+func test_choice_event_blocks_then_applies_branch() -> void:
+	# A human's choice event parks a pending choice + raises a popup; resolving it
+	# applies exactly the chosen branch.
+	var f = setup_facade()
+	var gs = f.get_state()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	p.treasury = 0
+	var trig = {"id": "trig_wandering_nomads", "event_id": "wandering_nomads"}
+	Events._fire(trig, p, gs)
+	assert_eq(gs.pending_event_choices.size(), 1, "a human choice event parks a pending choice")
+	f._maybe_raise_event_popup(1)
+	assert_eq(int(f.get_pending_popup().get("type", -1)), IDs.PopupType.EVENT,
+		"the human is shown the event popup")
+	var before_units = gs.units.size()
+	assert_true(f.apply_command(Commands.resolve_event(1, "wandering_nomads", "tax")),
+		"resolving the choice succeeds")
+	assert_eq(p.treasury, 30, "the chosen 'tax' branch (gold 30) applied")
+	assert_eq(gs.units.size(), before_units, "the unchosen 'welcome' branch (worker) did not apply")
+	assert_true(gs.pending_event_choices.empty(), "the pending choice is cleared after resolving")
+	assert_true(f.get_pending_popup().empty(), "the popup is popped after resolving")
+
+# ── Timed events (§9) ────────────────────────────────────────────────────────────
+
+func test_timed_event_expires_on_schedule() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.health = 100
+	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	assert_eq(cap.health, 96, "the plague's begin effect lowers capital health")
+	assert_eq(gs.active_events.size(), 1, "a timed event is registered as active")
+	# duration 5: it persists for 4 ticks, expiring (restoring) on the 5th.
+	for i in range(4):
+		var produced = Events.tick_active_events(p, gs)
+		assert_true(produced.empty(), "still active on tick %d" % (i + 1))
+		assert_eq(cap.health, 96, "health unchanged while the event persists")
+	var last = Events.tick_active_events(p, gs)
+	assert_eq(last.size(), 1, "the event expires on its scheduled tick")
+	assert_eq(str(last[0].get("kind", "")), "event_expired", "an expiry descriptor is produced")
+	assert_eq(cap.health, 100, "the expire effect restores capital health")
+	assert_true(gs.active_events.empty(), "the expired event is removed from the active list")
+
+func test_timed_event_survives_save_load() -> void:
+	# Determinism: an in-progress timed event + a parked human choice roundtrip
+	# through save/load with their int fields intact (the JSON-key gotcha).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5).health = 100
+	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	gs.pending_event_choices.append({"event_id": "wandering_nomads", "player_id": 1, "trigger_id": "t"})
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	assert_eq(gs2.active_events.size(), 1, "active timed event roundtrips")
+	assert_eq(typeof(gs2.active_events[0]["turns_left"]), TYPE_INT, "turns_left coerced to int")
+	assert_eq(int(gs2.active_events[0]["player_id"]), 1, "active event player_id coerced to int")
+	assert_eq(gs2.pending_event_choices.size(), 1, "parked human choice roundtrips")
+	assert_eq(int(gs2.pending_event_choices[0]["player_id"]), 1, "pending-choice player_id coerced to int")
 
 func test_entering_discovery_site_yields_reward() -> void:
 	var gs = make_gs()

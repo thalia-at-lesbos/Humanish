@@ -69,6 +69,22 @@ var assembly: Dictionary = {}
 # notifications + the assembly_event signal. Not serialized.
 var pending_assembly_events: Array = []  # [{kind, ...payload}]
 
+# Timed random events in progress (§9 lifecycle): each {event_id, player_id,
+# turns_left}. Ticked down per owner each player step; the event's expire_effects
+# apply when turns_left hits 0. Serialized so a persisting event survives save/load
+# and stays on the determinism gate (deserialize coerces player_id/turns_left).
+var active_events: Array = []
+
+# Random-event choices a human still owes (§9): each {event_id, player_id,
+# trigger_id}. The event fired but its branch is unresolved; the facade raises a
+# CHOOSE_EVENT popup at the player's turn start and clears the entry on resolve.
+# Serialized so a pending choice survives save/load (deserialize coerces player_id).
+var pending_event_choices: Array = []
+
+# Transient fired/expired event descriptors produced by the §9 event step, drained
+# by SimFacade into notifications + the event_emitted signal. Not serialized.
+var pending_events: Array = []
+
 # Transient cultural-flip records produced by the §4.9 revolt phase during a
 # player step, drained by SimFacade into notifications + the city_flipped signal.
 # Not serialized: it never survives past the end of the turn that produced it.
@@ -234,6 +250,8 @@ func serialize() -> Dictionary:
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
 		"endgame_project_stages": endgame_project_stages.duplicate(),
 		"assembly": assembly.duplicate(true),
+		"active_events": active_events.duplicate(true),
+		"pending_event_choices": pending_event_choices.duplicate(true),
 		"_next_unit_id": _next_unit_id,
 		"_next_settlement_id": _next_settlement_id,
 		"_next_alliance_id": _next_alliance_id,
@@ -275,6 +293,22 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
 	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()
 	gs.assembly = d.get("assembly", {}).duplicate(true)
+	# Timed events & pending human choices: coerce JSON-loaded numeric fields back to
+	# int (the recurring float/string-key gotcha) so post-load lookups still match.
+	gs.active_events = []
+	for inst in d.get("active_events", []):
+		gs.active_events.append({
+			"event_id": str(inst.get("event_id", "")),
+			"player_id": int(inst.get("player_id", -1)),
+			"turns_left": int(inst.get("turns_left", 0))
+		})
+	gs.pending_event_choices = []
+	for pc in d.get("pending_event_choices", []):
+		gs.pending_event_choices.append({
+			"event_id": str(pc.get("event_id", "")),
+			"player_id": int(pc.get("player_id", -1)),
+			"trigger_id": str(pc.get("trigger_id", ""))
+		})
 	gs._next_unit_id = int(d.get("_next_unit_id", 1))
 	gs._next_settlement_id = int(d.get("_next_settlement_id", 1))
 	gs._next_alliance_id = int(d.get("_next_alliance_id", 1))

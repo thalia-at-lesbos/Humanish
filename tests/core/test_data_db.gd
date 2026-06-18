@@ -183,3 +183,40 @@ func test_goody_unit_types_resolve() -> void:
 		if ut != null and ut != "":
 			assert_true(db.units.has(str(ut)),
 				"goody '%s' unit_type '%s' must be a real unit" % [g.get("id", ""), ut])
+
+# ── Random-event lifecycle tables (§9) ───────────────────────────────────────────
+
+func test_event_tables_load_and_are_well_formed() -> void:
+	var db = _db()
+	assert_true(db.get_events().size() > 1, "events.json defines a catalogue")
+	assert_true(db.get_event_triggers().size() > 1, "event_triggers.json defines triggers")
+	assert_true(db.get_errors().empty(), "DataDB loads cleanly with the event tables")
+
+func test_event_triggers_reference_real_events() -> void:
+	var db = _db()
+	for tid in db.get_event_triggers():
+		if tid == "_comment":
+			continue
+		var eid = str(db.event_triggers[tid].get("event_id", ""))
+		assert_true(db.get_events().has(eid),
+			"trigger '%s' event_id '%s' must name a real event" % [tid, eid])
+
+func test_event_effect_refs_resolve() -> void:
+	# Every unit/structure/tech referenced by an event effect must exist (the loader
+	# enforces this; assert directly so a bad ref is caught here too).
+	var db = _db()
+	for eid in db.get_events():
+		if eid == "_comment":
+			continue
+		var ev = db.get_events()[eid]
+		var lists = [ev.get("effects", []), ev.get("expire_effects", [])]
+		for ch in ev.get("choices", []):
+			lists.append(ch.get("effects", []))
+		for effects in lists:
+			for eff in effects:
+				if str(eff.get("verb", "")) == "unit":
+					assert_true(db.units.has(str(eff.get("unit_type", ""))),
+						"event '%s' unit effect must name a real unit" % eid)
+				elif str(eff.get("verb", "")) == "building":
+					assert_true(db.structures.has(str(eff.get("structure_id", ""))),
+						"event '%s' building effect must name a real structure" % eid)

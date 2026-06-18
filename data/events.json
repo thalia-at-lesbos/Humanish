@@ -1,8 +1,57 @@
 {
+  "_comment": "Random-event definitions (§9). Each event has display text, an optional choices array (a begin-phase popup; absent = auto-apply the begin `effects`), an optional integer `duration` (turns the event persists before its `expire_effects` apply), and effect lists. Trigger predicates that decide WHEN an event fires live in data/event_triggers.json. Effect verbs (read by Events._apply_effect): gold/research/culture (player or capital deltas), tech (free cheapest researchable, or `tech_id`), unit (spawn `count` of `unit_type` at the capital), building (free `structure_id` in the capital), capital_health (delta on the capital's health, used for timed plagues), heal_units (restore every owned unit to full). Magnitudes are fixed integers so applying a choice is deterministic regardless of when the human resolves the popup; only trigger selection draws gs.rng.",
   "ancient_windfall": {
     "id": "ancient_windfall",
-    "min_turn": 8,
-    "treasury": 50,
-    "notice": "Prospectors uncover an ancient cache of gold."
+    "name": "Ancient Windfall",
+    "text": "Prospectors uncover an ancient cache of gold.",
+    "effects": [ { "verb": "gold", "amount": 50 } ]
+  },
+  "founders_monument": {
+    "id": "founders_monument",
+    "name": "A Gift of Stone",
+    "text": "Grateful settlers raise a monument to your founding.",
+    "effects": [ { "verb": "building", "structure_id": "monument" } ]
+  },
+  "bountiful_harvest": {
+    "id": "bountiful_harvest",
+    "name": "Bountiful Harvest",
+    "text": "A record harvest swells your granaries and your people's pride.",
+    "effects": [ { "verb": "culture", "amount": 40 } ]
+  },
+  "wandering_nomads": {
+    "id": "wandering_nomads",
+    "name": "Wandering Nomads",
+    "text": "A band of nomads asks to settle among your people.",
+    "choices": [
+      { "id": "welcome", "text": "Welcome them (gain a Worker)",
+        "effects": [ { "verb": "unit", "unit_type": "worker", "count": 1 } ] },
+      { "id": "tax", "text": "Tax them for passage (gain 30 gold)",
+        "effects": [ { "verb": "gold", "amount": 30 } ] }
+    ]
+  },
+  "scholarly_visitor": {
+    "id": "scholarly_visitor",
+    "name": "A Visiting Scholar",
+    "text": "A renowned scholar offers to share their learning - for a price.",
+    "choices": [
+      { "id": "fund", "text": "Fund the academy (gain 120 research)",
+        "effects": [ { "verb": "research", "amount": 120 } ] },
+      { "id": "decline", "text": "Send them on with a stipend (gain 20 gold)",
+        "effects": [ { "verb": "gold", "amount": 20 } ] }
+    ]
+  },
+  "veteran_recruits": {
+    "id": "veteran_recruits",
+    "name": "Veteran Recruits",
+    "text": "Hardened volunteers, eager to fight, muster at your capital.",
+    "effects": [ { "verb": "unit", "unit_type": "warrior", "count": 2 } ]
+  },
+  "great_plague": {
+    "id": "great_plague",
+    "name": "The Great Plague",
+    "text": "A wasting sickness sweeps your capital. It will pass in time.",
+    "duration": 5,
+    "effects": [ { "verb": "capital_health", "amount": -4 } ],
+    "expire_effects": [ { "verb": "capital_health", "amount": 4 } ]
   }
 }

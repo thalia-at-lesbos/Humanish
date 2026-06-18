@@ -265,22 +265,47 @@ order.
 
 ---
 
-## Phase 4 — Random-events lifecycle (§9, game-data §20)
-- **Goal.** Replace the one-shot event list with the reference's **trigger → begin(choice) →
-  apply → expire** lifecycle: trigger predicates (turn/tech/building/terrain/war/probability,
-  speed-scaled timers), optional player **choice popup**, an apply phase with multiple effect verbs
-  (gold, units, buildings, tech, terrain/feature change, happiness/health, quests), and timed
-  events that persist and expire. Grow the catalogue.
-- **Needs.** Expanded `data/events.json` + `data/event_triggers.json`; rewrite `src/sim/events.gd`
-  into a trigger-scan + apply/expire engine drawing from `gs.rng`; a `CHOOSE_EVENT` popup routed
-  through the existing `push_popup`/`resolve_popup` facade queue (mirror `CHOOSE_ELECTION`); active
-  events stored on `GameState` (serialize + int-key discipline); `events_screen` or message-log
-  surfacing.
-- **Tests.** `tests/sim/test_events.gd`: a trigger fires only when its predicate holds; a choice
-  popup blocks until resolved then applies the chosen branch; a timed event expires on schedule;
-  determinism across save/load mid-event (add to the integration playthrough).
-- **Risk.** Medium–high: new player-interaction popup + new serialized state on the determinism
-  gate. Land Phase 0–2 first so balance is stable.
+## Phase 4 — Random-events lifecycle (§9, game-data §20) ✅ COMPLETE
+**Done.** The one-shot treasury list is replaced by the reference's **trigger → begin(choice) →
+apply → expire** lifecycle. `src/sim/events.gd` is now a trigger-scan engine: each player step (§9,
+phase `PLAYER_EVENTS`) it first `tick_active_events` (decrements every timed event the player owns
+and applies its `expire_effects` at zero), then `_scan_and_fire` evaluates each trigger's predicate
+conjunction (`trigger_holds`) and arms the eligible ones — a prob-100 trigger arms **without a roll**
+(so a lone certain event never perturbs the shared RNG stream), sub-100 triggers roll `gs.rng`, and a
+weighted pick chooses one when several arm. The fired event either applies its begin `effects`
+immediately (no choices), **auto-resolves a branch for an AI** (`ai_choice_id`), or **parks a pending
+choice** for a human. Effect verbs (`_apply_effect`): `gold`/`research`/`culture` deltas, `tech`
+(named or cheapest researchable), `unit` (spawn at the capital), `building` (free structure),
+`capital_health` (timed-plague drain), `heal_units`. Magnitudes are **fixed integers**, so applying a
+choice draws no RNG and is identical whenever the human answers.
+- **Data.** `data/events.json` rewritten as event definitions (name/text, optional `choices`, begin
+  `effects`, `duration` + `expire_effects` for timed events); new `data/event_triggers.json` holds the
+  predicates (`min_turn`/`max_turn` pace-scaled, `tech_required`, `building_required`,
+  `terrain_required`, `at_war`/`at_peace`, `probability`, `weight`, `one_shot`). `DataDB` loads both
+  (`get_event`/`get_events`/`get_event_triggers`) and `_validate_event_refs` checks every trigger's
+  `event_id`/tech/building and every effect verb + unit/structure/tech reference resolves.
+- **Serialized state.** `GameState.active_events` (timed instances) and `pending_event_choices`
+  (humans' unresolved choices) are serialized with int-key coercion on deserialize; `pending_events`
+  is the transient surfacing queue. The facade `_drain_events` turns fired/expired records into
+  message-log notifications + the existing `event_emitted` signal; `_maybe_raise_event_popup` raises a
+  `PopupType.EVENT` popup at a human's turn start (mirroring `CHOOSE_ELECTION`), `get_pending_event`
+  lets presentation re-raise it after a load, and the new `RESOLVE_EVENT` command
+  (`Commands.resolve_event`, `_cmd_resolve_event`) commits the chosen branch and pops the popup.
+- **Tests.** `tests/sim/test_events.gd` (trigger predicates: turn window / tech / building / war /
+  one-shot; begin effect verbs; capital-of-prefers-Palace; AI auto-resolve; **human choice popup
+  blocks then applies exactly the chosen branch**; **timed event expires on schedule**; save/load
+  roundtrip of active events + parked choice). `tests/core/test_data_db.gd` (tables well-formed,
+  trigger→event and effect refs resolve). `tests/integration/test_full_playthrough.gd`
+  (`test_playthrough_save_load_determinism_midevent`: a mid-flight timed plague + parked human choice
+  roundtrip to the same `state_hash` and resume identically). Full unit suites (889) + integration
+  gate (10) green in isolation and via `./run_tests.sh`; `ai_full_game_smoke.gd` still reaches a win
+  (alliance 1, turn 500) with **zero errors** — and no seed-pinned test needed re-pinning (the
+  no-roll-for-certain-triggers rule kept existing RNG streams stable).
+- **Deliberate scope.** Happiness/health-over-time and terrain/feature-mutation effect verbs, event
+  chaining, and per-trigger cooldowns are left out of the first cut (the begin+expire timed model and
+  the `capital_health` verb already cover persisting effects); revisit when a specific event needs
+  them. A dedicated `events_screen` is deferred — events surface through the message log, consistent
+  with the assembly-ballot popup which likewise has no bespoke scene UI yet.
 
 ---
 

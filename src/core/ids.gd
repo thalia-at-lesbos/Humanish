@@ -109,7 +109,9 @@ enum CommandType {
     MOVE_PRODUCTION_ITEM = 59,
     # Chop/clear a removable surface feature (forest/jungle) off a worker's tile
     # without placing an improvement; a felled forest yields production (§4.11).
-    MISSION_CLEAR_FEATURE = 60
+    MISSION_CLEAR_FEATURE = 60,
+    # Resolve a random-event choice popup (§9): commit the player's chosen branch.
+    RESOLVE_EVENT = 61
 }
 
 # Win condition types

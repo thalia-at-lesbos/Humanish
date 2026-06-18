@@ -251,6 +251,46 @@ func test_playthrough_save_load_determinism_midgame() -> void:
 	assert_eq(f2.state_hash(), continued_hash,
 		"resumed game stays deterministic with the original")
 
+# Save/load determinism with the §9 random-event lifecycle mid-flight: an
+# in-progress timed event and a parked human choice are serialized state, so a
+# roundtrip must reproduce the hash and resume identically.
+func test_playthrough_save_load_determinism_midevent() -> void:
+	var ng = _new_game(23); var gs = ng[0]; var f = ng[1]
+	make_settlement(gs, 1, 8, 8, 3).health = 100
+	make_warrior(gs, 1, 4, 4)
+	make_settlement(gs, 2, 12, 12, 2).health = 100
+
+	# Stand up the lifecycle state directly: a timed plague on player 1 (mid-duration)
+	# and an unresolved choice the human still owes.
+	Events.apply_event_begin(gs.db.get_event("great_plague"), gs.get_player(1), gs)
+	Events.tick_active_events(gs.get_player(1), gs)   # burn one turn of the timer
+	gs.pending_event_choices.append(
+		{"event_id": "wandering_nomads", "player_id": 1, "trigger_id": "trig_wandering_nomads"})
+
+	for _i in range(2):
+		_end_turn(f, gs, 1)
+		_end_turn(f, gs, 2)
+
+	var mid_hash = f.state_hash()
+	var save_str = f.save()
+	for _i in range(2):
+		_end_turn(f, gs, 1)
+		_end_turn(f, gs, 2)
+	var continued_hash = f.state_hash()
+
+	var f2 = load("res://src/api/sim_facade.gd").new()
+	f2.init_for_load(make_db())
+	assert_true(f2.load_save(save_str), "mid-event save loads into a fresh facade")
+	assert_eq(f2.state_hash(), mid_hash, "loaded hash matches the pre-save hash (active events intact)")
+	var gs2 = f2.get_state()
+	# The parked human choice survived the load and can still be resolved.
+	assert_false(f2.get_pending_event(1).empty(), "the human's parked event choice survives the load")
+	for _i in range(2):
+		_end_turn(f2, gs2, 1)
+		_end_turn(f2, gs2, 2)
+	assert_eq(f2.state_hash(), continued_hash,
+		"resumed game with active events stays deterministic with the original")
+
 # ── Debug console: one sparing value-mod for a late-game condition ───────────────
 
 func test_playthrough_debug_console_unlocks_lategame_condition() -> void:

@@ -356,6 +356,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_gp_action(cmd)
 		IDs.CommandType.CAST_VOTE:
 			return _cmd_cast_vote(cmd)
+		IDs.CommandType.RESOLVE_EVENT:
+			return _cmd_resolve_event(cmd)
 		IDs.CommandType.PROPOSE_PERMANENT_ALLIANCE:
 			return _cmd_propose_permanent_alliance(cmd)
 	return false
@@ -422,6 +424,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 	_drain_productions()
 	_drain_growth_events()
 	_drain_improvement_completions()
+	_drain_events()
 
 	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
@@ -445,6 +448,8 @@ func _cmd_end_turn(player_id: int) -> bool:
 		emit_signal("player_turn_started", _gs.current_player_id)
 		# Raise the assembly ballot for a human who still owes a vote (§7.2).
 		_maybe_raise_vote_popup(_gs.current_player_id)
+		# Raise a random-event choice popup for a human with an unresolved event (§9).
+		_maybe_raise_event_popup(_gs.current_player_id)
 
 	_dirty.mark_all()
 	return true
@@ -2561,6 +2566,88 @@ func _drain_assembly_events() -> void:
 	_gs.pending_assembly_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface the random-event records produced this player step (§9): a notification
+# + an event_emitted signal for each fired/expired event. Then clear the queue.
+# (A human's pending CHOICE is surfaced separately as a popup; it is not drained
+# here so the prompt persists until resolved.)
+func _drain_events() -> void:
+	if _gs.pending_events.empty():
+		return
+	for e in _gs.pending_events:
+		var nm: String = str(e.get("name", e.get("event_id", "")))
+		match str(e.get("kind", "")):
+			"event_fired":
+				_add_notification("Event: " + nm + ".", "major")
+			"event_choice_pending":
+				_add_notification("Event awaiting your decision: " + nm + ".", "major")
+			"event_expired":
+				_add_notification("Event ended: " + nm + ".", "info")
+		emit_signal("event_emitted", e)
+	_gs.pending_events = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Push a CHOOSE_EVENT popup for a human player who has an unresolved event choice
+# (§9). AI choices are auto-resolved inside the event step, so they never queue.
+func _maybe_raise_event_popup(player_id: int) -> void:
+	var p: Player = _gs.get_player(player_id)
+	if p == null or p.is_ai:
+		return
+	var pending: Dictionary = get_pending_event(player_id)
+	if pending.empty():
+		return
+	var ev: Dictionary = _db.get_event(str(pending.get("event_id", "")))
+	var options: Array = []
+	for ch in ev.get("choices", []):
+		options.append({"id": str(ch.get("id", "")), "text": str(ch.get("text", ""))})
+	push_popup({
+		"type": IDs.PopupType.EVENT,
+		"player_id": player_id,
+		"event_id": str(pending.get("event_id", "")),
+		"name": str(ev.get("name", "")),
+		"text": str(ev.get("text", "")),
+		"choices": options
+	})
+
+# The first unresolved event choice owed by a player (§9), or {} when none. Mirrors
+# get_pending_vote: lets presentation re-raise the prompt after a load.
+func get_pending_event(player_id: int) -> Dictionary:
+	for pc in _gs.pending_event_choices:
+		if int(pc.get("player_id", -1)) == player_id:
+			return pc
+	return {}
+
+# Resolve a human's random-event choice (§9): apply the chosen branch, clear the
+# pending entry, and pop the matching popup. Effects are fixed-value, so applying
+# here draws no RNG and stays deterministic regardless of when the human answers.
+func _cmd_resolve_event(cmd: Dictionary) -> bool:
+	var player_id: int = int(cmd["player_id"])
+	var event_id: String = str(cmd.get("event_id", ""))
+	var choice_id: String = str(cmd.get("choice_id", ""))
+	var idx: int = -1
+	for i in range(_gs.pending_event_choices.size()):
+		var pc: Dictionary = _gs.pending_event_choices[i]
+		if int(pc.get("player_id", -1)) == player_id and str(pc.get("event_id", "")) == event_id:
+			idx = i
+			break
+	if idx < 0:
+		return false
+	var player: Player = _gs.get_player(player_id)
+	if player == null or not Events.apply_choice(event_id, choice_id, player, _gs):
+		return false
+	_gs.pending_event_choices.remove(idx)
+	# Drop the matching popup if it is at the head of the queue.
+	var top: Dictionary = get_pending_popup()
+	if int(top.get("type", -1)) == IDs.PopupType.EVENT \
+			and str(top.get("event_id", "")) == event_id:
+		resolve_popup({})
+	var ev: Dictionary = _db.get_event(event_id)
+	_add_notification("Event resolved: " + str(ev.get("name", event_id)) + ".", "major")
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	return true
 
 # Surface technology-completion records queued during a player step: one
 # notification + a technology_completed signal each, then clear the queue.
