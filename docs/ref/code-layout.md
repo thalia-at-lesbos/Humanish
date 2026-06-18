@@ -163,7 +163,8 @@ The tables and what they configure:
 | `map_types.json` | Map-script definitions: land-mask `shape`, `climate`, target `land_fraction`, landform/feature chances, and shape params (read by `MapGen`) |
 | `win_conditions.json` | Condition type and numeric thresholds |
 | `projects.json` | Endgame (spaceship-style) project stages: cost, tech/wonder gate, stage and count-needed; feeds the `endgame_project` win condition |
-| `events.json` | Scripted random-event definitions (min turn, treasury/effect delta, notice text) |
+| `events.json` | §9 random-event definitions: name/text, optional `choices`, begin `effects`, and `duration`/`expire_effects` for timed events. Effect verbs (gold/research/culture/tech/unit/building/capital_health/heal_units) are read by `Events`; magnitudes are fixed ints |
+| `event_triggers.json` | §9 trigger predicates that gate when an event fires: `event_id`, pace-scaled `min_turn`/`max_turn`, `tech_required`/`building_required`/`terrain_required`, `at_war`/`at_peace`, `probability`, `weight`, `one_shot` (read by `Events.trigger_holds`) |
 | `goodies.json` | §9 goody-hut / discovery-site reward table: weighted `type` (treasury/map/experience/heal/unit/tech/ambush) with per-reward magnitudes (read by `Events.exploration_reward`; per-difficulty weight overrides live in `difficulties.json` `goody_weights`) |
 | `resolutions.json` | §7.2 world-assembly resolutions: category, vote threshold, effect payload, eligibility gates (read by `Assembly`) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
@@ -268,7 +269,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 6. Settlement steps (iterates `settlement_step` for all owned settlements), then §4.9 cultural revolt / city flipping (`CultureRevolt.process_player`, queued onto `gs.pending_flips`)
 7. Tick down timed states (transition, rush anger, celebration, Golden Age, state-religion/civic anarchy)
 8. Validate policies; update war fatigue
-9. Random events (`Events`)
+9. Random events (`Events.process_player_events`, §9 lifecycle): tick timed `gs.active_events` to expiry, then scan `event_triggers.json` predicates (`trigger_holds`) and fire at most one — applying begin `effects`, auto-resolving an AI's branch, or parking a human's choice on `gs.pending_event_choices`; fired/expired records queue on `gs.pending_events` for the facade's `_drain_events`
 10. Reset unit movement/action flags — a stationary worker mid-build advances here (`_advance_worker_build`); on completion the improvement is placed and, unless it `preserves_feature` (camp/lumbermill/forest_preserve/fort) or requires that feature, a removable forest/jungle on the tile is cleared via the shared `_chop_tile`. A worker running a **standalone chop order** (`MISSION_CLEAR_FEATURE`, sets `Unit.clearing_feature`) advances in the same loop (`_advance_worker_chop`) and fells the feature with no improvement placed. A felled forest delivers its `chop_yield` as production to the nearest owned city — raised by `chop_yield_tech_bonus_pct` once the `chop_yield_tech` (Mathematics) is researched, and scaled to `chop_outside_borders_pct` when the chopped tile sits outside the player's borders (full inside). Jungle clears for nothing. Then recompute the player's derived era (`Eras.refresh`, queuing `gs.pending_era_advances`)
 
 **`settlement_step(gs, settlement, player, hooks)`** — runs per settlement:

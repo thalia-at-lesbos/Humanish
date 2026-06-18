@@ -37,6 +37,8 @@ var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
 var events: Dictionary = {}
+# Trigger predicates that decide when an event fires (§9 lifecycle).
+var event_triggers: Dictionary = {}
 # Goody-hut / discovery-site reward table (§9).
 var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
@@ -69,6 +71,7 @@ func load_all() -> bool:
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
 	events       = _load_json("res://data/events.json")
+	event_triggers = _load_json("res://data/event_triggers.json")
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	_validate()
@@ -110,6 +113,18 @@ func get_specialists() -> Dictionary:
 # when the table failed to load.
 func get_goodies() -> Array:
 	return goodies.get("goodies", [])
+
+# A single random-event definition (data/events.json); empty for unknown ids.
+func get_event(id: String) -> Dictionary:
+	return events.get(id, {})
+
+# All event definitions (callers iterating must skip the leading "_comment" key).
+func get_events() -> Dictionary:
+	return events
+
+# All trigger predicates (callers iterating must skip the leading "_comment" key).
+func get_event_triggers() -> Dictionary:
+	return event_triggers
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -202,6 +217,7 @@ func _validate() -> void:
 	_validate_improvement_tech_refs()
 	_validate_specialist_refs()
 	_validate_goody_refs()
+	_validate_event_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -257,3 +273,48 @@ func _validate_goody_refs() -> void:
 		var ut = g.get("unit_type", "")
 		if ut != null and ut != "" and not units.has(str(ut)):
 			_errors.append("Goody '%s' unit_type '%s' not in units table" % [gid, ut])
+
+# Every trigger must name an event that exists; every event effect (begin, choice,
+# or expire) must use a known verb and resolve its unit/structure/tech reference.
+func _validate_event_refs() -> void:
+	for tid in event_triggers:
+		if tid == "_comment":
+			continue
+		var trig: Dictionary = event_triggers[tid]
+		var eid = str(trig.get("event_id", ""))
+		if eid == "" or not events.has(eid):
+			_errors.append("Event trigger '%s' event_id '%s' not in events table" % [tid, eid])
+		var treq = trig.get("tech_required", "")
+		if treq != null and treq != "" and not technologies.has(str(treq)):
+			_errors.append("Event trigger '%s' tech_required '%s' not found" % [tid, treq])
+		var breq = trig.get("building_required", "")
+		if breq != null and breq != "" and not structures.has(str(breq)):
+			_errors.append("Event trigger '%s' building_required '%s' not found" % [tid, breq])
+	for eid in events:
+		if eid == "_comment":
+			continue
+		var ev: Dictionary = events[eid]
+		_validate_event_effects(eid, ev.get("effects", []))
+		_validate_event_effects(eid, ev.get("expire_effects", []))
+		for ch in ev.get("choices", []):
+			_validate_event_effects(eid, ch.get("effects", []))
+
+func _validate_event_effects(eid: String, effects: Array) -> void:
+	var known := ["gold", "research", "culture", "tech", "unit", "building",
+		"capital_health", "heal_units"]
+	for eff in effects:
+		var verb = str(eff.get("verb", ""))
+		if not (verb in known):
+			_errors.append("Event '%s' uses unknown effect verb '%s'" % [eid, verb])
+		if verb == "unit":
+			var ut = str(eff.get("unit_type", ""))
+			if not units.has(ut):
+				_errors.append("Event '%s' unit effect type '%s' not in units table" % [eid, ut])
+		elif verb == "building":
+			var st = str(eff.get("structure_id", ""))
+			if not structures.has(st):
+				_errors.append("Event '%s' building effect '%s' not in structures table" % [eid, st])
+		elif verb == "tech":
+			var tid = str(eff.get("tech_id", ""))
+			if tid != "" and not technologies.has(tid):
+				_errors.append("Event '%s' tech effect '%s' not found" % [eid, tid])

@@ -384,6 +384,16 @@ static func cast_vote(player_id: int, choice: String) -> Dictionary:
 		"choice": choice
 	}
 
+# Resolve a random-event choice popup (§9): commit `choice_id` of `event_id` for
+# the player who owns the pending choice.
+static func resolve_event(player_id: int, event_id: String, choice_id: String) -> Dictionary:
+	return {
+		"type": IDs.CommandType.RESOLVE_EVENT,
+		"player_id": player_id,
+		"event_id": event_id,
+		"choice_id": choice_id
+	}
+
 static func set_subordination(player_id: int, overlord_alliance_id: int) -> Dictionary:
 	return {
 		"type": IDs.CommandType.SET_SUBORDINATION,
