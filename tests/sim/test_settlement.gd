@@ -375,6 +375,14 @@ func _grow_pop_for_difficulty(diff, is_ai = false) -> int:
 	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
 	return s.population
 
+func test_ai_cities_receive_no_growth_aid() -> void:
+	# The growth handicap is a human-only aid (§2.2): a Settler-difficulty AI city
+	# does NOT get the lowered threshold, so it holds where a human city grows.
+	assert_eq(_grow_pop_for_difficulty("settler", false), 2,
+		"Human Settler city grows (receives the growth aid)")
+	assert_eq(_grow_pop_for_difficulty("settler", true), 1,
+		"AI Settler city holds (no city aids)")
+
 func test_difficulty_health_bonus_affects_wellbeing() -> void:
 	assert_true(_deficit_for_difficulty("deity") > _deficit_for_difficulty("settler"),
 		"Harder difficulty worsens city wellbeing (larger deficit)")
