@@ -309,7 +309,44 @@ choice draws no RNG and is identical whenever the human answers.
 
 ---
 
-## Phase 5 — Corporations (full model) (§8, game-data §14.6/§20)
+## Phase 5 — Corporations (full model) (§8, game-data §14.6/§20) ✅ COMPLETE
+**Done.** `econ_orgs` is extended in place to the reference corporation system (the existing
+`data/econ_orgs.json` is reused rather than a new `corporations.json`). Each corporation now carries
+a **headquarters structure** (`hq_structure`, erected in the founding city by `EconOrgs.found`), an
+**executive unit** (the already-present `executive`, `spread_corporation`-tagged), per-city
+**maintenance**, and an **HQ gold-per-input** rate. `EconOrgs.get_output_delta(gs, s)` now scales
+output with the **count of distinct input resources the city owner has connected** (flat
+`output_delta` + `output_per_input_resource × count`); Cereal Mills/Mining Inc. became pure
+per-input (+1 Food / +2 Production per type), the rest stay flat, matching the §14.6 table.
+`EconOrgs.maintenance_for` (charged per member city, halved by Free Market's
+`corporation_maintenance_reduction`) and `EconOrgs.hq_gold_for` (founder gold per unit of input
+consumed in every member city worldwide) are wired into `TurnEngine._update_treasury`. Mercantilism
+and State Property gained the `corporations_disabled` effect flag (read via
+`EconOrgs.corporations_banned`/`PolicyEffects.has_flag`): under either, a player's corporations
+produce nothing, owe no maintenance, and cannot be spread into.
+- **Spread.** Organic `spread_all` is retained (now skips ban-civic owners); the deliberate
+  executive path is the new `SPREAD_CORPORATION` command (`Commands.spread_corporation`,
+  `SimFacade._cmd_spread_corporation`, mirroring the missionary `SPREAD_BELIEF` path) — it spreads
+  the player's founded corporation into the city on the executive's tile for
+  `corporation_executive_spread_cost` (deterministic, no RNG, like the missionary), consuming the
+  unit.
+- **Data.** 10 `<corp>_hq` entries added to `structures.json`, each flagged `corporation_hq: true`
+  (granted by founding, excluded from the AI build catalog in `PlayerAI._sorted_options`, and never
+  in the city-screen quick-build list). New constants `corporation_maintenance`,
+  `corporation_hq_gold_per_input`, `corporation_executive_spread_cost` in `constants.json`. `DataDB`
+  gained `_validate_econ_org_refs` (HQ structure exists + flagged, executive unit exists, input
+  resources resolve). `corporation_screen.gd` now lists each corporation's inputs, per-city output
+  (distinguishing flat from per-input), and maintenance.
+- **No new serialized state** — corporations reuse the already-persisted `founded_econ_orgs` and
+  `settlement.econ_org_id`, so the integration save/load determinism gate already covers them.
+- **Tests.** `tests/sim/test_econ_orgs.gd` (HQ erected on founding; output scales with accessible
+  input count; flat-output corp ignores inputs; maintenance per member city + Free Market discount;
+  HQ pays the founder per input; banning civic disables output + maintenance; executive spread costs
+  treasury / consumes the unit / is deterministic; spread blocked under a ban). `tests/core/test_data_db.gd`
+  (table well-formed; HQ/executive/resource refs resolve). Full unit suites (902) + integration gate
+  (10) green in isolation and via `./run_tests.sh`; `ai_full_game_smoke.gd` still reaches a win
+  (alliance 1, turn 500) with **zero errors**, and no seed-pinned test needed re-pinning.
+
 - **Goal.** Extend `econ_orgs` to the reference corporation system: HQ structure (founder gold per
   unit of input consumed worldwide), executive spreader unit, input-resource **count**-scaled
   per-city output, per-city maintenance, and civic interactions (e.g. state-property bans them).

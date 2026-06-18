@@ -262,6 +262,19 @@ static func spread_belief(player_id: int, unit_id: int,
 		"settlement_id": settlement_id
 	}
 
+# ── Corporation executive spread (§14.6) ──────────────────────────────────────
+
+# Spread the executive's corporation to the settlement on its tile; consumes the
+# executive and charges the player a treasury cost on success.
+static func spread_corporation(player_id: int, unit_id: int,
+		settlement_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.SPREAD_CORPORATION,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"settlement_id": settlement_id
+	}
+
 # ── Draft / conscription (§6.4) ───────────────────────────────────────────────
 
 # Conscript a military unit from a city's population (requires the can_draft civic).

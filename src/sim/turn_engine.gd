@@ -281,7 +281,7 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		total_commerce += int(struct.get("output_delta", {}).get("commerce", 0))
 
 	# Econ org bonus
-	var org_delta: Array = EconOrgs.get_output_delta(s, db)
+	var org_delta: Array = EconOrgs.get_output_delta(gs, s)
 	total_food     += org_delta[0]
 	total_prod     += org_delta[1]
 	total_commerce += org_delta[2]
@@ -1175,6 +1175,10 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		var split: Array = player.split_commerce(s.output_commerce)
 		income += split[0]  # finance
 
+	# Corporation HQ gold: the founder earns a share per unit of input consumed in
+	# every member city worldwide (§14.6).
+	income += EconOrgs.hq_gold_for(gs, db, player)
+
 	# Vassalage waives unit upkeep for a number of units per city (§8). Count the
 	# player's cities, then exempt that many units below.
 	var city_count: int = 0
@@ -1208,6 +1212,10 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		if capital != null and not no_distance:
 			dist = gs.map.distance(capital.x, capital.y, s.x, s.y)
 		upkeep += dist * dist_scale + (s.population * size_scale) / 4
+
+	# Corporation maintenance: each member city the player owns charges its
+	# corporation's per-city maintenance (Free Market halves it; §14.6).
+	upkeep += EconOrgs.maintenance_for(gs, db, player)
 
 	# Policy upkeep modifier (percentage; negative = administrative discount).
 	var policy_mod: int = 0

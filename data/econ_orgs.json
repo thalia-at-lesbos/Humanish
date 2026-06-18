@@ -1,8 +1,13 @@
 {
   "merchant_guild": {
     "id": "merchant_guild",
+    "name": "Merchant Guild",
     "input_resources": ["gold"],
     "output_delta": { "food": 0, "production": 0, "commerce": 4 },
+    "hq_structure": "merchant_guild_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -10,8 +15,12 @@
     "id": "cereal_mills",
     "name": "Cereal Mills",
     "input_resources": ["wheat", "rice", "corn"],
-    "output_delta": { "food": 1, "production": 0, "commerce": 0 },
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
     "output_per_input_resource": { "food": 1 },
+    "hq_structure": "cereal_mills_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -20,6 +29,10 @@
     "name": "Creative Constructions",
     "input_resources": ["marble", "stone"],
     "output_delta": { "food": 0, "production": 2, "commerce": 0 },
+    "hq_structure": "creative_constructions_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -28,6 +41,10 @@
     "name": "Aluminum Co.",
     "input_resources": ["aluminum"],
     "output_delta": { "food": 0, "production": 3, "commerce": 0 },
+    "hq_structure": "aluminum_co_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -35,8 +52,12 @@
     "id": "mining_inc",
     "name": "Mining Inc.",
     "input_resources": ["iron", "copper", "coal"],
-    "output_delta": { "food": 0, "production": 2, "commerce": 0 },
+    "output_delta": { "food": 0, "production": 0, "commerce": 0 },
     "output_per_input_resource": { "production": 2 },
+    "hq_structure": "mining_inc_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -45,6 +66,10 @@
     "name": "Sid's Sushi",
     "input_resources": ["crab", "clam", "fish"],
     "output_delta": { "food": 2, "production": 0, "commerce": 0 },
+    "hq_structure": "sids_sushi_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -53,6 +78,10 @@
     "name": "Civilized Jewelers",
     "input_resources": ["gems", "gold", "silver"],
     "output_delta": { "food": 0, "production": 0, "commerce": 4 },
+    "hq_structure": "civilized_jewelers_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -61,6 +90,10 @@
     "name": "Standard Ethanol",
     "input_resources": ["sugar", "corn", "wheat"],
     "output_delta": { "food": 1, "production": 0, "commerce": 1 },
+    "hq_structure": "standard_ethanol_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -69,6 +102,10 @@
     "name": "Overseas Trading Co.",
     "input_resources": ["silk", "dye", "spices"],
     "output_delta": { "food": 0, "production": 0, "commerce": 4 },
+    "hq_structure": "overseas_trading_co_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   },
@@ -77,6 +114,10 @@
     "name": "Nationalist Mutual",
     "input_resources": ["oil", "coal"],
     "output_delta": { "food": 0, "production": 0, "commerce": 3 },
+    "hq_structure": "nationalist_mutual_hq",
+    "executive_unit": "executive",
+    "maintenance": 3,
+    "hq_gold_per_input": 2,
     "spread_cost": 200,
     "spread_chance_base": 15
   }
