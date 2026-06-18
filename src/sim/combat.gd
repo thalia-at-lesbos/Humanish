@@ -54,6 +54,11 @@ static func resolve(attacker: Unit, defender: Unit,
 		if a_str < 1:
 			a_str = 1
 
+	# Firepower (§5.4) feeds the per-hit damage model, captured from the real
+	# effective strengths before any odds-only clamps below.
+	var a_fp: int = attacker.firepower(db, a_str)
+	var d_fp: int = defender.firepower(db, d_str)
+
 	# Free early wins: clamp attacker odds against wild units
 	var atk_player: Player = game_state.get_player(attacker.owner_player_id)
 	if defender.is_wild and atk_player != null and atk_player.free_early_wins > 0:
@@ -65,11 +70,21 @@ static func resolve(attacker: Unit, defender: Unit,
 			d_str = 100 - clamp_val
 
 	var a_odds: int = Fixed.proportion(a_str, a_str + d_str, COMBAT_SCALE)
+	# Odds clamp (§5.4): neither side is ever hopeless — win chance is held within
+	# 10%..90% of the die (100..900 of 1000). The free-early-wins aid above is
+	# applied on top of this (its 65/35 split already sits inside the band).
+	var odds_floor: int = COMBAT_SCALE / 10
+	var odds_ceil: int = COMBAT_SCALE - odds_floor
+	if a_odds < odds_floor:
+		a_odds = odds_floor
+	elif a_odds > odds_ceil:
+		a_odds = odds_ceil
 	var d_odds: int = COMBAT_SCALE - a_odds
 
-	# Per-hit damage
-	var a_dmg: int = _per_hit_damage(d_str, a_str)  # damage attacker takes per defender hit
-	var d_dmg: int = _per_hit_damage(a_str, d_str)  # damage defender takes per attacker hit
+	# Per-hit damage (§5.4): firepower-blended, scaled by combat_damage.
+	var combat_damage: int = db.get_constant("combat_damage", 20)
+	var a_dmg: int = _per_hit_damage(a_fp, d_fp, combat_damage)  # damage attacker takes per defender hit
+	var d_dmg: int = _per_hit_damage(d_fp, a_fp, combat_damage)  # damage defender takes per attacker hit
 
 	var a_health: int = attacker.health
 	var d_health: int = defender.health
@@ -165,11 +180,20 @@ static func resolve(attacker: Unit, defender: Unit,
 		"flanking_damage": flanking
 	}
 
-static func _per_hit_damage(opponent_fp: int, self_fp: int) -> int:
-	# Damage = opponent_fp / self_fp, blended with combined, at least 1
-	if self_fp <= 0:
-		return 10
-	var dmg: int = (opponent_fp * 10) / self_fp
+static func _per_hit_damage(our_fp: int, their_fp: int, combat_damage: int) -> int:
+	# §5.4 firepower blend: damage one side takes per hit, proportional to the
+	# opponent's firepower relative to one's own, blended with a combined-firepower
+	# factor and scaled by combat_damage, floored at one point.
+	#   strengthFactor = (ourFP + theirFP + 1) / 2
+	#   ourDamage      = max(1, combat_damage * (theirFP + strengthFactor)
+	#                                          / (ourFP   + strengthFactor))
+	if our_fp <= 0:
+		return combat_damage
+	var strength_factor: int = (our_fp + their_fp + 1) / 2
+	var denom: int = our_fp + strength_factor
+	if denom <= 0:
+		return combat_damage
+	var dmg: int = (combat_damage * (their_fp + strength_factor)) / denom
 	return 1 if dmg < 1 else dmg
 
 static func _xp_from_kill(winner_str: int, loser_str: int) -> int:

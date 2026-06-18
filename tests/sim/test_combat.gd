@@ -81,6 +81,57 @@ func test_combat_xp_gain_when_killing_weak_enemy() -> void:
 	if not result["defender_survived"]:
 		assert_gt(result["attacker_xp_gain"], 0, "Attacker gains XP when killing")
 
+# ── Per-hit damage: firepower blend (§5.4) ───────────────────────────────────────
+
+func test_per_hit_damage_even_match_is_combat_damage() -> void:
+	# Evenly-matched firepower removes ≈ combat_damage (20) of 100 max_hp per hit,
+	# so a fight runs ≈ 5 hits to a kill (was ≈10 under the old flat model).
+	assert_eq(Combat._per_hit_damage(10, 10, 20), 20,
+		"Even firepower → one hit removes combat_damage HP")
+	assert_eq(Combat._per_hit_damage(50, 50, 20), 20,
+		"Magnitude-independent: equal firepower always yields combat_damage")
+
+func test_per_hit_damage_floored_at_one() -> void:
+	# A hopelessly weak attacker hitting an overwhelming defender still deals ≥ 1.
+	var dmg: int = Combat._per_hit_damage(100000, 1, 20)
+	assert_true(dmg >= 1, "Damage is floored at one point")
+
+func test_even_match_combat_runs_about_five_hits() -> void:
+	# Drive a real even fight and confirm the loser fell in ~5 hits' worth of damage.
+	var gs = make_gs()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+		tile.feature_id = ""
+	var atk = make_warrior(gs, 1, 5, 6)   # base_strength 10
+	var dfn = make_warrior(gs, 2, 5, 5)   # base_strength 10
+	# Per-hit damage between two even warriors on open grassland is combat_damage.
+	var a_str: int = atk.effective_strength(gs.db, true, {}, {}, "melee")
+	var d_str: int = dfn.effective_strength(gs.db, false,
+		gs.db.get_terrain("grassland"), {}, "melee")
+	var per_hit: int = Combat._per_hit_damage(a_str, d_str, 20)
+	var hits_to_kill: int = (100 + per_hit - 1) / per_hit
+	assert_true(hits_to_kill >= 4 and hits_to_kill <= 6,
+		"Even matchup kills in ≈5 hits, got %d (per-hit %d)" % [hits_to_kill, per_hit])
+
+func test_odds_clamp_gives_hopeless_attacker_a_chance() -> void:
+	# A vastly out-matched attacker would have ~0 natural odds; the 10%/90% clamp
+	# keeps it from being mathematically hopeless, so across seeds it lands a hit
+	# the old (unclamped) odds would never have allowed.
+	var landed_a_hit: bool = false
+	for s in range(60):
+		var gs = make_gs()
+		for tile in gs.map.all_tiles():
+			tile.terrain_id = "grassland"
+			tile.feature_id = ""
+		var atk = make_warrior(gs, 1, 5, 6); atk.base_strength = 1
+		var dfn = make_warrior(gs, 2, 5, 5); dfn.base_strength = 1000
+		var r: Dictionary = Combat.resolve(atk, dfn, gs, _rng(s))
+		if r["defender_health_after"] < 100:
+			landed_a_hit = true
+			break
+	assert_true(landed_a_hit,
+		"Odds clamp lets a hopeless attacker land at least one hit across seeds")
+
 # ── Flanking (§5.4) ────────────────────────────────────────────────────────────
 
 func test_flanking_damages_stacked_unit() -> void:

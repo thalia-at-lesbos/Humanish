@@ -1,5 +1,6 @@
 {
   "combat_scale": 1000,
+  "combat_damage": 20,
   "growth_base": 20,
   "anger_divisor": 100,
   "health_deficit_divisor": 100,
