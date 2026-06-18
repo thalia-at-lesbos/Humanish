@@ -102,6 +102,13 @@ static func growth_threshold_scale(index: int, db) -> int:
 	var age: Dictionary = age_at(index, db)
 	return int(age.get("growth_threshold_scale", 100))
 
+# research_percent for an era index, as an integer percent (default 100). The
+# advanced-start era factor of the §6.3 tech-cost chain; a no-op (100) unless an
+# age in data/ages.json sets it (this game has no advanced start).
+static func research_scale(index: int, db) -> int:
+	var age: Dictionary = age_at(index, db)
+	return int(age.get("research_percent", 100))
+
 # Highest era index defined in data (e.g. 6 for Future in the shipped table).
 static func max_index(db) -> int:
 	var best: int = 0

@@ -14,7 +14,8 @@ class_name Research
 
 # Apply one turn of research for a player. Returns the tech id if completed, else "".
 static func advance(player: Player, db: DataDB, known_by_others: Dictionary,
-		pace_id: String) -> String:
+		pace_id: String, difficulty_id: String = "noble",
+		world_size_id: String = "standard", team_members: int = 1) -> String:
 	if player.current_research_id == "":
 		return ""
 	var tech: Dictionary = db.get_technology(player.current_research_id)
@@ -22,7 +23,7 @@ static func advance(player: Player, db: DataDB, known_by_others: Dictionary,
 		return ""
 
 	var cost: int = _effective_cost(player.current_research_id, player, db,
-		known_by_others, pace_id)
+		known_by_others, pace_id, difficulty_id, world_size_id, team_members)
 
 	player.research_store += player.split_commerce(
 		_total_commerce(player))[1]  # index 1 = research
@@ -34,25 +35,45 @@ static func advance(player: Player, db: DataDB, known_by_others: Dictionary,
 		return tech["id"]
 	return ""
 
-# Effective cost of a tech for a player (discounted).
+# Effective cost of a tech for a player (§6.3, game-data §15.4). The canonical
+# reference percent chain — base × handicap% × world% × speed% × era% ×
+# team-penalty%, floored at 1 — followed by this game's two post-chain discount
+# extensions (held prerequisites, factions that already know the tech).
 static func _effective_cost(tech_id: String, player: Player, db: DataDB,
-		known_by_others: Dictionary, pace_id: String) -> int:
+		known_by_others: Dictionary, pace_id: String,
+		difficulty_id: String = "noble", world_size_id: String = "standard",
+		team_members: int = 1) -> int:
 	var tech: Dictionary = db.get_technology(tech_id)
 	if tech.empty():
 		return 999999
-	var base: int = int(tech.get("cost", 100))
-	var pace: Dictionary = db.get_pace(pace_id)
-	var scale: int = int(pace.get("research_scale", 100))
-	var cost: int = Fixed.scale(base, scale)
+	var cost: int = int(tech.get("cost", 100))
 
-	# Prereq discount
+	# Difficulty handicap (player-side; Settler 60 … Noble 100 … Deity 130, §2.2).
+	cost = Fixed.scale(cost, int(db.get_difficulty(difficulty_id).get("handicap_research_percent", 100)))
+	# World size.
+	cost = Fixed.scale(cost, int(db.get_world_size(world_size_id).get("research_percent", 100)))
+	# Game speed / pace.
+	cost = Fixed.scale(cost, int(db.get_pace(pace_id).get("research_scale", 100)))
+	# Advanced-start era (no-op unless ages.json defines research_percent).
+	cost = Fixed.scale(cost, Eras.research_scale(Eras.player_era(player, db), db))
+	# Team penalty: each extra team member raises the cost (they share research).
+	var team_pct: int = int(db.get_constant("tech_cost_extra_team_member_modifier", 30)) \
+		* (team_members - 1) + 100
+	if team_pct < 0:
+		team_pct = 0
+	cost = Fixed.scale(cost, team_pct)
+	if cost < 1:
+		cost = 1
+
+	# ── Post-chain Humanish discounts (intentional extensions, §15.4) ──
+	# Prereq discount: 10% per held prerequisite.
 	var prereq_discount: int = 0
 	for prereq in tech.get("prereqs_all", []):
 		if player.has_tech(prereq):
 			prereq_discount += 10
 	cost = max(1, cost - Fixed.scale(cost, prereq_discount))
 
-	# Discount from others who know it
+	# Trading discount: 5% per other faction that already knows it (capped 25%).
 	var others_count: int = int(known_by_others.get(tech_id, 0))
 	var others_discount: int = min(others_count * 5, 25)
 	cost = max(1, cost - Fixed.scale(cost, others_discount))

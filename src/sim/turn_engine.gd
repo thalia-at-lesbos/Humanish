@@ -1366,7 +1366,13 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		if other.has_tech(tech_id):
 			known_by_others[tech_id] = known_by_others.get(tech_id, 0) + 1
 
-	var cost: int = Research._effective_cost(tech_id, player, db, known_by_others, gs.pace_id)
+	# §6.3 cost chain: the player's difficulty handicap, world size, pace, era and
+	# team size (alliance members share research, so each extra member adds cost).
+	var team_members: int = 1
+	if alliance != null and alliance.member_player_ids.size() > 1:
+		team_members = alliance.member_player_ids.size()
+	var cost: int = Research._effective_cost(tech_id, player, db, known_by_others,
+		gs.pace_id, gs.difficulty_id, gs.world_size_id, team_members)
 	if player.research_store >= cost:
 		player.research_store -= cost
 		player.technologies.append(tech_id)

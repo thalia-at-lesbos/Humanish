@@ -60,6 +60,53 @@ func test_prereq_discount_applies() -> void:
 	var cost_without: int = Research._effective_cost("bronze_working", p2, gs.db, {}, "normal")
 	assert_true(cost_with <= cost_without, "Having a prereq should reduce or equal research cost")
 
+# ── §6.3 cost chain (game-data §15.4) ────────────────────────────────────────
+
+func test_research_cost_scales_with_pace_marathon_3x() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	# mining has no prereqs → no discounts interfere with the raw chain.
+	var normal: int = Research._effective_cost("mining", p, gs.db, {}, "normal")
+	var marathon: int = Research._effective_cost("mining", p, gs.db, {}, "marathon")
+	assert_eq(marathon, normal * 3, "Marathon tech cost is 3× Normal")
+
+func test_research_cost_scales_with_difficulty_handicap() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var noble: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble")
+	var deity: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "deity")
+	assert_eq(noble, 50, "Noble pays the base cost (100%)")
+	assert_eq(deity, Fixed.scale(50, 130), "Deity pays 130% (1.3× Noble)")
+	assert_gt(deity, noble, "A higher difficulty raises the human research cost")
+
+func test_research_cost_scales_with_world_size() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var standard: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard")
+	var huge: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "huge")
+	assert_eq(huge, Fixed.scale(50, 120), "A Huge map is 120% of base")
+	assert_gt(huge, standard, "A larger map raises research cost")
+
+func test_research_cost_scales_with_team_size() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var solo: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard", 1)
+	var pair: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard", 2)
+	var mod: int = gs.db.get_constant("tech_cost_extra_team_member_modifier", 30)
+	assert_eq(solo, 50, "A solo player pays the base cost (team factor is a no-op)")
+	assert_eq(pair, Fixed.scale(50, 100 + mod), "A two-member team pays (100+modifier)%")
+	assert_gt(pair, solo, "Each extra team member raises the shared-research cost")
+
+func test_discount_applies_after_the_chain() -> void:
+	# The 10% prereq discount comes off the post-chain (marathon-scaled) cost.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["mining"]  # holds bronze_working's prereq
+	var cost: int = Research._effective_cost("bronze_working", p, gs.db, {}, "marathon", "noble")
+	var post_chain: int = Fixed.scale(120, 300)  # base 120 × marathon 300%
+	assert_eq(cost, post_chain - Fixed.scale(post_chain, 10),
+		"The prereq discount is taken off the chained cost, not the base")
+
 func test_research_accumulates_and_completes() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
