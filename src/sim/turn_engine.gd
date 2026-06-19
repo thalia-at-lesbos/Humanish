@@ -1673,14 +1673,15 @@ static func _add_presence(presence: Dictionary, x: int, y: int, player_id: int) 
 	presence[key][player_id] = true
 
 # For one sight source at (cx, cy) belonging to seer_id, walk the visible tiles
-# (Manhattan radius, matching the fog/wild sight model) and record contact with
-# every other player present on any of them.
+# (terrain-aware sight: source sight_bonus + LOS blocking, via the shared
+# Visibility helper, matching the fog/wild sight model) and record contact with
+# every other player present on any of them. The helper returns map-normalized
+# "x,y" keys, the same canonical form the presence map is built with.
 static func _scan_sight_contact(gs: GameState, presence: Dictionary,
 		cx: int, cy: int, radius: int, seer_id: int) -> void:
-	for t in gs.map.tiles_in_range(cx, cy, radius):
-		if gs.map.manhattan(cx, cy, t.x, t.y) > radius:
-			continue
-		var here: Dictionary = presence.get("%d,%d" % [t.x, t.y], {})
+	var seen: Dictionary = Visibility.visible_tiles(gs.map, gs.db, cx, cy, radius)
+	for key in seen:
+		var here: Dictionary = presence.get(key, {})
 		for other_id in here:
 			if int(other_id) != seer_id:
 				_ensure_mutual_contact(gs, seer_id, int(other_id))

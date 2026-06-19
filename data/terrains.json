@@ -83,7 +83,8 @@
     "base_output": { "food": 1, "production": 2, "commerce": 0 },
     "defence_bonus": 25,
     "sight_bonus": 1,
-    "notes": "-1 Food, +1 Production; +25% defense; +1 sight range"
+    "blocks_sight": true,
+    "notes": "-1 Food, +1 Production; +25% defense; +1 sight range; blocks line of sight"
   },
   "mountain": {
     "id": "mountain",
@@ -94,6 +95,7 @@
     "base_output": { "food": 0, "production": 1, "commerce": 0 },
     "defence_bonus": 50,
     "impassable": true,
-    "notes": "Peak; cannot be entered by land units"
+    "blocks_sight": true,
+    "notes": "Peak; cannot be entered by land units; blocks line of sight"
   }
 }
