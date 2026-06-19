@@ -97,6 +97,7 @@
   "animal_spawn_per_turn": 2,
   "animal_xp_lifetime_cap": 10,
   "unit_sight": 2,
+  "ocean_travel_tech": "optics",
   "city_sight": 3,
   "wild_detect_radius": 4,
   "wild_wave_length": 4,

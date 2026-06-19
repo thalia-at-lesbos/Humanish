@@ -166,3 +166,120 @@ func test_zone_of_control_halts_movement() -> void:
 	f._cmd_move_stack({"player_id": 1, "from_x": 3, "from_y": 5, "to_x": 12, "to_y": 5})
 	assert_eq(u.x, 7, "Unit halts on the tile adjacent to the hostile unit")
 	assert_eq(u.movement_left, 0, "Zone of control spends remaining movement")
+
+# ── Deep-water (ocean) entry gating (§5) ─────────────────────────────────────
+#
+# Rule: to ENTER a deep_water (ocean) tile a sea unit must be ocean_capable AND
+# its owner must have researched the ocean_travel_tech (optics). Waiver: the rule
+# is lifted inside the mover's own (or an alliance-mate's) cultural territory.
+# Coast (landform "water") is always enterable; wild/ownerless units skip the
+# tech check. find_path must route around an illegal ocean tile.
+
+# A water world: column x=0 is coast (always enterable), columns x>=1 are ocean.
+func _sea_gs(num_players = 2):
+	var gs = make_gs(num_players)
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "coast" if tile.x == 0 else "ocean"
+	return gs
+
+func test_coastal_unit_cannot_enter_ocean() -> void:
+	# A galley (coastal_only, no ocean_capable flag) starts on coast at (0,5) and
+	# tries to reach ocean at (2,5). No legal path onto deep water.
+	var gs = _sea_gs()
+	var u = make_unit(gs, "galley", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_true(path.empty(), "A coastal galley cannot path onto ocean")
+
+func test_ocean_unit_without_tech_cannot_enter_neutral_ocean() -> void:
+	# A caravel is ocean_capable but its owner lacks optics → still gated.
+	var gs = _sea_gs()
+	gs.get_player(1).technologies = []  # no optics
+	var u = make_unit(gs, "caravel", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_true(path.empty(), "An ocean-capable hull without optics cannot enter neutral ocean")
+
+func test_ocean_unit_with_tech_can_enter_ocean() -> void:
+	var gs = _sea_gs()
+	gs.get_player(1).technologies = ["optics"]
+	var u = make_unit(gs, "caravel", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "An ocean-capable hull with optics enters ocean")
+	var last = path[path.size() - 1]
+	assert_eq([int(last[0]), int(last[1])], [2, 5], "Path reaches the ocean destination")
+
+func test_waiver_own_territory_lets_coastal_unit_onto_ocean() -> void:
+	# A galley (coastal, no tech) may enter an ocean tile its owner culturally owns.
+	var gs = _sea_gs()
+	gs.get_player(1).technologies = []
+	gs.map.get_tile(1, 5).owner_player_id = 1
+	gs.map.get_tile(2, 5).owner_player_id = 1
+	var u = make_unit(gs, "galley", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "Coastal unit may enter own-territory ocean (waiver)")
+
+func test_waiver_allied_territory_lets_unit_onto_ocean() -> void:
+	# Players 1 and 2 share an alliance; player 2 owns the ocean tiles. Player 1's
+	# pre-tech galley may enter via the alliance (open-borders proxy).
+	var gs = _sea_gs(2)
+	gs.get_player(1).technologies = []
+	# Put both players in alliance id 1 (player 1's alliance).
+	gs.get_player(2).alliance_id = 1
+	gs.get_alliance(1).add_member(2)
+	gs.map.get_tile(1, 5).owner_player_id = 2
+	gs.map.get_tile(2, 5).owner_player_id = 2
+	var u = make_unit(gs, "galley", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "Coastal unit may enter allied-territory ocean (waiver)")
+
+func test_neutral_owned_ocean_does_not_waive() -> void:
+	# An unrelated player (3) owning the ocean grants no waiver to player 1.
+	var gs = _sea_gs(3)
+	gs.get_player(1).technologies = []
+	gs.map.get_tile(1, 5).owner_player_id = 3
+	gs.map.get_tile(2, 5).owner_player_id = 3
+	var u = make_unit(gs, "galley", 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, 1, gs)
+	assert_true(path.empty(), "Foreign-owned ocean grants no entry waiver")
+
+func test_wild_ocean_capable_unit_skips_tech_check() -> void:
+	# A wild (owner -2) ocean_capable hull may enter deep water with no tech/player.
+	var gs = _sea_gs()
+	var u = make_unit(gs, "frigate", -2, 0, 5)
+	u.is_wild = true
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, -2, gs)
+	assert_false(path.empty(), "A wild ocean-capable unit enters ocean without tech")
+
+func test_wild_coastal_unit_still_blocked_on_ocean() -> void:
+	var gs = _sea_gs()
+	var u = make_unit(gs, "galley", -2, 0, 5)
+	u.is_wild = true
+	var path = Pathfinding.find_path(gs.map, 0, 5, 2, 5, u, gs.db, gs.units, -2, gs)
+	assert_true(path.empty(), "A wild coastal unit cannot enter ocean")
+
+func test_find_path_routes_around_illegal_ocean() -> void:
+	# Coast spans rows; a single ocean tile sits between start and goal on the
+	# direct line. A coastal unit must detour around it (or find no path). We set
+	# up a coast field with one ocean tile at (3,5) and confirm the returned path
+	# never steps onto it.
+	var gs = make_gs()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "coast"
+	gs.map.get_tile(3, 5).terrain_id = "ocean"
+	var u = make_unit(gs, "galley", 1, 1, 5)  # coastal, pre-tech
+	var path = Pathfinding.find_path(gs.map, 1, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "A detour around the lone ocean tile exists on coast")
+	for step in path:
+		assert_false(int(step[0]) == 3 and int(step[1]) == 5,
+			"Path must never step onto the illegal ocean tile (3,5)")
+
+func test_move_command_rejects_illegal_ocean_destination() -> void:
+	# The facade move guard: a direct MOVE_STACK onto an illegal ocean tile fails
+	# (empty path), leaving the unit in place.
+	var gs = _sea_gs()
+	gs.get_player(1).technologies = []
+	gs.current_player_id = 1
+	var f = bare_facade(gs)
+	var u = make_unit(gs, "galley", 1, 0, 5)
+	var ok = f._cmd_move_stack({"player_id": 1, "from_x": 0, "from_y": 5, "to_x": 2, "to_y": 5})
+	assert_false(ok, "Move onto illegal ocean is rejected")
+	assert_eq([u.x, u.y], [0, 5], "Unit stays on its coast tile")

@@ -473,7 +473,7 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 
 	var lead: Unit = moving_units[0]
 	var path: Array = Pathfinding.find_path(
-		_gs.map, fx, fy, tx, ty, lead, _db, _gs.units, player_id)
+		_gs.map, fx, fy, tx, ty, lead, _db, _gs.units, player_id, _gs)
 
 	if path.empty() and not (fx == tx and fy == ty):
 		return false
@@ -2343,6 +2343,18 @@ func _explore_step(u: Unit) -> void:
 		if _db.get_unit(u.unit_type_id).get("domain", "land") == "land" \
 				and ter.get("domain", "land") != "land":
 			continue
+		# Sea units obey the deep-water entry gate (§5): don't explore onto an
+		# ocean tile this unit may not legally enter (avoids stalling on a move the
+		# gated _cmd_move_stack would reject).
+		if _db.get_unit(u.unit_type_id).get("domain", "land") == "sea" \
+				and ter.get("landform", "") == "deep_water":
+			var ectx: Dictionary = {
+				"ocean_capable": bool(_db.get_unit(u.unit_type_id).get("ocean_capable", false)),
+				"owner_id": player_id,
+				"gs": _gs,
+			}
+			if not Pathfinding.can_enter_deep_water(nb, _db, ectx):
+				continue
 		# Never walk into an enemy: skip any tile that holds a hostile unit.
 		var has_enemy: bool = false
 		for eu2 in _gs.units:
@@ -2466,7 +2478,7 @@ func can_stack_move(fx: int, fy: int, tx: int, ty: int, unit_ids: Array = []) ->
 		return false
 	var lead: Unit = movers[0]
 	var path: Array = Pathfinding.find_path(
-		_gs.map, fx, fy, tx, ty, lead, _db, _gs.units, _gs.current_player_id)
+		_gs.map, fx, fy, tx, ty, lead, _db, _gs.units, _gs.current_player_id, _gs)
 	return not path.empty()
 
 # Mark an empty tile as the inspected subject: clears any unit/city selection and

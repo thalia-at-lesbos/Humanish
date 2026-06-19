@@ -89,6 +89,11 @@ func get_errors() -> Array:
 func get_constant(key: String, default_val: int = 0) -> int:
 	return int(constants.get(key, default_val))
 
+# String-valued constant (e.g. ocean_travel_tech). get_constant coerces to int, so
+# non-numeric constants need their own typed accessor.
+func get_constant_str(key: String, default_val: String = "") -> String:
+	return str(constants.get(key, default_val))
+
 func get_terrain(id: String) -> Dictionary:
 	return terrains.get(id, {})
 
