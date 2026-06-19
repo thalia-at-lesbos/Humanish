@@ -92,7 +92,7 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 		return
 
 	var path: Array = Pathfinding.find_path(
-		game_state.map, u.x, u.y, tx, ty, u, db, game_state.units, -2)
+		game_state.map, u.x, u.y, tx, ty, u, db, game_state.units, -2, game_state)
 	if path.empty():
 		return  # unreachable this turn (blocked); try again next step
 
@@ -260,7 +260,7 @@ static func _animal_move(game_state, rng: RNG, u: Unit, tx: int, ty: int,
 		allow_borders: bool) -> void:
 	var db: DataDB = game_state.db
 	var path: Array = Pathfinding.find_path(
-		game_state.map, u.x, u.y, tx, ty, u, db, game_state.units, -2)
+		game_state.map, u.x, u.y, tx, ty, u, db, game_state.units, -2, game_state)
 	if path.empty():
 		return
 	for step in path:
