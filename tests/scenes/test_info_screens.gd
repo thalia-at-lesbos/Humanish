@@ -147,6 +147,57 @@ func test_espionage_menu_mission_spends_ep() -> void:
 	var have_after: int = int(gs.get_player(gs.players[0].id).intel_points.get(target_id, 0))
 	assert_true(have_after < have_before, "Launching a mission spends EP")
 
+func test_encyclopedia_new_collectors_return_entries() -> void:
+	var facade = setup_facade(95)
+	var db = facade._db
+	var screen = load("res://scenes/screens/encyclopedia_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	# Terrain tab: terrain entries + a "Features" header, all data-driven.
+	var terrain = screen._collect_terrain(db)
+	assert_true(terrain.size() > 0, "Terrain collector returns entries")
+	var saw_terrain := false
+	var saw_feature := false
+	var saw_hills := false
+	for it in terrain:
+		if it.get("_kind", "") == "terrain":
+			saw_terrain = true
+		if it.get("_kind", "") == "feature":
+			saw_feature = true
+		if str(it.get("id", "")) == "hills":
+			saw_hills = true
+			assert_eq(int(it.get("sight_bonus", 0)), 1, "Hills carry +1 sight bonus")
+			assert_true(bool(it.get("blocks_sight", false)), "Hills block line of sight")
+	assert_true(saw_terrain, "Terrain collector includes terrain entries")
+	assert_true(saw_feature, "Terrain collector includes feature entries")
+	assert_true(saw_hills, "Terrain collector includes hills")
+	# Improvements tab: mine must be hills-only.
+	var imps = screen._collect_improvements(db)
+	assert_true(imps.size() > 0, "Improvements collector returns entries")
+	var mine_lf := []
+	for it in imps:
+		if str(it.get("id", "")) == "mine":
+			mine_lf = it.get("allowed_landforms", []) as Array
+	assert_eq(mine_lf, ["hill"], "Mine is buildable only on hills")
+
+func test_encyclopedia_units_tab_marks_ocean_capability() -> void:
+	var facade = setup_facade(96)
+	var screen = load("res://scenes/screens/encyclopedia_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	var db = facade._db
+	# Caravel is ocean-going; Galley is coastal-only — the detail must say so.
+	var box1 = VBoxContainer.new()
+	add_child_autofree(box1)
+	screen._detail_unit(box1, db.units["caravel"])
+	assert_not_null(_find_by_text(box1, "ocean-going"),
+		"Caravel detail labels it ocean-going")
+	var box2 = VBoxContainer.new()
+	add_child_autofree(box2)
+	screen._detail_unit(box2, db.units["galley"])
+	assert_not_null(_find_by_text(box2, "coastal only"),
+		"Galley detail labels it coastal only")
+
 func test_options_screen_score_toggle_routes_through_facade() -> void:
 	var facade = setup_facade(92)
 	var gs = facade.get_state()
