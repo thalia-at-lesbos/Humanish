@@ -102,16 +102,13 @@ func reveal_all() -> void:
 	update()
 
 func _add_visible_range(cx: int, cy: int, radius: int, wmap) -> void:
-	for dy in range(-radius, radius + 1):
-		for dx in range(-radius, radius + 1):
-			if abs(dx) + abs(dy) <= radius:
-				var tx: int = cx + dx
-				var ty: int = cy + dy
-				if wmap.is_valid(tx, ty):
-					# Normalize through the map so wrap-x keys are canonical
-					# (e.g. x == width → 0) and always match the renderer's lookup.
-					var norm: Array = wmap.normalize(tx, ty)
-					_visible_tiles[str(norm[0]) + "," + str(norm[1])] = true
+	# Terrain-aware sight (source sight_bonus + LOS blocking) via the shared pure
+	# Visibility helper, so the fog matches contact detection and wild darkness.
+	# Keys are already map-normalized so wrap-x is canonical for the renderer.
+	var gs = _facade.get_state()
+	var seen: Dictionary = Visibility.visible_tiles(wmap, gs.db, cx, cy, radius)
+	for key in seen:
+		_visible_tiles[key] = true
 
 func sync_camera(zoom: float, offset: Vector2) -> void:
 	_zoom = zoom

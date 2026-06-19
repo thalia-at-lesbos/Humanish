@@ -169,7 +169,8 @@ static func spawn_animals(game_state, rng: RNG) -> void:
 		spawned += 1
 
 # Set of "x,y" tiles any living player currently sees, matching the fog model
-# (unit_sight / city_sight, Manhattan radius). Used to keep animal spawns in the dark.
+# (terrain-aware sight: source sight_bonus + LOS blocking via the shared
+# Visibility helper). Used to keep animal spawns in the dark.
 static func _visible_tiles(game_state, db: DataDB) -> Dictionary:
 	var seen: Dictionary = {}
 	var su: int = db.get_constant("unit_sight", 2)
@@ -177,16 +178,16 @@ static func _visible_tiles(game_state, db: DataDB) -> Dictionary:
 	var map = game_state.map
 	for u in game_state.units:
 		if u.owner_player_id >= 0:
-			_mark_sight(map, u.x, u.y, su, seen)
+			_mark_sight(map, db, u.x, u.y, su, seen)
 	for s in game_state.settlements:
 		if s.owner_player_id >= 0:
-			_mark_sight(map, s.x, s.y, sc, seen)
+			_mark_sight(map, db, s.x, s.y, sc, seen)
 	return seen
 
-static func _mark_sight(map, cx: int, cy: int, radius: int, seen: Dictionary) -> void:
-	for t in map.tiles_in_range(cx, cy, radius):
-		if map.manhattan(cx, cy, t.x, t.y) <= radius:
-			seen["%d,%d" % [t.x, t.y]] = true
+static func _mark_sight(map, db: DataDB, cx: int, cy: int, radius: int, seen: Dictionary) -> void:
+	var vis: Dictionary = Visibility.visible_tiles(map, db, cx, cy, radius)
+	for key in vis:
+		seen[key] = true
 
 static func _count_animals(game_state) -> int:
 	var n: int = 0

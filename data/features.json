@@ -10,7 +10,8 @@
     "chop_yield": 20,
     "clear_turns": 4,
     "removable": true,
-    "notes": "Chopped when a non-preserving improvement is built: chop_yield production to the nearest city, +50% with the chop tech (Mathematics), full inside borders / half outside"
+    "blocks_sight": true,
+    "notes": "Chopped when a non-preserving improvement is built: chop_yield production to the nearest city, +50% with the chop tech (Mathematics), full inside borders / half outside; blocks line of sight"
   },
   "jungle": {
     "id": "jungle",
@@ -22,7 +23,8 @@
     "health_penalty": 1,
     "clear_turns": 6,
     "removable": true,
-    "notes": "Removed before most improvements; disease risk. Chops for nothing (no chop_yield)"
+    "blocks_sight": true,
+    "notes": "Removed before most improvements; disease risk. Chops for nothing (no chop_yield); blocks line of sight"
   },
   "flood_plains": {
     "id": "flood_plains",
