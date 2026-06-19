@@ -80,6 +80,8 @@ func rebuild() -> void:
 	_add_data_tab(tabs, "Technologies", _collect_techs(db))
 	_add_data_tab(tabs, "Units", _collect_units(db))
 	_add_data_tab(tabs, "Buildings", _collect_buildings(db))
+	_add_data_tab(tabs, "Terrain", _collect_terrain(db))
+	_add_data_tab(tabs, "Improvements", _collect_improvements(db))
 	_add_data_tab(tabs, "Resources", _collect_resources(db))
 	_add_data_tab(tabs, "Civics", _collect_civics(db))
 	_add_data_tab(tabs, "Promotions", _collect_promos(db))
@@ -184,6 +186,8 @@ func _populate_detail(vbox: VBoxContainer, item: Dictionary, key: String) -> voi
 		"Technologies":  _detail_tech(vbox, item)
 		"Units":         _detail_unit(vbox, item)
 		"Buildings":     _detail_building(vbox, item)
+		"Terrain":       _detail_terrain(vbox, item)
+		"Improvements":  _detail_improvement(vbox, item)
 		"Resources":     _detail_resource(vbox, item)
 		"Civics":        _detail_civic(vbox, item)
 		"Promotions":    _detail_promo(vbox, item)
@@ -283,6 +287,45 @@ func _collect_buildings(db) -> Array:
 		items.append({_header = true, _section = "World Wonders"})
 		for s in wonders:
 			items.append(s)
+	return items
+
+# Terrain + features, read live from data/terrains.json and data/features.json so
+# yields, defence, movement, sight bonus and line-of-sight blocking stay current.
+func _collect_terrain(db) -> Array:
+	var items = []
+	if not db.terrains.empty():
+		items.append({_header = true, _section = "Terrain"})
+		var land = []
+		var water = []
+		for id in db.terrains:
+			var t = db.terrains[id].duplicate()
+			t["_kind"] = "terrain"
+			if str(t.get("domain", "land")) == "sea":
+				water.append(t)
+			else:
+				land.append(t)
+		for t in land:
+			items.append(t)
+		for t in water:
+			items.append(t)
+	if not db.features.empty():
+		items.append({_header = true, _section = "Features"})
+		for id in db.features:
+			var f = db.features[id].duplicate()
+			f["_kind"] = "feature"
+			items.append(f)
+	return items
+
+# Improvements, read live from data/improvements.json so the terrain/tech gating
+# (e.g. mine → hills only) stays current.
+func _collect_improvements(db) -> Array:
+	var items = []
+	var imps = []
+	for id in db.improvements:
+		imps.append(db.improvements[id])
+	imps.sort_custom(self, "_sort_by_name")
+	for imp in imps:
+		items.append(imp)
 	return items
 
 func _collect_resources(db) -> Array:
@@ -411,6 +454,14 @@ func _detail_unit(vbox: VBoxContainer, d: Dictionary) -> void:
 	if str_val > 0:
 		_lbl(vbox, "Strength:       %d" % [str_val])
 	_lbl(vbox, "Movement:       %d" % [int(d.get("movement", 100)) / 100])
+	# Naval units: surface deep-water (ocean) capability so the player can tell
+	# which ships may cross open ocean vs. which are restricted to coastal water.
+	if str(d.get("domain", "")) == "sea":
+		var tags_arr = d.get("tags", []) as Array
+		if bool(d.get("ocean_capable", false)) or ("ocean_capable" in tags_arr):
+			_lbl(vbox, "Sea range:      ocean-going (crosses deep ocean)")
+		else:
+			_lbl(vbox, "Sea range:      coastal only (cannot cross deep ocean)")
 	_lbl(vbox, "Cost:           %d production" % [d.get("cost", 0)])
 	var upkeep = int(d.get("upkeep", 0))
 	_lbl(vbox, "Upkeep:         %s" % ["none" if upkeep == 0 else "%d gold/turn" % upkeep])
@@ -506,6 +557,90 @@ func _detail_building(vbox: VBoxContainer, d: Dictionary) -> void:
 		_lbl(vbox, "Effects:")
 		for key in effects:
 			_lbl(vbox, "  " + _fmt(key) + ": " + str(effects[key]), true)
+
+func _yield_line(d: Dictionary, key: String) -> String:
+	var out = d.get(key, {}) as Dictionary
+	var bonuses = PoolStringArray()
+	for k in ["food", "production", "commerce"]:
+		if int(out.get(k, 0)) != 0:
+			bonuses.append(_sign_int(int(out[k])) + " " + k)
+	return "none" if bonuses.empty() else bonuses.join(", ")
+
+func _detail_terrain(vbox: VBoxContainer, d: Dictionary) -> void:
+	_lbl(vbox, _fmt_name(d))
+	_sep(vbox)
+	if d.get("_kind", "") == "terrain":
+		_lbl(vbox, "Domain:    " + _fmt(str(d.get("domain", "land"))))
+		_lbl(vbox, "Base yield: " + _yield_line(d, "base_output"))
+		var mc = int(d.get("movement_cost", 0))
+		if bool(d.get("impassable", false)):
+			_lbl(vbox, "Movement:  impassable (land units cannot enter)")
+		else:
+			_lbl(vbox, "Move cost: %d (1 tile = 60)" % [mc])
+	else:
+		_lbl(vbox, "Type:       map feature (overlays terrain)")
+		_lbl(vbox, "Yield change: " + _yield_line(d, "output_delta"))
+		var mca = int(d.get("movement_cost_add", 0))
+		if mca != 0:
+			_lbl(vbox, "Extra move cost: +%d" % [mca])
+		if bool(d.get("impassable", false)):
+			_lbl(vbox, "Impassable (no units enter)")
+	var def = int(d.get("defence_bonus", 0))
+	if def != 0:
+		_lbl(vbox, "Defence:   " + _sign_int(def) + "% to defenders")
+	var sb = int(d.get("sight_bonus", 0))
+	if sb != 0:
+		_lbl(vbox, "Sight:     " + _sign_int(sb) + " sight range to a unit standing here")
+	if bool(d.get("blocks_sight", false)):
+		_lbl(vbox, "Blocks line of sight: hides tiles beyond it", true)
+	var hb = int(d.get("health_bonus", 0))
+	if hb != 0:
+		_lbl(vbox, "Health:    " + _sign_int(hb) + " in nearby cities")
+	var hp = int(d.get("health_penalty", 0))
+	if hp != 0:
+		_lbl(vbox, "Health:    -%d in nearby cities" % [hp])
+	if bool(d.get("no_improvements", false)):
+		_lbl(vbox, "Cannot be improved")
+	var notes = str(d.get("notes", ""))
+	if notes != "":
+		_sep(vbox)
+		_lbl(vbox, notes, true)
+
+func _detail_improvement(vbox: VBoxContainer, d: Dictionary) -> void:
+	_lbl(vbox, _fmt_name(d))
+	_sep(vbox)
+	_lbl(vbox, "Yield:        " + _yield_line(d, "output_delta"))
+	var tech = d.get("tech_required", null)
+	_lbl(vbox, "Tech required: " + ("none" if tech == null else _fmt(str(tech))))
+	var lf = d.get("allowed_landforms", []) as Array
+	if not lf.empty():
+		_lbl(vbox, "Buildable on: " + _join(lf), true)
+	if bool(d.get("requires_resource", false)):
+		_lbl(vbox, "Requires a resource on the tile")
+	if bool(d.get("requires_river", false)):
+		_lbl(vbox, "Requires a river-adjacent tile")
+	var rf = d.get("requires_feature", null)
+	if rf != null:
+		_lbl(vbox, "Requires feature: " + _fmt(str(rf)))
+	var ri = d.get("requires_improvement", null)
+	if ri != null:
+		_lbl(vbox, "Requires improvement: " + _fmt(str(ri)))
+	var bt = int(d.get("build_turns", 0))
+	if bt > 0:
+		_lbl(vbox, "Build time:   %d worker-turns" % [bt])
+	elif bool(d.get("upgrade_only", false)):
+		_lbl(vbox, "Build time:   appears only by upgrade")
+	var def = int(d.get("defence_bonus", 0))
+	if def != 0:
+		_lbl(vbox, "Defence:      " + _sign_int(def) + "% to defenders")
+	if bool(d.get("preserves_feature", false)):
+		_lbl(vbox, "Keeps the tile's forest/jungle (no chop)")
+	var up = d.get("upgrades_to", null)
+	if up != null:
+		_lbl(vbox, "Upgrades to:  " + _fmt(str(up)) + " over time")
+	var upk = int(d.get("upkeep", 0))
+	if upk != 0:
+		_lbl(vbox, "Upkeep:       %d gold/turn" % [upk])
 
 func _detail_resource(vbox: VBoxContainer, d: Dictionary) -> void:
 	_lbl(vbox, _fmt_name(d))
@@ -717,6 +852,9 @@ func _guide_sections() -> Array:
 			"Main Controls",
 			"Left-click a tile — select your unit/city there, or inspect an empty/foreign tile",
 			"Right-click a tile — move selected unit(s) or attack enemy at that tile",
+			"Clicking an empty or foreign-only tile shows that tile's terrain readout",
+			"(terrain, feature, yields, defence) in the selection panel.",
+			"Minimap — click anywhere on the minimap to recentre the main view there.",
 			"",
 			"Keyboard Shortcuts",
 			"E — End Turn",
@@ -819,6 +957,43 @@ func _guide_sections() -> Array:
 			"War Fatigue",
 			"Prolonged war accumulates fatigue on both alliances, raising unhappiness.",
 			"Fatigue decays once fighting stops.",
+		]],
+		["Terrain & Vision", [
+			"Terrain",
+			"Each tile has a base terrain (grassland, plains, desert, tundra, snow, hills,",
+			"mountain, coast, ocean) and may carry a feature (forest, jungle, flood plains,",
+			"oasis). Terrain sets the tile's food/production/commerce yield, movement cost,",
+			"and a defence bonus for whoever defends there. See the Terrain tab for the",
+			"exact values of every terrain and feature.",
+			"",
+			"Defence",
+			"Hills give +25% defence, mountains +50%, and forest/jungle +50% on top of the",
+			"terrain. Stacking onto high, wooded ground makes a much stronger defensive position.",
+			"",
+			"Vision (Line of Sight)",
+			"A unit reveals tiles within its sight range (most units see 2 tiles; cities 3).",
+			"Standing on hills grants +1 sight range — high ground sees one ring farther.",
+			"Hills, mountains, forest, and jungle BLOCK line of sight: they hide whatever lies",
+			"directly beyond them. You see the blocker itself but not the tiles behind it,",
+			"so scouting through forests and over ridgelines reveals less than open ground.",
+			"Explored tiles stay dimly remembered in fog once your units move away.",
+		]],
+		["Exploration & Ocean Travel", [
+			"Recon units (Scout, Explorer) reveal the map quickly and ignore terrain",
+			"movement penalties. Use them early to find good city sites and goody huts.",
+			"",
+			"Coastal vs. Ocean Water",
+			"Water comes in two kinds. Coast (shallow water) is open to any ship. Ocean",
+			"(deep water) is restricted: a ship may only cross it once it is ocean-going",
+			"AND you have researched the ocean-travel technology (Optics).",
+			"",
+			"Early ships — Work Boat, Galley, Trireme — are coastal only and cannot enter",
+			"deep ocean. Caravels, Galleons and later ships are ocean-going and, with Optics,",
+			"can sail the open ocean to reach other continents.",
+			"",
+			"The deep-ocean restriction is waived inside your own cultural waters or those of",
+			"an allied empire, so a coastal ship can still operate within friendly borders.",
+			"Each ship's Sea range (coastal / ocean-going) is listed in the Units tab.",
 		]],
 		["Research", [
 			"Tech Tree  (F2)",
@@ -1036,6 +1211,30 @@ func _add_reference_tab(tabs: TabContainer, db) -> void:
 			_fmt_name(ws), ws.get("width", 0), ws.get("height", 0),
 			ws.get("players_suggested", 0)
 		])
+	_spacer(vbox)
+
+	# Combat / movement / vision constants, read live from data/constants.json so
+	# they never drift from the rules the engine actually applies.
+	_lbl(vbox, "Combat, Movement & Vision")
+	_sep(vbox)
+	var ocean_tech = db.get_constant_str("ocean_travel_tech", "optics")
+	var ref_lines = [
+		"Max unit health         %d" % [db.get_constant("max_hp", 100)],
+		"Damage per combat hit   %d health" % [db.get_constant("combat_damage", 20)],
+		"Combat odds scale       %d (internal strength precision)" % [db.get_constant("combat_scale", 1000)],
+		"Max combat rounds       %d" % [db.get_constant("combat_max_rounds", 200)],
+		"Movement (1 tile)       60 internal points",
+		"Default unit sight      %d tiles" % [db.get_constant("unit_sight", 2)],
+		"City sight              %d tiles" % [db.get_constant("city_sight", 3)],
+		"Hills sight bonus       +1 tile (and blocks line of sight)",
+		"Entrenchment per turn   +%d%% (cap %d%%)" % [
+			db.get_constant("entrenchment_per_turn", 5), db.get_constant("entrenchment_cap", 25)],
+		"River-crossing penalty  -%d%% attack" % [db.get_constant("river_crossing_attack_penalty", 25)],
+		"Amphibious penalty      -%d%% attack" % [db.get_constant("amphibious_attack_penalty", 50)],
+		"Ocean-travel tech       %s (needed to cross deep ocean)" % [_fmt(ocean_tech)],
+	]
+	for ln in ref_lines:
+		_lbl(vbox, ln)
 	_spacer(vbox)
 
 	_lbl(vbox, "Victory Conditions")
