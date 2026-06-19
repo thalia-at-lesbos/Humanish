@@ -171,10 +171,26 @@ func _build_load_ui() -> void:
 		none_lbl.align = Label.ALIGN_CENTER
 		_load_box.add_child(none_lbl)
 	else:
+		# Godot-3 gotcha: a ScrollContainer propagates its CONTENT'S minimum
+		# size, so dropping one straight into this VBoxContainer makes the VBox
+		# grow to fit every button — the list overflows past the Back button
+		# instead of scrolling. Fix: a plain Control wrapper (which does NOT
+		# propagate child min sizes) takes a bounded height band of the VBox
+		# (SIZE_EXPAND_FILL claims the middle, rect_min_size sets a floor), and
+		# the ScrollContainer fills that fixed rect via full anchors. The inner
+		# button VBox keeps its natural (large) min size, overflows the fixed
+		# scroll rect, and the vertical scrollbar appears.
+		var scroll_frame := Control.new()
+		scroll_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll_frame.rect_min_size = Vector2(0, 200)
+		scroll_frame.rect_clip_content = true
+		_load_box.add_child(scroll_frame)
+
 		var scroll := ScrollContainer.new()
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.rect_min_size = Vector2(0, 0)
-		_load_box.add_child(scroll)
+		scroll.anchor_right = 1.0
+		scroll.anchor_bottom = 1.0
+		scroll.scroll_horizontal_enabled = false
+		scroll_frame.add_child(scroll)
 
 		var inner := VBoxContainer.new()
 		inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
