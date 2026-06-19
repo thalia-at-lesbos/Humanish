@@ -425,6 +425,13 @@ static func set_subordination(player_id: int, overlord_alliance_id: int) -> Dict
 		"overlord_alliance_id": overlord_alliance_id
 	}
 
+static func free_vassal(player_id: int, vassal_alliance_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.FREE_VASSAL,
+		"player_id": player_id,
+		"vassal_alliance_id": vassal_alliance_id
+	}
+
 static func load_unit(player_id: int, unit_id: int, transport_id: int) -> Dictionary:
 	return {
 		"type": IDs.CommandType.LOAD_UNIT,
