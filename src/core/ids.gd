@@ -113,7 +113,9 @@ enum CommandType {
     # Resolve a random-event choice popup (§9): commit the player's chosen branch.
     RESOLVE_EVENT = 61,
     # Spread a corporation to a city with an executive unit (§14.6).
-    SPREAD_CORPORATION = 62
+    SPREAD_CORPORATION = 62,
+    # Cancel an active persistent deal (§7) once its minimum duration has elapsed.
+    CANCEL_DEAL = 63
 }
 
 # Win condition types

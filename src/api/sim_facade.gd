@@ -30,6 +30,7 @@ signal combat_resolved(result_dict)
 signal player_turn_started(player_id)
 signal screen_requested(screen_id)
 signal assembly_event(event_dict)   # §7.2 session opened / resolution resolved
+signal deal_cancelled(deal_dict)    # §7 persistent deal expired or cancelled
 signal nuclear_detonated(result_dict)  # §5.7 nuke strike resolved (area effect)
 
 var _gs: GameState
@@ -334,6 +335,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_accept_trade(cmd)
 		IDs.CommandType.REJECT_TRADE:
 			return _cmd_reject_trade(cmd)
+		IDs.CommandType.CANCEL_DEAL:
+			return _cmd_cancel_deal(cmd)
 		IDs.CommandType.ASSIGN_SPECIALIST:
 			return _cmd_assign_specialist(cmd)
 		IDs.CommandType.SET_TILE_WORKED:
@@ -434,6 +437,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 		TurnEngine.world_step(_gs, _hooks)
 		_drain_wild_events()
 		_drain_assembly_events()
+		_drain_deal_events()
 		_drain_great_people()
 		_add_notification("Turn " + str(_gs.turn_number) + " begins.", "info")
 		emit_signal("turn_advanced", _gs.turn_number)
@@ -696,6 +700,11 @@ func _capture_city(city: Settlement, captor_pid: int) -> void:
 # Destroy a city entirely (conquest raze, auto-raze, or a voluntary disband).
 func _raze_city(city: Settlement, by_pid: int) -> void:
 	var sid: int = city.id
+	# Diplomatic memory (§7): the former owner long remembers who razed their city
+	# (skip self-disband and barbarian razes, which have no player aggressor).
+	var former_owner: int = city.owner_player_id
+	if by_pid >= 0 and by_pid != former_owner:
+		Diplomacy.record(_gs, _db, former_owner, by_pid, "razed_city")
 	_gs.settlements.erase(city)
 	if _selection != null and _selection.head_city() == sid:
 		_selection.clear()
@@ -928,6 +937,11 @@ func _cmd_declare_war(cmd: Dictionary) -> bool:
 	# Ensure contact
 	if not alliance.has_contact_with(target_aid):
 		alliance.contacts.append(target_aid)
+	# Diplomatic memory (§7): every member of the attacked alliance remembers this
+	# declaration against the aggressor, souring their attitude for a long time.
+	var target: Alliance = _gs.get_alliance(target_aid)
+	if target != null:
+		Diplomacy.record_alliance(_gs, _db, target.member_player_ids, [p.id], "declared_war")
 	_add_notification(p.name + " declared war on " + _alliance_label(target_aid) + "!", "major")
 	return true
 
@@ -940,6 +954,10 @@ func _cmd_make_peace(cmd: Dictionary) -> bool:
 	if alliance == null:
 		return false
 	alliance.at_war_with.erase(target_aid)
+	# Diplomatic memory (§7): a peace overture is remembered warmly by the other side.
+	var peaced: Alliance = _gs.get_alliance(target_aid)
+	if peaced != null:
+		Diplomacy.record_alliance(_gs, _db, peaced.member_player_ids, [p.id], "made_peace")
 	_add_notification(p.name + " made peace with " + _alliance_label(target_aid) + ".", "major")
 	return true
 
@@ -1158,6 +1176,36 @@ func _cmd_reject_trade(cmd: Dictionary) -> bool:
 				return true
 	return false
 
+# Cancel an active recurring deal (§7). Either party to the deal may cancel, but
+# only once the minimum duration has elapsed (start_turn + min_duration reached).
+func _cmd_cancel_deal(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var deal_id: int = int(cmd.get("deal_id", -1))
+	for i in range(_gs.deals.size()):
+		var d: Dictionary = _gs.deals[i]
+		if int(d.get("id", -1)) != deal_id:
+			continue
+		# Only a party to the deal may cancel it.
+		if p.alliance_id != int(d.get("a_alliance", -1)) and p.alliance_id != int(d.get("b_alliance", -1)):
+			return false
+		# Honour the minimum duration.
+		if _gs.turn_number < int(d.get("start_turn", 0)) + int(d.get("min_duration", 0)):
+			_add_notification("This deal cannot be cancelled yet.", "info")
+			return false
+		# Diplomatic memory (§7): the other party to the deal remembers it being torn up.
+		var other_aid: int = int(d.get("b_alliance", -1)) if p.alliance_id == int(d.get("a_alliance", -1)) else int(d.get("a_alliance", -1))
+		var other: Alliance = _gs.get_alliance(other_aid)
+		var mine: Alliance = _gs.get_player_alliance(p.id)
+		if other != null and mine != null:
+			Diplomacy.record_alliance(_gs, _db, other.member_player_ids, mine.member_player_ids, "broke_deal")
+		_gs.deals.remove(i)
+		_gs.pending_deal_events.append({"kind": "deal_cancelled", "deal_id": deal_id})
+		_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+		return true
+	return false
+
 # Move gold/techs between the proposer and accepter and apply any peace clause.
 func _execute_trade(t: Dictionary, accepter: Player) -> void:
 	var proposer: Player = _gs.get_player(int(t.get("proposer_player_id", -1)))
@@ -1183,6 +1231,13 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 		if not recv_techs.empty(): parts.append("tech to " + proposer.name)
 		if not parts.empty():
 			_add_notification(proposer.name + " and " + accepter.name + " traded: " + ", ".join(parts) + ".", "info")
+			# Diplomatic memory (§7): a completed trade warms both sides; a tech hand-off
+			# is remembered more fondly still.
+			Diplomacy.record(_gs, _db, proposer.id, accepter.id, "fair_trade")
+			Diplomacy.record(_gs, _db, accepter.id, proposer.id, "fair_trade")
+			if not give_techs.empty() or not recv_techs.empty():
+				Diplomacy.record(_gs, _db, proposer.id, accepter.id, "traded_tech")
+				Diplomacy.record(_gs, _db, accepter.id, proposer.id, "traded_tech")
 	if bool(t.get("peace", false)):
 		var a_from: Alliance = _gs.get_alliance(int(t.get("from_alliance", -1)))
 		var a_to: Alliance = _gs.get_alliance(int(t.get("to_alliance", -1)))
@@ -1191,6 +1246,37 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 			a_to.at_war_with.erase(a_from.id)
 			_add_notification(_alliance_label(a_from.id) + " and " + _alliance_label(a_to.id)
 				+ " agreed to peace.", "major")
+	# Recurring items (gold-per-turn, resources) become a persistent Deal (§7),
+	# delivered each world step until cancelled. One-off items above are already done.
+	if _trade_has_recurring(give) or _trade_has_recurring(receive):
+		_gs.deals.append({
+			"id": _gs.next_trade_id(),
+			"a_alliance": int(t.get("from_alliance", -1)),
+			"b_alliance": int(t.get("to_alliance", -1)),
+			"proposer_player_id": int(t.get("proposer_player_id", -1)),
+			"accepter_player_id": accepter.id,
+			"recurring": {
+				"give": _recurring_items(give),
+				"receive": _recurring_items(receive)
+			},
+			"start_turn": _gs.turn_number,
+			"min_duration": _db.get_constant("deal_min_duration", 10)
+		})
+
+# Whether a give/receive item bundle carries any recurring (per-turn) item.
+func _trade_has_recurring(items: Dictionary) -> bool:
+	return int(items.get("gold_per_turn", 0)) > 0 or not items.get("resources", []).empty()
+
+# Extract just the recurring keys from a give/receive bundle (one-off keys dropped).
+func _recurring_items(items: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	var gpt: int = int(items.get("gold_per_turn", 0))
+	if gpt > 0:
+		out["gold_per_turn"] = gpt
+	var res: Array = items.get("resources", [])
+	if not res.empty():
+		out["resources"] = res.duplicate()
+	return out
 
 # ── Subordination (§7) ────────────────────────────────────────────────────────
 
@@ -2737,6 +2823,22 @@ func _drain_assembly_events() -> void:
 	_gs.pending_assembly_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface the persistent-deal lifecycle records produced this world step (§7): a
+# notification + a deal_cancelled signal for each deal that expired (a party went
+# away or the two alliances went to war) or was cancelled. Then clear the queue.
+func _drain_deal_events() -> void:
+	if _gs.pending_deal_events.empty():
+		return
+	for e in _gs.pending_deal_events:
+		match str(e.get("kind", "")):
+			"deal_expired":
+				_add_notification("A standing deal has lapsed.", "info")
+			"deal_cancelled":
+				_add_notification("A standing deal was cancelled.", "info")
+		emit_signal("deal_cancelled", e)
+	_gs.pending_deal_events = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 
 # Surface the random-event records produced this player step (§9): a notification
 # + an event_emitted signal for each fired/expired event. Then clear the queue.

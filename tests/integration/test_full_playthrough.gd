@@ -291,6 +291,52 @@ func test_playthrough_save_load_determinism_midevent() -> void:
 	assert_eq(f2.state_hash(), continued_hash,
 		"resumed game with active events stays deterministic with the original")
 
+# ── §7 Diplomacy: active deals + attitude memory survive save/load (Phase 7) ────
+
+func test_playthrough_save_load_determinism_middeal() -> void:
+	var ng = _new_game(31); var gs = ng[0]; var f = ng[1]
+	make_settlement(gs, 1, 8, 8, 3).health = 100
+	make_settlement(gs, 2, 12, 12, 2).health = 100
+	gs.get_player(1).treasury = 500
+	gs.get_player(2).treasury = 500
+
+	# A standing recurring deal (player 1 pays player 2 each world step) and a live
+	# diplomatic grievance — both serialized relational state added in Phase 7.
+	gs.deals.append({
+		"id": gs.next_trade_id(),
+		"a_alliance": 1, "b_alliance": 2,
+		"proposer_player_id": 1, "accepter_player_id": 2,
+		"recurring": {"give": {"gold_per_turn": 4}, "receive": {"gold_per_turn": 1}},
+		"start_turn": gs.turn_number, "min_duration": 30
+	})
+	Diplomacy.record(gs, gs.db, 2, 1, "declared_war")  # player 2 resents player 1
+
+	for _i in range(2):
+		_end_turn(f, gs, 1)
+		_end_turn(f, gs, 2)
+
+	var mid_hash = f.state_hash()
+	var save_str = f.save()
+	for _i in range(2):
+		_end_turn(f, gs, 1)
+		_end_turn(f, gs, 2)
+	var continued_hash = f.state_hash()
+
+	var f2 = load("res://src/api/sim_facade.gd").new()
+	f2.init_for_load(make_db())
+	assert_true(f2.load_save(save_str), "mid-deal save loads into a fresh facade")
+	assert_eq(f2.state_hash(), mid_hash,
+		"loaded hash matches the pre-save hash (deal + memory intact)")
+	var gs2 = f2.get_state()
+	assert_eq(gs2.deals.size(), 1, "the active deal survives the load")
+	assert_true(Diplomacy.memory_total(gs2.get_player(2), 1) < 0,
+		"the diplomatic grievance survives the load")
+	for _i in range(2):
+		_end_turn(f2, gs2, 1)
+		_end_turn(f2, gs2, 2)
+	assert_eq(f2.state_hash(), continued_hash,
+		"resumed game with an active deal + memory stays deterministic with the original")
+
 # ── Debug console: one sparing value-mod for a late-game condition ───────────────
 
 func test_playthrough_debug_console_unlocks_lategame_condition() -> void:

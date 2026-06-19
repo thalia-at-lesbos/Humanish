@@ -16,8 +16,10 @@ audience:
   - Anyone tracing why an AI made a particular move in a determinism failure
 key_files:
   - src/api/player_ai.gd               # PlayerAI — the whole AI, pure static facade client
+  - src/sim/diplomacy.gd               # Diplomacy — attitude/memory the AI reads (§5.1, §7)
   - src/sim/turn_engine.gd             # ai_bonus handicap sites (production + research yield)
   - data/constants.json                # ai_* tuning constants (brain + focus scaling)
+  - data/diplomacy.json                # attitude factors, memory kinds + decay (§5.1)
   - data/difficulties.json             # per-difficulty ai_bonus handicap column
   - data/leaders_traits.json           # per-trait ai_focus weight blocks
   - tests/api/test_player_ai.gd        # unit coverage of every decision site
@@ -25,9 +27,10 @@ key_files:
 sections:
   "§1  Position & invariants": "Facade client, src/api/, apply_command-only, gs.rng-only, sim/world wall"
   "§2  The three-layer model": "Brain × Handicap × Focus — direction × competence × magnitude"
-  "§3  Turn structure":        "take_turn order: economy, research, civics, religion, assembly, production, units"
+  "§3  Turn structure":        "take_turn order: economy, research, civics, religion, diplomacy, assembly, production, units"
   "§4  Handicap (difficulty)": "ai_bonus as an integer yield multiplier on AI production + research; is_ai gated"
-  "§5  Brain — economy/research/civics/religion/assembly": "The simple, solvency-aware non-combat managers"
+  "§5  Brain — economy/research/civics/religion/diplomacy/assembly": "The simple, solvency-aware non-combat managers"
+  "§5.1 Diplomacy — attitude/deals/war": "Diplomacy module attitude gates deal acceptance, war declaration, assembly votes (§7)"
   "§6  Brain — production":    "Role-ranked build list (defender → economy → expansion → fallback)"
   "§7  Brain — units":         "Four-pass deterministic playbook: settlers, garrisons, free military, workers/recon"
   "§8  Focus (leader personality)": "_focus_profile sums ai_focus; the five decision sites it biases; soft-bias-not-gates"
@@ -106,6 +109,7 @@ manage_economy     → set the finance/research sliders (solvency- and focus-awa
 manage_research    → steer toward the cheapest researchable tech
 manage_civics      → adopt the latest unlocked policy in each category
 manage_religion    → adopt a state religion once one is present (never switch)
+manage_diplomacy   → answer trade offers and pick wars by attitude (§5.1)
 manage_assembly    → cast a self-interested vote on any open proposal
 manage_production  → fill each idle city's queue with a role-ranked build list
 manage_units       → drive every unit through the four-pass playbook
@@ -137,7 +141,7 @@ The Noble→Deity ramp is `0 / 10 / 20 / 35 / 50 / 70` (an accelerating
 `ai_bonus: 0` and instead lean on human-side advantages (`free_early_wins`,
 `combat_bonus_vs_wild`) — consistent with the "0 at Noble" baseline.
 
-## §5  Brain — economy, research, civics, religion, assembly
+## §5  Brain — economy, research, civics, religion, diplomacy, assembly
 
 These managers are deliberately simple and solvency-aware. They are correct and
 reproducible but not where the strategic depth lives (that is production and units).
@@ -159,9 +163,46 @@ reproducible but not where the strategic depth lives (that is production and uni
   its cities and it has none, choosing the lowest-id belief present. It **never
   switches** afterward, so it never pays the anarchy cost — conservative, but it
   exercises the state-religion path.
+- **Diplomacy** (`manage_diplomacy`): answers standing trade offers and picks wars
+  by **attitude** (§5.1, no RNG).
 - **Assembly** (`manage_assembly`): when a diplomatic-assembly session is open and
   this player is an eligible member that has not yet voted, it casts the
-  deterministic self-interest vote chosen by `Assembly.ai_vote` (no RNG).
+  deterministic self-interest vote chosen by `Assembly.ai_vote` (no RNG) — which
+  now also reads attitude (§5.1).
+
+### §5.1  Diplomacy — attitude, deals & war (§7)
+
+The AI's diplomacy is driven by a per-rival **attitude** computed by the pure
+`Diplomacy` module (`src/sim/diplomacy.gd`), a deterministic function of state: a
+neutral base + live relational **factors** (at-war, shared war, permanent ally, an
+active standing deal, shared/clashing state religion) + a decaying **memory** total,
+clamped 0..100 and bucketed into five levels (furious → friendly). Memory lives on
+`Player.diplo_memory` and accrues when a rival acts (declared war, broke a deal,
+razed a city, traded fairly, made peace, …), decaying toward zero each world step.
+All magnitudes are in `data/diplomacy.json`. The AI never runs its own attitude
+math — it reads `Diplomacy.attitude_level(gs, db, me, rival)`.
+
+`manage_diplomacy` does two things, both deterministic:
+
+- **Answer trade offers.** It scans every standing offer addressed to its alliance
+  and accepts only a **net-positive** deal (`_deal_net_value`: gold + gold-per-turn
+  over `ai_deal_eval_turns`, techs it lacks worth `ai_trade_tech_value`, a peace
+  clause worth a tech when at war) from a rival whose attitude is at least
+  `deal_accept_min_attitude`; every other offer is rejected so it does not linger.
+  So the AI will not trade value away, and will not deal at all with a rival it
+  loathes (Furious).
+- **Pick wars.** It declares war on a met rival **only** when its attitude has
+  soured to **Furious** *and* its alliance military clearly out-powers the target
+  (`ai_war_power_margin`). Because a neutral attitude is Cautious and grievances
+  come only from remembered acts, an AI **never starts a spontaneous war** — it
+  defends and expands by default, and aggression escalates only from real friction.
+  This is why Phase 7 disturbed no seed-pinned test.
+
+Attitude also feeds **assembly voting** (`Assembly.ai_vote`): a member backs a
+candidate it likes (Pleased+) in a resident election and resists a trade embargo
+aimed at a favoured alliance. The supreme-leadership (diplomatic-victory) motion
+stays **bloc-only** regardless of attitude — an AI never casts to hand a rival the
+game (§7.3).
 
 ## §6  Brain — production
 
@@ -295,6 +336,18 @@ Focus scaling constants:
 | `ai_focus_margin_per_military` | 5 | Attack-margin reduction per `military` point |
 | `ai_focus_finance_per_economy` | 10 | Finance-share tilt per `(economy − science)` point |
 | `ai_focus_finance_cap` | 50 | Cap on the focus-driven finance share (%) |
+
+Diplomacy constants (§5.1):
+
+| Constant | Default | Role |
+|---|---|---|
+| `ai_deal_eval_turns` | 10 | Planning horizon for valuing a gold-per-turn deal item |
+| `ai_trade_tech_value` | 200 | Gold-equivalent worth of a traded tech / an ended war |
+| `ai_war_power_margin` | 40 | Military edge (%) required before declaring war on a loathed rival |
+
+Plus the attitude/memory magnitudes in `data/diplomacy.json` (attitude base/
+thresholds, factor weights, memory kinds + decay, `deal_accept_min_attitude`,
+`war_min_attitude`, `memory_cap`), read by the `Diplomacy` module the AI calls.
 
 Plus the handicap column in `data/difficulties.json`: `ai_bonus` per difficulty
 (§4), and the `SOLVENCY_TREASURY = 40` constant in `player_ai.gd` (the only

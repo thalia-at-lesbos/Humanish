@@ -270,3 +270,21 @@ func test_get_espionage_mission_returns_record_and_empty() -> void:
 		"get_espionage_mission resolves a known id")
 	assert_true(db.get_espionage_mission("no_such_mission").empty(),
 		"get_espionage_mission returns {} for an unknown id")
+
+func test_diplomacy_table_is_well_formed() -> void:
+	var db = _db()
+	var dip = db.get_diplomacy()
+	assert_eq(dip.get("attitude_levels", []).size(), 5,
+		"diplomacy defines the five attitude levels")
+	assert_eq(dip.get("attitude_thresholds", []).size(), 4,
+		"one fewer threshold than levels")
+	# Thresholds ascend.
+	var th = dip.get("attitude_thresholds", [])
+	for i in range(1, th.size()):
+		assert_true(int(th[i]) > int(th[i - 1]), "attitude_thresholds must ascend")
+	# Every memory kind carries a value and a positive decay.
+	var kinds = dip.get("memory_kinds", {})
+	assert_true(kinds.size() > 0, "diplomacy defines memory kinds")
+	for k in kinds:
+		assert_true(kinds[k].has("value"), "memory kind '%s' has a value" % k)
+		assert_true(int(kinds[k].get("decay", 0)) > 0, "memory kind '%s' decays" % k)

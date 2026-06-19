@@ -38,6 +38,7 @@ static func take_turn(facade, player_id: int) -> void:
 	manage_research(facade, player_id)
 	manage_civics(facade, player_id)
 	manage_religion(facade, player_id)
+	manage_diplomacy(facade, player_id)
 	manage_assembly(facade, player_id)
 	manage_production(facade, player_id)
 	manage_units(facade, player_id)
@@ -169,6 +170,109 @@ static func manage_religion(facade, player_id: int) -> void:
 	var ids = present.keys()
 	ids.sort()
 	facade.apply_command(Commands.set_state_religion(player_id, ids[0]))
+
+# ── Diplomacy: answer trade offers and pick wars by attitude (§7) ──────────────
+#
+# Attitude-driven, deterministic, no RNG. The AI (1) responds to every standing
+# trade offer aimed at its alliance — accepting only a net-positive deal from a
+# rival it does not loathe, rejecting the rest — and (2) declares war on a met
+# rival only when its attitude has soured to Furious *and* it holds a clear
+# military edge. A neutral AI therefore neither trades away value nor starts wars;
+# aggression is unlocked only by remembered grievances (Diplomacy memory).
+static func manage_diplomacy(facade, player_id: int) -> void:
+	var gs = facade.get_state()
+	var me = gs.get_player(player_id)
+	if me == null:
+		return
+	_answer_trade_offers(facade, gs, me)
+	_maybe_declare_war(facade, gs, me)
+
+# Accept a net-positive offer (unless the proposer is loathed); reject every other
+# offer so it does not linger. Offers live on the *proposer's* alliance, addressed
+# to the AI's alliance.
+static func _answer_trade_offers(facade, gs, me) -> void:
+	var db = gs.db
+	var min_attitude: int = db.get_diplomacy().get("deal_accept_min_attitude", 1)
+	# Snapshot the offer ids first: accepting/rejecting mutates pending_trades.
+	var offers: Array = []
+	for alliance in gs.alliances:
+		for t in alliance.pending_trades:
+			if int(t.get("to_alliance", -1)) == me.alliance_id:
+				offers.append(t.duplicate(true))
+	for t in offers:
+		var proposer = gs.get_player(int(t.get("proposer_player_id", -1)))
+		var trade_id: int = int(t.get("id", -1))
+		var accept: bool = false
+		if proposer != null:
+			var attitude: int = Diplomacy.attitude_level(gs, db, me.id, proposer.id)
+			var value: int = _deal_net_value(gs, db, me, t)
+			accept = value >= 0 and attitude >= min_attitude
+		if accept:
+			facade.apply_command(Commands.accept_trade(me.id, trade_id))
+		else:
+			facade.apply_command(Commands.reject_trade(me.id, trade_id))
+
+# Net gold-equivalent value of a standing offer to the AI accepter: it receives the
+# proposer's `give` bundle and parts with its own `receive` bundle. Recurring
+# gold-per-turn is valued over a fixed planning horizon; techs the AI lacks carry a
+# flat worth; a peace clause is worth a flat sum when the AI is currently at war.
+static func _deal_net_value(gs, db, me, t) -> int:
+	var horizon: int = db.get_constant("ai_deal_eval_turns", 10)
+	var tech_value: int = db.get_constant("ai_trade_tech_value", 200)
+	var give: Dictionary = t.get("give", {})       # → AI
+	var receive: Dictionary = t.get("receive", {})  # ← AI
+	var value: int = int(give.get("gold", 0)) - int(receive.get("gold", 0))
+	value += (int(give.get("gold_per_turn", 0)) - int(receive.get("gold_per_turn", 0))) * horizon
+	for tech in give.get("techs", []):
+		if not me.has_tech(tech):
+			value += tech_value
+	for tech in receive.get("techs", []):
+		if me.has_tech(tech):
+			value -= tech_value
+	if bool(t.get("peace", false)):
+		var mine = gs.get_player_alliance(me.id)
+		if mine != null and int(t.get("from_alliance", -1)) in mine.at_war_with:
+			value += tech_value  # ending a war is worth a tech's weight of gold
+	return value
+
+# Declare war only on a met rival the AI has come to loathe (attitude Furious) and
+# can clearly overpower (its alliance military exceeds the target's by the margin).
+# Picks the lowest-id qualifying alliance for determinism. Skips when already at war.
+static func _maybe_declare_war(facade, gs, me) -> void:
+	var db = gs.db
+	var mine = gs.get_player_alliance(me.id)
+	if mine == null:
+		return
+	var margin: int = db.get_constant("ai_war_power_margin", 40)
+	var my_power: int = _alliance_military_power(gs, mine)
+	for target_aid in mine.contacts:
+		var target = gs.get_alliance(int(target_aid))
+		if target == null or target.id == mine.id:
+			continue
+		if mine.is_at_war_with(target.id):
+			continue
+		# A Furious attitude toward any member is the gate.
+		var furious: bool = false
+		for tm in target.member_player_ids:
+			if Diplomacy.attitude_level(gs, db, me.id, int(tm)) == Diplomacy.FURIOUS:
+				furious = true
+				break
+		if not furious:
+			continue
+		var their_power: int = _alliance_military_power(gs, target)
+		if my_power * 100 >= their_power * (100 + margin):
+			facade.apply_command(Commands.declare_war(me.id, target.id))
+			return
+
+# Summed attack power of an alliance's military units — a coarse strength proxy.
+static func _alliance_military_power(gs, alliance) -> int:
+	var total: int = 0
+	for u in gs.units:
+		if u.owner_player_id in alliance.member_player_ids:
+			var udata: Dictionary = gs.db.get_unit(u.unit_type_id)
+			if _is_military_unit(udata):
+				total += _attack_power(u, gs.db)
+	return total
 
 # ── Assembly: cast a self-interested vote on any open proposal (§7.2) ───────────
 

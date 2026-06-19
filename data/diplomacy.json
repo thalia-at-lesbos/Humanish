@@ -1,0 +1,26 @@
+{
+  "_comment": "§7 AI diplomatic attitude & memory (Phase 7). attitude_base is the neutral starting score; live factors and the running memory total are summed onto it and clamped to 0..100, then mapped to an attitude level (0=furious .. 4=friendly) by attitude_thresholds (a level-i score is >= thresholds[i-1]). factors are computed live from current relations; memory_kinds accrue when a rival acts (Diplomacy.record adds `value`) and decay toward zero by `decay` points per turn (Diplomacy.decay). deal_accept_min_attitude / war_min_attitude gate AI behaviour. All integer math; provisional placeholders, not balance-tested.",
+  "attitude_levels": ["furious", "annoyed", "cautious", "pleased", "friendly"],
+  "attitude_base": 50,
+  "attitude_thresholds": [20, 40, 60, 80],
+  "factors": {
+    "at_war": -45,
+    "shared_war": 12,
+    "shared_religion": 12,
+    "different_religion": -8,
+    "permanent_ally": 25,
+    "active_deal": 8
+  },
+  "memory_kinds": {
+    "declared_war": {"value": -30, "decay": 1},
+    "broke_deal": {"value": -25, "decay": 1},
+    "razed_city": {"value": -40, "decay": 1},
+    "fair_trade": {"value": 8, "decay": 1},
+    "traded_tech": {"value": 6, "decay": 1},
+    "made_peace": {"value": 8, "decay": 1},
+    "gave_gift": {"value": 10, "decay": 1}
+  },
+  "deal_accept_min_attitude": 1,
+  "war_min_attitude": 2,
+  "memory_cap": 120
+}

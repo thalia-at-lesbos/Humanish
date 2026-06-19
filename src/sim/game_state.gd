@@ -81,6 +81,22 @@ var active_events: Array = []
 # Serialized so a pending choice survives save/load (deserialize coerces player_id).
 var pending_event_choices: Array = []
 
+# Active persistent diplomatic deals (§7). A deal is an accepted agreement between
+# two alliances bundling one-off items (delivered once on acceptance) and recurring
+# per-turn items (delivered each whole-world step). It is cancellable once its
+# minimum duration has elapsed. Each entry is a Dictionary:
+#   {id, a_alliance, b_alliance, proposer_player_id, accepter_player_id,
+#    recurring: {give:{...}, receive:{...}}, start_turn, min_duration}
+# where give = proposer→accepter, receive = accepter→proposer. Serialized; the
+# deserialize path coerces the int id/alliance/player fields (the recurring JSON-key
+# gotcha). The transient cancellation/expiry notices ride pending_deal_events.
+var deals: Array = []
+
+# Transient deal lifecycle notices produced by the §7 deal step (delivered/expired/
+# cancelled), drained by SimFacade into notifications + the deal_cancelled signal.
+# Not serialized. Each entry is {"kind": String, "deal_id": int, ...}.
+var pending_deal_events: Array = []
+
 # Transient fired/expired event descriptors produced by the §9 event step, drained
 # by SimFacade into notifications + the event_emitted signal. Not serialized.
 var pending_events: Array = []
@@ -250,6 +266,7 @@ func serialize() -> Dictionary:
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
 		"endgame_project_stages": endgame_project_stages.duplicate(),
 		"assembly": assembly.duplicate(true),
+		"deals": deals.duplicate(true),
 		"active_events": active_events.duplicate(true),
 		"pending_event_choices": pending_event_choices.duplicate(true),
 		"_next_unit_id": _next_unit_id,
@@ -293,6 +310,23 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
 	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()
 	gs.assembly = d.get("assembly", {}).duplicate(true)
+	# Active deals (§7): coerce the int id/alliance/player fields back to int so the
+	# loaded keys match later lookups (the recurring JSON float/string-key gotcha).
+	# The recurring give/receive item dicts hold gold (int) and tech-id/resource-id
+	# arrays (strings) — strings survive the roundtrip, so only the numeric envelope
+	# fields need coercion.
+	gs.deals = []
+	for dl in d.get("deals", []):
+		gs.deals.append({
+			"id": int(dl.get("id", 0)),
+			"a_alliance": int(dl.get("a_alliance", -1)),
+			"b_alliance": int(dl.get("b_alliance", -1)),
+			"proposer_player_id": int(dl.get("proposer_player_id", -1)),
+			"accepter_player_id": int(dl.get("accepter_player_id", -1)),
+			"recurring": dl.get("recurring", {}).duplicate(true),
+			"start_turn": int(dl.get("start_turn", 0)),
+			"min_duration": int(dl.get("min_duration", 0))
+		})
 	# Timed events & pending human choices: coerce JSON-loaded numeric fields back to
 	# int (the recurring float/string-key gotcha) so post-load lookups still match.
 	gs.active_events = []

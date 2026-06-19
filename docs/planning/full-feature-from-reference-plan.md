@@ -410,7 +410,68 @@ lowest-id tiebreak), drawing from `gs.rng` only for the single interception roll
 
 ---
 
-## Phase 7 — Diplomacy: deals, attitude & memory (§7)
+## Phase 7 — Diplomacy: deals, attitude & memory (§7) ✅ COMPLETE
+**Done.** Trades are promoted to persistent **deal objects** and the AI gains an **attitude/memory**
+layer that drives deal acceptance, war declaration, and assembly votes.
+
+- **Deals.** `GameState.deals` holds accepted agreements as Dictionaries
+  (`{id, a_alliance, b_alliance, proposer_player_id, accepter_player_id, recurring:{give,receive},
+  start_turn, min_duration}`). One-off items (gold/tech/peace) still deliver once on acceptance;
+  a trade carrying any **recurring** item (`gold_per_turn`, `resources`) becomes a standing deal that
+  `TurnEngine._execute_deals` delivers **each whole-world step** (in the existing `WORLD_RESOLVE_TRADES`
+  phase, fixed deal order). A deal **lapses** when a party is gone or the two alliances go to war
+  (declaring war tears up the agreement) and is **cancellable** by either party once
+  `start_turn + min_duration` is reached — the new `CANCEL_DEAL` command (`Commands.cancel_deal`,
+  `SimFacade._cmd_cancel_deal`). Lifecycle notices ride `gs.pending_deal_events`, drained by the facade
+  into notifications + the new `deal_cancelled` signal. New constants `deal_default_duration`/
+  `deal_min_duration`. Deals are serialized with int-key coercion on deserialize (the recurring JSON
+  float/string-key gotcha); deal ids reuse `next_trade_id()`.
+- **Attitude & memory.** New pure module `src/sim/diplomacy.gd` (`class_name Diplomacy`, registered in
+  `project.godot`) computes a deterministic 0..100 attitude (neutral base + live factors + decaying
+  memory) bucketed into five levels (furious → friendly). Live factors: at-war, shared war, permanent
+  ally, an active deal, shared/clashing state religion. **Memory** lives on `Player.diplo_memory`
+  (`rival_player_id -> {kind: signed points}`, serialized + int-key coerced): `Diplomacy.record` accrues a
+  kind's value when a rival acts; `Diplomacy.decay` (called once per world step) shrinks every entry toward
+  zero. Acts wired: `declared_war` (victims remember the aggressor, `_cmd_declare_war`), `made_peace`
+  (`_cmd_make_peace`), `fair_trade`/`traded_tech` (both sides on a completed `_execute_trade`),
+  `broke_deal` (the other party on `_cmd_cancel_deal`), `razed_city` (former owner on `_raze_city`). All
+  magnitudes live in `data/diplomacy.json` (attitude levels/thresholds/base, factor weights, memory
+  kinds + decay, `deal_accept_min_attitude`/`war_min_attitude`/`memory_cap`), loaded + validated by
+  `DataDB` (`get_diplomacy`, `_validate_diplomacy_refs`). No RNG — attitude is a function of state.
+- **AI.** New `PlayerAI.manage_diplomacy` (in `take_turn`, after religion): answers every standing trade
+  offer aimed at its alliance — accepting a net-positive deal (`_deal_net_value` over a fixed horizon)
+  only from a rival it does not loathe, rejecting the rest — and declares war on a met rival **only** when
+  attitude is Furious **and** it holds a clear military edge (`ai_war_power_margin`), so a neutral AI
+  neither trades away value nor starts wars (aggression is unlocked only by remembered grievances).
+  `Assembly.ai_vote` now reads attitude for `elect_resident` (back a Pleased+ candidate) and
+  `trade_embargo` (resist one aimed at a favoured alliance), closing the §7.2 "attitude ignored" note;
+  the diplomatic-victory motion stays bloc-only (never hand a rival the game). New AI constants
+  `ai_deal_eval_turns`, `ai_trade_tech_value`, `ai_war_power_margin`.
+- **UI.** `diplomacy_screen.gd` now shows each met rival's **attitude toward you**, a one-off **Gift**
+  and a per-turn **Offer** button (both route through `propose_trade`), and a **Standing deals** panel
+  listing active per-turn deals with a Cancel button enabled only past the minimum duration.
+- **Tests.** `tests/sim/test_alliance.gd` (new: deal creation from a recurring trade, per-turn delivery
+  both directions, lapse on war, cancellation blocked-then-allowed by min duration, non-party rejection,
+  save/load int discipline); `tests/sim/test_diplomacy.gd` (attitude base/levels, war/religion/active-deal
+  factors, memory accrual/decay/cap, grievance lowers attitude, declare-war records memory, save/load);
+  `tests/api/test_player_ai.gd` (AI accepts net-positive / rejects net-negative / refuses a loathed rival's
+  good offer; declares war on a Furious weaker rival; holds peace when neutral; assembly vote follows
+  attitude); `tests/core/test_data_db.gd` (diplomacy table well-formed); `tests/scenes/test_diplomacy_screen.gd`
+  (canary + attitude/offer/cancel UI); `tests/integration/test_full_playthrough.gd`
+  (`test_playthrough_save_load_determinism_middeal`: a mid-flight deal + grievance roundtrip to the same
+  `state_hash`). Full unit suites + integration gate green in isolation and via `./run_tests.sh`;
+  `ai_full_game_smoke.gd` still reaches a win (alliance 1, turn 500) with **zero errors**, and **no
+  seed-pinned test needed re-pinning** (a neutral AI starts no new wars, so existing RNG streams were
+  undisturbed).
+- **Deliberate scope.** Recurring **resource** items are carried on the deal and warm attitude (active-deal
+  factor) but are not yet read as resource access at the consuming sites; deal item kinds beyond
+  gold/gold-per-turn/tech/peace/resources (cities, maps, open-borders, defensive pacts) and a full
+  multi-item trade-negotiation table are deferred — the deal object and the per-turn execution seam are in
+  place, each remaining kind a data + one-handler addition. Border-friction and demand-fatigue attitude
+  factors named in the reference are left out of the first cut (the wired factors + memory already make
+  attitude respond to play). Vassalage/capitulation (Phase 8) builds on this attitude layer next.
+
+### Original plan (for reference)
 - **Goal.** Promote trades to persistent **deal objects** (one-off + per-turn items, executed each
   world step, cancellable past a minimum duration) and add an **AI attitude/memory** layer
   (5 levels from weighted factors + decaying memory of acts) that gates deal acceptance, war
