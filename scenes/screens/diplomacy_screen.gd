@@ -98,9 +98,19 @@ func rebuild() -> void:
 		if my_alliance != null:
 			is_perm_ally = other_alliance.id in my_alliance.permanent_allies
 
+		# Subordination (§7 vassalage): are we their overlord, or they ours?
+		var they_are_our_vassal: bool = other_alliance.is_subordinate_to == my_alliance.id \
+			if my_alliance != null else false
+		var we_are_their_vassal: bool = my_alliance != null \
+			and my_alliance.is_subordinate_to == other_alliance.id
+
 		# Relationship status label
 		var status: String
-		if at_war:
+		if they_are_our_vassal:
+			status = "Our Vassal"
+		elif we_are_their_vassal:
+			status = "Our Overlord"
+		elif at_war:
 			status = "AT WAR"
 		elif is_perm_ally:
 			status = "Permanent Ally"
@@ -131,6 +141,21 @@ func rebuild() -> void:
 			peace_btn.text = "Make Peace"
 			peace_btn.connect("pressed", self, "_on_make_peace", [other_alliance.id])
 			row.add_child(peace_btn)
+
+			# Capitulate (§7 vassalage): only offered when this rival is crushing us
+			# — at war and so much stronger that submission beats annihilation.
+			if Vassalage.is_crushed_by(gs, gs.db, my_alliance, other_alliance):
+				var cap_btn: Button = Button.new()
+				cap_btn.text = "Capitulate"
+				cap_btn.connect("pressed", self, "_on_capitulate", [other_alliance.id])
+				row.add_child(cap_btn)
+
+		# Release a vassal we hold back to independence (§7 vassalage).
+		if they_are_our_vassal:
+			var free_btn: Button = Button.new()
+			free_btn.text = "Free Vassal"
+			free_btn.connect("pressed", self, "_on_free_vassal", [other_alliance.id])
+			row.add_child(free_btn)
 
 		# Permanent-alliance proposal: only when the rule is on, both are at
 		# peace, neither is already a permanent ally.
@@ -244,6 +269,16 @@ func _on_offer_per_turn(target_aid: int) -> void:
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.propose_trade(
 		gs.current_player_id, target_aid, {"gold_per_turn": OFFER_GOLD_PER_TURN}, {}))
+	rebuild()
+
+func _on_capitulate(overlord_aid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.set_subordination(gs.current_player_id, overlord_aid))
+	rebuild()
+
+func _on_free_vassal(vassal_aid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.free_vassal(gs.current_player_id, vassal_aid))
 	rebuild()
 
 func _on_cancel_deal(deal_id: int) -> void:

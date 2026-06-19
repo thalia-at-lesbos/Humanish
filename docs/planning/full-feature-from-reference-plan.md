@@ -492,7 +492,61 @@ layer that drives deal acceptance, war declaration, and assembly votes.
 
 ---
 
-## Phase 8 — Team/vassalage parity (§7)
+## Phase 8 — Team/vassalage parity (§7) ✅ COMPLETE
+**Done.** The war-driven half of the subordination model is layered onto the existing scaffolding
+(`Alliance.is_subordinate_to`/`tributaries`, the voluntary `SET_SUBORDINATION` command, and
+`TurnEngine` tribute collection): a crushed alliance capitulates, a recovered vassal is liberated,
+and a vassal shares its overlord's wars and peace. **No new serialized state** — the relationship
+persists through the already-serialized `is_subordinate_to`/`tributaries` (int-coerced on
+deserialize), so the integration save/load determinism gate already covers it.
+
+- **New module.** `src/sim/vassalage.gd` (`class_name Vassalage`, pure static, registered in
+  `project.godot`) is the single home of the new logic. `alliance_power(gs, alliance)` is the
+  canonical military-strength proxy (summed `effective_strength × health` of land combat units);
+  `PlayerAI._alliance_military_power` now delegates to it so the war-margin and capitulation gates
+  read one scale. `is_crushed_by(gs, db, sub, overlord)` is the capitulation gate (the two are at
+  war **and** the sub's power is ≤ `vassal_capitulation_power_pct`% of the overlord's);
+  `crushing_overlord(...)` finds the strongest such conqueror (lowest-id tiebreak). `can_liberate(...)`
+  is the liberation gate (the vassal's power has recovered to ≥ `vassal_liberation_power_pct`% of its
+  overlord's); the dead band between the two percentages (40..70) gives hysteresis so a freshly-
+  capitulated vassal does not immediately re-liberate. `liberate(...)` severs the relationship
+  peacefully (clears `is_subordinate_to`, drops the tributary, leaves both at peace).
+- **World tick.** `Vassalage.world_tick(gs, db)` runs each `world_step` (right after
+  `_collect_tribute`, no RNG, deterministic alliance order): `sync_vassal_wars` drags every vassal
+  into each war the overlord joins and drops any third-party war the overlord has left (shared war &
+  peace — a vassal cannot make a separate peace), then any vassal that `can_liberate` breaks free and
+  queues a `vassal_liberated` notice onto `gs.pending_deal_events`.
+- **Capitulation path.** Reuses the voluntary `SET_SUBORDINATION` command (which already ends the
+  war, records the overlord, and joins its wars). `PlayerAI._maybe_capitulate` (in `manage_diplomacy`,
+  after the war decision) makes a crushed AI alliance's **leader** (lowest-id member, so it submits
+  once) capitulate to its `crushing_overlord`. A merely-losing AI does not submit.
+- **Liberation command.** New `FREE_VASSAL` command (`Commands.free_vassal`,
+  `SimFacade._cmd_free_vassal`) is the overlord's half — it releases a held tributary back to
+  independence (acting player must belong to the overlord alliance; target must be its subordinate).
+  The facade drains the `vassal_liberated` queue into a message-log notification.
+- **Data.** New constants `vassal_capitulation_power_pct` (40) and `vassal_liberation_power_pct` (70)
+  in `data/constants.json`. No new data table.
+- **UI.** `diplomacy_screen.gd` now shows the subordination status ("Our Vassal" / "Our Overlord"),
+  a **Capitulate** button on a rival that is crushing us (at war + `is_crushed_by`), and a **Free
+  Vassal** button on a tributary we hold.
+- **Tests.** `tests/sim/test_vassalage.gd` (new: power counts military only; crushed gate at-war/
+  weaker, not-at-war, not-when-strong; strongest-conqueror pick; liberate-when-recovered + stay-when-
+  weak; inherit-overlord-war; share-overlord-peace; `FREE_VASSAL` releases / rejects non-overlord /
+  rejects non-vassal; subordination survives a JSON roundtrip). `tests/api/test_player_ai.gd`
+  (AI capitulates when crushed; holds when merely losing). The existing `tests/sim/test_diplomacy.gd`
+  tributary/tribute tests and the `tests/scenes/test_diplomacy_screen.gd` canary still pass against
+  the additions. Full unit suites (960) + integration gate (11) green in isolation and via
+  `./run_tests.sh`; `ai_full_game_smoke.gd` still reaches a win (alliance 1, turn 500) with **zero
+  errors**, and no seed-pinned test needed re-pinning (a crushed-then-capitulating AI only fires under
+  a lopsided war, leaving existing RNG streams undisturbed).
+- **Deliberate scope.** Tech-sharing between overlord and vassal, a per-relationship minimum vassal
+  duration (the 40/70 hysteresis band already prevents oscillation, so no new `subordinated_turn`
+  serialized field was needed), and master-decides-when-to-capitulate negotiation are left out of the
+  first cut — the capitulation gate, the shared-war/peace seam, and automatic liberation already close
+  the §7 parity gap. The voluntary-tributary `SET_SUBORDINATION` path stays ungated (a player may
+  always submit); the *crushed* gate lives in the AI/UI that decides to submit.
+
+### Original plan (for reference)
 - **Goal.** Complete the subordination model toward the reference team tier: capitulation after a
   lost war and liberation when strong again, with shared war/peace and (optionally) tech-sharing,
   layered onto `Alliance` (`is_subordinate_to`/`tributaries`).

@@ -817,6 +817,38 @@ func test_ai_holds_peace_with_neutral_rival() -> void:
 	assert_false(gs.are_at_war(1, 2),
 		"a neutral AI does not start a war even when stronger")
 
+func test_ai_capitulates_when_crushed() -> void:
+	# Player 2's AI alliance is at war with a far stronger player 1 and capitulates.
+	var gs = make_gs(2)
+	for i in range(4):
+		make_warrior(gs, 1, 2 + i, 1)   # overlord: four warriors
+	make_warrior(gs, 2, 5, 5)            # sub: one warrior (crushed)
+	gs.get_alliance(1).at_war_with = [2]
+	gs.get_alliance(2).at_war_with = [1]
+	gs.get_alliance(1).contacts.append(2)
+	gs.get_alliance(2).contacts.append(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 2
+	PlayerAI.manage_diplomacy(f, 2)
+	assert_eq(gs.get_alliance(2).is_subordinate_to, 1,
+		"a crushed AI alliance capitulates to its conqueror")
+	assert_false(gs.are_at_war(1, 2), "capitulation ends the war")
+
+func test_ai_does_not_capitulate_when_holding() -> void:
+	var gs = make_gs(2)
+	for i in range(2):
+		make_warrior(gs, 1, 2 + i, 1)
+	make_warrior(gs, 2, 5, 5)
+	make_warrior(gs, 2, 6, 5)            # ~50% — not crushed
+	gs.get_alliance(1).at_war_with = [2]
+	gs.get_alliance(2).at_war_with = [1]
+	gs.get_alliance(2).contacts.append(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 2
+	PlayerAI.manage_diplomacy(f, 2)
+	assert_eq(gs.get_alliance(2).is_subordinate_to, -1,
+		"an AI that is merely losing does not capitulate")
+
 func test_assembly_vote_backs_a_liked_candidate() -> void:
 	# elect_resident with a rival candidate: a Pleased+ attitude flips Nay → Yea.
 	var gs = make_gs(3)

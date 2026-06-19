@@ -40,6 +40,11 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	# Tributaries pay tribute to their overlords (§7).
 	_collect_tribute(gs)
 
+	# Vassalage maintenance (§7, Phase 8): drag each vassal into the overlord's wars
+	# and out of any war the overlord has left (shared war/peace), then free any
+	# vassal whose military has recovered past the liberation threshold. No RNG.
+	Vassalage.world_tick(gs, gs.db)
+
 	# Diplomatic memory decays toward zero once per world step (§7): old grievances
 	# and favours fade, so attitude drifts back to neutral absent fresh acts.
 	Diplomacy.decay(gs, gs.db)

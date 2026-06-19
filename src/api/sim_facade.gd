@@ -357,6 +357,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_unload_unit(cmd)
 		IDs.CommandType.SET_SUBORDINATION:
 			return _cmd_set_subordination(cmd)
+		IDs.CommandType.FREE_VASSAL:
+			return _cmd_free_vassal(cmd)
 		IDs.CommandType.GP_ACTION:
 			return _cmd_gp_action(cmd)
 		IDs.CommandType.CAST_VOTE:
@@ -1301,6 +1303,27 @@ func _cmd_set_subordination(cmd: Dictionary) -> bool:
 		if not (enemy_aid in mine.at_war_with):
 			mine.at_war_with.append(enemy_aid)
 	_add_notification(p.name + " became a tributary of " + _alliance_label(overlord_id) + ".", "major")
+	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
+	return true
+
+# An overlord voluntarily releases one of its tributaries/vassals back to
+# independence (§7, Phase 8 — the overlord's half of liberation; a vassal also
+# breaks free on its own once strong enough, via Vassalage.world_tick). The acting
+# player must belong to the overlord alliance, and the target must currently be its
+# subordinate. Liberation is peaceful — it leaves both sides at peace.
+func _cmd_free_vassal(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var overlord: Alliance = _gs.get_player_alliance(p.id)
+	var vassal: Alliance = _gs.get_alliance(int(cmd.get("vassal_alliance_id", -1)))
+	if overlord == null or vassal == null:
+		return false
+	if vassal.is_subordinate_to != overlord.id:
+		return false
+	Vassalage.liberate(_gs, vassal)
+	_add_notification(p.name + " released " + _alliance_label(vassal.id)
+		+ " from vassalage.", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	return true
 
@@ -2834,9 +2857,16 @@ func _drain_deal_events() -> void:
 		match str(e.get("kind", "")):
 			"deal_expired":
 				_add_notification("A standing deal has lapsed.", "info")
+				emit_signal("deal_cancelled", e)
 			"deal_cancelled":
 				_add_notification("A standing deal was cancelled.", "info")
-		emit_signal("deal_cancelled", e)
+				emit_signal("deal_cancelled", e)
+			"vassal_liberated":
+				# §7 vassalage: a vassal grew strong enough to break free of its
+				# overlord (Vassalage.world_tick), or an overlord released it.
+				_add_notification(_alliance_label(int(e.get("alliance_id", -1)))
+					+ " broke free of " + _alliance_label(int(e.get("overlord_alliance_id", -1)))
+					+ ".", "major")
 	_gs.pending_deal_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 

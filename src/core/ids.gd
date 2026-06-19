@@ -115,7 +115,10 @@ enum CommandType {
     # Spread a corporation to a city with an executive unit (§14.6).
     SPREAD_CORPORATION = 62,
     # Cancel an active persistent deal (§7) once its minimum duration has elapsed.
-    CANCEL_DEAL = 63
+    CANCEL_DEAL = 63,
+    # Release a tributary/vassal alliance back to independence (§7, the overlord's
+    # half of vassalage; a vassal also breaks free automatically once strong again).
+    FREE_VASSAL = 64
 }
 
 # Win condition types

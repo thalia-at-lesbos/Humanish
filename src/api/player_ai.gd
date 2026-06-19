@@ -186,6 +186,7 @@ static func manage_diplomacy(facade, player_id: int) -> void:
 		return
 	_answer_trade_offers(facade, gs, me)
 	_maybe_declare_war(facade, gs, me)
+	_maybe_capitulate(facade, gs, me)
 
 # Accept a net-positive offer (unless the proposer is loathed); reject every other
 # offer so it does not linger. Offers live on the *proposer's* alliance, addressed
@@ -265,14 +266,32 @@ static func _maybe_declare_war(facade, gs, me) -> void:
 			return
 
 # Summed attack power of an alliance's military units — a coarse strength proxy.
+# Delegates to Vassalage.alliance_power so the war-margin and capitulation gates
+# read one strength scale.
 static func _alliance_military_power(gs, alliance) -> int:
-	var total: int = 0
-	for u in gs.units:
-		if u.owner_player_id in alliance.member_player_ids:
-			var udata: Dictionary = gs.db.get_unit(u.unit_type_id)
-			if _is_military_unit(udata):
-				total += _attack_power(u, gs.db)
-	return total
+	return Vassalage.alliance_power(gs, alliance)
+
+# A crushed alliance sues for vassalage (§7, Phase 8): if the AI's alliance is at
+# war with a far stronger enemy (Vassalage.is_crushed_by) and is independent, its
+# leader (the lowest-id member, so only one player acts) capitulates to the
+# strongest such conqueror — ending the war and joining the overlord's wars via the
+# shared SET_SUBORDINATION path. Submitting beats annihilation; liberation later
+# frees it once it has rebuilt (Vassalage.world_tick).
+static func _maybe_capitulate(facade, gs, me) -> void:
+	var mine = gs.get_player_alliance(me.id)
+	if mine == null or mine.is_subordinate_to >= 0:
+		return
+	# Only the alliance leader acts, so a multi-member alliance submits once.
+	var leader: int = -1
+	for pid in mine.member_player_ids:
+		if leader < 0 or int(pid) < leader:
+			leader = int(pid)
+	if me.id != leader:
+		return
+	var overlord = Vassalage.crushing_overlord(gs, gs.db, mine)
+	if overlord == null:
+		return
+	facade.apply_command(Commands.set_subordination(me.id, overlord.id))
 
 # ── Assembly: cast a self-interested vote on any open proposal (§7.2) ───────────
 
