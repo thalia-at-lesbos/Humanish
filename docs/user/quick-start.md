@@ -76,8 +76,9 @@ You begin with a **Settler** unit (and usually a **Warrior** escort).
 
 - **Move units**: right-click the target tile. Multi-turn journeys remember their destination automatically.
 - **Attack**: right-click an enemy unit's tile to initiate combat.
-- **Left-click** any tile to inspect it (terrain yields, units, owner).
+- **Left-click** any tile to inspect it (terrain yields, units, owner). Selecting one of your own units or a city also shows that tile's terrain in the selection panel.
 - **Left-click** your own units or cities to select them.
+- **Minimap**: click or drag anywhere on the minimap to recenter the main view there.
 - Press **N** to jump to your next idle unit; press **E** (or click **End Turn**) when done.
 
 ### Research
@@ -105,11 +106,12 @@ Adjust them from the slider panel or the Options screen (**F4**).
 
 | Action | How |
 |--------|-----|
-| Select a unit or city | Left-click its tile |
+| Select a unit or city | Left-click its tile (the selection panel also shows that tile's terrain) |
 | Inspect an empty or foreign tile | Left-click it |
 | Move selected unit(s) | Right-click the destination tile |
 | Attack an enemy | Right-click the enemy tile |
 | Deselect | Left-click an empty tile |
+| Recenter the map | Click (or drag) on the minimap |
 
 ---
 
@@ -182,5 +184,7 @@ The server auto-saves after every turn so nothing is lost if it restarts.
 - **Keep at least one warrior per city** early on to deter raiders.
 - **Don't ignore Culture**: high culture expands your borders and eventually flips nearby cities.
 - **Research unlocks everything**: units, structures, improvements, and resources are all gated by technology.
+- **Use the high ground**: a unit on hills sees one tile farther, and forests, jungle, hills, and mountains block your line of sight to what lies beyond them — scout from open or elevated terrain.
+- **You can't cross the open ocean early**: coastal ships (Work Boat, Galley, Trireme) are stuck near the shore. Deep ocean tiles need an ocean-capable ship *and* the enabling technology (Optics) — though you may always sail through your own or an allied civilization's coastal waters.
 - **Watch the advisor bar**: the Finance, Military, Domestic, and Espionage advisors surface actionable warnings.
 - If an enemy city is close and well-cultured, your border tiles may start flipping to them — defend with cultural output or military pressure.

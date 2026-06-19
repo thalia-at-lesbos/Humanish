@@ -11,21 +11,22 @@ For a shorter introduction see [Quick Start](quick-start.md).
 2. [Economy sliders](#2-economy-sliders)
 3. [Cities](#3-cities)
 4. [Units](#4-units)
-5. [Combat](#5-combat)
-6. [Research](#6-research)
-7. [Civics and policies](#7-civics-and-policies)
-8. [Diplomacy](#8-diplomacy)
-9. [Beliefs and economic organisations](#9-beliefs-and-economic-organisations)
-10. [Great People](#10-great-people)
-11. [Eras](#11-eras)
-12. [Wild forces and raiders](#12-wild-forces-and-raiders)
-13. [Save and load](#13-save-and-load)
-14. [Multiplayer](#14-multiplayer)
-15. [Map types](#15-map-types)
-16. [World sizes](#16-world-sizes)
-17. [Societies](#17-societies)
-18. [Victory conditions](#18-victory-conditions)
-19. [Keyboard reference](#19-keyboard-reference)
+5. [Terrain and improvements](#5-terrain-and-improvements)
+6. [Combat](#6-combat)
+7. [Research](#7-research)
+8. [Civics and policies](#8-civics-and-policies)
+9. [Diplomacy](#9-diplomacy)
+10. [Beliefs and economic organisations](#10-beliefs-and-economic-organisations)
+11. [Great People](#11-great-people)
+12. [Eras](#12-eras)
+13. [Wild forces and raiders](#13-wild-forces-and-raiders)
+14. [Save and load](#14-save-and-load)
+15. [Multiplayer](#15-multiplayer)
+16. [Map types](#16-map-types)
+17. [World sizes](#17-world-sizes)
+18. [Societies](#18-societies)
+19. [Victory conditions](#19-victory-conditions)
+20. [Keyboard reference](#20-keyboard-reference)
 
 ---
 
@@ -37,6 +38,7 @@ For a shorter introduction see [Quick Start](quick-start.md).
 |---------|-------|
 | Left-click tile | Select unit / city on tile, or inspect empty/foreign tile |
 | Right-click tile | Move selected unit(s) to tile, or attack enemy there |
+| Click / drag minimap | Recenter the main map view on that location |
 | **F1** | Encyclopedia |
 | **F2** | Technology tree (Tech Chooser) |
 | **F3** | Policy / Civics screen |
@@ -134,7 +136,7 @@ Cities produce culture each turn. As culture accumulates the city's border ring 
 
 - **Left-click** a tile containing your units to select them.  
   Clicking the same tile again cycles to the next unit if multiple are stacked.
-- The **selection panel** (bottom of HUD) shows the selected unit(s), health, movement, and available actions.
+- The **selection panel** (bottom of HUD) shows the selected unit(s), health, movement, and available actions. It also displays the underlying tile's terrain readout (terrain type, feature, resource, yields) for whatever you have selected — unit, city, or an inspected empty tile.
 - On a tile with both units and your own city, clicking repeatedly cycles: units first (in order), then the city.
 
 ### Movement
@@ -142,6 +144,25 @@ Cities produce culture each turn. As culture accumulates the city's border ring 
 - **Right-click** a destination tile to move the selected unit(s) there.
 - Multi-turn journeys: if the path is longer than remaining movement, the destination is remembered and the unit resumes automatically on the next turn — you issue the order once.
 - **N** jumps to the next idle unit.
+- **Terrain movement cost**: flat tiles (grassland, plains, desert, tundra) cost one normal move; hills cost more, and forest or jungle features add further cost. Mountains are impassable to land units, and ice tiles cannot be entered.
+
+### Sailing the ocean
+
+Water tiles come in two kinds: **coast** (shallow water near land) and **ocean** (deep water). Naval units can always move along the coast, but entering deep ocean is gated:
+
+- A ship must be **ocean-capable** — Work Boats, Galleys, and Triremes are coastal-only and cannot cross open ocean. The Caravel (Optics) is the first ocean-going ship; later naval units are all ocean-capable.
+- Its owner must also have researched the **ocean-travel technology (Optics)**.
+- The restriction is **waived inside your own or an allied civilization's cultural waters**, so you can always sail through friendly coastal sea even before Optics.
+
+This is why early exploration is hemmed in by your home coastline, and why map types with wide oceans stay isolated until Optics opens them up.
+
+### Vision and line of sight
+
+Each unit reveals the tiles around it within its sight range. Terrain shapes what you can see:
+
+- A unit standing on **hills** sees **one tile farther** than normal.
+- **Forest**, **jungle**, **hills**, and **mountains** **block line of sight** — you cannot see the tiles *beyond* such an obstacle from where you stand. Scout from open ground or high ground to see the most.
+- Explored tiles stay dimly visible in memory even after your units leave; only tiles in a current unit's sight show live activity.
 
 ### Stacks
 
@@ -157,7 +178,7 @@ The selection panel shows available actions for the selected unit(s):
 | Fortify | Unit entrenches on its tile, gaining a defence bonus each turn it stays |
 | Sleep | Unit rests until you wake it; removes it from the idle-unit cycle |
 | Found City | (Settler only) Found a city on the current tile |
-| Build Improvement | (Worker) Build a farm, mine, road, etc. on the current tile |
+| Build Improvement | (Worker) Build a farm, mine, road, etc. on the current tile (only improvements legal for that terrain are offered) |
 | Spread Belief | (Missionary) Spread your state religion to the target city |
 | Perform GP Action | (Great Person) Use the Great Person's special ability |
 | Disband | Remove the unit permanently |
@@ -167,9 +188,71 @@ The selection panel shows available actions for the selected unit(s):
 Workers build tile improvements over multiple turns. Assign them to a tile via their action buttons,
 or toggle **Automate** to let the AI handle improvement assignment for you.
 
+The improvement buttons offered depend on the tile: only improvements legal for that terrain, feature, and resource appear (for example, a **Mine** is only buildable on hills, a **Farm** only on flat land). A Worker standing on a **city tile** shows **no** build or improvement actions — the city already works that tile. See [§5 Terrain and improvements](#5-terrain-and-improvements) for the full requirements.
+
 ---
 
-## 5. Combat
+## 5. Terrain and Improvements
+
+### Terrain types
+
+Every land tile has a base terrain that sets its movement cost and base yields (food / production / commerce). Tiles next to a river earn extra commerce.
+
+| Terrain | Food | Prod | Commerce | Notes |
+|---------|------|------|----------|-------|
+| Grassland | 2 | 1 | 0 | +1 commerce next to a river |
+| Plains | 1 | 1 | 0 | +1 commerce next to a river |
+| Desert | 0 | 0 | 0 | Improvements take 25 % longer; mostly needs water |
+| Tundra | 1 | 0 | 0 | Improvements take 25 % longer |
+| Snow | 0 | 0 | 0 | No improvements possible |
+| Hills | 1 | 2 | 0 | +25 % defence, +1 sight, blocks line of sight |
+| Mountain | 0 | 1 | 0 | Impassable to land units; +50 % defence; blocks line of sight |
+| Coast | 1 | 0 | 2 | Shallow water; +10 % defence |
+| Ocean | 1 | 0 | 1 | Deep water; entry restricted until Optics (see §4) |
+
+### Features
+
+Features sit on top of terrain and modify it:
+
+| Feature | Effect |
+|---------|--------|
+| Forest | +1 production, +50 % defence, blocks line of sight; chopping it gives production to the nearest city |
+| Jungle | −1 food, +50 % defence, blocks line of sight, disease risk; usually cleared before improving |
+| Flood Plains | +3 food (desert tiles by rivers); −33 % defence, disease risk |
+| Oasis | +3 food, +2 commerce (desert only); cannot be improved |
+| Fallout | Heavy yield penalty from nuclear contamination; Workers can clean it |
+| Ice | Impassable; no units or improvements |
+
+### Improvements
+
+Workers build improvements to boost a tile's yields. Each improvement requires a particular technology and is only legal on certain terrain (and some need a matching resource or a river). Build buttons appear only for the improvements that are valid on the tile under the Worker — and **never** when the Worker stands on a city tile.
+
+| Improvement | Yield bonus | Terrain | Tech | Notes |
+|-------------|-------------|---------|------|-------|
+| Farm | +1 food | Flat land | Agriculture | |
+| Mine | +1 production | **Hills only** | Mining | |
+| Pasture | +1 food, +1 prod | Flat | Animal Husbandry | Needs a resource |
+| Camp | +1 production | Flat or hills | Hunting | Needs a resource; keeps the feature |
+| Plantation | +1 commerce | Flat or hills | Calendar | Needs a resource |
+| Quarry | +1 production | Hills or flat | Masonry | Needs a resource |
+| Winery | +1 commerce | Flat | Monarchy | Needs a resource |
+| Cottage | +1 commerce | Flat | Pottery | Grows into Hamlet → Village → Town over time |
+| Workshop | +1 production | Flat | Metal Casting | |
+| Watermill | +1 food, +1 prod | Flat | The Wheel | Riverside tiles only |
+| Windmill | +1 prod, +1 commerce | Hills | Machinery | |
+| Lumbermill | +1 food, +1 prod | Flat or hills | Replaceable Parts | Needs a forest; keeps it |
+| Fort | — | Flat or hills | Mathematics | +50 % defence |
+| Road | +1 commerce | Flat or hills | — | Speeds movement |
+| Railroad | +1 production | Flat or hills | Railroad | Needs a road first |
+| Fishing Boats | +1 food, +1 commerce | Coast | Fishing | Needs a sea resource |
+| Whaling Boats | +1 commerce | Coast or ocean | Compass | Needs a sea resource |
+| Offshore Platform | +2 prod, +1 commerce | Coast or ocean | Plastics | |
+
+(Hamlet, Village, and Town are the upgrade stages a Cottage grows into on its own — you don't build them directly.)
+
+---
+
+## 6. Combat
 
 ### Initiating
 
@@ -202,7 +285,7 @@ Prolonged war accumulates **war fatigue** on both alliances, increasing unhappin
 
 ---
 
-## 6. Research
+## 7. Research
 
 ### Tech Tree
 
@@ -227,7 +310,7 @@ Advancing to a new era happens automatically when you research a technology tagg
 
 ---
 
-## 7. Civics and Policies
+## 8. Civics and Policies
 
 ### Overview
 
@@ -252,7 +335,7 @@ When you switch policies in a category, your empire enters **anarchy** for a num
 
 ---
 
-## 8. Diplomacy
+## 9. Diplomacy
 
 Open with **F4**. You see each rival player's stance toward you and available diplomatic options:
 
@@ -268,7 +351,7 @@ The **United Nations** wonder (if built) enables the **Diplomatic** victory cond
 
 ---
 
-## 9. Beliefs and Economic Organisations
+## 10. Beliefs and Economic Organisations
 
 ### Beliefs (religions)
 
@@ -282,7 +365,7 @@ Founded by a Great Merchant or specific Great Person action. Like beliefs, organ
 
 ---
 
-## 10. Great People
+## 11. Great People
 
 Specialists in your cities generate **Great Person points** each turn. When a city's total crosses the current threshold a Great Person is born.
 
@@ -303,7 +386,7 @@ Certain Great Person actions (and accumulating a set number of them) trigger a *
 
 ---
 
-## 11. Eras
+## 12. Eras
 
 | Era | Unlocks (examples) |
 |-----|--------------------|
@@ -319,7 +402,7 @@ Entering a new era produces a notification and may unlock new build options imme
 
 ---
 
-## 12. Wild Forces and Raiders
+## 13. Wild Forces and Raiders
 
 Unclaimed territory spawns **raiders** — AI-controlled units (owner: Wild Forces) that wander and attack cities and units they encounter. They are not controlled by any player.
 
@@ -327,7 +410,7 @@ Raiders are a persistent early-game threat. Garrison your cities with at least o
 
 ---
 
-## 13. Save and Load
+## 14. Save and Load
 
 | Method | How |
 |--------|-----|
@@ -337,11 +420,11 @@ Raiders are a persistent early-game threat. Garrison your cities with at least o
 | Load from pause | **Escape → Load** — browse saved games |
 | Load from title | Title screen → **Load Game** |
 
-Save files are stored under your user data path (see Quick Start for platform-specific paths).
+Save files are stored under your user data path (see Quick Start for platform-specific paths). The title-screen **Load Game** list scrolls, so all your saves remain reachable even when you have accumulated a long list.
 
 ---
 
-## 14. Multiplayer
+## 15. Multiplayer
 
 ### Joining a game
 
@@ -380,7 +463,9 @@ The server autosaves after every turn (human or AI). If interrupted it can be re
 
 ---
 
-## 15. Map Types
+## 16. Map Types
+
+The map type sets the overall shape of the world. Each new game generates a fresh map at random, so even the same map type and settings produce a different layout every time you start a game.
 
 | Map | Description |
 |-----|-------------|
@@ -404,7 +489,7 @@ The server autosaves after every turn (human or AI). If interrupted it can be re
 
 ---
 
-## 16. World Sizes
+## 17. World Sizes
 
 | Size | Tiles | Notes |
 |------|-------|-------|
@@ -417,7 +502,7 @@ The server autosaves after every turn (human or AI). If interrupted it can be re
 
 ---
 
-## 17. Societies
+## 18. Societies
 
 Each society has a unique leader trait that provides a passive combat, growth, or economic bonus. Traits stack with civics and other bonuses.
 
@@ -462,7 +547,7 @@ See the **Encyclopedia** (F1) for each society's specific trait bonuses.
 
 ---
 
-## 18. Victory Conditions
+## 19. Victory Conditions
 
 Select which conditions are active at game setup. A game ends immediately when any alliance achieves an active condition.
 
@@ -494,7 +579,7 @@ Score is a weighted sum of land tiles held, total population, and number of tech
 
 ---
 
-## 19. Keyboard Reference
+## 20. Keyboard Reference
 
 | Key | Action |
 |-----|--------|
