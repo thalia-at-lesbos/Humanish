@@ -435,7 +435,12 @@ static func ai_vote(gs, player_id: int) -> String:
 	var cand_friendly: bool = cand != null and cand.alliance_id == me.alliance_id
 	match eff:
 		"elect_resident":
+			# Back your own bloc or your overlord; otherwise support a candidate you
+			# have come to like (attitude Pleased or better, §7). A disliked rival is
+			# voted down.
 			if cand_friendly or _is_vassal_of(gs, player_id, cand):
+				return VOTE_YEA
+			if cand != null and Diplomacy.attitude_level(gs, gs.db, player_id, cand.id) >= Diplomacy.PLEASED:
 				return VOTE_YEA
 			return VOTE_NAY
 		"diplomatic_victory":
@@ -450,8 +455,17 @@ static func ai_vote(gs, player_id: int) -> String:
 				at_war = true
 			return VOTE_YEA if at_war else VOTE_ABSTAIN
 		"trade_embargo":
+			# Resist an embargo aimed at yourself, or at an alliance you favour
+			# (a member you regard as Pleased or better, §7); otherwise back it.
 			var tgt: int = int(pending.get("target_alliance_id", -1))
-			return VOTE_NAY if tgt == me.alliance_id else VOTE_YEA
+			if tgt == me.alliance_id:
+				return VOTE_NAY
+			var tgt_alliance = gs.get_alliance(tgt)
+			if tgt_alliance != null:
+				for tm in tgt_alliance.member_player_ids:
+					if Diplomacy.attitude_level(gs, gs.db, player_id, int(tm)) >= Diplomacy.PLEASED:
+						return VOTE_NAY
+			return VOTE_YEA
 		"religion_mandate":
 			return VOTE_YEA if me.state_religion == str(pending.get("belief_id", "")) else VOTE_NAY
 		"civic_mandate":

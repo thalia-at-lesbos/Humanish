@@ -299,8 +299,13 @@ static func nuclear_strike(player_id: int, unit_id: int,
 
 # ── Trades (§7) ───────────────────────────────────────────────────────────────
 
-# `give`/`receive` are Dictionaries like {"gold": int, "techs": [String]}; `peace`
-# clears any war between the two alliances when the deal is accepted.
+# `give`/`receive` are Dictionaries of tradeable items, proposer→accepter for
+# `give` and accepter→proposer for `receive`. Recognised keys:
+#   one-off (delivered once on acceptance): "gold": int, "techs": [String]
+#   recurring (delivered each world step until cancelled): "gold_per_turn": int,
+#       "resources": [String]
+# `peace` clears any war between the two alliances when the deal is accepted. A
+# trade carrying any recurring item becomes a persistent Deal (§7) on acceptance.
 static func propose_trade(player_id: int, target_alliance_id: int,
 		give: Dictionary, receive: Dictionary, peace: bool = false,
 		duration: int = -1) -> Dictionary:
@@ -319,6 +324,11 @@ static func accept_trade(player_id: int, trade_id: int) -> Dictionary:
 
 static func reject_trade(player_id: int, trade_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.REJECT_TRADE, "player_id": player_id, "trade_id": trade_id}
+
+# Cancel an active recurring deal (§7). Only succeeds once the deal's minimum
+# duration has elapsed; either party to the deal may cancel.
+static func cancel_deal(player_id: int, deal_id: int) -> Dictionary:
+	return {"type": IDs.CommandType.CANCEL_DEAL, "player_id": player_id, "deal_id": deal_id}
 
 # ── Specialists, espionage, transport (§5.2, §6.5, §7) ────────────────────────
 

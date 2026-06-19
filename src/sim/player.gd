@@ -50,6 +50,13 @@ var era: int = 0
 # Espionage accumulation per target alliance_id
 var intel_points: Dictionary = {}   # alliance_id -> int
 
+# Decaying diplomatic memory of other players' acts (§7, Diplomacy): keyed by the
+# remembered rival's player_id, each a {memory_kind -> signed points} Dictionary.
+# Points accrue when the rival acts (Diplomacy.record) and decay toward zero each
+# turn (Diplomacy.decay); the running total feeds the AI's attitude. Serialized
+# with int-key coercion on load (the recurring JSON float/string-key gotcha).
+var diplo_memory: Dictionary = {}   # rival_player_id -> {kind: points}
+
 # Alliance membership
 var alliance_id: int = -1
 
@@ -124,6 +131,7 @@ func serialize() -> Dictionary:
 		"technologies": technologies.duplicate(),
 		"era": era,
 		"intel_points": intel_points.duplicate(),
+		"diplo_memory": diplo_memory.duplicate(true),
 		"alliance_id": alliance_id,
 		"free_early_wins": free_early_wins,
 		"transition_turns": transition_turns,
@@ -166,6 +174,15 @@ static func deserialize(d: Dictionary):
 	var loaded_intel: Dictionary = d.get("intel_points", {})
 	for k in loaded_intel:
 		p.intel_points[int(k)] = int(loaded_intel[k])
+	# diplo_memory is rival_player_id(int) -> {kind(str): points(int)}. JSON turns the
+	# outer key into a string and the points into floats, so coerce both back on load.
+	p.diplo_memory = {}
+	var loaded_mem: Dictionary = d.get("diplo_memory", {})
+	for rk in loaded_mem:
+		var kinds: Dictionary = {}
+		for kind in loaded_mem[rk]:
+			kinds[str(kind)] = int(loaded_mem[rk][kind])
+		p.diplo_memory[int(rk)] = kinds
 	p.alliance_id = int(d.get("alliance_id", -1))
 	p.free_early_wins = int(d.get("free_early_wins", 0))
 	p.transition_turns = int(d.get("transition_turns", 0))

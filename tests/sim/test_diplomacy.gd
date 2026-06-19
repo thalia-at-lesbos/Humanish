@@ -294,3 +294,118 @@ func _end_turn_round(f, gs) -> void:
 	f.apply_command(Commands.end_turn(1))
 	gs.current_player_id = 2
 	f.apply_command(Commands.end_turn(2))
+
+# ── §7 AI attitude & memory (Phase 7) ─────────────────────────────────────────
+# The Diplomacy module computes a deterministic 0..100 attitude from a neutral base
+# + live factors + decaying memory, bucketed into five levels (furious → friendly).
+
+func test_neutral_attitude_is_cautious_middle() -> void:
+	var gs = make_gs(2)
+	# No memory, no factors: score == attitude_base (50) → middle level (cautious).
+	assert_eq(Diplomacy.attitude_score(gs, gs.db, 1, 2),
+		int(gs.db.get_diplomacy().get("attitude_base", 50)))
+	assert_eq(Diplomacy.attitude_level(gs, gs.db, 1, 2), Diplomacy.CAUTIOUS)
+
+func test_attitude_level_name_round_trips() -> void:
+	var gs = make_gs(2)
+	assert_eq(Diplomacy.level_name(gs.db, Diplomacy.FRIENDLY), "friendly")
+	assert_eq(Diplomacy.level_name(gs.db, Diplomacy.FURIOUS), "furious")
+	assert_eq(Diplomacy.level_name(gs.db, 99), "", "out-of-range level has no name")
+
+func test_war_drops_attitude_to_furious() -> void:
+	var gs = make_gs(2)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	# base 50 + at_war (-45) = 5 → below the first threshold (furious).
+	assert_eq(Diplomacy.attitude_level(gs, gs.db, 1, 2), Diplomacy.FURIOUS)
+
+func test_shared_religion_warms_attitude() -> void:
+	var gs = make_gs(2)
+	gs.get_player(1).state_religion = "faith"
+	gs.get_player(2).state_religion = "faith"
+	var shared: int = Diplomacy.attitude_score(gs, gs.db, 1, 2)
+	gs.get_player(2).state_religion = "other"
+	assert_true(shared > Diplomacy.attitude_score(gs, gs.db, 1, 2),
+		"a shared faith reads warmer than a clashing one")
+
+func test_active_deal_warms_attitude() -> void:
+	var gs = make_gs(2)
+	var before: int = Diplomacy.attitude_score(gs, gs.db, 1, 2)
+	gs.deals.append({"a_alliance": 1, "b_alliance": 2, "recurring": {}})
+	assert_true(Diplomacy.attitude_score(gs, gs.db, 1, 2) > before,
+		"an active deal lifts attitude")
+
+func test_declared_war_memory_sours_then_decays() -> void:
+	var gs = make_gs(2)
+	Diplomacy.record(gs, gs.db, 1, 2, "declared_war")
+	var soured: int = Diplomacy.memory_total(gs.get_player(1), 2)
+	assert_eq(soured, int(gs.db.get_diplomacy()["memory_kinds"]["declared_war"]["value"]))
+	assert_true(soured < 0)
+	Diplomacy.decay(gs, gs.db)
+	assert_eq(Diplomacy.memory_total(gs.get_player(1), 2), soured + 1,
+		"a -30 grievance decays by 1 toward zero")
+
+func test_memory_decays_fully_and_clears_entry() -> void:
+	var gs = make_gs(2)
+	gs.get_player(1).diplo_memory[2] = {"made_peace": 2}
+	Diplomacy.decay(gs, gs.db)
+	Diplomacy.decay(gs, gs.db)
+	assert_eq(Diplomacy.memory_total(gs.get_player(1), 2), 0)
+	assert_false(gs.get_player(1).diplo_memory.has(2),
+		"a fully-decayed rival entry is dropped")
+
+func test_record_ignores_self_and_unknown_kinds() -> void:
+	var gs = make_gs(2)
+	Diplomacy.record(gs, gs.db, 1, 1, "declared_war")  # self
+	Diplomacy.record(gs, gs.db, 1, 2, "no_such_kind")  # unknown
+	assert_eq(gs.get_player(1).diplo_memory.size(), 0)
+
+func test_memory_is_capped() -> void:
+	var gs = make_gs(2)
+	var cap: int = int(gs.db.get_diplomacy().get("memory_cap", 120))
+	for _i in range(100):
+		Diplomacy.record(gs, gs.db, 1, 2, "razed_city")  # -40 each
+	assert_eq(Diplomacy.memory_total(gs.get_player(1), 2), -cap,
+		"memory magnitude is clamped to the cap")
+
+func test_grievance_lowers_attitude_level() -> void:
+	var gs = make_gs(2)
+	var before: int = Diplomacy.attitude_level(gs, gs.db, 1, 2)
+	Diplomacy.record(gs, gs.db, 1, 2, "razed_city")
+	Diplomacy.record(gs, gs.db, 1, 2, "declared_war")
+	assert_true(Diplomacy.attitude_level(gs, gs.db, 1, 2) < before,
+		"stacked grievances drop the attitude level")
+
+func test_memory_survives_save_load_as_ints() -> void:
+	var gs = make_gs(2)
+	Diplomacy.record(gs, gs.db, 1, 2, "declared_war")
+	var p2 = load("res://src/sim/player.gd").deserialize(
+		JSON.parse(JSON.print(gs.get_player(1).serialize())).result)
+	assert_true(p2.diplo_memory.has(2), "rival key coerced back to int after JSON roundtrip")
+	assert_eq(Diplomacy.memory_total(p2, 2),
+		int(gs.db.get_diplomacy()["memory_kinds"]["declared_war"]["value"]))
+
+func test_deal_resources_route_to_the_correct_recipient() -> void:
+	# give.resources flow proposer→accepter; receive.resources flow accepter→proposer.
+	var gs = make_gs(2)
+	gs.deals.append({
+		"id": 1, "a_alliance": 1, "b_alliance": 2,
+		"proposer_player_id": 1, "accepter_player_id": 2,
+		"recurring": {"give": {"resources": ["iron"]}, "receive": {"resources": ["wheat"]}},
+		"start_turn": 0, "min_duration": 10
+	})
+	assert_true(Diplomacy.deal_resources_for(gs, 2).has("iron"),
+		"the accepter receives the proposer's give-resources")
+	assert_true(Diplomacy.deal_resources_for(gs, 1).has("wheat"),
+		"the proposer receives the accepter's receive-resources")
+	assert_false(Diplomacy.deal_resources_for(gs, 1).has("iron"),
+		"the proposer does not gain access to what it gave away")
+
+func test_declare_war_records_memory_on_victim() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.declare_war(1, 2))
+	# Player 2 (the victim) now holds a war grievance against the aggressor, player 1.
+	assert_true(Diplomacy.memory_total(gs.get_player(2), 1) < 0,
+		"the attacked player remembers the declaration")

@@ -45,6 +45,8 @@ var goodies: Dictionary = {}
 var resolutions: Dictionary = {}
 # Espionage mission catalogue spent against rival alliances (§7.1, provisional).
 var espionage_missions: Dictionary = {}
+# AI diplomatic attitude factors & memory kinds (§7, Phase 7).
+var diplomacy: Dictionary = {}
 
 var _errors: Array = []
 
@@ -77,6 +79,7 @@ func load_all() -> bool:
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	espionage_missions = _load_json("res://data/espionage_missions.json")
+	diplomacy    = _load_json("res://data/diplomacy.json")
 	_validate()
 	return _errors.empty()
 
@@ -145,6 +148,11 @@ func get_espionage_mission(id: String) -> Dictionary:
 # Empty when the table failed to load.
 func get_espionage_missions() -> Array:
 	return espionage_missions.get("missions", [])
+
+# AI diplomatic attitude/memory tuning (data/diplomacy.json, §7). Empty when the
+# table failed to load.
+func get_diplomacy() -> Dictionary:
+	return diplomacy
 
 func get_technology(id: String) -> Dictionary:
 	return technologies.get(id, {})
@@ -236,6 +244,7 @@ func _validate() -> void:
 	_validate_event_refs()
 	_validate_econ_org_refs()
 	_validate_espionage_mission_refs()
+	_validate_diplomacy_refs()
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
@@ -326,6 +335,32 @@ func _validate_espionage_mission_refs() -> void:
 		var effect = str(m.get("effect", ""))
 		if not (effect in known):
 			_errors.append("Espionage mission '%s' has unknown effect '%s'" % [mid, effect])
+
+# The AI diplomacy table (§7) must define the five attitude levels, one fewer
+# threshold than levels (each ascending bucket), and a value+decay per memory kind.
+func _validate_diplomacy_refs() -> void:
+	if diplomacy.empty():
+		_errors.append("data/diplomacy.json failed to load")
+		return
+	var levels: Array = diplomacy.get("attitude_levels", [])
+	if levels.size() != 5:
+		_errors.append("diplomacy.attitude_levels must list 5 levels, got %d" % levels.size())
+	var thresholds: Array = diplomacy.get("attitude_thresholds", [])
+	if thresholds.size() != levels.size() - 1:
+		_errors.append("diplomacy.attitude_thresholds must have one fewer entry than attitude_levels")
+	for i in range(1, thresholds.size()):
+		if int(thresholds[i]) <= int(thresholds[i - 1]):
+			_errors.append("diplomacy.attitude_thresholds must ascend")
+			break
+	var kinds: Dictionary = diplomacy.get("memory_kinds", {})
+	if kinds.empty():
+		_errors.append("diplomacy.memory_kinds must define at least one memory kind")
+	for k in kinds:
+		var spec: Dictionary = kinds[k]
+		if not spec.has("value") or not spec.has("decay"):
+			_errors.append("diplomacy.memory_kinds '%s' needs both value and decay" % k)
+		elif int(spec.get("decay", 0)) <= 0:
+			_errors.append("diplomacy.memory_kinds '%s' decay must be positive" % k)
 
 # Every trigger must name an event that exists; every event effect (begin, choice,
 # or expire) must use a known verb and resolve its unit/structure/tech reference.

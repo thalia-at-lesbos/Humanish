@@ -899,16 +899,25 @@ the city's output (§4.3):
   (recurring items deliver; one-off items deliver once then close), and **cancellable**
   subject to a minimum duration. Tradeable item kinds: treasury, gold-per-turn, resources,
   technologies, settlements, maps, passage/open-borders, mutual-defense pacts, and peace.
-  *(The engine currently models trades as plain expiring dictionaries; promote them to the
-  deal object with per-turn execution and cancellation.)*
+  *(Implemented: a recurring trade promotes to a persistent deal on `GameState.deals`,
+  executed each world step by `TurnEngine._execute_deals` and cancellable past a minimum
+  duration via the `CANCEL_DEAL` command. The currently-delivered recurring items are
+  gold-per-turn and resource access; the remaining item kinds — cities, maps, open-borders,
+  defensive pacts — are carried on the deal object but not yet enforced at their consuming
+  sites.)*
 * **Attitude & memory (AI diplomacy).** Each AI player holds a per-rival **attitude**
   (Furious → Annoyed → Cautious → Pleased → Friendly) computed from weighted factors:
   shared/again belief, shared war, fair/again trades, border friction, recent demands, and a
   decaying **memory** of past acts (declared war, broke a deal, razed a city, spread culture,
   traded techs, …). Attitude gates what deals an AI will accept, whether it will declare war,
-  and how it votes in assemblies (§7.2). *(Not yet modelled — assembly voting currently
-  ignores attitude. Add an attitude/memory layer per `data/` tables: attitude factors, memory
-  kinds and decay, and denial reasons.)*
+  and how it votes in assemblies (§7.2). *(Implemented in the `Diplomacy` module
+  (`src/sim/diplomacy.gd`) per `data/diplomacy.json`: a deterministic 0..100 attitude from a
+  neutral base + live factors (at-war, shared war, permanent ally, an active deal,
+  shared/clashing state religion) + a decaying memory of acts on `Player.diplo_memory`,
+  bucketed into the five levels. `PlayerAI.manage_diplomacy` reads it to accept/refuse deals
+  and to declare war (only on a loathed, weaker rival), and `Assembly.ai_vote` now reads it for
+  resident elections and embargoes — closing the §7.2 "attitude ignored" note. Border-friction
+  and demand-fatigue factors remain a future refinement.)*
 * **Subordination / vassalage**: a weaker alliance may become a **tributary or vassal** of a
   stronger one — sharing its wars, paying tribute, and (for full vassalage) capitulating after
   a lost war and being freed when strong enough again. The reference models this on a **team**
@@ -1093,9 +1102,11 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
 * **AI voting.** A computer member casts its weight for a candidate from its own bloc — itself
   if it stands, else a bloc-mate, else its **overlord** if it is that overlord's **vassal** (a
   subordinate alliance, §7). With no friendly candidate it **abstains** rather than push a rival
-  past the threshold — an AI never casts for a rival. *(Provisional: the reference game also keys
-  votes on diplomatic attitude — Pleased/Friendly — which this engine does not yet model, so
-  relationship has no effect on the vote here.)*
+  past the threshold — an AI never casts for a rival. *(The supreme-leadership motion stays
+  bloc-only by design — attitude never moves it, so an AI cannot be talked into handing a rival
+  the game. Attitude **does** now sway the lower-stakes motions: `Assembly.ai_vote` backs a
+  Pleased-or-better candidate in a resident election and resists an embargo aimed at a favoured
+  alliance, §7 `Diplomacy`.)*
 
 ---
 

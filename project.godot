@@ -55,6 +55,11 @@ _global_script_classes=[ {
 "path": "res://src/sim/culture_revolt.gd"
 }, {
 "base": "Reference",
+"class": "Diplomacy",
+"language": "GDScript",
+"path": "res://src/sim/diplomacy.gd"
+}, {
+"base": "Reference",
 "class": "DataDB",
 "language": "GDScript",
 "path": "res://src/core/data_db.gd"
@@ -270,6 +275,7 @@ _global_script_class_icons={
 "Commands": "",
 "CultureRevolt": "",
 "DataDB": "",
+"Diplomacy": "",
 "DirtyFlags": "",
 "EconOrgs": "",
 "Eras": "",

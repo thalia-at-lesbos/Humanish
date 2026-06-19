@@ -40,6 +40,10 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	# Tributaries pay tribute to their overlords (§7).
 	_collect_tribute(gs)
 
+	# Diplomatic memory decays toward zero once per world step (§7): old grievances
+	# and favours fade, so attitude drifts back to neutral absent fresh acts.
+	Diplomacy.decay(gs, gs.db)
+
 	# 3. Per-tile upkeep across the whole map
 	if not hooks.run(IDs.Phase.WORLD_TILE_UPKEEP, gs):
 		_tile_upkeep(gs)
@@ -1543,6 +1547,42 @@ static func _resolve_trades(gs: GameState) -> void:
 				expired.append(i)
 		for i in range(expired.size() - 1, -1, -1):
 			alliance.pending_trades.remove(expired[i])
+	_execute_deals(gs)
+
+# Deliver every active persistent deal's recurring items (§7), once per whole-world
+# step, in fixed deal order. A deal lapses (and surfaces a pending_deal_events
+# notice) when either party's alliance is gone or the two alliances are now at war
+# — declaring war on a deal partner tears up the standing agreement.
+static func _execute_deals(gs: GameState) -> void:
+	var dead := []
+	for i in range(gs.deals.size()):
+		var d: Dictionary = gs.deals[i]
+		var a: Alliance = gs.get_alliance(int(d.get("a_alliance", -1)))
+		var b: Alliance = gs.get_alliance(int(d.get("b_alliance", -1)))
+		if a == null or b == null or a.is_at_war_with(b.id) or b.is_at_war_with(a.id):
+			dead.append(i)
+			gs.pending_deal_events.append({"kind": "deal_expired", "deal_id": int(d.get("id", -1))})
+			continue
+		var proposer: Player = gs.get_player(int(d.get("proposer_player_id", -1)))
+		var accepter: Player = gs.get_player(int(d.get("accepter_player_id", -1)))
+		if proposer == null or accepter == null:
+			dead.append(i)
+			gs.pending_deal_events.append({"kind": "deal_expired", "deal_id": int(d.get("id", -1))})
+			continue
+		var recurring: Dictionary = d.get("recurring", {})
+		# give = proposer→accepter; receive = accepter→proposer.
+		var gpt_give: int = int(recurring.get("give", {}).get("gold_per_turn", 0))
+		var gpt_recv: int = int(recurring.get("receive", {}).get("gold_per_turn", 0))
+		if gpt_give > 0:
+			proposer.treasury -= gpt_give
+			accepter.treasury += gpt_give
+		if gpt_recv > 0:
+			accepter.treasury -= gpt_recv
+			proposer.treasury += gpt_recv
+		# Resource items grant ongoing access; they are read where resource access is
+		# evaluated, so there is nothing to transfer here.
+	for i in range(dead.size() - 1, -1, -1):
+		gs.deals.remove(dead[i])
 
 # Tributary alliances pay a share of their treasury to their overlord (§7).
 static func _collect_tribute(gs: GameState) -> void:

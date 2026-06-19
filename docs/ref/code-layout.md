@@ -168,6 +168,7 @@ The tables and what they configure:
 | `goodies.json` | §9 goody-hut / discovery-site reward table: weighted `type` (treasury/map/experience/heal/unit/tech/ambush) with per-reward magnitudes (read by `Events.exploration_reward`; per-difficulty weight overrides live in `difficulties.json` `goody_weights`) |
 | `resolutions.json` | §7.2 world-assembly resolutions: category, vote threshold, effect payload, eligibility gates (read by `Assembly`) |
 | `espionage_missions.json` | §7.1 espionage mission catalogue: per-mission `effect` verb (steal_tech/sabotage/incite_unrest/steal_gold/poison_water), `cost_multiplier` (× the base EP-advantage cost curve), `interception_modifier`, and per-verb magnitudes (read by `SimFacade._cmd_espionage_mission`; each verb's target gate lives in `_mission_target_valid`) |
+| `diplomacy.json` | §7 AI attitude & memory: `attitude_levels`/`attitude_thresholds`/`attitude_base`, live `factors` weights, `memory_kinds` (value + decay per remembered act), and the `deal_accept_min_attitude`/`war_min_attitude`/`memory_cap` gates (read by the `Diplomacy` module) |
 | `leaders_traits.json` | `"traits"` block: per-trait combat/production/commerce bonuses. `"societies"` block: playable societies each with `leader_id`, `leader_name`, `description`, `traits[]`, and `starting_gold`. |
 
 Typed getters follow the pattern `get_X(id) → Dictionary` for every table. Additional helpers: `get_societies() → Dictionary` (full societies map), `get_society(id) → Dictionary` (single entry), `get_leaders() → Dictionary` (full leaders map), `get_leader(id) → Dictionary` (single entry), `get_society_leaders(society_id) → Array` (leader ids whose `faction` matches the society), `get_map_types() → Dictionary` (full map-script map), `get_map_type(id) → Dictionary` (single entry, falling back to `continents`).
@@ -239,10 +240,14 @@ gs.winning_alliance_id
 gs.founded_beliefs / gs.founded_econ_orgs / gs.endgame_project_stages
 gs.assembly                      §7.2 world-assembly state (body, resident, open session, tallies)
 gs.pending_assembly_events
+gs.deals                         §7 persistent diplomatic deals (recurring per-turn items, cancellable)
+gs.pending_deal_events
 gs.pending_flips / gs.pending_era_advances / gs.pending_wild_events
 gs.pending_tech_completions / gs.pending_great_people
 gs.pending_productions / gs.pending_growth / gs.pending_improvements
 ```
+
+Per-player diplomatic state also lives on each `Player`: `intel_points` (§7.1 EP per rival alliance) and `diplo_memory` (§7 decaying memory of rivals' acts, feeding the AI's attitude — see `Diplomacy`).
 
 The nine `pending_*` arrays are an outbox: pipeline phases push records onto them, and `SimFacade` drains each into the matching signal (`assembly_event`, `city_flipped`, `era_advanced`, `technology_completed`, `unit_created`/`settlement_founded`, `settlement_production`, `settlement_grown`) at the next opportunity. ID counters (`_next_unit_id` etc.) are also serialized so IDs remain stable across save/load.
 
@@ -250,7 +255,7 @@ The nine `pending_*` arrays are an outbox: pipeline phases push records onto the
 Implements §3 as three static functions called in sequence. Every phase first consults `hooks.run(IDs.Phase.X, gs)` — if a hook returns `true` the built-in is skipped entirely.
 
 **`world_step(gs, hooks)`** — runs once after all players end their turn:
-1. Resolve/expire trades
+1. Resolve/expire trade offers, then deliver every active persistent deal's recurring per-turn items (`_execute_deals`, §7: gold-per-turn transfers; a deal lapses if a party is gone or the two alliances are at war). Diplomatic memory also decays one step here (`Diplomacy.decay`)
 2. Advance shared alliance research stores
 3. Per-tile upkeep (`_tile_upkeep` — charges each owned, improved tile's improvement maintenance)
 4. Spawn wild/raider forces (`WildForces`), then let them act (`WildAI.run` — §9 scouts, camp alerts, mustered raid waves; pushes fights/razes onto `gs.pending_wild_events`)
@@ -314,7 +319,10 @@ Dijkstra over `WorldMap.neighbours4`. Movement cost per tile = terrain base + fe
 `can_research(tech_id, player, db)` checks `prereqs_all` (all required) and `prereqs_any` (at least one). `_effective_cost()` applies pace scaling, a discount per known prereq (10% each), and a discount for each other player who already knows the tech (5% each, capped at 25%).
 
 ### `Alliance`
-Tracks war state (`at_war_with`), contacts, subordination, shared research store, war fatigue, and pending trades. War and peace are declared at the alliance level, not the player level.
+Tracks war state (`at_war_with`), contacts, subordination, shared research store, war fatigue, and pending trade offers. War and peace are declared at the alliance level, not the player level. Accepted trades carrying recurring items promote to persistent deals on `gs.deals` (§7, see `TurnEngine._execute_deals` / `SimFacade._cmd_cancel_deal`).
+
+### `Diplomacy`
+§7 AI diplomatic attitude & memory (pure static, provisional). Computes a deterministic 0..100 attitude one player holds toward another — a neutral base + live relational factors (at-war, shared war, permanent ally, an active deal, shared/clashing state religion) + a decaying memory total — bucketed into five levels (furious → friendly). Memory lives on `Player.diplo_memory` (`rival_id -> {kind: signed points}`): `record` accrues a kind's data value when a rival acts (declared war, broke a deal, razed a city, traded, made peace), `decay` (once per world step) shrinks every entry toward zero. No RNG. All magnitudes in `data/diplomacy.json`. The AI (`PlayerAI.manage_diplomacy`) and `Assembly.ai_vote` read it to gate deal acceptance, war declaration, and assembly votes. `deal_resources_for(gs, player_id)` returns the resources a player gains through active recurring deals — unioned into `EconOrgs._player_accessible_resources`, so a traded resource counts as an accessible corporation input.
 
 ### Other sim modules
 - **`Eras`** — §2.1 ages/eras (pure static reader, provisional): a player's era is *derived* — the highest era index among the techs they have researched (`Ancient`/0 with none), read live through `player_era()`; `Player.era` is only a cache that `refresh()` updates to detect advancement (queued onto `gs.pending_era_advances`). Eras scale growth thresholds and the §4.9 culture-revolt power term; unit/structure availability is already era-gated transitively through tech prereqs. Reads `data/ages.json` and the per-tech `era` tag

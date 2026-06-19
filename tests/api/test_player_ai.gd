@@ -745,3 +745,97 @@ func test_contrasting_leaders_play_rounded_game() -> void:
 	assert_true(int(peak_cities[2]) >= 1, "A militaristic leader founds a city")
 	assert_true(bool(ever_garrison[1]),
 		"Even a peaceful leader keeps at least one garrison (soft bias, not a gate)")
+
+# ── §7 Diplomacy: attitude-driven deals & war (Phase 7) ───────────────────────
+#
+# manage_diplomacy answers standing trade offers and picks wars by attitude. Player
+# 1 is the deciding AI (alliance 1); player 2 is the proposer/rival (alliance 2).
+
+# Seed a trade offer from alliance 2 to alliance 1 and return its id.
+func _seed_offer(gs, give, receive, peace = false):
+	var t = {
+		"id": gs.next_trade_id(), "proposer_player_id": 2,
+		"from_alliance": 2, "to_alliance": 1,
+		"give": give, "receive": receive, "peace": peace,
+		"expires_turn": gs.turn_number + 20
+	}
+	gs.get_alliance(2).pending_trades.append(t)
+	return int(t["id"])
+
+func test_ai_accepts_a_net_positive_offer() -> void:
+	var gs = make_gs(2)
+	gs.get_player(2).treasury = 100
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	_seed_offer(gs, {"gold": 50}, {})  # AI gets 50 for nothing
+	PlayerAI.manage_diplomacy(f, 1)
+	assert_eq(gs.get_alliance(2).pending_trades.size(), 0, "the offer is answered")
+	assert_eq(gs.get_player(1).treasury, 50, "AI accepted the free gold")
+
+func test_ai_rejects_a_net_negative_offer() -> void:
+	var gs = make_gs(2)
+	gs.get_player(1).treasury = 100
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	_seed_offer(gs, {}, {"gold": 40})  # AI gives 40 for nothing
+	PlayerAI.manage_diplomacy(f, 1)
+	assert_eq(gs.get_alliance(2).pending_trades.size(), 0, "the offer is cleared")
+	assert_eq(gs.get_player(1).treasury, 100, "AI kept its gold (rejected)")
+
+func test_ai_refuses_a_good_offer_from_a_loathed_rival() -> void:
+	var gs = make_gs(2)
+	gs.get_player(2).treasury = 100
+	# Sour the AI's attitude toward player 2 to Furious (a razed city, -40).
+	Diplomacy.record(gs, gs.db, 1, 2, "razed_city")
+	assert_eq(Diplomacy.attitude_level(gs, gs.db, 1, 2), Diplomacy.FURIOUS,
+		"precondition: the AI loathes player 2")
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	_seed_offer(gs, {"gold": 50}, {})  # objectively great, but from a hated rival
+	PlayerAI.manage_diplomacy(f, 1)
+	assert_eq(gs.get_player(1).treasury, 0, "AI refuses to deal with a loathed rival")
+
+func test_ai_declares_war_on_loathed_weaker_rival() -> void:
+	var gs = make_gs(2)
+	make_warrior(gs, 1, 5, 5)   # AI has an army; the rival has none
+	gs.get_alliance(1).contacts.append(2)
+	Diplomacy.record(gs, gs.db, 1, 2, "razed_city")  # Furious
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	PlayerAI.manage_diplomacy(f, 1)
+	assert_true(gs.are_at_war(1, 2),
+		"a Furious AI with a military edge declares war")
+
+func test_ai_holds_peace_with_neutral_rival() -> void:
+	var gs = make_gs(2)
+	make_warrior(gs, 1, 5, 5)
+	gs.get_alliance(1).contacts.append(2)
+	# No grievance: attitude is neutral (Cautious), so no war.
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	PlayerAI.manage_diplomacy(f, 1)
+	assert_false(gs.are_at_war(1, 2),
+		"a neutral AI does not start a war even when stronger")
+
+func test_assembly_vote_backs_a_liked_candidate() -> void:
+	# elect_resident with a rival candidate: a Pleased+ attitude flips Nay → Yea.
+	var gs = make_gs(3)
+	gs.assembly = {
+		"kind": "religious", "resident_player_id": -1,
+		"pending": {
+			"resolution_id": "elect_pope", "candidate_player_id": 2,
+			"votes": {}
+		}
+	}
+	# Make elect_pope an elect_resident motion in this db.
+	gs.db.resolutions["elect_pope"] = {"id": "elect_pope", "effect": "elect_resident"}
+	# Disliked first: a fresh grievance keeps player 1 below Pleased toward 2.
+	Diplomacy.record(gs, gs.db, 1, 2, "declared_war")
+	assert_eq(Assembly.ai_vote(gs, 1), Assembly.VOTE_NAY,
+		"a soured member votes the rival candidate down")
+	# Now warm the relationship past Pleased and re-vote.
+	gs.get_player(1).diplo_memory.clear()
+	for _i in range(6):
+		Diplomacy.record(gs, gs.db, 1, 2, "gave_gift")  # +10 each → Friendly
+	assert_eq(Assembly.ai_vote(gs, 1), Assembly.VOTE_YEA,
+		"a member that likes the candidate backs it")

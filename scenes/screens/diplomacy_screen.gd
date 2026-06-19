@@ -11,8 +11,16 @@
 extends Control
 
 # Diplomacy screen: shows all other civilizations with their war/peace status,
-# any permanent-alliance relationship, and action buttons (Declare War / Make
-# Peace / Propose Permanent Alliance when the rule is enabled).
+# how they regard you (§7 attitude), any permanent-alliance relationship, and
+# action buttons (Declare War / Make Peace / Propose Permanent Alliance / simple
+# trade offers). A standing-deals panel lists active per-turn deals and lets you
+# cancel one once its minimum duration has elapsed.
+
+# A modest gift / per-turn offer the player can extend with one click (the rest of
+# the deal space — techs, resources, cities — is reachable once a full trade table
+# is built; these cover the common "warm a relationship" gestures).
+const GIFT_GOLD: int = 50
+const OFFER_GOLD_PER_TURN: int = 5
 
 var _facade
 
@@ -103,6 +111,14 @@ func rebuild() -> void:
 		status_lbl.rect_min_size = Vector2(120, 0)
 		row.add_child(status_lbl)
 
+		# How this rival regards you (§7 attitude): the AI's own attitude toward the
+		# viewing player, surfaced so the human can read the diplomatic mood.
+		var attitude_lbl: Label = Label.new()
+		var level: int = Diplomacy.attitude_level(gs, gs.db, p.id, my_p.id)
+		attitude_lbl.text = "(" + Diplomacy.level_name(gs.db, level) + ")"
+		attitude_lbl.rect_min_size = Vector2(90, 0)
+		row.add_child(attitude_lbl)
+
 		# Action buttons
 		if not at_war and not is_perm_ally and my_alliance != null:
 			var war_btn: Button = Button.new()
@@ -125,6 +141,19 @@ func rebuild() -> void:
 				[other_alliance.id])
 			row.add_child(perm_btn)
 
+		# Simple trade offers (§7): a one-off gift and a per-turn deal. They become a
+		# standing deal (or instant transfer) when the other side accepts on its turn.
+		if not at_war and my_alliance != null:
+			var gift_btn: Button = Button.new()
+			gift_btn.text = "Gift %dg" % GIFT_GOLD
+			gift_btn.connect("pressed", self, "_on_gift", [other_alliance.id])
+			row.add_child(gift_btn)
+
+			var sub_btn: Button = Button.new()
+			sub_btn.text = "Offer %dg/turn" % OFFER_GOLD_PER_TURN
+			sub_btn.connect("pressed", self, "_on_offer_per_turn", [other_alliance.id])
+			row.add_child(sub_btn)
+
 		vbox.add_child(row)
 
 	if not any_shown:
@@ -132,7 +161,57 @@ func rebuild() -> void:
 		lbl.text = "(You have not met any other civilizations yet)"
 		vbox.add_child(lbl)
 
+	_build_deals(vbox, gs, my_alliance)
 	_add_close(vbox)
+
+# List every standing deal this player's alliance is party to, with a Cancel
+# button enabled only once the deal's minimum duration has elapsed (§7).
+func _build_deals(vbox: VBoxContainer, gs, my_alliance) -> void:
+	if my_alliance == null:
+		return
+	var mine: Array = []
+	for d in gs.deals:
+		if int(d.get("a_alliance", -1)) == my_alliance.id or int(d.get("b_alliance", -1)) == my_alliance.id:
+			mine.append(d)
+	if mine.empty():
+		return
+	var header: Label = Label.new()
+	header.text = "Standing deals"
+	vbox.add_child(header)
+	for d in mine:
+		var row: HBoxContainer = HBoxContainer.new()
+		var lbl: Label = Label.new()
+		lbl.text = _deal_summary(d)
+		lbl.rect_min_size = Vector2(260, 0)
+		row.add_child(lbl)
+		var btn: Button = Button.new()
+		var ready_turn: int = int(d.get("start_turn", 0)) + int(d.get("min_duration", 0))
+		if gs.turn_number >= ready_turn:
+			btn.text = "Cancel"
+			btn.connect("pressed", self, "_on_cancel_deal", [int(d.get("id", -1))])
+		else:
+			btn.text = "Locked (until turn %d)" % ready_turn
+			btn.disabled = true
+		row.add_child(btn)
+		vbox.add_child(row)
+
+# A short human-readable summary of a deal's recurring items.
+func _deal_summary(d: Dictionary) -> String:
+	var rec: Dictionary = d.get("recurring", {})
+	var parts: Array = []
+	var g_give: int = int(rec.get("give", {}).get("gold_per_turn", 0))
+	var g_recv: int = int(rec.get("receive", {}).get("gold_per_turn", 0))
+	if g_give > 0:
+		parts.append("we send %dg/turn" % g_give)
+	if g_recv > 0:
+		parts.append("we receive %dg/turn" % g_recv)
+	for r in rec.get("give", {}).get("resources", []):
+		parts.append("we send " + str(r))
+	for r in rec.get("receive", {}).get("resources", []):
+		parts.append("we receive " + str(r))
+	if parts.empty():
+		return "Deal #%d" % int(d.get("id", -1))
+	return "Deal #%d: %s" % [int(d.get("id", -1)), ", ".join(parts)]
 
 func _add_close(vbox: VBoxContainer) -> void:
 	var close_btn: Button = Button.new()
@@ -153,6 +232,23 @@ func _on_make_peace(target_aid: int) -> void:
 func _on_propose_permanent_alliance(target_aid: int) -> void:
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.propose_permanent_alliance(gs.current_player_id, target_aid))
+	rebuild()
+
+func _on_gift(target_aid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.propose_trade(
+		gs.current_player_id, target_aid, {"gold": GIFT_GOLD}, {}))
+	rebuild()
+
+func _on_offer_per_turn(target_aid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.propose_trade(
+		gs.current_player_id, target_aid, {"gold_per_turn": OFFER_GOLD_PER_TURN}, {}))
+	rebuild()
+
+func _on_cancel_deal(deal_id: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.cancel_deal(gs.current_player_id, deal_id))
 	rebuild()
 
 func close_screen() -> void:
