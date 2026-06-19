@@ -131,6 +131,10 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 			fort_btn.connect("pressed", self, "_on_fortify_until_healed", [u.id])
 			add_child(fort_btn)
 
+	# Underlying tile terrain readout, so a selected unit also shows the terrain
+	# data of the tile it stands on (not just an inspected empty tile).
+	_append_tile_terrain(u.x, u.y)
+
 func _build_city_panel(city_id: int, gs) -> void:
 	var s = gs.get_settlement(city_id)
 	if s == null:
@@ -173,8 +177,19 @@ func _build_city_panel(city_id: int, gs) -> void:
 		disband_btn.connect("pressed", self, "_on_disband_city", [city_id])
 		add_child(disband_btn)
 
+	# Underlying tile terrain readout for the city's tile, so a selected city also
+	# shows its tile's terrain data (matching the unit and empty-tile panels).
+	_append_tile_terrain(s.x, s.y)
+
 # Terrain readout for an inspected (unoccupied / illegal-target) tile.
 func _build_tile_panel(tx: int, ty: int) -> void:
+	_append_tile_terrain(tx, ty)
+
+# Append the shared terrain readout for a tile (terrain, feature, resource,
+# yields, movement cost, defence). Reused by the unit, city and empty-tile
+# panels so the formatting never diverges; the text comes from the rules layer
+# (SimFacade.tile_info_text) for consistency.
+func _append_tile_terrain(tx: int, ty: int) -> void:
 	var text: String = _facade.tile_info_text(tx, ty)
 	if text == "":
 		return

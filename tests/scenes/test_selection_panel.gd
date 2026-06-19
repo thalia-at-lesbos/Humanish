@@ -168,6 +168,50 @@ func test_stack_panel_lists_members_and_select_all() -> void:
 		if u.x == 4 and u.y == 4:
 			assert_true(u.is_fortified, "Fortify-all should fortify every unit in the stack")
 
+func _has_label_containing(node, needle) -> bool:
+	for c in node.get_children():
+		if c is Label and needle in c.text:
+			return true
+	return false
+
+func test_unit_panel_shows_tile_terrain() -> void:
+	# A selected unit must also show the underlying tile's terrain readout, using
+	# the same facade tile-info text as the empty-tile panel.
+	var facade = setup_facade(93, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var w = make_unit(gs, "warrior", pid, 3, 3)
+	var expected = facade.tile_info_text(3, 3)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(w.id)
+	panel.rebuild()
+	assert_true(_has_label_containing(panel, expected),
+		"A selected unit's panel includes the tile terrain readout")
+
+func test_city_panel_shows_tile_terrain() -> void:
+	# A selected city must also show the underlying tile's terrain readout.
+	var facade = setup_facade(94, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var city = make_settlement(gs, pid, 6, 6)
+	city.name = "Town"
+	var expected = facade.tile_info_text(6, 6)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_city(city.id)
+	panel.rebuild()
+	assert_true(_has_label_containing(panel, expected),
+		"A selected city's panel includes the tile terrain readout")
+
 func test_single_unit_panel_has_no_stack_list() -> void:
 	var facade = setup_facade(86, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
