@@ -1056,6 +1056,10 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 	var tile: Tile = _gs.map.get_tile(u.x, u.y)
 	if tile == null:
 		return false
+	# A settlement tile cannot be improved — reject even if the command is
+	# submitted directly (defense-in-depth; the HUD also hides these buttons).
+	if _gs.get_settlement_at(u.x, u.y) != null:
+		return false
 	var ter: Dictionary = _db.get_terrain(tile.terrain_id)
 	var landform: String = str(ter.get("landform", "flat"))
 	var allowed: Array = imp.get("allowed_landforms", [])

@@ -29,6 +29,20 @@ func test_worker_can_build_improvement() -> void:
 	assert_eq(w.building_improvement, "farm", "Worker building_improvement set to farm")
 	assert_true(w.build_turns_left > 0, "Build turns left should be positive")
 
+func test_worker_cannot_build_improvement_on_settlement_tile() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	gs.map.get_tile(5, 5).terrain_id = "grassland"  # flat landform — farm would otherwise be legal
+	# Place a settlement on the worker's tile.
+	make_settlement(gs, 1, 5, 5, 3)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var ok: bool = facade.apply_command(Commands.build_improvement(1, w.id, "farm"))
+	assert_false(ok, "Worker cannot build an improvement on a city/settlement tile")
+	assert_eq(w.building_improvement, "", "No improvement should be queued on a settlement tile")
+
 func test_worker_cannot_build_improvement_on_wrong_landform() -> void:
 	var gs = make_gs(1)
 	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
