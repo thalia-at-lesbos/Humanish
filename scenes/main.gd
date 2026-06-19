@@ -80,6 +80,9 @@ func _ready() -> void:
 		if minimap != null and minimap.has_method("init"):
 			var fog = world_view.get_node_or_null("FogLayer") if world_view != null else null
 			minimap.init(_facade, fog)
+			# Hand the minimap the WorldView so a click recenters the main view.
+			if world_view != null and minimap.has_method("set_world_view"):
+				minimap.set_world_view(world_view)
 
 	# Wire full-screen overlays (city / tech / policy / save-load)
 	var screens = get_node_or_null("Screens")
