@@ -47,6 +47,7 @@ const MIN_SIZE: int = 80
 
 var _facade
 var _fog_layer    # FogLayer node; may be null (fog disabled or not wired yet)
+var _world_view   # WorldView node; may be null until wired by main.gd
 
 # Whether the minimap is currently shown (default: true).
 var _enabled: bool = true
@@ -54,7 +55,8 @@ var _enabled: bool = true
 func init(facade, fog_layer) -> void:
 	_facade = facade
 	_fog_layer = fog_layer
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# STOP (not IGNORE) so clicks register on the minimap for click-to-recenter.
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	# Listen to facade signals that change what the minimap shows.
 	if _facade != null:
 		_facade.connect("turn_advanced", self, "_on_state_changed")
@@ -64,6 +66,10 @@ func init(facade, fog_layer) -> void:
 
 func set_fog_layer(fog_layer) -> void:
 	_fog_layer = fog_layer
+
+# Wire the WorldView node so a click on the minimap can recenter the main view.
+func set_world_view(world_view) -> void:
+	_world_view = world_view
 
 func set_enabled(en: bool) -> void:
 	_enabled = en
@@ -160,3 +166,33 @@ func _player_color(player_id: int, gs) -> Color:
 		if gs.players[i].id == player_id:
 			return PLAYER_COLORS[i % PLAYER_COLORS.size()]
 	return Color(0.6, 0.6, 0.6)
+
+# Pure inverse of _draw()'s tile->pixel mapping (px = PANEL_PADDING + x * CELL),
+# clamped to map bounds. Returns [tx, ty]. Kept pure (no tree access) so the
+# click->tile math is unit-testable without a live scene.
+static func pixel_to_tile(px: float, py: float, map_w: int, map_h: int) -> Array:
+	var tx: int = int((px - PANEL_PADDING) / CELL)
+	var ty: int = int((py - PANEL_PADDING) / CELL)
+	tx = 0 if tx < 0 else (map_w - 1 if tx > map_w - 1 else tx)
+	ty = 0 if ty < 0 else (map_h - 1 if ty > map_h - 1 else ty)
+	return [tx, ty]
+
+# Click (or drag) on the minimap recenters the main WorldView on that tile.
+func _gui_input(event: InputEvent) -> void:
+	if not _enabled or _world_view == null or _facade == null:
+		return
+	var is_press: bool = event is InputEventMouseButton \
+		and event.button_index == BUTTON_LEFT and event.pressed
+	var is_drag: bool = event is InputEventMouseMotion \
+		and (event.button_mask & BUTTON_MASK_LEFT) != 0
+	if not is_press and not is_drag:
+		return
+	var gs = _facade.get_state()
+	if gs == null or gs.map == null:
+		return
+	var map_w: int = gs.map.width
+	var map_h: int = gs.map.height
+	if map_w <= 0 or map_h <= 0:
+		return
+	var tile: Array = pixel_to_tile(event.position.x, event.position.y, map_w, map_h)
+	_world_view.pan_to_tile(tile[0], tile[1])
