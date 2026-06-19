@@ -85,6 +85,22 @@ func test_worker_can_build_mine_on_hills() -> void:
 	var ok: bool = facade.apply_command(Commands.build_improvement(1, w.id, "mine"))
 	assert_true(ok, "Worker can build a mine on hills")
 
+func test_worker_cannot_build_mine_on_flat() -> void:
+	# Mines are hills-only (Civ4 convention). A flat tile (grassland/plains) must
+	# reject a mine even with the mining tech.
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var wg = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"  # flat
+	assert_false(facade.apply_command(Commands.build_improvement(1, wg.id, "mine")),
+		"Worker should not build a mine on grassland (flat)")
+	var wp = make_unit(gs, "worker", 1, 7, 7)
+	gs.map.get_tile(7, 7).terrain_id = "plains"  # flat
+	assert_false(facade.apply_command(Commands.build_improvement(1, wp.id, "mine")),
+		"Worker should not build a mine on plains (flat)")
+
 # ── Worker build completion (Jun 9 bug report) ───────────────────────────────
 
 func test_worker_build_completes_and_places_improvement() -> void:
