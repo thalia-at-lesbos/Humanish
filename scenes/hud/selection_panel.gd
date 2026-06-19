@@ -248,6 +248,10 @@ func _add_worker_buttons(unit, gs) -> void:
 	var tile = gs.map.get_tile(unit.x, unit.y)
 	if tile == null:
 		return
+	# A unit standing on a city/settlement tile cannot improve it — show no
+	# improvement or chop buttons there.
+	if gs.get_settlement_at(unit.x, unit.y) != null:
+		return
 	var ter: Dictionary = db.get_terrain(tile.terrain_id)
 	var landform: String = str(ter.get("landform", "flat"))
 	# A tile has a river if its north or west border is a river edge, or if
