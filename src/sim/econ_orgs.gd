@@ -118,7 +118,8 @@ static func accessible_input_count(game_state, org: Dictionary, player_id: int) 
 			count += 1
 	return count
 
-# Set (Dictionary used as a set) of resource ids the player has connected.
+# Set (Dictionary used as a set) of resource ids the player has connected — from
+# its own connected tiles plus any received through an active recurring deal (§7).
 static func _player_accessible_resources(game_state, player_id: int) -> Dictionary:
 	var out: Dictionary = {}
 	var db: DataDB = game_state.db
@@ -139,6 +140,10 @@ static func _player_accessible_resources(game_state, player_id: int) -> Dictiona
 		var imp_ok: bool = (imp_req == null or imp_req == "" or tile.improvement_id == imp_req)
 		if tech_ok and imp_ok:
 			out[tile.resource_id] = true
+	# Resources traded in via an active deal count as connected (the supplier holds
+	# the connection; the receiver enjoys access for the life of the deal).
+	for res_id in Diplomacy.deal_resources_for(game_state, player_id):
+		out[res_id] = true
 	return out
 
 # Extra [food, production, commerce] a settlement gets from its corporation:

@@ -463,11 +463,15 @@ layer that drives deal acceptance, war declaration, and assembly votes.
   `ai_full_game_smoke.gd` still reaches a win (alliance 1, turn 500) with **zero errors**, and **no
   seed-pinned test needed re-pinning** (a neutral AI starts no new wars, so existing RNG streams were
   undisturbed).
-- **Deliberate scope.** Recurring **resource** items are carried on the deal and warm attitude (active-deal
-  factor) but are not yet read as resource access at the consuming sites; deal item kinds beyond
-  gold/gold-per-turn/tech/peace/resources (cities, maps, open-borders, defensive pacts) and a full
-  multi-item trade-negotiation table are deferred — the deal object and the per-turn execution seam are in
-  place, each remaining kind a data + one-handler addition. Border-friction and demand-fatigue attitude
+- **Resource access (wired).** A recurring **resource** item now grants the receiver real access:
+  `Diplomacy.deal_resources_for` returns the resources a player gains through active deals, and
+  `EconOrgs._player_accessible_resources` unions them with owned-tile resources — so a traded resource
+  counts as an accessible corporation input exactly like one connected at home, and the access lapses
+  with the deal. (Corporations are the only resource-access consumer today; any future consumer reads the
+  same unioned set.)
+- **Deliberate scope.** Deal item kinds beyond gold/gold-per-turn/tech/peace/resources (cities, maps,
+  open-borders, defensive pacts) and a full multi-item trade-negotiation table are deferred — the deal
+  object and the per-turn execution seam are in place, each remaining kind a data + one-handler addition. Border-friction and demand-fatigue attitude
   factors named in the reference are left out of the first cut (the wired factors + memory already make
   attitude respond to play). Vassalage/capitulation (Phase 8) builds on this attitude layer next.
 

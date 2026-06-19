@@ -385,6 +385,22 @@ func test_memory_survives_save_load_as_ints() -> void:
 	assert_eq(Diplomacy.memory_total(p2, 2),
 		int(gs.db.get_diplomacy()["memory_kinds"]["declared_war"]["value"]))
 
+func test_deal_resources_route_to_the_correct_recipient() -> void:
+	# give.resources flow proposer→accepter; receive.resources flow accepter→proposer.
+	var gs = make_gs(2)
+	gs.deals.append({
+		"id": 1, "a_alliance": 1, "b_alliance": 2,
+		"proposer_player_id": 1, "accepter_player_id": 2,
+		"recurring": {"give": {"resources": ["iron"]}, "receive": {"resources": ["wheat"]}},
+		"start_turn": 0, "min_duration": 10
+	})
+	assert_true(Diplomacy.deal_resources_for(gs, 2).has("iron"),
+		"the accepter receives the proposer's give-resources")
+	assert_true(Diplomacy.deal_resources_for(gs, 1).has("wheat"),
+		"the proposer receives the accepter's receive-resources")
+	assert_false(Diplomacy.deal_resources_for(gs, 1).has("iron"),
+		"the proposer does not gain access to what it gave away")
+
 func test_declare_war_records_memory_on_victim() -> void:
 	var gs = make_gs(2)
 	var f = bare_facade(gs)

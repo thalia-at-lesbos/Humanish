@@ -73,6 +73,28 @@ func test_output_scales_with_accessible_input_count() -> void:
 	assert_eq(EconOrgs.get_output_delta(gs, s), [3, 0, 0],
 		"A third accessible input raises the per-city output again")
 
+func test_traded_resource_counts_as_accessible_input() -> void:
+	# §7 deal plumbing: a resource received through an active recurring deal counts
+	# as an accessible corporation input, exactly like one connected at home.
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	EconOrgs.found("cereal_mills", s, gs)  # +1 food per accessible input type
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
+		"no inputs yet, so no corporation output")
+	# Player 2 supplies wheat to player 1 (the city owner / accepter) via a deal.
+	gs.deals.append({
+		"id": 1, "a_alliance": 1, "b_alliance": 2,
+		"proposer_player_id": 2, "accepter_player_id": 1,
+		"recurring": {"give": {"resources": ["wheat"]}, "receive": {}},
+		"start_turn": 0, "min_duration": 10
+	})
+	assert_eq(EconOrgs.get_output_delta(gs, s), [1, 0, 0],
+		"a traded-in resource counts as an accessible input")
+	# Ending the deal removes the access again.
+	gs.deals.clear()
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
+		"access lapses with the deal")
+
 func test_flat_output_ignores_input_count() -> void:
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5, 5)

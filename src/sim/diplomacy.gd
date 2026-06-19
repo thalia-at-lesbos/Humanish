@@ -106,6 +106,26 @@ static func _have_active_deal(gs, alliance_a: int, alliance_b: int) -> bool:
 			return true
 	return false
 
+# ── Recurring deal items: resource access (§7) ─────────────────────────────────
+
+# The set (Dictionary-as-set) of resource ids `player_id` currently receives through
+# active recurring deals. A deal's `give.resources` flow proposer→accepter and its
+# `receive.resources` flow accepter→proposer, so the receiver gains access to each
+# while the deal stands (the supplier keeps its own access — you trade a surplus).
+# Read where resource access is evaluated (EconOrgs), unioned with owned-tile
+# resources, so a traded resource counts the same as one connected at home.
+static func deal_resources_for(gs, player_id: int) -> Dictionary:
+	var out: Dictionary = {}
+	for d in gs.deals:
+		var rec: Dictionary = d.get("recurring", {})
+		if int(d.get("accepter_player_id", -1)) == player_id:
+			for r in rec.get("give", {}).get("resources", []):
+				out[str(r)] = true
+		if int(d.get("proposer_player_id", -1)) == player_id:
+			for r in rec.get("receive", {}).get("resources", []):
+				out[str(r)] = true
+	return out
+
 # ── Memory ─────────────────────────────────────────────────────────────────────
 
 # The signed sum of every remembered act `player` holds about `rival_id`.
