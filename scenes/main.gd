@@ -32,6 +32,10 @@ func set_net_client(net_client) -> void:
 
 func _ready() -> void:
 	if _facade == null:
+		# Direct-run fallback (main.tscn launched without StartMenu): vary the
+		# default randi() seed below per launch. Harmless when StartMenu already
+		# called randomize(); never touches gs.rng (explicitly seeded in setup()).
+		randomize()
 		_db = load("res://src/core/data_db.gd").new()
 		if not _db.load_all():
 			push_error("DataDB load failed: " + str(_db.get_errors()))

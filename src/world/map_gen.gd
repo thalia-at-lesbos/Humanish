@@ -42,6 +42,14 @@ const WARM_LAT: int = 70           # above this: warm band (desert/plains)
 # Number of box-blur passes is per-type ("smooth"); these bound the height field.
 const HEIGHT_MAX: int = 255
 
+# Each box-blur pass collapses the random noise toward its mean, leaving a spread
+# far narrower than the per-shape height bias — so the deterministic bias would
+# dictate almost the same coastline every seed (continents/pangaea barely moved).
+# After blurring we stretch the field's contrast about its mean by this percent so
+# the per-seed noise competes with the bias and maps vary visibly seed-to-seed.
+# Pure integer math about the integer mean → fully deterministic per seed.
+const HEIGHT_CONTRAST_PCT: int = 260
+
 # Per-shape height-bias amplitudes (added to the blurred noise before threshold).
 const PANGAEA_AMP: int = 170       # land peaks at the map centre
 const CONTINENT_AMP: int = 160     # land peaks mid-band, ocean in the channels
@@ -120,7 +128,24 @@ static func _height_field(w: int, h: int, rng: RNG, passes: int) -> Array:
 		hf[i] = rng.randi_range(0, HEIGHT_MAX)
 	for _p in range(passes):
 		hf = _box_blur(hf, w, h)
+	_stretch_contrast(hf)
 	return hf
+
+# Widen the blurred field's spread about its (integer) mean so the per-seed noise
+# is comparable to the per-shape height bias. Without this the blur leaves a band
+# far narrower than the bias and every seed carves nearly the same coastline.
+# Integer math about the integer mean keeps it deterministic per seed.
+static func _stretch_contrast(hf: Array) -> void:
+	var n: int = hf.size()
+	if n == 0:
+		return
+	var total: int = 0
+	for v in hf:
+		total += int(v)
+	var mean: int = total / n
+	for i in range(n):
+		var stretched: int = mean + (int(hf[i]) - mean) * HEIGHT_CONTRAST_PCT / 100
+		hf[i] = 0 if stretched < 0 else (HEIGHT_MAX if stretched > HEIGHT_MAX else stretched)
 
 # 3×3 average (wrapping on x, clamped on y) — one smoothing pass. No RNG draws.
 static func _box_blur(src: Array, w: int, h: int) -> Array:

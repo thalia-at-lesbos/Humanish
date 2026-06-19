@@ -76,6 +76,27 @@ func test_every_type_is_deterministic() -> void:
 				break
 		assert_true(identical, "%s: same seed must reproduce identical terrain + features" % mt)
 
+func test_different_seeds_make_different_land_masks() -> void:
+	# Guards against a homogenisation regression: two different seeds must move the
+	# coastline by a meaningful amount, not produce near-identical maps. The default
+	# height-field scripts (continents/pangaea/fractal) used to barely vary because
+	# the box-blur collapsed the noise below the shape bias — _stretch_contrast in
+	# MapGen fixes that. We assert a modest floor so a future regression is caught.
+	for mt in ["continents", "pangaea", "fractal", "archipelago"]:
+		var a = _gen(mt, 101)
+		var b = _gen(mt, 202)
+		var at = a.map.all_tiles()
+		var bt = b.map.all_tiles()
+		var diff = 0
+		for i in range(at.size()):
+			var a_land = a.db.get_terrain(at[i].terrain_id).get("domain", "land") == "land"
+			var b_land = b.db.get_terrain(bt[i].terrain_id).get("domain", "land") == "land"
+			if a_land != b_land:
+				diff += 1
+		var pct = diff * 100 / at.size()
+		assert_true(pct >= 5,
+			"%s: different seeds should move >=5%% of the land mask, got %d%%" % [mt, pct])
+
 # ── Shape-specific expectations ─────────────────────────────────────────────────
 
 func test_pangaea_has_more_land_than_archipelago() -> void:

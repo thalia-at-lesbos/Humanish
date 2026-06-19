@@ -19,6 +19,13 @@ var _load_box: VBoxContainer
 var _setup_screen
 
 func _ready() -> void:
+	# Seed Godot's global RNG from the OS clock so the *default seed chooser*
+	# (SetupScreen / main.gd fallback use randi()) varies per launch. Without
+	# this, randi() is deterministic and every default new game gets the same
+	# seed → the same map. This only affects the presentation-layer default
+	# seed; gs.rng is always explicitly seeded via SimFacade.setup(), so all
+	# seeded/deterministic tests are unaffected.
+	randomize()
 	_db = load("res://src/core/data_db.gd").new()
 	if not _db.load_all():
 		push_error("DataDB load failed: " + str(_db.get_errors()))
