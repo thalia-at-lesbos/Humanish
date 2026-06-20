@@ -394,7 +394,7 @@ func _validate_event_refs() -> void:
 
 func _validate_event_effects(eid: String, effects: Array) -> void:
 	var known := ["gold", "research", "culture", "tech", "unit", "building",
-		"capital_health", "heal_units"]
+		"capital_health", "capital_pop", "nearby_pop", "heal_units"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):

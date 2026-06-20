@@ -24,8 +24,8 @@
     "id": "trig_veteran_recruits", "event_id": "veteran_recruits",
     "at_war": true, "probability": 25, "one_shot": false, "weight": 70
   },
-  "trig_great_plague": {
-    "id": "trig_great_plague", "event_id": "great_plague",
+  "trig_influenza": {
+    "id": "trig_influenza", "event_id": "influenza",
     "min_turn": 25, "probability": 8, "one_shot": false, "weight": 30
   }
 }
