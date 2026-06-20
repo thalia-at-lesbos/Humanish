@@ -213,3 +213,16 @@ func test_sleep_until_healed_skipped_by_idle_cycle() -> void:
 	facade.cycle_idle_units(false)
 	assert_true(facade.get_selection().head_unit() < 0,
 		"A sleep-until-healed unit must not be cycled as idle")
+
+func test_sleeping_unit_skipped_by_idle_cycle() -> void:
+	# A plain Sleep order (is_sleeping) removes the unit from the idle cycle, just
+	# like Fortify, until it is woken or given another order.
+	var gs = make_gs(1)
+	var u = make_warrior(gs, 1, 5, 5)
+	u.is_sleeping = true
+	var facade = bare_facade(gs)
+	facade._selection = load("res://src/api/selection_state.gd").new()
+	gs.current_player_id = 1
+	facade.cycle_idle_units(false)
+	assert_true(facade.get_selection().head_unit() < 0,
+		"A sleeping unit must not be cycled as idle")

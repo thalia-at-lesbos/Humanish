@@ -2767,6 +2767,15 @@ func get_flyout_menu(x: int, y: int) -> Array:
 					"label": "Fortify",
 					"target_x": x, "target_y": y
 				})
+			# Sleep: a skip-until-woken order for any unit, distinct from Fortify
+			# (no defence/heal intent) — removes the unit from the idle cycle until
+			# it is woken or given another order.
+			if not u.is_sleeping:
+				items.append({
+					"action_id": IDs.UnitCmd.SLEEP,
+					"label": "Sleep",
+					"target_x": x, "target_y": y
+				})
 			break
 	for s in _gs.settlements:
 		if s.x == x and s.y == y and s.owner_player_id == _gs.current_player_id:

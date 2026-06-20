@@ -202,6 +202,26 @@ func test_unit_sleep_is_distinct_from_fortify() -> void:
 	assert_true(f.apply_command(Commands.unit_wake(pid, uid)), "unit_wake accepted")
 	assert_false(gs.get_unit(uid).is_sleeping, "Wake clears the sleeping state")
 
+func test_flyout_offers_sleep_for_any_unit() -> void:
+	# The selection-panel action list (flyout menu) must expose a Sleep order for a
+	# unit that is not already asleep, and drop it once the unit is sleeping.
+	var f = setup_facade(23)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	var uid = _unit(f, pid, "warrior", 6, 6)
+	gs.current_player_id = pid
+
+	var labels := []
+	for item in f.get_flyout_menu(6, 6):
+		labels.append(str(item.get("label", "")))
+	assert_true("Sleep" in labels, "Flyout offers Sleep for an awake unit")
+
+	assert_true(f.apply_command(Commands.unit_sleep(pid, uid)), "unit_sleep accepted")
+	var labels2 := []
+	for item in f.get_flyout_menu(6, 6):
+		labels2.append(str(item.get("label", "")))
+	assert_false("Sleep" in labels2, "Flyout drops Sleep once the unit is asleep")
+
 func test_unit_state_text_reflects_orders() -> void:
 	var f = setup_facade(18)
 	var gs = f.get_state()
