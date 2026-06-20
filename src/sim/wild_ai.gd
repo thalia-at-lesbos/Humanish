@@ -49,6 +49,10 @@ static func _act_units(game_state, rng: RNG) -> void:
 	var db: DataDB = game_state.db
 	var sight: int = _scout_sight(game_state, db)
 
+	# Hold one defender back in each camp that has units to spare, so a raider camp
+	# is never emptied while it can keep a garrison (see _camp_garrison_ids).
+	var garrisoned: Dictionary = _camp_garrison_ids(game_state, db)
+
 	# Snapshot ids first: combat can remove units (the actor, its target, or stacked
 	# bystanders) from game_state.units mid-loop.
 	var ids: Array = []
@@ -59,6 +63,10 @@ static func _act_units(game_state, rng: RNG) -> void:
 	for uid in ids:
 		var u: Unit = game_state.get_unit(uid)
 		if u == null or not u.is_wild or u.health <= 0:
+			continue
+		if garrisoned.has(uid):
+			# Held back to defend its camp this step (§9.2): it stays put and keeps the
+			# camp's claimed border. It still healed/refreshed in run().
 			continue
 
 		if u.is_animal:
@@ -81,6 +89,55 @@ static func _act_units(game_state, rng: RNG) -> void:
 				_move_along(game_state, rng, u, target[0], target[1])
 			else:
 				_wander(game_state, rng, u)
+
+# Pick the wild units that must stay home this step to keep their raider camp
+# garrisoned. A "camp tile" is a wild settlement (owner -2). A camp generally keeps
+# at least one wild unit on its tile so it is never left undefended while it has
+# units to spare — a garrison sitting on the camp tile is exactly what defends the
+# camp (and its claimed cultural border) from a player who attacks it.
+#
+# Rule (deterministic, no RNG): for each camp tile that holds at least
+# `wild_camp_min_garrison + 1` wild units, hold back `wild_camp_min_garrison` of
+# them — the strongest defender(s), tie-broken by id so the choice is stable.
+# A camp with only enough units to meet the floor (e.g. a single freshly-mustered
+# unit when the floor is 1) sorties them all: holding the *last* unit home would
+# starve the raiding the camp exists to launch (mustered waves spawn onto the camp
+# tile, so the lone unit is the wave). Animals and naval raiders are never camp
+# garrison (they are lone wanderers, §9.3/§9.4) and are ignored here.
+# Returns a Set-like Dictionary of held-back unit ids -> true.
+static func _camp_garrison_ids(game_state, db: DataDB) -> Dictionary:
+	var min_garrison: int = db.get_constant("wild_camp_min_garrison", 1)
+	var held: Dictionary = {}
+	if min_garrison <= 0:
+		return held
+	for camp in game_state.settlements:
+		if camp.owner_player_id != -2:
+			continue
+		# Land raiders standing on the camp tile (animals/naval raiders excluded).
+		var on_tile: Array = []
+		for u in game_state.units:
+			if not u.is_wild or u.is_animal or u.health <= 0:
+				continue
+			if u.x != camp.x or u.y != camp.y:
+				continue
+			if _is_naval(game_state, u):
+				continue
+			on_tile.append(u)
+		if on_tile.size() <= min_garrison:
+			continue  # not enough to spare a garrison — all may sortie
+		# Hold back `min_garrison` of them, strongest first (tie-broken by ascending id
+		# so the held set is deterministic): repeatedly pick the best remaining defender.
+		for _i in range(min_garrison):
+			var best: Unit = null
+			for u in on_tile:
+				if held.has(u.id):
+					continue
+				if best == null or u.base_strength > best.base_strength \
+						or (u.base_strength == best.base_strength and u.id < best.id):
+					best = u
+			if best != null:
+				held[best.id] = true
+	return held
 
 # Move `u` one turn's worth toward (tx, ty), attacking into the target tile if it
 # holds a player unit or an enemy city. Mirrors SimFacade's stack-move loop for a
