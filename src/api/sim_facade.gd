@@ -360,6 +360,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_set_subordination(cmd)
 		IDs.CommandType.FREE_VASSAL:
 			return _cmd_free_vassal(cmd)
+		IDs.CommandType.CANCEL_OPEN_BORDERS:
+			return _cmd_cancel_open_borders(cmd)
 		IDs.CommandType.GP_ACTION:
 			return _cmd_gp_action(cmd)
 		IDs.CommandType.CAST_VOTE:
@@ -966,6 +968,12 @@ func _cmd_declare_war(cmd: Dictionary) -> bool:
 	var target: Alliance = _gs.get_alliance(target_aid)
 	if target != null:
 		Diplomacy.record_alliance(_gs, _db, target.member_player_ids, [p.id], "declared_war")
+		# Open borders (§7): war overrides every standing open-borders agreement
+		# between the two sides — at war you invade regardless, so the agreement is
+		# torn up. Purge each cross-alliance member pair.
+		for my_pid in alliance.member_player_ids:
+			for their_pid in target.member_player_ids:
+				_gs.remove_open_borders(int(my_pid), int(their_pid))
 	_add_notification(p.name + " declared war on " + _alliance_label(target_aid) + "!", "major")
 	return true
 
@@ -1163,6 +1171,16 @@ func _cmd_propose_trade(cmd: Dictionary) -> bool:
 	if embargo >= 0 and (target_aid == embargo or from_alliance.id == embargo):
 		_add_notification("Trade barred by assembly embargo.", "info")
 		return false
+	var open_borders: bool = bool(cmd.get("open_borders", false))
+	# Open borders (§7) require the gating tech (Writing) on the proposing side, and
+	# make no sense while at war (war already grants invasion rights).
+	if open_borders:
+		if not Diplomacy.can_open_borders(_gs, _db, p.id):
+			_add_notification("You must research " + _open_borders_tech_name()
+				+ " before proposing open borders.", "info")
+			return false
+		if from_alliance.is_at_war_with(target_aid):
+			return false
 	var duration: int = int(cmd.get("duration", -1))
 	if duration <= 0:
 		duration = _db.get_constant("trade_default_duration", 20)
@@ -1174,6 +1192,7 @@ func _cmd_propose_trade(cmd: Dictionary) -> bool:
 		"give": cmd.get("give", {}).duplicate(true),
 		"receive": cmd.get("receive", {}).duplicate(true),
 		"peace": bool(cmd.get("peace", false)),
+		"open_borders": open_borders,
 		"expires_turn": _gs.turn_number + duration
 	})
 	if not from_alliance.has_contact_with(target_aid):
@@ -1279,6 +1298,15 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 			a_to.at_war_with.erase(a_from.id)
 			_add_notification(_alliance_label(a_from.id) + " and " + _alliance_label(a_to.id)
 				+ " agreed to peace.", "major")
+	# Open borders (§7): record a bilateral agreement between proposer and accepter.
+	# Both sides must hold the gating tech (re-checked here so a tech lost between
+	# proposal and acceptance — or an accepter who never had it — cannot slip through).
+	if bool(t.get("open_borders", false)) and proposer != null:
+		if Diplomacy.can_open_borders(_gs, _db, proposer.id) \
+				and Diplomacy.can_open_borders(_gs, _db, accepter.id):
+			_gs.add_open_borders(proposer.id, accepter.id)
+			_add_notification(proposer.name + " and " + accepter.name
+				+ " opened their borders.", "major")
 	# Recurring items (gold-per-turn, resources) become a persistent Deal (§7),
 	# delivered each world step until cancelled. One-off items above are already done.
 	if _trade_has_recurring(give) or _trade_has_recurring(receive):
@@ -1295,6 +1323,12 @@ func _execute_trade(t: Dictionary, accepter: Player) -> void:
 			"start_turn": _gs.turn_number,
 			"min_duration": _db.get_constant("deal_min_duration", 10)
 		})
+
+# The display name of the open-borders gating tech (for notifications).
+func _open_borders_tech_name() -> String:
+	var tech: String = Diplomacy.open_borders_tech(_db)
+	var td: Dictionary = _db.get_technology(tech)
+	return str(td.get("name", tech)) if not td.empty() else tech
 
 # Whether a give/receive item bundle carries any recurring (per-turn) item.
 func _trade_has_recurring(items: Dictionary) -> bool:
@@ -1355,6 +1389,22 @@ func _cmd_free_vassal(cmd: Dictionary) -> bool:
 	Vassalage.liberate(_gs, vassal)
 	_add_notification(p.name + " released " + _alliance_label(vassal.id)
 		+ " from vassalage.", "major")
+	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
+	return true
+
+# Cancel a standing open-borders agreement (§7). Either party may revoke it; the
+# other player's territory then blocks this player's units again. A no-op (false)
+# when no such agreement exists between the two players.
+func _cmd_cancel_open_borders(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var other: Player = _gs.get_player(int(cmd.get("other_player_id", -1)))
+	if other == null:
+		return false
+	if not _gs.remove_open_borders(p.id, other.id):
+		return false
+	_add_notification(p.name + " closed their borders to " + other.name + ".", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	return true
 
@@ -2385,6 +2435,11 @@ func _explore_step(u: Unit) -> void:
 			}
 			if not Pathfinding.can_enter_deep_water(nb, _db, ectx):
 				continue
+		# Border blocking (§7): don't explore into another player's territory the unit
+		# may not legally enter (no war/alliance/open-borders) — the gated move would
+		# be rejected, so steering there only wastes the scout's step.
+		if not Pathfinding.border_passage_allowed(nb, player_id, _gs):
+			continue
 		# Never walk into an enemy: skip any tile that holds a hostile unit.
 		var has_enemy: bool = false
 		for eu2 in _gs.units:

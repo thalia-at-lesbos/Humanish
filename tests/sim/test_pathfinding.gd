@@ -283,3 +283,99 @@ func test_move_command_rejects_illegal_ocean_destination() -> void:
 	var ok = f._cmd_move_stack({"player_id": 1, "from_x": 0, "from_y": 5, "to_x": 2, "to_y": 5})
 	assert_false(ok, "Move onto illegal ocean is rejected")
 	assert_eq([u.x, u.y], [0, 5], "Unit stays on its coast tile")
+
+# ── Border blocking + open borders (§7) ──────────────────────────────────────
+# A unit may enter a tile owned by another player ONLY when: it owns the tile, it is
+# at war with the owner, they are alliance-mates, or an open-borders agreement is
+# active. Own/unowned land is always traversable.
+
+func _owned_strip(gs, owner_pid, x0, x1, y):
+	# Mark a vertical-agnostic strip of tiles (x0..x1, fixed y) as owned by owner_pid.
+	for x in range(x0, x1 + 1):
+		gs.map.get_tile(x, y).owner_player_id = owner_pid
+
+func test_border_blocks_foreign_territory_without_agreement() -> void:
+	var gs = make_gs()  # players 1 and 2, separate alliances, at peace
+	gs.current_player_id = 1
+	# Player 2 owns a wall of tiles at x=2 across the path from (0,5) to (5,5).
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	for step in path:
+		assert_false(gs.map.get_tile(int(step[0]), int(step[1])).owner_player_id == 2,
+			"Path must never step onto player 2's territory without passage rights")
+
+func test_border_blocked_destination_is_unreachable() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	# A fully enclosed foreign tile: player 2 owns (3,5) and every tile around it.
+	for nb in gs.map.neighbours8(3, 5):
+		nb.owner_player_id = 2
+	gs.map.get_tile(3, 5).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 3, 5, u, gs.db, gs.units, 1, gs)
+	assert_true(path.empty(), "A foreign tile behind a foreign wall is unreachable without passage")
+
+func test_border_allows_with_open_borders() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	gs.add_open_borders(1, 2)
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "Open borders permits passage through player 2's land")
+	var last = path[path.size() - 1]
+	assert_eq([int(last[0]), int(last[1])], [5, 5], "Reaches the destination across foreign land")
+
+func test_border_allows_when_at_war() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	# Put the two alliances at war (war = invasion rights).
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "At war you may invade foreign territory")
+
+func test_border_allows_for_alliance_mates() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	# Put both players in one alliance (id 1).
+	gs.get_player(2).alliance_id = 1
+	gs.get_alliance(1).add_member(2)
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "Alliance-mates pass freely through each other's land")
+
+func test_border_allows_own_territory() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 1  # the mover's own land
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "A unit moves freely through its own territory")
+
+func test_border_allows_unowned_land() -> void:
+	var gs = make_gs()
+	gs.current_player_id = 1
+	# All tiles default to owner -1 (unowned).
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1, gs)
+	assert_false(path.empty(), "Unowned land is freely traversable")
+
+func test_border_gate_skipped_without_game_state() -> void:
+	# Domain-only callers (no game_state) are unaffected — the gate only applies when
+	# a world context is threaded in.
+	var gs = make_gs()
+	for y in range(3, 8):
+		gs.map.get_tile(2, y).owner_player_id = 2
+	var u = make_warrior(gs, 1, 0, 5)
+	var path = Pathfinding.find_path(gs.map, 0, 5, 5, 5, u, gs.db, gs.units, 1)  # no gs
+	assert_false(path.empty(), "Without a game_state the border gate is skipped")

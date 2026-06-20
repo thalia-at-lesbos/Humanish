@@ -71,6 +71,14 @@ static func find_path(map: WorldMap, from_x: int, from_y: int,
 				continue  # impassable
 			if not _domain_legal(nb, domain, db, ocean_ctx):
 				continue
+			# Border blocking (§7): a tile owned by another player may only be ENTERED
+			# when the mover owns it, is at war with the owner, is an alliance-mate, or
+			# has an open-borders agreement with the owner. The destination tile is
+			# exempt only insofar as the same allow-list applies to it too (so you can
+			# still attack/stack into legal targets). Skipped for domain-only callers
+			# (no game_state threaded in) and ownerless/wild movers.
+			if not border_passage_allowed(nb, owner_player_id, game_state):
+				continue
 			if _has_enemy(nb.x, nb.y, all_units, owner_player_id):
 				# Cannot pass THROUGH enemies, but the destination may hold one —
 				# entering it is an attack, resolved by the move command.
@@ -151,9 +159,9 @@ static func can_enter_deep_water(tile: Tile, db: DataDB, ocean_ctx) -> bool:
 	if gs == null:
 		return true  # no world context to evaluate tech/ownership/alliance against
 	var owner_id: int = int(ocean_ctx.get("owner_id", -1))
-	# Waiver: the rule is lifted inside the mover's own cultural territory or that
-	# of a same-alliance member. There is no "open borders" deal type in this
-	# codebase, so alliance membership is used as the open-borders proxy (§5).
+	# Waiver: the rule is lifted inside the mover's own cultural territory, that of a
+	# same-alliance member, or a player it holds a signed open-borders agreement with
+	# (§5/§7) — _tile_in_friendly_territory now consults the real agreement too.
 	if _tile_in_friendly_territory(tile, owner_id, gs):
 		return true
 	if not bool(ocean_ctx.get("ocean_capable", false)):
@@ -170,18 +178,39 @@ static func can_enter_deep_water(tile: Tile, db: DataDB, ocean_ctx) -> bool:
 		return true  # no gating tech configured → ungated
 	return player.has_tech(tech)
 
-# True if `owner_id` owns this tile, or an alliance-mate of owner_id does (the
-# open-borders proxy). owner_player_id == -1 means unowned.
+# Whether a mover owned by `mover_id` may ENTER `tile` given its cultural owner
+# (§7 border blocking). The allow-list: the tile is unowned/wild, the mover owns it,
+# the mover is at war with the owner (war = invasion rights), the mover and owner are
+# alliance-mates, or they have an open-borders agreement. When no world context is
+# threaded in (domain-only callers) or the mover is ownerless/wild (mover_id < 0),
+# passage is always allowed — the gate is presentation-aware, like the ocean gate.
+static func border_passage_allowed(tile: Tile, mover_id: int, gs) -> bool:
+	if gs == null:
+		return true
+	var tile_owner: int = tile.owner_player_id
+	if tile_owner < 0:
+		return true  # unowned land (or wild owner -2) is freely traversable
+	if mover_id < 0:
+		return true  # wild/ownerless movers ignore civ borders
+	if tile_owner == mover_id:
+		return true
+	# At war with the owner → you may invade their territory.
+	if gs.are_at_war(mover_id, tile_owner):
+		return true
+	# Alliance-mate or signed open-borders agreement → free passage (Diplomacy treats
+	# same-alliance as implicit open borders).
+	return Diplomacy.has_open_borders(gs, mover_id, tile_owner)
+
+# True if `owner_id` owns this tile, or an alliance-mate of owner_id does, or the two
+# share an open-borders agreement (the deep-water waiver, §5). owner_player_id == -1
+# means unowned. Now honours a real open-borders agreement in addition to alliance.
 static func _tile_in_friendly_territory(tile: Tile, owner_id: int, gs) -> bool:
 	var tile_owner: int = tile.owner_player_id
 	if tile_owner < 0:
 		return false
 	if tile_owner == owner_id:
 		return true
-	var alliance = gs.get_player_alliance(owner_id)
-	if alliance == null:
-		return false
-	return tile_owner in alliance.member_player_ids
+	return Diplomacy.has_open_borders(gs, owner_id, tile_owner)
 
 # True if `tile` carries a settlement the mover may dock in — its own city or an
 # alliance-mate's (the open-borders proxy, mirroring _tile_in_friendly_territory).

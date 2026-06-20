@@ -97,6 +97,14 @@ var deals: Array = []
 # Not serialized. Each entry is {"kind": String, "deal_id": int, ...}.
 var pending_deal_events: Array = []
 
+# Active bilateral open-borders agreements (§7). Each entry is an unordered pair of
+# player IDs {"a": int, "b": int} (canonicalized a < b) granting each side passage
+# through the other's cultural borders. Recorded on trade acceptance (a proposal
+# carrying open_borders), gated by the open_borders_tech, and torn up when the two
+# players go to war (declare-war purges any matching pair). Serialized; the
+# deserialize path coerces a/b back to int (the JSON float-key gotcha).
+var open_borders: Array = []
+
 # Transient fired/expired event descriptors produced by the §9 event step, drained
 # by SimFacade into notifications + the event_emitted signal. Not serialized.
 var pending_events: Array = []
@@ -236,6 +244,43 @@ func are_at_war(player_a_id: int, player_b_id: int) -> bool:
 		return false
 	return aa.is_at_war_with(b.alliance_id)
 
+# ── Open borders (§7) ──────────────────────────────────────────────────────────
+
+# Whether players a and b have an active open-borders agreement (order-independent).
+# A player is always considered to have open borders with itself and with members of
+# the same alliance (the canonical "friendly passage" set is broader than the signed
+# agreement). Pure read of gs.open_borders for the signed-agreement case.
+func has_open_borders(player_a_id: int, player_b_id: int) -> bool:
+	if player_a_id == player_b_id:
+		return true
+	for ob in open_borders:
+		var x: int = int(ob.get("a", -1))
+		var y: int = int(ob.get("b", -1))
+		if (x == player_a_id and y == player_b_id) or (x == player_b_id and y == player_a_id):
+			return true
+	return false
+
+# Record an open-borders agreement between two players (idempotent, canonicalized).
+func add_open_borders(player_a_id: int, player_b_id: int) -> void:
+	if player_a_id == player_b_id or has_open_borders(player_a_id, player_b_id):
+		return
+	var lo: int = player_a_id if player_a_id < player_b_id else player_b_id
+	var hi: int = player_b_id if player_a_id < player_b_id else player_a_id
+	open_borders.append({"a": lo, "b": hi})
+
+# Remove any open-borders agreement involving the given pair (used on war / cancel).
+# Returns true if an agreement was removed.
+func remove_open_borders(player_a_id: int, player_b_id: int) -> bool:
+	var removed: bool = false
+	for i in range(open_borders.size() - 1, -1, -1):
+		var ob: Dictionary = open_borders[i]
+		var x: int = int(ob.get("a", -1))
+		var y: int = int(ob.get("b", -1))
+		if (x == player_a_id and y == player_b_id) or (x == player_b_id and y == player_a_id):
+			open_borders.remove(i)
+			removed = true
+	return removed
+
 # ── Serialization ─────────────────────────────────────────────────────────────
 
 func serialize() -> Dictionary:
@@ -275,6 +320,7 @@ func serialize() -> Dictionary:
 		"endgame_project_stages": endgame_project_stages.duplicate(),
 		"assembly": assembly.duplicate(true),
 		"deals": deals.duplicate(true),
+		"open_borders": open_borders.duplicate(true),
 		"active_events": active_events.duplicate(true),
 		"pending_event_choices": pending_event_choices.duplicate(true),
 		"_next_unit_id": _next_unit_id,
@@ -335,6 +381,11 @@ static func deserialize(d: Dictionary, db_ref):
 			"start_turn": int(dl.get("start_turn", 0)),
 			"min_duration": int(dl.get("min_duration", 0))
 		})
+	# Open-borders agreements (§7): each is a {a,b} player-id pair. JSON.parse yields
+	# floats for the ids; coerce back to int so post-load passage lookups still match.
+	gs.open_borders = []
+	for ob in d.get("open_borders", []):
+		gs.open_borders.append({"a": int(ob.get("a", -1)), "b": int(ob.get("b", -1))})
 	# Timed events & pending human choices: coerce JSON-loaded numeric fields back to
 	# int (the recurring float/string-key gotcha) so post-load lookups still match.
 	gs.active_events = []
