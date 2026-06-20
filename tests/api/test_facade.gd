@@ -255,6 +255,45 @@ func test_can_stack_move_true_for_open_tile_false_for_water() -> void:
 	assert_false(facade.can_stack_move(4, 4, 4, 5),
 		"Water is not a legal destination for a land unit")
 
+func test_can_stack_move_civilian_only_cannot_attack_wild_city() -> void:
+	var facade = setup_facade(138, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(4, 4).terrain_id = "grassland"
+	gs.map.get_tile(5, 4).terrain_id = "grassland"
+	var worker = make_unit(gs, "worker", pid, 4, 4)
+	make_settlement(gs, -2, 5, 4, 1)   # wild camp (owner -2)
+	assert_false(facade.can_stack_move(4, 4, 5, 4, [worker.id]),
+		"A civilian-only selection cannot attack a wild city (no wasted strength-0 assault)")
+
+func test_can_stack_move_warrior_can_attack_wild_city() -> void:
+	var facade = setup_facade(139, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(4, 4).terrain_id = "grassland"
+	gs.map.get_tile(5, 4).terrain_id = "grassland"
+	var warrior = make_warrior(gs, pid, 4, 4)
+	make_settlement(gs, -2, 5, 4, 1)
+	assert_true(facade.can_stack_move(4, 4, 5, 4, [warrior.id]),
+		"A warrior can attack an adjacent wild city")
+
+func test_is_hostile_tile_recognises_wild_city_and_unit() -> void:
+	var facade = setup_facade(140, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_settlement(gs, -2, 6, 6, 1)    # wild camp
+	make_warrior(gs, -2, 7, 7, true)    # wild raider unit
+	gs.map.get_tile(8, 8).terrain_id = "grassland"
+	assert_true(facade.is_hostile_tile(6, 6), "A wild city tile is hostile")
+	assert_true(facade.is_hostile_tile(7, 7), "A wild unit tile is hostile")
+	assert_false(facade.is_hostile_tile(8, 8), "An empty tile is not hostile")
+
 func test_inspect_tile_clears_selection_and_records_tile() -> void:
 	var facade = setup_facade(137, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])

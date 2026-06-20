@@ -122,7 +122,17 @@ func _handle_move_click(tx: int, ty: int, gs) -> void:
 	if head == null or (head.x == tx and head.y == ty):
 		return
 	if not _facade.can_stack_move(head.x, head.y, tx, ty, ids):
-		return
+		# Attack escalation: the active selection can't make this move, but the
+		# target is hostile (an enemy/wild unit or city) and a combat-capable unit
+		# shares the head's tile. This happens after the left-click cycle lands on a
+		# civilian (worker/settler) that shares a tile with an escorting warrior:
+		# the user means "attack with what's here", so route the whole owned stack
+		# into the target instead of silently ignoring the order. Any tile that is
+		# not a legal attack still ignores the click (selection kept).
+		if not (_facade.is_hostile_tile(tx, ty) \
+				and _facade.can_stack_move(head.x, head.y, tx, ty, [])):
+			return
+		ids = _owned_units_at(head.x, head.y, gs)
 	if ids.size() == 1:
 		# A single selected unit moves as a per-unit move command (§3.3).
 		_facade.apply_command(Commands.mission_move_to(gs.current_player_id, ids[0], tx, ty))
