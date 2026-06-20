@@ -740,3 +740,24 @@ func test_player_visible_tiles_ring_width_is_data_driven() -> void:
 	var seen = f.player_visible_tiles(1)
 	assert_true(seen.has("12,10"), "With ring=2 a tile two rings out is visible")
 	assert_false(seen.has("13,10"), "…but three rings out is still hidden")
+
+# ── Persistent fog memory: get_seen_memory (read API for the scene) ──────────
+
+func test_get_seen_memory_empty_before_any_commit() -> void:
+	var gs = make_gs(2)
+	make_unit(gs, "warrior", 1, 5, 5)
+	var f = bare_facade(gs)
+	assert_true(f.get_seen_memory(1).empty(),
+		"No memory until a player step commits it")
+
+func test_get_seen_memory_returns_committed_snapshot() -> void:
+	# After a player ends their turn, the facade exposes their seen-memory snapshot.
+	var gs = make_gs(2)
+	make_unit(gs, "warrior", 1, 5, 5)
+	gs.map.get_tile(5, 5).owner_player_id = 1
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.end_turn(1))
+	var mem = f.get_seen_memory(1)
+	assert_true(mem.has("5,5"), "End-of-turn commit records the unit's tile")
+	assert_eq(int(mem["5,5"].get("owner_player_id")), 1, "Snapshot carries the border owner")

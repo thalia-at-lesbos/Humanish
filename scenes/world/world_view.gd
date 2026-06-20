@@ -128,6 +128,14 @@ func _draw() -> void:
 		visible_tiles = fog_node.get_visible_tiles()
 		explored_tiles = fog_node.get_explored_tiles()
 
+	# Persistent last-seen snapshots ("x,y" → {terrain_id, feature_id,
+	# improvement_id, transport_id, owner_player_id, settlement_owner}) for the
+	# active player. An explored-but-not-currently-visible tile renders from this
+	# memory instead of live state, so out-of-sight terrain/borders/settlements
+	# stay frozen at their last-seen value (units are never remembered). Visible
+	# tiles render live as before.
+	var seen_memory: Dictionary = _facade.get_seen_memory(gs.current_player_id)
+
 	var highlights: Dictionary = _facade.get_tile_highlights()
 	var now: float = OS.get_ticks_msec() / 1000.0
 
@@ -151,8 +159,20 @@ func _draw() -> void:
 			# remembered detail (territory, rivers); never-seen tiles are not.
 			var explored: bool = explored_tiles.empty() or explored_tiles.has(tile_key)
 
-			# Terrain base color
+			# Last-seen snapshot for an explored-but-not-currently-visible tile. When
+			# present we render terrain/border/improvement from it instead of live
+			# state, so out-of-sight changes (a razed city, a new road, a border
+			# shift) stay hidden until the player sees the tile again. A visible tile
+			# uses live state; a tile with no snapshot (never-seen, or pre-memory
+			# game) falls back to live state under the fog veil as before.
+			var snap: Dictionary = {}
+			if in_fog and seen_memory.has(tile_key):
+				snap = seen_memory[tile_key]
+
+			# Terrain base color (remembered terrain when fogged + snapshotted)
 			var terrain_id: String = tile.terrain_id if tile != null else ""
+			if not snap.empty():
+				terrain_id = str(snap.get("terrain_id", terrain_id))
 			var color: Color = TERRAIN_COLORS.get(terrain_id, DEFAULT_TERRAIN_COLOR)
 			if in_fog:
 				color = color.darkened(0.5)
@@ -161,17 +181,21 @@ func _draw() -> void:
 			# Cultural territory: a thin diagonal hatch in the owner's colour, so
 			# borders read at a glance without hiding the terrain underneath. Wild
 			# forces (owner -2, e.g. a Raider Camp) get a charcoal hatch too; only a
-			# genuinely unowned tile (-1) draws no border.
-			if explored and tile != null and tile.owner_player_id != -1 \
-					and tile.owner_player_id >= WILD_OWNER_ID:
-				_draw_territory_hatch(rect, _player_color(tile.owner_player_id, gs), in_fog)
+			# genuinely unowned tile (-1) draws no border. Out of sight, the owner is
+			# the LAST-SEEN border from the snapshot.
+			var owner_id: int = tile.owner_player_id if tile != null else -1
+			if not snap.empty():
+				owner_id = int(snap.get("owner_player_id", owner_id))
+			if explored and owner_id != -1 and owner_id >= WILD_OWNER_ID:
+				_draw_territory_hatch(rect, _player_color(owner_id, gs), in_fog)
 
 			# Raised-terrain glyph: a peak so mountains/hills read as terrain
 			# (and never as a featureless grey "error" square). Dimmed in fog.
 			if terrain_id == "mountain" or terrain_id == "hills":
 				_draw_peak(rect, terrain_id == "mountain", in_fog)
 
-			# Rivers run along tile borders — the lines *between* tiles.
+			# Rivers run along tile borders — the lines *between* tiles. (Rivers are
+			# static map geometry, safe to read live even under fog.)
 			if explored and tile != null:
 				_draw_rivers(tile, rect, in_fog)
 
@@ -194,8 +218,12 @@ func _draw() -> void:
 				var border: Rect2 = rect.grow(-2 * _zoom)
 				draw_rect(border, Color(1, 1, 1, 0.9), false)
 
-			# Improvement indicator (small dot)
-			if tile != null and tile.improvement_id != "":
+			# Improvement indicator (small dot). Out of sight, show the LAST-SEEN
+			# improvement from the snapshot (e.g. a road/farm you built earlier).
+			var improvement_id: String = tile.improvement_id if tile != null else ""
+			if not snap.empty():
+				improvement_id = str(snap.get("improvement_id", improvement_id))
+			if improvement_id != "":
 				var center: Vector2 = rect.position + Vector2(4, 4) * _zoom
 				draw_circle(center, 3 * _zoom, Color(0.9, 0.7, 0.1))
 
@@ -217,19 +245,30 @@ func _draw() -> void:
 					var rcenter: Vector2 = rect.position + Vector2(TILE_SIZE - 5, TILE_SIZE - 5) * _zoom
 					draw_circle(rcenter, 3 * _zoom, rcol)
 
-	# Draw settlements. A city the player has discovered stays on the map even
-	# when it leaves current sight (you remember it is there); cities on
-	# never-explored tiles stay hidden under the fog.
+	# Draw settlements. A city the player currently SEES is drawn live; a city on a
+	# remembered-but-not-visible tile is drawn from the LAST-SEEN snapshot, so a
+	# city razed/captured out of your sight still shows as you last saw it (right
+	# owner colour) and a city founded outside your sight does not appear until
+	# seen. Cities on never-explored tiles stay hidden under the fog.
+	# 1) Live settlements on currently-visible tiles.
 	for s in gs.settlements:
 		var s_key: String = str(s.x) + "," + str(s.y)
-		if not explored_tiles.empty() and not explored_tiles.has(s_key):
+		var s_visible: bool = visible_tiles.empty() or visible_tiles.has(s_key)
+		if not s_visible:
 			continue
-		var screen_pos: Vector2 = _tile_to_screen(s.x, s.y)
-		var center: Vector2 = screen_pos + Vector2(TILE_SIZE, TILE_SIZE) * _zoom * 0.5
-		var r: float = TILE_SIZE * _zoom * 0.35
-		var col: Color = _player_color(s.owner_player_id, gs)
-		draw_circle(center, r, col)
-		draw_arc(center, r, 0, TAU, 24, Color.black, 1.5)
+		_draw_settlement_dot(s.x, s.y, _player_color(s.owner_player_id, gs))
+	# 2) Remembered settlements on explored-but-not-visible tiles (from snapshot).
+	for tile_key in seen_memory:
+		if not visible_tiles.empty() and visible_tiles.has(tile_key):
+			continue   # currently visible: already drawn live above
+		var snap2: Dictionary = seen_memory[tile_key]
+		var owner: int = int(snap2.get("settlement_owner", SeenMemory.NO_SETTLEMENT))
+		if owner == SeenMemory.NO_SETTLEMENT:
+			continue
+		var parts: Array = tile_key.split(",")
+		if parts.size() != 2:
+			continue
+		_draw_settlement_dot(int(parts[0]), int(parts[1]), _player_color(owner, gs))
 
 	# Draw units (on top of settlements). The selected unit is drawn last so it
 	# sits on top of the others sharing its tile, and any tile holding more than
@@ -260,6 +299,13 @@ func _draw() -> void:
 		if int(counts.get(key2, 0)) > 1 and not badged.has(key2):
 			badged[key2] = true
 			_draw_stack_badge(u.x, u.y, int(counts[key2]))
+
+func _draw_settlement_dot(tx: int, ty: int, col: Color) -> void:
+	var screen_pos: Vector2 = _tile_to_screen(tx, ty)
+	var center: Vector2 = screen_pos + Vector2(TILE_SIZE, TILE_SIZE) * _zoom * 0.5
+	var r: float = TILE_SIZE * _zoom * 0.35
+	draw_circle(center, r, col)
+	draw_arc(center, r, 0, TAU, 24, Color.black, 1.5)
 
 func _draw_unit(u, gs, is_selected: bool = false) -> void:
 	var screen_pos: Vector2 = _tile_to_screen(u.x, u.y)

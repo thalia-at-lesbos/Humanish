@@ -200,6 +200,47 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	# a record for the facade to surface when the player crosses into a new era.
 	Eras.refresh(player, gs.db, gs)
 
+	# Persistent fog memory (§fog): commit "what this player saw this turn" — snapshot
+	# every tile in their CURRENT visibility into gs.seen_memory. Deterministic and
+	# render-independent (computed here in the pipeline, not from the scene), so the
+	# serialized state stays on the determinism gate. Only players that render fog
+	# need memory; AIs read full state, so skip them to bound save size.
+	if not player.is_ai:
+		SeenMemory.commit_visible(gs, player_id, player_visible_set(gs, player_id))
+
+# Authoritative CURRENT-visibility set for a player as map-normalized "x,y" keys:
+# unit sight ∪ city sight ∪ owned territory ∪ a territory_vision_ring fringe. Pure
+# (no scene/facade refs) so both the turn pipeline (fog memory commit) and the
+# facade's player_visible_tiles read one source of truth. Mirrors the sight model
+# used by _detect_sight_contact and the fog renderer.
+static func player_visible_set(gs: GameState, player_id: int) -> Dictionary:
+	var db: DataDB = gs.db
+	var seen: Dictionary = {}
+	if db == null or gs.map == null:
+		return seen
+	var su: int = db.get_constant("unit_sight", 2)
+	var sc: int = db.get_constant("city_sight", 3)
+	for un in gs.units:
+		if un.owner_player_id == player_id:
+			for k in Visibility.visible_tiles(gs.map, db, un.x, un.y, su):
+				seen[k] = true
+	for s in gs.settlements:
+		if s.owner_player_id == player_id:
+			for k in Visibility.visible_tiles(gs.map, db, s.x, s.y, sc):
+				seen[k] = true
+	var ring: int = db.get_constant("territory_vision_ring", 1)
+	if ring < 0:
+		ring = 0
+	for tile in gs.map.all_tiles():
+		if tile.owner_player_id != player_id:
+			continue
+		seen["%d,%d" % [tile.x, tile.y]] = true
+		if ring == 0:
+			continue
+		for nb in gs.map.tiles_in_range(tile.x, tile.y, ring):
+			seen["%d,%d" % [nb.x, nb.y]] = true
+	return seen
+
 # ── Per-settlement step ───────────────────────────────────────────────────────
 
 static func settlement_step(gs: GameState, s: Settlement,

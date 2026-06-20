@@ -200,6 +200,56 @@ func test_fog_memory_resets_on_player_handoff() -> void:
 		"Handing off to player B must not leak A's discoveries")
 	assert_true(fog.get_explored_tiles().has("14,11"), "B remembers their own surroundings")
 
+func test_fog_explored_set_is_read_from_facade_memory() -> void:
+	# The fog layer's explored set now derives from the facade's serialized fog
+	# memory (SimFacade.get_seen_memory), so committed tiles count as explored even
+	# with no live unit currently standing there.
+	var facade = setup_facade(96, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_unit(gs, "warrior", pid, 5, 5)
+	# Commit "what player saw" via a real end-of-turn so the memory is on gs.
+	facade.apply_command(Commands.end_turn(pid))
+	assert_true(facade.get_seen_memory(pid).has("5,5"),
+		"Sanity: the facade now reports (5,5) in fog memory")
+
+	var wv = _world_view(facade)
+	var fog = wv.get_node_or_null("FogLayer")
+	fog.init(facade)
+	# A different active player id with no live unit on (5,5): explored must still
+	# include (5,5) purely from the facade-backed memory.
+	fog.rebuild(pid)
+	assert_true(fog.get_explored_tiles().has("5,5"),
+		"Explored set is seeded from the facade's persistent fog memory")
+
+func test_fog_memory_persists_across_save_load() -> void:
+	# Revealed fog survives a save/load round-trip: a tile seen before saving is
+	# still explored after the facade reloads the state.
+	var facade = setup_facade(97, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_unit(gs, "warrior", pid, 5, 5)
+	facade.apply_command(Commands.end_turn(pid))
+	var json = facade.save()
+
+	# Fresh facade, load the save.
+	var f2 = load("res://src/api/sim_facade.gd").new()
+	f2.init_for_load(make_db())
+	f2.load_save(json)
+	assert_true(f2.get_seen_memory(pid).has("5,5"),
+		"Fog memory survives save/load on a fresh facade")
+
+	var wv = _world_view(f2)
+	var fog = wv.get_node_or_null("FogLayer")
+	fog.init(f2)
+	fog.rebuild(pid)
+	assert_true(fog.get_explored_tiles().has("5,5"),
+		"Reloaded game still remembers the previously-explored tile")
+
 func test_fog_color_is_fully_opaque() -> void:
 	var fog = load("res://scenes/world/fog_layer.gd").new()
 	add_child_autofree(fog)
