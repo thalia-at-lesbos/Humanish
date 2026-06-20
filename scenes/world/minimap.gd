@@ -28,6 +28,9 @@ const PLAYER_COLORS: Array = [
 	Color(1.0, 0.2, 0.2), Color(0.2, 0.4, 1.0), Color(0.2, 0.8, 0.2),
 	Color(1.0, 0.8, 0.1), Color(0.8, 0.2, 0.8), Color(1.0, 0.5, 0.0),
 ]
+# Wild/raider forces (owner -2) — a charcoal mirroring WorldView.WILD_COLOR.
+const WILD_OWNER_ID: int = -2
+const WILD_COLOR: Color = Color(0.22, 0.20, 0.24)
 
 var _facade
 var _world_view
@@ -62,7 +65,8 @@ func rebuild() -> void:
 			var key: String = str(x) + "," + str(y)
 			if city_tiles.has(key):
 				color = _player_color(city_tiles[key], gs)
-			elif tile != null and tile.owner_player_id >= 0:
+			elif tile != null and tile.owner_player_id != -1 \
+					and tile.owner_player_id >= WILD_OWNER_ID:
 				color = _player_color(tile.owner_player_id, gs).lightened(0.3)
 			else:
 				var terrain_id: String = tile.terrain_id if tile != null else ""
@@ -75,6 +79,8 @@ func rebuild() -> void:
 	texture = tex
 
 func _player_color(player_id: int, gs) -> Color:
+	if player_id == WILD_OWNER_ID:
+		return WILD_COLOR
 	for i in range(gs.players.size()):
 		if gs.players[i].id == player_id:
 			return PLAYER_COLORS[i % PLAYER_COLORS.size()]

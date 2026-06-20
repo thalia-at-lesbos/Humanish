@@ -161,7 +161,14 @@ const PLAYER_COLORS: Array = [
 	Color(0.8, 0.8, 0.8),
 ]
 
+# Wild/raider forces (owner -2) — a charcoal that mirrors WorldView.WILD_COLOR so
+# the Raider Camp reads as hostile barbarians, not an unowned grey dot.
+const WILD_OWNER_ID: int = -2
+const WILD_COLOR: Color = Color(0.22, 0.20, 0.24)
+
 func _player_color(player_id: int, gs) -> Color:
+	if player_id == WILD_OWNER_ID:
+		return WILD_COLOR
 	for i in range(gs.players.size()):
 		if gs.players[i].id == player_id:
 			return PLAYER_COLORS[i % PLAYER_COLORS.size()]

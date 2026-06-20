@@ -159,8 +159,11 @@ func _draw() -> void:
 			draw_rect(rect, color)
 
 			# Cultural territory: a thin diagonal hatch in the owner's colour, so
-			# borders read at a glance without hiding the terrain underneath.
-			if explored and tile != null and tile.owner_player_id >= 0:
+			# borders read at a glance without hiding the terrain underneath. Wild
+			# forces (owner -2, e.g. a Raider Camp) get a charcoal hatch too; only a
+			# genuinely unowned tile (-1) draws no border.
+			if explored and tile != null and tile.owner_player_id != -1 \
+					and tile.owner_player_id >= WILD_OWNER_ID:
 				_draw_territory_hatch(rect, _player_color(tile.owner_player_id, gs), in_fog)
 
 			# Raised-terrain glyph: a peak so mountains/hills read as terrain

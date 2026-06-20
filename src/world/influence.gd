@@ -50,6 +50,8 @@ static func spread(map: WorldMap, cx: int, cy: int,
 # Recompute ownership of all tiles based on accumulated influence.
 # Tiles with no influence remain unowned (-1).
 # Ties keep the current owner (no change).
+# Wild forces (owner -2) claim tiles just like a civ does (their Raider Camp
+# shows cultural borders); only the absence of *any* influence leaves a tile -1.
 static func resolve_ownership(map: WorldMap) -> void:
 	for tile in map.all_tiles():
 		if tile.influence.empty():
@@ -57,12 +59,14 @@ static func resolve_ownership(map: WorldMap) -> void:
 			continue
 		var best_player: int = -1
 		var best_val: int = 0
+		var have_winner: bool = false
 		for pid in tile.influence:
 			var val: int = tile.influence[pid]
 			if val > best_val:
 				best_val = val
 				best_player = pid
-		if best_player >= 0:
+				have_winner = true
+		if have_winner:
 			tile.owner_player_id = best_player
 
 # Immediately claim a radius of tiles for a new settlement (founding).

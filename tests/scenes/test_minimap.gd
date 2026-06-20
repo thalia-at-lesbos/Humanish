@@ -39,3 +39,23 @@ func test_pixel_to_tile_clamps_to_bounds() -> void:
 	var high: Array = Minimap.pixel_to_tile(99999.0, 99999.0, 8, 6)
 	assert_eq(high[0], 7, "huge x clamps to map_w-1")
 	assert_eq(high[1], 5, "huge y clamps to map_h-1")
+
+# The world (thumbnail) minimap also gained wild-owner colouring; canary it too.
+func test_world_minimap_script_compiles() -> void:
+	assert_true(load("res://scenes/world/minimap.gd").can_instance(),
+		"world/minimap.gd must compile (wild-owner colouring)")
+
+# Both minimaps map the wild owner (-2) to their charcoal wild colour. The wild
+# branch returns before touching gs, so a null stub is sufficient.
+func test_hud_minimap_wild_owner_color() -> void:
+	var mm = Minimap.new()
+	assert_eq(mm._player_color(Minimap.WILD_OWNER_ID, null), Minimap.WILD_COLOR,
+		"HUD minimap maps wild owner (-2) to the wild colour")
+	mm.free()
+
+func test_world_minimap_wild_owner_color() -> void:
+	var WorldMinimap = load("res://scenes/world/minimap.gd")
+	var mm = WorldMinimap.new()
+	assert_eq(mm._player_color(WorldMinimap.WILD_OWNER_ID, null), WorldMinimap.WILD_COLOR,
+		"World minimap maps wild owner (-2) to the wild colour")
+	mm.free()

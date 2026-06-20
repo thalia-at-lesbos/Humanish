@@ -89,6 +89,8 @@
   "wild_city_creation_turns_elapsed": 35,
   "wild_city_creation_prob": 6,
   "wild_city_min_distance": 6,
+  "wild_camp_claim_radius": 1,
+  "wild_camp_claim_influence": 20,
   "wild_spawn_min_distance": 2,
   "wild_city_ratio_num": 3,
   "wild_city_ratio_den": 2,
