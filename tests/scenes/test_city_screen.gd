@@ -236,6 +236,149 @@ func test_city_screen_dequeue_removes_item() -> void:
 	assert_eq(str(s.production_queue[0].get("id", "")), "granary",
 		"The second item shifts to the front")
 
+# ── Part B: production queue duplicate classification ───────────────────────────
+
+func test_can_queue_more_unit_repeatable() -> void:
+	var facade = setup_facade(80, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	# A unit already in the queue can still be queued again (repeatable).
+	var queue = [{"type": "unit", "id": "warrior"}]
+	assert_true(screen._can_queue_more("unit", "warrior", [], queue),
+		"A unit already queued must remain addable (queue multiple warriors)")
+	assert_true(screen._can_queue_more("unit", "warrior", [], []),
+		"A unit not yet queued is addable")
+
+func test_can_queue_more_building_blocked_when_queued() -> void:
+	var facade = setup_facade(81, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	var queue = [{"type": "structure", "id": "granary"}]
+	assert_false(screen._can_queue_more("structure", "granary", [], queue),
+		"A building already in the queue must not be queueable twice")
+	assert_true(screen._can_queue_more("structure", "library", [], queue),
+		"A different building is still addable")
+
+func test_can_queue_more_building_blocked_when_built() -> void:
+	var facade = setup_facade(82, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	assert_false(screen._can_queue_more("structure", "granary", ["granary"], []),
+		"A building already built in the city must not be queueable")
+
+func test_on_build_allows_duplicate_units() -> void:
+	var facade = setup_facade(83, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 2)
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_build("unit", "warrior")
+	screen._on_build("unit", "warrior")
+	screen._on_build("unit", "warrior")
+	assert_eq(s.production_queue.size(), 3,
+		"Building the same unit three times queues three copies")
+
+func test_on_build_rejects_duplicate_building() -> void:
+	var facade = setup_facade(84, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 2)
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._on_build("structure", "granary")
+	screen._on_build("structure", "granary")
+	assert_eq(s.production_queue.size(), 1,
+		"A building cannot be queued twice in one city")
+
+# ── Part A: work-grid worked/blank/dot markers ──────────────────────────────────
+
+func test_grid_marker_worked_carries_dot() -> void:
+	var facade = setup_facade(85, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	# Worked but not the centre, not locked → the • dot.
+	assert_true("•" in screen._tile_grid_marker(false, true, false),
+		"A worked tile must carry the • dot")
+	# Workable but not worked, not locked → no dot (blank-ish marker).
+	assert_false("•" in screen._tile_grid_marker(false, false, false),
+		"An unworked-but-workable tile must NOT carry the dot")
+
+func test_grid_marker_center_glyph() -> void:
+	var facade = setup_facade(86, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	# The city centre is always worked and shows its ⌂ glyph.
+	assert_true("⌂" in screen._tile_grid_marker(true, true, false),
+		"The city centre must show its ⌂ glyph")
+
+func test_grid_marker_locked() -> void:
+	var facade = setup_facade(87, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var screen = _screen(facade)
+	assert_true("★" in screen._tile_grid_marker(false, true, true),
+		"A locked+worked tile shows ★")
+	assert_true("☆" in screen._tile_grid_marker(false, false, true),
+		"A locked but idle tile shows ☆")
+
+func test_work_grid_renders_full_radius_with_blanks() -> void:
+	# A foreign-owned tile inside the radius is a blank (non-Button) cell, while
+	# the grid still spans the full (2r+1)^2 square.
+	var facade = setup_facade(88, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	var other = gs.players[1].id
+	gs.current_player_id = pid
+	for t in gs.map.all_tiles():
+		t.terrain_id = "grassland"
+		t.owner_player_id = -1
+	var s = make_settlement(gs, pid, 8, 8, 2)
+	s.culture_ring = 2  # 5x5 work grid → 25 cells
+	# One in-radius tile owned by the rival → must be blank, not a button.
+	gs.map.get_tile(9, 8).owner_player_id = other
+	# Mark a tile as worked so a • appears.
+	s.worked_tiles = [[7, 8]]
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var text := _all_text(screen)
+	assert_true("•" in text, "A worked tile must render with the • dot")
+	# The work grid is a (2r+1)^2 = 25-cell GridContainer with 5 columns; the
+	# foreign-owned (9,8) tile must be a blank (non-Button) cell rather than a
+	# clickable tile button.
+	var wgrid = _work_grid(screen)
+	assert_ne(wgrid, null, "The work-radius grid must be present")
+	assert_eq(wgrid.get_child_count(), 25,
+		"The work grid spans the full (2r+1)^2 square (r=2 → 25 cells)")
+	var blanks := 0
+	for cell in wgrid.get_children():
+		if not (cell is Button):
+			blanks += 1
+	assert_true(blanks >= 1,
+		"A foreign-owned in-radius tile must render as a blank (non-Button) cell")
+
+# Find the citizen-management work grid: the 5-column GridContainer whose cells
+# include the city-centre ⌂ marker.
+func _work_grid(node):
+	if node is GridContainer and node.columns == 5:
+		for c in node.get_children():
+			if c is Button and "⌂" in str(c.text):
+				return node
+	for child in node.get_children():
+		var found = _work_grid(child)
+		if found != null:
+			return found
+	return null
+
 func test_city_screen_dequeue_last_item_empties_queue() -> void:
 	var facade = setup_facade(77, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
