@@ -129,7 +129,10 @@ static func _domain_legal(tile: Tile, domain: String, db: DataDB, ocean_ctx = nu
 		return tile_domain == "land"
 	if domain == "sea":
 		if not (tile_domain == "sea" or tile_domain == "water"):
-			return false
+			# A sea unit may dock on a LAND tile only if that tile holds the mover's
+			# own (or allied) coastal city — a city acts as a harbour, so e.g. a work
+			# boat can pull into port. Any other land tile stays impassable to it.
+			return _tile_has_friendly_settlement(tile, ocean_ctx)
 		# Coast (landform "water") is always enterable; only deep water is gated.
 		if ter.get("landform", "") == "deep_water":
 			return can_enter_deep_water(tile, db, ocean_ctx)
@@ -179,6 +182,27 @@ static func _tile_in_friendly_territory(tile: Tile, owner_id: int, gs) -> bool:
 	if alliance == null:
 		return false
 	return tile_owner in alliance.member_player_ids
+
+# True if `tile` carries a settlement the mover may dock in — its own city or an
+# alliance-mate's (the open-borders proxy, mirroring _tile_in_friendly_territory).
+# Lets a sea unit (e.g. a work boat) enter an owned coastal city's land tile. When
+# no world context is threaded in (domain-only callers) the dock is disallowed.
+static func _tile_has_friendly_settlement(tile: Tile, ocean_ctx) -> bool:
+	if ocean_ctx == null or not (ocean_ctx is Dictionary):
+		return false
+	var gs = ocean_ctx.get("gs", null)
+	if gs == null:
+		return false
+	var s = gs.get_settlement_at(tile.x, tile.y)
+	if s == null:
+		return false
+	var owner_id: int = int(ocean_ctx.get("owner_id", -1))
+	if s.owner_player_id == owner_id:
+		return true
+	var alliance = gs.get_player_alliance(owner_id)
+	if alliance == null:
+		return false
+	return s.owner_player_id in alliance.member_player_ids
 
 static func _has_enemy(x: int, y: int, all_units: Array, owner_id: int) -> bool:
 	for u in all_units:

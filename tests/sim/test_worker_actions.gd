@@ -473,6 +473,109 @@ func test_generic_improvement_still_allowed_without_resource() -> void:
 	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "farm")),
 		"Farm (generic) must still build on a bare grassland tile")
 
+# ── Work boat: Fishing Boats improvement ─────────────────────────────────────
+#
+# The naval "work boat" (domain sea) builds the "Fishing Boats" sea-resource
+# improvement in a single turn, may dock in its own coastal city, but offers no
+# build action while sitting on that city tile.
+
+func test_fishing_boats_improvement_is_named_fishing_boats() -> void:
+	var gs = make_gs(1)
+	var imp: Dictionary = gs.db.get_improvement("fishing_boats")
+	assert_eq(str(imp.get("name", "")), "Fishing Boats",
+		"The sea-resource improvement must display as 'Fishing Boats'")
+	# The work-boat build action label is generated as "Build " + improvement name,
+	# so a correct name yields the correct button text.
+	assert_eq("Build " + str(imp.get("name", "")), "Build Fishing Boats",
+		"Work boat build action must read 'Build Fishing Boats'")
+
+func test_work_boat_builds_fishing_boats_on_sea_resource() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["fishing"]  # reveals fish; unlocks fishing_boats
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "coast"   # water landform
+	t.resource_id = "fish"
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "fishing_boats")),
+		"Work boat must build Fishing Boats on a coastal fish tile")
+	assert_eq(w.building_improvement, "fishing_boats",
+		"building_improvement should be fishing_boats (the sea improvement, not a farm)")
+
+func test_fishing_boats_completes_in_a_single_turn() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["fishing"]
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "coast"
+	t.resource_id = "fish"
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "fishing_boats")),
+		"Work boat starts the Fishing Boats build")
+	assert_eq(w.build_turns_left, 1,
+		"Fishing Boats is a single-turn build (build_turns 1)")
+	# The issuing turn makes no progress (the build command spends the worker's
+	# move); the very next turn of held work completes it — one turn of building.
+	facade.apply_command(Commands.end_turn(1))   # queuing turn ends, no progress
+	facade.apply_command(Commands.end_turn(1))   # one turn of work → complete
+	assert_eq(t.improvement_id, "fishing_boats",
+		"Fishing Boats must complete after a single turn of work")
+	assert_eq(w.building_improvement, "",
+		"Build state clears once Fishing Boats completes")
+
+func test_work_boat_cannot_build_on_own_city_tile() -> void:
+	# A work boat docked in its own coastal city offers no improvement: the city
+	# centre cannot be improved. Sim rejects the command (the HUD also hides it).
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = ["fishing"]
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "coast"
+	t.resource_id = "fish"
+	make_settlement(gs, 1, 5, 5, 3)         # own city on the work boat's tile
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.build_improvement(1, w.id, "fishing_boats")),
+		"Work boat cannot improve its own city tile")
+	assert_eq(w.building_improvement, "",
+		"No improvement should be queued on a city tile")
+
+func test_work_boat_can_enter_own_coastal_city_tile() -> void:
+	# A coastal city sits on a LAND tile; a sea unit may still dock there (harbour).
+	var gs = make_gs(1)
+	gs.map.get_tile(5, 5).terrain_id = "coast"          # work boat's start (sea)
+	var city_tile = gs.map.get_tile(6, 5)
+	city_tile.terrain_id = "grassland"                  # land city centre
+	city_tile.owner_player_id = 1
+	make_settlement(gs, 1, 6, 5, 3)
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade._selection = load("res://src/api/selection_state.gd").new()
+	assert_true(facade.can_stack_move(5, 5, 6, 5, [w.id]),
+		"Work boat must be able to move into its own coastal city's land tile")
+
+func test_work_boat_cannot_enter_foreign_land_tile() -> void:
+	# Regression guard: the harbour waiver is for friendly cities only — a plain
+	# land tile (and a foreign city) stays impassable to a sea unit.
+	var gs = make_gs(2)
+	gs.map.get_tile(5, 5).terrain_id = "coast"
+	gs.map.get_tile(6, 5).terrain_id = "grassland"      # bare land, no city
+	var foe_tile = gs.map.get_tile(5, 6)
+	foe_tile.terrain_id = "grassland"
+	foe_tile.owner_player_id = 2
+	make_settlement(gs, 2, 5, 6, 3)                     # a rival's city
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade._selection = load("res://src/api/selection_state.gd").new()
+	assert_false(facade.can_stack_move(5, 5, 6, 5, [w.id]),
+		"Work boat must not walk onto bare land")
+	assert_false(facade.can_stack_move(5, 5, 5, 6, [w.id]),
+		"Work boat must not dock in a foreign city")
+
 # ── Issue 13: Scout Explore mission ──────────────────────────────────────────
 
 func test_explore_command_accepted_for_scout() -> void:
