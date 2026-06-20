@@ -138,6 +138,36 @@ func test_wild_city_density_cap_and_distance_from_culture() -> void:
 			assert_true(gs.map.distance(s.x, s.y, civ.x, civ.y) >= min_dist,
 				"Camp keeps >= %d tiles from civ culture" % min_dist)
 
+func test_raider_camp_claims_cultural_border() -> void:
+	# A spawned Raider Camp owns its own tile and an immediate ring of tiles as the
+	# wild owner (-2), so it shows cultural borders like any civ city (§4.7). Wild
+	# forces have no turn slot, so this founding claim is their whole border.
+	var gs = make_gs(2, 7)
+	gs.difficulty_id = "warlord"
+	gs.turn_number = 60
+	# Found a camp far from anything; place it directly so the claim is deterministic.
+	WildForces._spawn_raider_settlement(10, 10, gs)
+	var camp = null
+	for s in gs.settlements:
+		if s.owner_player_id == -2:
+			camp = s
+			break
+	assert_not_null(camp, "A raider camp was placed")
+	# Its own tile is owned by the wild owner.
+	assert_eq(gs.map.get_tile(camp.x, camp.y).owner_player_id, -2,
+		"Camp centre tile is owned by the wild owner (-2)")
+	# The immediate ring (radius 1) is claimed too — a visible border region.
+	var radius = gs.db.get_constant("wild_camp_claim_radius", 1)
+	var wild_owned = 0
+	for t in gs.map.tiles_in_range(camp.x, camp.y, radius):
+		if t.owner_player_id == -2:
+			wild_owned += 1
+	assert_true(wild_owned > 1,
+		"Camp claims a ring of tiles, not just its centre (got %d)" % wild_owned)
+	# Tiles well outside the claim radius stay unowned.
+	assert_eq(gs.map.get_tile(camp.x, camp.y + radius + 2).owner_player_id, -1,
+		"Tiles outside the wild claim radius stay unowned (-1)")
+
 func test_wild_units_are_capped_over_many_turns() -> void:
 	var facade = setup_facade(4242, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},

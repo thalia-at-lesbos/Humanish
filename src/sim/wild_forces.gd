@@ -615,6 +615,7 @@ static func _spawn_wild_unit(x: int, y: int, game_state, unit_type_id: String = 
 	game_state.units.append(u)
 
 static func _spawn_raider_settlement(x: int, y: int, game_state) -> void:
+	var db: DataDB = game_state.db
 	var s := Settlement.new()
 	s.id = game_state.next_settlement_id()
 	s.name = "Raider Camp"
@@ -622,3 +623,11 @@ static func _spawn_raider_settlement(x: int, y: int, game_state) -> void:
 	s.x = x; s.y = y
 	s.population = 1
 	game_state.settlements.append(s)
+
+	# Claim a small cultural border around the camp so it shows territory like any
+	# civ city does (§4.7). Wild forces have no turn slot, so the per-player culture
+	# spread never runs for them — this initial claim is their whole border. The
+	# claimed tiles are owned by -2 (resolve_ownership lets the wild owner win).
+	var radius: int = db.get_constant("wild_camp_claim_radius", 1)
+	var influence: int = db.get_constant("wild_camp_claim_influence", 20)
+	Influence.found_claim(game_state.map, x, y, -2, radius, influence)

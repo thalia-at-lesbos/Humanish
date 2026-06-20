@@ -44,3 +44,28 @@ func test_resolve_ownership_max_wins() -> void:
 	tile.influence[1] = 10
 	Influence.resolve_ownership(m)
 	assert_eq(tile.owner_player_id, 1, "Player with most influence owns the tile")
+
+func test_wild_owner_claims_tile() -> void:
+	# Wild forces (owner -2) own a tile they alone have influence on, so a Raider
+	# Camp shows cultural borders just like a civ city does (§4.7).
+	var m = _grass_map(5, 5)
+	var tile = m.get_tile(2, 2)
+	tile.influence[-2] = 7
+	Influence.resolve_ownership(m)
+	assert_eq(tile.owner_player_id, -2, "Wild forces own a tile they alone influence")
+
+func test_civ_outcultures_wild() -> void:
+	# A civ with more influence still wins a contested tile over the wild owner.
+	var m = _grass_map(5, 5)
+	var tile = m.get_tile(2, 2)
+	tile.influence[-2] = 5
+	tile.influence[0] = 12
+	Influence.resolve_ownership(m)
+	assert_eq(tile.owner_player_id, 0, "Civ out-cultures the wild owner")
+
+func test_found_claim_wild_owner() -> void:
+	# A wild founding claim paints the camp's ring as owner -2.
+	var m = _grass_map(10, 10)
+	Influence.found_claim(m, 5, 5, -2, 1, 20)
+	assert_eq(m.get_tile(5, 5).owner_player_id, -2, "Wild camp centre owned by -2")
+	assert_eq(m.get_tile(5, 6).owner_player_id, -2, "Wild camp ring tile owned by -2")

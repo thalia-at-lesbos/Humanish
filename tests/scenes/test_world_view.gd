@@ -20,6 +20,28 @@ func _world_view(facade):
 	wv.init(facade)
 	return wv
 
+# ── Canary ─────────────────────────────────────────────────────────────────────
+
+# Guard against a parse error silently hiding the whole script (GUT swallows load
+# failures and still reports green). can_instance() reports compile state safely.
+func test_world_view_script_compiles() -> void:
+	assert_true(load("res://scenes/world/world_view.gd").can_instance(),
+		"world_view.gd must compile (no parse error)")
+
+# ── Wild/raider border colour ────────────────────────────────────────────────────
+
+func test_wild_owner_maps_to_wild_color() -> void:
+	# A Raider Camp's tiles (owner -2) hatch in the dedicated charcoal wild colour,
+	# distinct from any civ slot and from the unowned grey fallback.
+	var facade = setup_facade(2020, "standard",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var wv = _world_view(facade)
+	assert_eq(wv._player_color(wv.WILD_OWNER_ID, gs), wv.WILD_COLOR,
+		"Wild owner (-2) maps to the wild border colour")
+	assert_ne(wv._player_color(gs.players[0].id, gs), wv.WILD_COLOR,
+		"A real player does not share the wild colour")
+
 # ── Centering ────────────────────────────────────────────────────────────────
 
 func test_centers_on_current_players_unit() -> void:
