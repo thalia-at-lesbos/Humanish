@@ -184,6 +184,12 @@ func _handle_keyboard(event: InputEventKey) -> void:
 		return
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.do_control(gs.current_player_id, ctrl_type))
+	# The idle-unit cycle controls advance the selection to the next unit needing
+	# orders; follow it with the camera (presentation only — the facade selection
+	# is the source of truth for which unit). No-op if the cycle found nothing.
+	if ctrl_type == IDs.ControlType.NEXT_IDLE_UNIT \
+			or ctrl_type == IDs.ControlType.NEXT_IDLE_WORKER:
+		_center_on_selected_unit()
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	if not event.pressed:
@@ -225,10 +231,19 @@ func _maybe_auto_advance(gs) -> void:
 		if u != null and _unit_can_still_act(u):
 			return   # still has moves and no rest stance — keep it selected
 	_facade.cycle_idle_units(false)
+	_center_on_selected_unit()
 
 func _unit_can_still_act(u) -> bool:
 	return not (u.has_moved or u.is_fortified or u.is_sentry \
 		or u.is_patrolling or u.is_healing)
+
+# After the idle-unit cycle advances the selection, pan the world view onto the
+# newly-selected unit so the player is always looking at the unit awaiting orders.
+# WorldView.center_on_selection() is a no-op when the cycle wrapped to nothing
+# (no unit selected), so this never fights the camera when there is nothing to do.
+func _center_on_selected_unit() -> void:
+	if _world_view != null and _world_view.has_method("center_on_selection"):
+		_world_view.center_on_selection()
 
 func _owned_units_at(tx: int, ty: int, gs) -> Array:
 	# All units the current player owns on this tile, in stable spawn order so the

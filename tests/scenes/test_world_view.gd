@@ -78,6 +78,44 @@ func test_center_on_player_false_with_nothing_owned() -> void:
 	assert_false(wv.center_on_player(facade.get_state().players[0].id),
 		"Centering reports false when the player owns nothing to look at")
 
+# The idle-unit cycle centres on whatever unit the facade selection now points
+# at; center_on_selection() pans the camera onto that unit's tile.
+func test_center_on_selection_pans_to_selected_unit() -> void:
+	var facade = setup_facade(2626, "standard",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_unit(gs, "warrior", pid, 3, 4)
+	var u = make_unit(gs, "scout", pid, 11, 6)
+	facade.select_unit(u.id)
+
+	var wv = _world_view(facade)
+	assert_true(wv.center_on_selection(),
+		"center_on_selection reports it found a selected unit to centre on")
+	var t = wv.screen_to_tile(wv.get_viewport_rect().size * 0.5)
+	assert_eq([int(t.x), int(t.y)], [11, 6],
+		"The camera is centred on the selected unit's tile, not the first unit")
+
+# With nothing selected the cycle wrapped to nothing — center_on_selection must
+# be a no-op (return false, no camera move) so it never yanks the view.
+func test_center_on_selection_noop_when_nothing_selected() -> void:
+	var facade = setup_facade(2727, "standard",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	make_unit(gs, "warrior", gs.players[0].id, 4, 4)
+	facade.clear_selection()
+
+	var wv = _world_view(facade)
+	wv.pan_to_tile(9, 9)
+	var before = wv.screen_to_tile(wv.get_viewport_rect().size * 0.5)
+	assert_false(wv.center_on_selection(),
+		"With no selected unit, center_on_selection reports false")
+	var after = wv.screen_to_tile(wv.get_viewport_rect().size * 0.5)
+	assert_eq([int(after.x), int(after.y)], [int(before.x), int(before.y)],
+		"…and does not move the camera")
+
 func test_pan_by_shifts_the_camera() -> void:
 	var facade = setup_facade(1818, "standard",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
