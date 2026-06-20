@@ -168,6 +168,80 @@ func test_raider_camp_claims_cultural_border() -> void:
 	assert_eq(gs.map.get_tile(camp.x, camp.y + radius + 2).owner_player_id, -1,
 		"Tiles outside the wild claim radius stay unowned (-1)")
 
+# ── Camp garrison (WildAI keeps a defender home) ────────────────────────────────
+
+# Place a raider camp at (cx, cy) with its claimed border, returning the Settlement.
+func _make_camp(gs, cx, cy):
+	WildForces._spawn_raider_settlement(cx, cy, gs)
+	for s in gs.settlements:
+		if s.owner_player_id == -2 and s.x == cx and s.y == cy:
+			return s
+	return null
+
+# Count the wild (non-animal) units currently standing on (x, y).
+func _wild_on_tile(gs, x, y) -> int:
+	var n = 0
+	for u in gs.units:
+		if u.is_wild and not u.is_animal and u.x == x and u.y == y:
+			n += 1
+	return n
+
+func test_camp_with_two_units_keeps_one_garrisoned() -> void:
+	# A camp holding two wild units, both ordered to march out, must keep at least
+	# one on the camp tile after a WildAI.run — the camp is never left undefended.
+	var gs = make_gs(2, 7)
+	var camp = _make_camp(gs, 10, 10)
+	var a = make_warrior(gs, -2, camp.x, camp.y, true)
+	var b = make_warrior(gs, -2, camp.x, camp.y, true)
+	# Order both toward a far corner so, absent the garrison rule, both would leave.
+	a.goto_x = 0; a.goto_y = 0
+	b.goto_x = 0; b.goto_y = 0
+	WildAI.run(gs, gs.rng)
+	assert_true(_wild_on_tile(gs, camp.x, camp.y) >= 1,
+		"A camp with 2+ units keeps at least one defender on the camp tile")
+
+func test_camp_garrison_lets_the_others_sortie() -> void:
+	# Of three units in a camp (min_garrison 1), exactly one stays and two march out.
+	var gs = make_gs(2, 7)
+	var camp = _make_camp(gs, 10, 10)
+	for _i in range(3):
+		var u = make_warrior(gs, -2, camp.x, camp.y, true)
+		u.goto_x = 0; u.goto_y = 0
+	var min_garrison = gs.db.get_constant("wild_camp_min_garrison", 1)
+	WildAI.run(gs, gs.rng)
+	assert_eq(_wild_on_tile(gs, camp.x, camp.y), min_garrison,
+		"Exactly the garrison floor stays; the rest sortie")
+
+func test_lone_camp_unit_may_sortie() -> void:
+	# A camp with only one unit (the garrison floor) lets it leave — holding the last
+	# unit home would starve the raiding a freshly-mustered wave exists to launch.
+	var gs = make_gs(2, 7)
+	var camp = _make_camp(gs, 10, 10)
+	var only = make_warrior(gs, -2, camp.x, camp.y, true)
+	only.goto_x = 0; only.goto_y = 0
+	WildAI.run(gs, gs.rng)
+	assert_eq(_wild_on_tile(gs, camp.x, camp.y), 0,
+		"A camp with a single unit may send it out to raid")
+
+func test_camp_garrison_is_deterministic() -> void:
+	# Same seed and setup → the same unit is held and the same units move.
+	var positions = []
+	for _run in range(2):
+		var gs = make_gs(2, 7)
+		var camp = _make_camp(gs, 10, 10)
+		for _i in range(3):
+			var u = make_warrior(gs, -2, camp.x, camp.y, true)
+			u.goto_x = 0; u.goto_y = 0
+		WildAI.run(gs, gs.rng)
+		var snap = []
+		for u in gs.units:
+			if u.is_wild and not u.is_animal:
+				snap.append([u.id, u.x, u.y])
+		snap.sort()
+		positions.append(snap)
+	assert_eq(positions[0], positions[1],
+		"Same seed → identical garrison/sortie outcome")
+
 func test_wild_units_are_capped_over_many_turns() -> void:
 	var facade = setup_facade(4242, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
