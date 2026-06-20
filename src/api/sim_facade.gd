@@ -1136,7 +1136,12 @@ func _tile_offers_resource_improvement(tile: Tile, imp_id: String, player: Playe
 	var res: Dictionary = _db.get_resource(tile.resource_id)
 	if str(res.get("improvement_required", "")) != imp_id:
 		return false
-	var reveal_tech: String = str(res.get("tech_required", ""))
+	# A resource's reveal tech may be JSON null (e.g. fish/clam/crab/corn/rice/wheat
+	# are visible from the start): the key is present with a null value, so a bare
+	# get(..., "") returns null — str(null) is "Null", never a real tech. Coerce a
+	# null/missing reveal tech to "" so those resources are always improvable.
+	var reveal_val = res.get("tech_required", null)
+	var reveal_tech: String = "" if reveal_val == null else str(reveal_val)
 	return reveal_tech == "" or player.has_tech(reveal_tech)
 
 # ── Trades (§7) ───────────────────────────────────────────────────────────────
