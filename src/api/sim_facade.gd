@@ -540,20 +540,21 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			lead.has_attacked = true
 			break
 
-		# An undefended enemy city tile is assaulted (§4.8): the attack lowers the
-		# city's siege HP, and the city falls (razed or captured) at 0. The stack
-		# advances onto the tile only once the city has fallen.
+		# An undefended enemy city tile falls immediately (§4.8): with no defender
+		# left, a single attack captures it (kept, in revolt) or razes it — the
+		# barbarian/wild and size-1 auto-raze rules in _city_falls still decide which.
+		# The attacking stack always advances onto the tile (a kept city becomes ours;
+		# a razed tile is now empty land). _city_falls emits the capture/raze
+		# notification + signal, so the assault is never silent.
 		if enemy_city != null:
-			var outcome: String = _assault_city(lead, enemy_city, player_id)
+			_city_falls(enemy_city, player_id)
+			lead.has_attacked = true
 			for u in moving_units:
 				u.movement_left = 0
 				u.has_moved = true
-			lead.has_attacked = true
-			if outcome != "held":
-				for u in moving_units:
-					u.x = sx; u.y = sy
-					u.stationary_turns = 0
-					u.entrenchment = 0
+				u.x = sx; u.y = sy
+				u.stationary_turns = 0
+				u.entrenchment = 0
 			break
 
 		var step_cost: int = Pathfinding._move_cost(
@@ -674,38 +675,9 @@ func _enemy_settlement_at(x: int, y: int, attacker_pid: int) -> Settlement:
 		return s
 	return null
 
-# One assault by `lead` on an undefended enemy `city`: lowers its siege HP by the
-# attacker's effective strength. Returns "held" while HP remains, else the fall
-# outcome ("razed"/"captured").
-func _assault_city(lead: Unit, city: Settlement, attacker_pid: int) -> String:
-	var maxh: int = TurnEngine.city_max_health(city, _db)
-	if city.health < 0 or city.health > maxh:
-		city.health = maxh
-	var tile: Tile = _gs.map.get_tile(city.x, city.y)
-	var ter: Dictionary = _db.get_terrain(tile.terrain_id)
-	var feat: Dictionary = _db.get_feature(tile.feature_id) if tile.feature_id != "" else {}
-	var dmg: int = lead.effective_strength(_db, true, ter, feat, "", true)
-	if dmg < 1:
-		dmg = 1
-	city.health -= dmg
-	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
-	if city.health > 0:
-		# The city's defences hold this turn. Unlike a unit fight (which emits
-		# combat_resolved + a notification), a non-capturing assault used to be
-		# silent — no message, no signal — so a human chipping a high-HP barbarian
-		# camp saw "nothing happen" while the selection auto-advanced. Surface the
-		# siege progress for a human attacker so the assault is legible (§4.8).
-		var atk_p: Player = _gs.get_player(attacker_pid)
-		if atk_p != null and not atk_p.is_ai:
-			var an: String = str(_db.get_unit(lead.unit_type_id).get("name", lead.unit_type_id))
-			var hp: int = city.health if city.health > 0 else 0
-			_add_notification("Your " + an + " assaulted " + city.name \
-				+ " — its defences hold (siege " + str(hp) + "/" + str(maxh) + ").", "major")
-		return "held"
-	return _city_falls(city, attacker_pid)
-
-# A city whose siege HP reached 0 falls. Barbarians always raze; a size-1 city
-# that was never larger is auto-razed; otherwise the captor keeps it (in revolt).
+# A fallen city. Barbarians always raze; a size-1 city that was never larger is
+# auto-razed; otherwise the captor keeps it (in revolt). Called the moment an
+# undefended enemy city is attacked (§4.8) — there is no siege-HP wear-down.
 func _city_falls(city: Settlement, captor_pid: int) -> String:
 	if captor_pid == -2 or (city.population <= 1 and city.peak_population <= 1):
 		_raze_city(city, captor_pid)

@@ -10,9 +10,12 @@
 
 extends "res://tests/support/sim_fixture.gd"
 
-# City conquest (§4.8): assaulting an undefended enemy city lowers its siege HP;
-# at 0 the attacker keeps it (in revolt) or razes it, with barbarian / size-1
-# auto-raze rules. Players may also disband their own cities at any time.
+# City conquest (§4.8): an undefended enemy city falls to a single attack by a
+# player — the attacker keeps it (in revolt) or razes it, with barbarian / size-1
+# auto-raze rules. Defending units must be cleared by normal combat first. Players
+# may also disband their own cities at any time. (Siege HP / city_max_health still
+# matters for the other direction — wild raiders grind a player city's HP down over
+# turns; see test_wild_ai — so it is live state, not dormant.)
 
 func _at_war(gs):
 	gs.alliances[0].at_war_with = [2]
@@ -30,35 +33,38 @@ func test_city_max_health_grows_with_size_and_walls() -> void:
 
 # ── Assault through the move command ──────────────────────────────────────────
 
-func test_assault_lowers_health_and_holds_while_hp_remains() -> void:
+func test_undefended_city_is_captured_by_a_single_attack() -> void:
+	# §4.8: with no defender left, even a weak attacker takes the city outright.
 	var gs = make_gs(2)
 	_at_war(gs)
-	var city = make_settlement(gs, 2, 5, 5, 3)   # defenderless enemy city
-	var atk = make_warrior(gs, 1, 5, 6)          # base_strength 10
+	var city = make_settlement(gs, 2, 5, 5, 4)   # defenderless enemy city, size 4
+	city.peak_population = 4
+	var atk = make_warrior(gs, 1, 5, 6)          # base_strength 10 — still enough
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 
 	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
-	assert_true(city.health > 0, "A single weak assault does not fell a healthy city")
-	assert_true(city.health < TurnEngine.city_max_health(city, gs.db), "…but it took damage")
-	assert_eq(city.owner_player_id, 2, "The city is not captured while it still has HP")
-	assert_eq([atk.x, atk.y], [5, 6], "The attacker does not enter a city that held")
+	assert_eq(city.owner_player_id, 1, "An undefended city is captured at once")
+	assert_eq(city.revolt_turns, gs.db.get_constant("revolt_base_turns", 3) + 4 / 2,
+		"Kept cities revolt for the base turns plus half their size")
+	assert_eq([atk.x, atk.y], [5, 5], "The attacker advances into the captured city")
 
-func test_assault_captures_city_when_health_hits_zero() -> void:
+func test_defended_city_must_clear_its_defender_first() -> void:
+	# A defender blocks capture: attacking the tile fights the defender (normal
+	# combat) and does NOT seize the city in the same step, even if the defender dies.
 	var gs = make_gs(2)
 	_at_war(gs)
 	var city = make_settlement(gs, 2, 5, 5, 4)
 	city.peak_population = 4
+	var guard = make_warrior(gs, 2, 5, 5)        # defender stationed in the city
 	var atk = make_warrior(gs, 1, 5, 6)
-	atk.base_strength = 100                       # fells the city in one assault
+	atk.base_strength = 100                      # will win the fight handily
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 
 	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
-	assert_eq(city.owner_player_id, 1, "Felling the city captures it for the attacker")
-	assert_eq(city.revolt_turns, gs.db.get_constant("revolt_base_turns", 3) + 4 / 2,
-		"Kept cities revolt for the base turns plus half their size")
-	assert_eq([atk.x, atk.y], [5, 5], "The attacker advances into the captured city")
+	assert_eq(city.owner_player_id, 2, "The city is not seized in the same step as the fight")
+	assert_eq([atk.x, atk.y], [5, 6], "Beating the defender does not walk the attacker in")
 
 # ── Fall outcomes (raze vs keep) ──────────────────────────────────────────────
 
