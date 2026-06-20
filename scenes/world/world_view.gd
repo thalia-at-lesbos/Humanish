@@ -456,6 +456,26 @@ func center_on_player(player_id: int) -> bool:
 			return true
 	return false
 
+# Center the camera on the currently-selected unit, if any. Used by the
+# idle-unit cycle (auto-advance after an order, and the explicit "next idle
+# unit" hotkey) so the view follows the player through their army. Returns true
+# if there was a selected unit to center on; false (no camera move) otherwise,
+# so callers never pan when the cycle wrapped to nothing.
+func center_on_selection() -> bool:
+	if _facade == null:
+		return false
+	var gs = _facade.get_state()
+	if gs == null:
+		return false
+	var head_uid: int = _facade.get_selection().head_unit()
+	if head_uid < 0:
+		return false
+	var u = gs.get_unit(head_uid)
+	if u == null:
+		return false
+	pan_to_tile(u.x, u.y)
+	return true
+
 # Redraw the world and keep the fog overlay locked to the same camera, so fog
 # stays pinned to the map instead of drifting when the view pans or zooms.
 func _camera_changed() -> void:

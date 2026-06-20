@@ -76,16 +76,21 @@ func test_right_click_civilian_selected_empty_tile_moves_only_civilian() -> void
 	assert_eq([warrior.x, warrior.y], [3, 3],
 		"…and the escorting warrior is not dragged along (no hostile escalation)")
 
-# Minimal WorldView double: maps 64px cells to tiles and records pans.
+# Minimal WorldView double: maps 64px cells to tiles and records pans plus the
+# idle-cycle "follow the selection" call (center_on_selection).
 class _StubView:
 	extends Reference
 	var panned = Vector2.ZERO
+	var center_calls = 0
 	func screen_to_tile(p):
 		return Vector2(int(p.x / 64), int(p.y / 64))
 	func pan_by(d):
 		panned += d
 	func flash_move_tile(_a, _b):
 		pass
+	func center_on_selection():
+		center_calls += 1
+		return true
 
 # ── Enter ends the turn (data-driven hotkey → END_TURN control) ───────────────
 
@@ -275,6 +280,57 @@ func test_auto_advance_can_be_disabled() -> void:
 	ir._maybe_auto_advance(gs)
 	assert_eq(facade.get_selection().head_unit(), a.id,
 		"With auto-advance off, selection does not move on its own")
+
+# When auto-advance hops to the next idle unit, the world view is asked to centre
+# on it (the camera should follow the player through their army).
+func test_auto_advance_centers_world_view_on_next_unit() -> void:
+	var facade = setup_facade(2727, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var a = make_unit(gs, "warrior", pid, 4, 4)
+	make_unit(gs, "scout", pid, 7, 7)
+	facade.select_unit(a.id)
+	a.has_moved = true
+
+	var ir = _router()
+	ir._facade = facade
+	var stub = _StubView.new()
+	ir._world_view = stub
+	ir._maybe_auto_advance(gs)
+	assert_eq(stub.center_calls, 1,
+		"Auto-advancing to the next idle unit centres the world view on it")
+
+# The explicit "next idle unit" hotkey path (KEY_N → NEXT_IDLE_UNIT control)
+# also centres the camera on the unit it advances to, so the keyboard cycle and
+# the auto-advance behave identically.
+func test_next_idle_unit_hotkey_centers_world_view() -> void:
+	var facade = setup_facade(3030, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_unit(gs, "warrior", pid, 4, 4)
+	make_unit(gs, "scout", pid, 7, 7)
+	facade.clear_selection()
+
+	# Sanity: KEY_N is the bound next-idle-unit hotkey (action 6).
+	var hk = load("res://scenes/input/hotkey_map.gd").new()
+	hk.load_bindings()
+	assert_eq(hk.lookup(KEY_N, false, false), IDs.ControlType.NEXT_IDLE_UNIT,
+		"KEY_N is bound to the next-idle-unit control")
+
+	var ir = _router()
+	ir._facade = facade
+	var stub = _StubView.new()
+	ir._world_view = stub
+	ir._hotkey_map = hk
+	ir._handle_keyboard(_key(KEY_N))
+	assert_true(facade.get_selection().head_unit() >= 0,
+		"The next-idle-unit hotkey selects a unit needing orders")
+	assert_eq(stub.center_calls, 1,
+		"Pressing the next-idle-unit hotkey centres the world view on the new unit")
 
 # ── Click model: LEFT selects (never moves), RIGHT moves ──────────────────────
 
