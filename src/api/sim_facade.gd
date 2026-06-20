@@ -2293,6 +2293,9 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			u.is_sleeping = false
 			u.is_healing = false
 			u.is_patrolling = false
+			# Fresh order: clear any stale heading so the first step picks a new one.
+			u.explore_dx = 0
+			u.explore_dy = 0
 			# Don't consume movement; the auto-move this turn is handled immediately.
 			_explore_step(u)
 			if not u.is_exploring:
@@ -2393,9 +2396,20 @@ func _explore_step(u: Unit) -> void:
 			str(_db.get_unit(u.unit_type_id).get("name", u.unit_type_id.capitalize()))
 				+ " has nowhere to explore.", "info")
 		return
-	# Pick a random candidate and move there (draws from shared RNG).
-	var idx: int = _gs.rng.randi_range(0, candidates.size() - 1)
-	var target: Tile = candidates[idx]
+	# Steer toward the nearest tile this player cannot currently see (fog / the
+	# unexplored frontier), rather than wandering at random. `_explore_target`
+	# BFS-finds that frontier tile from sim-visible knowledge; we then pick the
+	# candidate neighbour that gets us closest to it. When the whole reachable map
+	# is revealed it returns null and the scout idles instead of thrashing.
+	var target: Tile = _explore_choose_step(u, player_id, candidates)
+	if target == null:
+		# Everything reachable is already revealed — stop exploring (idle) rather
+		# than wander. The unit keeps its movement so the player can redirect it.
+		u.is_exploring = false
+		_add_notification(
+			str(_db.get_unit(u.unit_type_id).get("name", u.unit_type_id.capitalize()))
+				+ " has explored all it can reach.", "info")
+		return
 	var mc: Dictionary = {
 		"type": IDs.CommandType.MOVE_STACK,
 		"player_id": player_id,
@@ -2404,6 +2418,177 @@ func _explore_step(u: Unit) -> void:
 		"unit_ids": [u.id]
 	}
 	_cmd_move_stack(mc)
+
+# Pick which neighbour candidate an exploring unit should step onto so it heads
+# toward unrevealed map. Returns null when no unseen tile is reachable at all
+# (whole reachable map revealed), so the caller idles the scout instead of
+# wandering.
+#
+# Algorithm:
+#   * First confirm any reachable unseen tile still exists (`_explore_target`, a
+#     deterministic BFS over legal terrain). If none does, the whole reachable map
+#     is revealed → return null so the scout idles.
+#   * Each candidate neighbour is scored by REVEAL — how many currently-unseen
+#     tiles the candidate's own sight footprint would newly expose.
+#   * HEADING COMMITMENT — an exploring unit keeps a persistent heading
+#     (`explore_dx/dy`). If the tile one step along the current heading is still a
+#     legal candidate that opens new fog, the unit stays the course (it does not
+#     re-aim toward a fractionally-better neighbour). Only when the heading goes
+#     stale (off-map, blocked, or revealing nothing new) does it re-aim toward the
+#     max-reveal candidate. This is what stops an open-field scout ping-ponging
+#     between two equally-fogged tiles: it commits to a line and walks it.
+#   * Re-aim tiebreaks: more reveal first, then the candidate that best continues
+#     the current heading (smallest turn), then stable (y, x).
+# The chosen step's direction is written back to `explore_dx/dy`.
+#
+# Determinism: reads only sim-visible state (current per-player visibility, via
+# the shared Visibility helper exactly like wild_forces / contact), never the
+# scene fog layer, and uses no RNG — every tiebreak is a stable total order and
+# the heading is serialized, so an explore turn is fully reproducible and survives
+# save/load.
+func _explore_choose_step(u: Unit, player_id: int, candidates: Array) -> Tile:
+	var seen: Dictionary = _player_visible_tiles(player_id)
+	var domain: String = str(_db.get_unit(u.unit_type_id).get("domain", "land"))
+	var ectx: Dictionary = {
+		"ocean_capable": bool(_db.get_unit(u.unit_type_id).get("ocean_capable", false)),
+		"owner_id": player_id,
+		"gs": _gs,
+	}
+	# No reachable unseen tile anywhere ⇒ nothing left to explore.
+	if _explore_target(u, domain, ectx, seen) == null:
+		return null
+	var sight: int = _db.get_constant("unit_sight", 2)
+	# Map each candidate's "x,y" → its reveal count (newly-unseen tiles in sight).
+	var reveal_of: Dictionary = {}
+	for c in candidates:
+		var r: int = 0
+		for vk in Visibility.visible_tiles(_gs.map, _db, c.x, c.y, sight):
+			if not seen.has(vk):
+				r += 1
+		reveal_of[str(c.x) + "," + str(c.y)] = r
+	# Heading commitment: if the tile one step along the current heading is still a
+	# legal candidate that opens new fog, keep going straight.
+	if u.explore_dx != 0 or u.explore_dy != 0:
+		var hx: int = u.x + u.explore_dx
+		var hy: int = u.y + u.explore_dy
+		var hn: Array = _gs.map.normalize(hx, hy)
+		var hkey: String = str(hn[0]) + "," + str(hn[1])
+		for c in candidates:
+			if c.x == hn[0] and c.y == hn[1] and int(reveal_of[hkey]) > 0:
+				return c   # heading still productive — stay the course
+	# Re-aim: pick the max-reveal candidate, tie-broken toward continuing the
+	# current heading (smallest turn), then a stable (y, x) order.
+	var best: Tile = null
+	var best_reveal: int = -1
+	var best_turn: int = 0x7FFFFFFF
+	for c in candidates:
+		var reveal: int = int(reveal_of[str(c.x) + "," + str(c.y)])
+		var off: Array = _explore_offset(u.x, u.y, c.x, c.y)
+		# Turn = how far this step deviates from the current heading (0 = straight).
+		var turn: int = abs(off[0] - u.explore_dx) + abs(off[1] - u.explore_dy)
+		var better: bool = false
+		if reveal > best_reveal:
+			better = true
+		elif reveal == best_reveal:
+			if turn < best_turn:
+				better = true
+			elif turn == best_turn and best != null \
+					and (c.y < best.y or (c.y == best.y and c.x < best.x)):
+				better = true
+		if better:
+			best_reveal = reveal
+			best_turn = turn
+			best = c
+	# Record the committed heading from the chosen step (signed unit step per axis).
+	if best != null:
+		var boff: Array = _explore_offset(u.x, u.y, best.x, best.y)
+		u.explore_dx = boff[0]
+		u.explore_dy = boff[1]
+	return best
+
+# Wrap-aware signed offset (dx, dy) from (ax, ay) to (bx, by): the shortest step
+# along each axis, honouring map wrap so the offset geometry stays continuous
+# across the east-west seam. Used to compare tile positions and headings locally.
+func _explore_offset(ax: int, ay: int, bx: int, by: int) -> Array:
+	var dx: int = bx - ax
+	var dy: int = by - ay
+	if _gs.map.wrap_x and abs(dx) * 2 > _gs.map.width:
+		dx = dx - _gs.map.width if dx > 0 else dx + _gs.map.width
+	if _gs.map.wrap_y and abs(dy) * 2 > _gs.map.height:
+		dy = dy - _gs.map.height if dy > 0 else dy + _gs.map.height
+	return [dx, dy]
+
+# Set of "x,y" tile keys this player can currently see, from sim-visible state
+# only (units + settlements through the shared terrain-aware Visibility helper —
+# the same model the fog renderer, first-contact scan and wild spawn mask use).
+# This is the sim's legitimate notion of "revealed"; the scene fog layer's
+# accumulated ever-seen memory is presentation-only and off-limits here.
+func _player_visible_tiles(player_id: int) -> Dictionary:
+	var seen: Dictionary = {}
+	var su: int = _db.get_constant("unit_sight", 2)
+	var sc: int = _db.get_constant("city_sight", 3)
+	for un in _gs.units:
+		if un.owner_player_id == player_id:
+			for k in Visibility.visible_tiles(_gs.map, _db, un.x, un.y, su):
+				seen[k] = true
+	for s in _gs.settlements:
+		if s.owner_player_id == player_id:
+			for k in Visibility.visible_tiles(_gs.map, _db, s.x, s.y, sc):
+				seen[k] = true
+	return seen
+
+# BFS outward from the unit over passable, domain-legal tiles to the nearest tile
+# the player cannot currently see (`seen`). Returns that frontier Tile, or null
+# when no unseen tile is reachable. The BFS expands in ring order and, within a
+# ring, in a stable (y, x) order, so the chosen frontier is deterministic.
+func _explore_target(u: Unit, domain: String, ectx: Dictionary, seen: Dictionary) -> Tile:
+	var visited: Dictionary = {}
+	var start_key: String = str(u.x) + "," + str(u.y)
+	visited[start_key] = true
+	var queue: Array = [_gs.map.get_tile(u.x, u.y)]
+	while not queue.empty():
+		var cur: Tile = queue.pop_front()
+		# Expand neighbours in a stable order so ties resolve deterministically.
+		var nbs: Array = _gs.map.neighbours8(cur.x, cur.y)
+		nbs.sort_custom(self, "_tile_yx_less")
+		for nb in nbs:
+			var key: String = str(nb.x) + "," + str(nb.y)
+			if visited.has(key):
+				continue
+			visited[key] = true
+			# A tile the player cannot currently see is the frontier target — but
+			# only if it is reachable terrain (so we never aim at an unreachable
+			# ocean a land scout can't cross). Found the nearest unseen tile.
+			if not _explore_tile_legal(nb, domain, ectx):
+				continue
+			if not seen.has(key):
+				return nb
+			# Seen and legal: keep walking outward through it.
+			queue.append(nb)
+	return null
+
+# True if `tile` is passable terrain this unit's domain may legally stand on
+# (mirrors the per-neighbour legality the explore step itself applies, including
+# the §5 deep-water gate for sea units).
+func _explore_tile_legal(tile: Tile, domain: String, ectx: Dictionary) -> bool:
+	var ter: Dictionary = _db.get_terrain(tile.terrain_id)
+	if ter.get("impassable", false):
+		return false
+	var tdomain: String = str(ter.get("domain", "land"))
+	if domain == "land" and tdomain != "land":
+		return false
+	if domain == "sea" and tdomain == "land":
+		return false
+	if domain == "sea" and str(ter.get("landform", "")) == "deep_water":
+		if not Pathfinding.can_enter_deep_water(tile, _db, ectx):
+			return false
+	return true
+
+# Stable (y, x) ordering for deterministic BFS expansion.
+func _tile_yx_less(a: Tile, b: Tile) -> bool:
+	if a.y != b.y:
+		return a.y < b.y
+	return a.x < b.x
 
 # Run explore steps for all exploring units owned by `player_id`. Called at
 # the start of _cmd_end_turn so each exploring scout advances before the turn

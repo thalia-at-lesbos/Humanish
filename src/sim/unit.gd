@@ -89,6 +89,14 @@ var is_fortify_until_healed: bool = false
 # Explore mission (§3.3): scout/recon unit auto-moves toward unexplored territory.
 # Cleared when an enemy is spotted nearby or no new territory is reachable.
 var is_exploring: bool = false
+# Persistent explore heading (signed step −1/0/+1 per axis). An exploring unit
+# commits to a heading and keeps walking it while that step still reveals new fog,
+# only re-aiming toward the most-revealing neighbour when the current heading goes
+# stale (blocked, off-map, or covering only seen ground). This is what keeps an
+# open-field scout pushing steadily outward instead of ping-ponging between two
+# equally-fogged tiles. Serialized so an explore turn survives save/load.
+var explore_dx: int = 0
+var explore_dy: int = 0
 
 func has_promotion(promo_id: String) -> bool:
 	return promo_id in promotions
@@ -193,7 +201,8 @@ func serialize() -> Dictionary:
 		"is_healing": is_healing, "is_sleeping": is_sleeping,
 		"is_sleep_until_healed": is_sleep_until_healed,
 		"is_fortify_until_healed": is_fortify_until_healed,
-		"is_exploring": is_exploring
+		"is_exploring": is_exploring,
+		"explore_dx": explore_dx, "explore_dy": explore_dy
 	}
 
 static func deserialize(d: Dictionary):
@@ -230,4 +239,6 @@ static func deserialize(d: Dictionary):
 	u.is_sleep_until_healed = bool(d.get("is_sleep_until_healed", false))
 	u.is_fortify_until_healed = bool(d.get("is_fortify_until_healed", false))
 	u.is_exploring = bool(d.get("is_exploring", false))
+	u.explore_dx = int(d.get("explore_dx", 0))
+	u.explore_dy = int(d.get("explore_dy", 0))
 	return u

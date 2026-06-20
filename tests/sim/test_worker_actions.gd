@@ -564,6 +564,82 @@ func test_explore_wakes_on_enemy_nearby() -> void:
 	assert_false(scout.is_exploring,
 		"Scout should stop exploring when an enemy is spotted within sight range")
 
+func test_explore_steps_toward_unexplored_map() -> void:
+	# A scout in the middle of a large all-grassland map starts with most of the
+	# map in fog. Each explore step should carry it steadily AWAY from its start
+	# (into the fog), not wander back into the small revealed pocket it already
+	# sees. End several turns and assert its distance from the start keeps growing.
+	var gs = make_gs(1, 42, 30, 30)
+	gs.get_player(1).treasury = 100000
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var scout = make_unit(gs, "scout", 1, 15, 15)
+	scout.is_exploring = true
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	# Several explore turns; the distance from the start should climb monotonically
+	# while the scout is heading outward (a committed heading does not backtrack).
+	var prev_dist: int = 0
+	for _i in range(4):
+		facade.apply_command(Commands.end_turn(1))
+		if not scout.is_exploring:
+			break
+		var d: int = gs.map.distance(scout.x, scout.y, 15, 15)
+		assert_true(d > prev_dist,
+			"Each explore turn should move the scout farther from its start (into fog)")
+		prev_dist = d
+	assert_true(prev_dist >= 3,
+		"An exploring scout should head well clear of its start into the fog")
+
+func test_explore_stops_when_all_reachable_revealed() -> void:
+	# A scout alone on a small island whose every land tile is already inside its
+	# sight has no reachable unseen LAND tile (the surrounding ocean is illegal for
+	# a land scout), so explore should stop (idle) rather than thrash. Carve a 3x3
+	# grassland island at the map centre, ocean everywhere else.
+	var gs = make_gs(1, 42, 12, 12)
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "ocean"
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			gs.map.get_tile(6 + dx, 6 + dy).terrain_id = "grassland"
+	var scout = make_unit(gs, "scout", 1, 6, 6)
+	scout.is_exploring = true
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	facade._explore_step(scout)
+	assert_false(scout.is_exploring,
+		"With every reachable land tile revealed, the scout should stop exploring")
+
+func test_explore_uses_no_private_rng_state() -> void:
+	# The targeting is deterministic and draws no RNG: an explore step must not
+	# advance the shared RNG state (unlike the old random-neighbour pick).
+	var gs = make_gs(1, 42, 30, 30)
+	gs.get_player(1).treasury = 100000
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var scout = make_unit(gs, "scout", 1, 15, 15)
+	scout.is_exploring = true
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var rng_before: Dictionary = gs.rng.get_state()
+	facade._explore_step(scout)
+	var rng_after: Dictionary = gs.rng.get_state()
+	assert_eq(str(rng_before["state"]), str(rng_after["state"]),
+		"Explore targeting must be deterministic and draw nothing from the shared RNG")
+
+func test_explore_heading_serializes_and_deserializes() -> void:
+	# The committed explore heading is serialized so an explore turn survives a
+	# save/load (the determinism gate).
+	var gs = make_gs(1)
+	var scout = make_unit(gs, "scout", 1, 5, 5)
+	scout.is_exploring = true
+	scout.explore_dx = -1
+	scout.explore_dy = 1
+	var d: Dictionary = scout.serialize()
+	var u2 = load("res://src/sim/unit.gd").deserialize(d)
+	assert_eq(u2.explore_dx, -1, "deserialize() must restore explore_dx")
+	assert_eq(u2.explore_dy, 1, "deserialize() must restore explore_dy")
+
 func test_explore_serializes_and_deserializes() -> void:
 	var gs = make_gs(1)
 	var scout = make_unit(gs, "scout", 1, 5, 5)
