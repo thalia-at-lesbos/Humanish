@@ -13,9 +13,9 @@ extends "res://tests/support/sim_fixture.gd"
 # City conquest (§4.8): an undefended enemy city falls to a single attack by a
 # player — the attacker keeps it (in revolt) or razes it, with barbarian / size-1
 # auto-raze rules. Defending units must be cleared by normal combat first. Players
-# may also disband their own cities at any time. (Siege HP / city_max_health still
-# matters for the other direction — wild raiders grind a player city's HP down over
-# turns; see test_wild_ai — so it is live state, not dormant.)
+# may also disband their own cities at any time. (Siege HP / city_max_health is now
+# dormant — neither the player nor the wild path grinds it down — but the function
+# is still exercised below since the field remains serialized state.)
 
 func _at_war(gs):
 	gs.alliances[0].at_war_with = [2]

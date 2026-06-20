@@ -79,13 +79,13 @@ var defence_value: int = 0
 
 # Conquest (§4.8). `health` is the city's defensive-integrity value (siege HP),
 # regenerated each owner turn up to its maximum (see TurnEngine.city_max_health).
-# A *player* attacker now takes an undefended enemy city in a single attack (the
-# §4.8 capture rule), so siege HP does not gate player conquest. It is still ground
-# down by *wild* raiders assaulting a player city (WildAI._assault_city), which is
-# what paces raids and protects the capital (Issue 15). `peak_population` is the
-# largest size the city has ever reached — a size-1 city that has never been bigger
-# is auto-razed on capture. `revolt_turns` counts down post-capture occupation,
-# during which the city produces nothing.
+# It is now DORMANT: an undefended city falls to a single attack in both directions
+# (a player captures/razes it; wild raiders raze it), so siege HP no longer gates
+# conquest. The field is retained as serialized state (and restored to max on
+# capture) but is not read by any combat path. `peak_population` is the largest size
+# the city has ever reached — a size-1 city that has never been bigger is auto-razed
+# on capture. `revolt_turns` counts down post-capture occupation, during which the
+# city produces nothing.
 var health: int = -1            # -1 = "full"; normalised to max on first use
 var peak_population: int = 1
 var revolt_turns: int = 0

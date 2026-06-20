@@ -187,13 +187,20 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 			u.goto_x = -1; u.goto_y = -1
 			return
 
-		# An undefended enemy city is assaulted; wild captors always raze (§4.5).
+		# An undefended enemy city: wild raiders raze it outright (§4.5). The
+		# player's CAPITAL is off-limits — wild forces cannot attack it — so a
+		# palace-bearing city acts as an impassable wall: the unit stops short
+		# rather than assaulting or entering it (Issue 15).
 		var city: Settlement = _enemy_settlement_at(game_state, sx, sy)
 		if city != null:
+			if city.has_structure("palace"):
+				u.movement_left = 0
+				u.goto_x = -1; u.goto_y = -1
+				return
 			_assault_city(game_state, u, city)
 			u.has_attacked = true
 			u.movement_left = 0
-			# If the city fell, advance onto its now-empty tile.
+			# The razed city's tile is now empty land — advance onto it.
 			if game_state.get_settlement_at(sx, sy) == null:
 				u.x = sx; u.y = sy
 				u.stationary_turns = 0
@@ -212,35 +219,15 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 	if u.x == tx and u.y == ty:
 		u.goto_x = -1; u.goto_y = -1
 
-# One assault by `lead` on an undefended enemy `city`: lowers its siege HP by the
-# attacker's effective strength; at 0 the city is razed (wild forces never hold).
-# Exception: wild units can never raze a player's capital (Issue 15). If the
-# capital's HP would drop to zero the assault bottoms out at 1 — the city is
-# heavily damaged but the civilization survives. The fog-of-war lift reported in
-# the bug is a downstream symptom of the ownership/destruction change; preventing
-# the destruction here resolves it.
+# A wild raider's assault on an undefended player `city`: wild forces raze it
+# outright — there is no siege-HP wear-down (§4.5/§4.8) — so an undefended city
+# falls to a single attack, mirroring the player→enemy capture rule. The player's
+# CAPITAL (the palace-bearing seat of government) is the one exception: wild forces
+# cannot take it, so the assault is refused and the capital is left untouched
+# (Issue 15). The caller normally pre-empts this (a capital tile is treated as an
+# impassable wall, and target selection skips capitals); this is the backstop.
 static func _assault_city(game_state, lead: Unit, city: Settlement) -> void:
-	var db: DataDB = game_state.db
-	# Load TurnEngine rather than name it: TurnEngine references WildAI (it calls
-	# run() in the world step), so a class_name reference back would be a cyclic
-	# parse dependency (see CLAUDE.md's load()-not-new() note).
-	var maxh: int = load("res://src/sim/turn_engine.gd").city_max_health(city, db)
-	if city.health < 0 or city.health > maxh:
-		city.health = maxh
-	var tile: Tile = game_state.map.get_tile(city.x, city.y)
-	var ter: Dictionary = db.get_terrain(tile.terrain_id)
-	var feat: Dictionary = db.get_feature(tile.feature_id) if tile.feature_id != "" else {}
-	var dmg: int = lead.effective_strength(db, true, ter, feat, "", true)
-	if dmg < 1:
-		dmg = 1
-	city.health -= dmg
-	if city.health > 0:
-		return
-	# Wild units cannot raze a player's capital (§4.5 exception): the palace marks
-	# the seat of government and must remain with the original owner. Clamp HP to 1
-	# so the assault is recorded but the city does not fall.
 	if city.has_structure("palace"):
-		city.health = 1
 		return
 	game_state.settlements.erase(city)
 	game_state.pending_wild_events.append({
@@ -586,6 +573,8 @@ static func _nearest_player_target(game_state, x: int, y: int, radius: int) -> A
 	for s in game_state.settlements:
 		if s.owner_player_id < 0:
 			continue
+		if s.has_structure("palace"):
+			continue  # the capital is off-limits — wild forces never march on it
 		var d: int = game_state.map.distance(x, y, s.x, s.y)
 		if d <= radius and d < best_d:
 			best_d = d

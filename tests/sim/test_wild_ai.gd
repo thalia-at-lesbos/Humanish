@@ -139,16 +139,18 @@ func test_raider_attacks_a_player_unit_in_its_path() -> void:
 	assert_true(saw_combat, "A raider reaching a player resolves combat")
 
 func test_raider_razes_an_undefended_player_city() -> void:
+	# §4.8: an undefended (non-capital) player city is razed outright in a single
+	# wild attack — no siege-HP grind. A full-HP, multi-pop city still falls at once.
 	var gs = make_gs(2)
-	var city = make_settlement(gs, 1, 5, 5, 1)
-	city.peak_population = 1
-	city.health = 1                          # one hit from falling
+	var city = make_settlement(gs, 1, 5, 5, 4)
+	city.peak_population = 4
+	city.health = -1                         # "full" — proves HP no longer matters
 	var raider = make_warrior(gs, -2, 5, 6, true)
 	raider.goto_x = 5
 	raider.goto_y = 5
 	WildAI.run(gs, gs.rng)
 
-	assert_null(gs.get_settlement_at(5, 5), "Undefended city was razed")
+	assert_null(gs.get_settlement_at(5, 5), "A healthy undefended city is razed in one attack")
 	var razed = false
 	for e in gs.pending_wild_events:
 		if e["kind"] == "razed":
@@ -190,28 +192,29 @@ func test_raider_does_not_advance_onto_city_tile_after_killing_garrison() -> voi
 	assert_not_null(surviving, "City must still exist")
 	assert_eq(surviving.owner_player_id, 1, "City must still belong to player 1")
 
-# Issue 15 regression: wild units cannot raze (or capture) a player's capital.
-# The palace marks the seat of government; wild forces may damage it but never
-# bring it to zero HP. The fog-of-war lift was a downstream symptom of the city
-# being removed from game_state.settlements — fixed by keeping it alive.
-func test_wild_unit_cannot_raze_the_capital() -> void:
+# Issue 15: wild forces cannot attack a player's capital at all. The palace marks
+# the seat of government; a palace-bearing city is off-limits — it is never razed
+# and a raider stops short of it (treats it as an impassable wall) rather than
+# assaulting it. Even a powerful raider on the undefended capital tile's doorstep
+# leaves it wholly intact.
+func test_wild_unit_cannot_attack_the_capital() -> void:
 	var gs = make_gs(2)
 	var capital = make_settlement(gs, 1, 5, 5, 3)
 	capital.peak_population = 3
 	capital.structures.append("palace")
-	capital.health = 1  # one hit from falling under normal rules
 	# A powerful raider adjacent to the undefended capital.
 	var raider = make_warrior(gs, -2, 5, 4, true)
-	raider.base_strength = 50  # huge — would exceed any city's max HP in one blow
+	raider.base_strength = 50  # huge — would raze any non-capital city instantly
 	raider.goto_x = 5
 	raider.goto_y = 5
 
 	WildAI.run(gs, gs.rng)
 
-	# The capital must still exist.
+	# The capital must still exist, intact, and the raider must not be inside it.
 	var surviving = gs.get_settlement_at(5, 5)
 	assert_not_null(surviving, "Capital must survive a wild assault (Issue 15)")
 	assert_eq(surviving.owner_player_id, 1, "Capital must remain owned by player 1")
+	assert_true(raider.x != 5 or raider.y != 5, "A raider never enters the capital tile")
 	# It should NOT have been razed (no wild raze event for it).
 	for e in gs.pending_wild_events:
 		if e["kind"] == "razed":
@@ -222,9 +225,9 @@ func test_wild_unit_cannot_raze_the_capital() -> void:
 # to the palace-bearing settlement only).
 func test_wild_unit_can_raze_a_non_capital_city() -> void:
 	var gs = make_gs(2)
-	var city = make_settlement(gs, 1, 5, 5, 1)
-	city.peak_population = 1
-	city.health = 1  # one hit from falling
+	var city = make_settlement(gs, 1, 5, 5, 3)
+	city.peak_population = 3
+	city.health = -1  # full HP — instant raze does not depend on siege HP
 	# No palace — not a capital.
 	var raider = make_warrior(gs, -2, 5, 4, true)
 	raider.base_strength = 50

@@ -401,20 +401,25 @@ feature** health (below).
 > implementation (`SimFacade` conquest helpers, `TurnEngine.city_max_health`, and the
 > `city_*`/`revolt_*` keys in `data/constants.json`) accordingly.
 
-A settlement has a **siege health** value — its defensive integrity — with a maximum derived
-from a base value, its population, and its defensive structures (walls, castle, …). Health
-regenerates a fixed amount each owner turn, up to that maximum.
+A settlement retains a **siege health** value — its defensive integrity — with a maximum
+derived from a base value, its population, and its defensive structures (walls, castle, …),
+regenerating a fixed amount each owner turn up to that maximum. It is **currently vestigial**:
+since an undefended settlement now falls to a single attack (below), siege health no longer
+gates conquest. It is kept as settlement state pending the parity pass noted above (a future
+model may reintroduce a multi-hit assault), but no combat path reads it today.
 
 * **Assault.** A settlement is taken through its tile. Any defending units must be defeated
   first (normal combat, §5.4); defeating the last defender does **not** by itself put the
   attacker inside the settlement (it takes a further attack into the now-undefended tile).
   Once the tile is **undefended**, an attack on it **captures or razes the settlement
-  immediately** — a player attacker does not need to grind siege health down — and the
-  attacking stack enters the tile (a kept settlement becomes the attacker's; a razed tile is
-  empty land). Siege health still governs the other direction: **wild raiders** (§9) assault a
-  player settlement by lowering its siege health over successive turns rather than taking it
-  outright, which paces raids and (with the capital-survival rule) keeps a single raider from
-  destroying an undefended civilization in one blow.
+  immediately** — there is no siege-health wear-down — and the attacking stack enters the tile
+  (a kept settlement becomes the attacker's; a razed tile is empty land). This applies in both
+  directions: a player takes an undefended enemy settlement, and **wild raiders** (§9) raze an
+  undefended player settlement outright. **Exception — the capital.** The palace-bearing seat
+  of government (§6.1) **cannot be attacked by wild forces at all**: wild raiders never march on
+  it and treat its tile as an impassable wall, so a civilization always survives a raid even
+  when its capital is undefended. (Siege health and its per-turn regeneration are retained as
+  vestigial settlement state but no longer affect conquest.)
 * **Raze or keep.** When a settlement falls, the attacker chooses to **raze** it (destroyed
   and removed from the game) or **keep** it (ownership transfers to the attacker). Two cases
   remove the choice: **barbarian/wild attackers always raze**, and a **size-one settlement
