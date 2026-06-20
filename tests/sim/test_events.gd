@@ -174,6 +174,61 @@ func test_timed_event_expires_on_schedule() -> void:
 	assert_eq(cap.health, 100, "the expire effect restores capital health")
 	assert_true(gs.active_events.empty(), "the expired event is removed from the active list")
 
+# A timed event already running for a player must not re-fire — otherwise a
+# non-one_shot timed trigger (the plague) re-arms each turn while still active,
+# stacking overlapping instances that spam begin/expire log lines and stack their
+# health deltas. The guard lives in trigger_holds so it is checked before the roll.
+func test_active_timed_event_blocks_refire() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5).health = 100
+	gs.turn_number = 30  # past the plague's min_turn (25)
+	# A plague is already running for this player.
+	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	assert_eq(gs.active_events.size(), 1, "one plague active")
+	var trig = gs.db.event_triggers["trig_great_plague"]
+	assert_false(Events.trigger_holds(trig, p, gs),
+		"the plague trigger does not hold while a plague is already active")
+	# A different player with no active plague is still eligible.
+	if gs.players.size() > 1:
+		assert_true(Events.trigger_holds(trig, gs.get_player(2), gs),
+			"another player without an active plague is still eligible")
+
+# Drive the plague over many turns at probability 100 and assert it never overlaps
+# itself: at most one active instance at a time, and the begin/expire log entries
+# come in clean single pairs (no per-turn start/stop spam).
+func test_plague_does_not_re_fire_while_active() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5).health = 100
+	# Force the plague to be the only eligible trigger and certain to fire.
+	for tid in gs.db.get_event_triggers():
+		if tid != "_comment" and tid != "trig_great_plague":
+			p.events_fired.append(tid)
+	gs.db.event_triggers["trig_great_plague"]["probability"] = 100
+	var begins = 0
+	var expires = 0
+	var max_active = 0
+	for t in range(30, 60):
+		gs.turn_number = t
+		var produced = Events.process_player_events(p, gs, gs.rng)
+		for d in produced:
+			match str(d.get("kind", "")):
+				"event_fired":
+					if str(d.get("event_id", "")) == "great_plague":
+						begins += 1
+				"event_expired":
+					if str(d.get("event_id", "")) == "great_plague":
+						expires += 1
+		if gs.active_events.size() > max_active:
+			max_active = gs.active_events.size()
+	assert_eq(max_active, 1, "never more than one plague active at a time")
+	assert_true(begins >= 1, "the plague does begin at least once")
+	# With duration 5 and no overlap, begins and expires stay within one of each
+	# other (an in-flight plague may not have expired by the final turn).
+	assert_true(abs(begins - expires) <= 1,
+		"begin/expire entries are paired — no per-turn start/stop spam (begins=%d expires=%d)" % [begins, expires])
+
 func test_timed_event_survives_save_load() -> void:
 	# Determinism: an in-progress timed event + a parked human choice roundtrip
 	# through save/load with their int fields intact (the JSON-key gotcha).
