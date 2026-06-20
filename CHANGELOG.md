@@ -3,6 +3,68 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.5.1] - 2026-06-20 "Full Feature Alpha 2"
+
+### Added
+- **Reference-parity simulation pass (Phases 0.1–8).** Eight phases align core
+  mechanics with the Civ4 reference: firepower-blended per-hit combat damage
+  (Phase 0.1); affine food-box growth with carry cap (Phase 0.2); stacked
+  production-yield percent chain (Phase 0.3); canonical tech-cost percent chain
+  (Phase 0.4); MOVE_DENOMINATOR=60 with transport route costs (Phase 0.5);
+  research handicaps split human vs AI (Phase 0.6).
+- **Score win condition.** Score added as the 7th win condition (Phase 1).
+- **Specialists promoted to first-class data table** (Phase 2).
+- **Goody huts** added to map generation with start-fairness normalization
+  (Phase 3).
+- **Full random event lifecycle** (Phase 4): trigger → begin (with player
+  choice) → apply effects → expire, all data-driven via `data/events.json` and
+  `data/event_triggers.json`. Influenza outbreak replaces the Great Plague as a
+  canonical multi-choice event.
+- **Corporations** (Phase 5): full HQ + executive model, resource-count output,
+  per-turn maintenance, and city-level corporation screen.
+- **Espionage mission catalogue** (Phase 6): costs, target gates, interception
+  risk, all data-driven via `data/espionage.json`.
+- **Persistent diplomatic deals + AI attitude & memory** (Phase 7): deal
+  resource access wired into corporation inputs; AI tracks deals and attitude
+  across turns.
+- **Vassalage** (Phase 8): capitulation, liberation, and shared war/peace.
+- **Ocean entry gated by tech + hull**, with friendly-territory waiver.
+- **Terrain-aware sight + line-of-sight blocking**: hills/mountains extend range
+  for units on high ground and block vision through them.
+- **Cultural borders grant live vision** plus a one-tile surrounding ring.
+- **Persistent fog of war**: explored tiles stay dimly revealed, and the
+  last-seen tile contents are remembered across save/load.
+- **Open-borders agreement** + cultural border movement blocking for closed
+  borders.
+- **City assault** (§4.8): a player or wild raider captures/razes an undefended
+  city in one attack; the capital is always off-limits to raiders.
+- **Raider camp defender**: a garrisoned unit always defends raider camps.
+- **First-contact notification** when two players meet for the first time.
+- **Tile terrain readout** shown in the HUD alongside a selected unit or city.
+- Mine improvement restricted to hills tiles (terrain gating).
+- **Enter/Numpad-Enter** ends the turn from the main view.
+- **Sleep order** exposed for all units in the selection panel.
+- **Explore mission** steers toward unrevealed map edges instead of wandering.
+- **Auto-center** the world view on the next idle unit when a unit finishes its
+  orders.
+
+### Fixed
+- City centre tile is always worked so cities grow even with no manual
+  assignments.
+- Full 5×5 work-radius grid in the city view shows usable tiles only, with a
+  `#` marker on currently worked tiles; repeat-queue unit items now work.
+- Work boat builds Fishing Boats and docks in its own city in one turn.
+- Tile readout shows the computed yield including all improvements.
+- Timed events no longer re-fire while still active.
+- Raider's Camp tile now shows cultural borders correctly.
+- City assault UI surfaces feedback when an attack holds (defender wins).
+- Worker build/improve actions hidden on settlement tiles.
+- Right-click correctly attacks a wild or enemy city via an on-tile escort.
+- Minimap click re-centers the main world view.
+- New maps now vary each launch (randomized default seed + stretched
+  height-field contrast).
+- Load screen save list is scrollable on long file lists.
+
 ## [0.5.0] - 2026-06-09
 
 ### Added
