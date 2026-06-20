@@ -253,7 +253,7 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 	auto_btn.connect("pressed", self, "_on_toggle_automation", [not s.manage_citizens_auto])
 	v.add_child(auto_btn)
 
-	_line(v, "Full work radius — • = worked, ⌂ = city centre, blank = unavailable.")
+	_line(v, "Work grid (fixed 5×5) — # = worked, ⌂ = city centre, blank button = unavailable.")
 	_line(v, "Click a worked/workable tile to lock/unlock it (★ locked, ☆ locked+idle):")
 
 	var worked := {}
@@ -263,20 +263,24 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 	for lt in s.locked_tiles:
 		locked[str(int(lt[0])) + "," + str(int(lt[1]))] = true
 
-	# Render the FULL (2r+1)×(2r+1) work-radius square so the grid shape is always
-	# complete. A tile the city can never work (off-map, or owned by another
-	# player) is shown as a blank cell so the layout stays legible.
-	var r: int = s.culture_ring
+	# Render a FIXED 5×5 grid (a 2-tile radius around the city centre, dx/dy each
+	# from -2..+2) so the grid shape is always the full 25 button slots regardless
+	# of the city's actual culture_ring. A tile the city cannot currently work
+	# (off-map, foreign-owned, or outside the real work radius) renders as a blank
+	# button (a Button with no text) so the 5×5 shell stays complete.
+	var radius: int = 2
 	var grid := GridContainer.new()
-	grid.columns = 2 * r + 1
-	for dy in range(-r, r + 1):
-		for dx in range(-r, r + 1):
+	grid.columns = 2 * radius + 1
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
 			var tx: int = s.x + dx
 			var ty: int = s.y + dy
 			var tile = gs.map.get_tile(tx, ty) if gs.map.is_valid(tx, ty) else null
-			if tile == null or not _tile_workable(tile, s.owner_player_id):
-				# Unavailable tile → blank cell keeps the grid rectangular.
-				var blank := Control.new()
+			if tile == null or not _tile_workable(tile, s, gs):
+				# Unavailable tile → blank button keeps the 5×5 shell complete.
+				var blank := Button.new()
+				blank.text = ""
+				blank.disabled = true
 				grid.add_child(blank)
 				continue
 			var key := str(tile.x) + "," + str(tile.y)
@@ -293,20 +297,27 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 			grid.add_child(btn)
 	v.add_child(grid)
 
-# Whether the city can ever work this tile: it must be owned by the city's player
-# or be unowned (-1). Tiles owned by another player are never workable.
-func _tile_workable(tile, owner_player_id: int) -> bool:
-	return tile.owner_player_id == owner_player_id or tile.owner_player_id == -1
+# Whether the city can CURRENTLY work this tile: it must lie within the city's
+# real work radius (its culture_ring), and be owned by the city's player or be
+# unowned (-1). Tiles outside the ring, or owned by another player, are not
+# currently usable — they render as a blank cell in the fixed 5×5 grid. The
+# centre tile is always usable (it is worked for free). Mirrors the sim's own
+# auto-assign filter in TurnEngine (tiles_in_range(culture_ring) + ownership).
+func _tile_workable(tile, s, gs) -> bool:
+	if tile.owner_player_id != s.owner_player_id and tile.owner_player_id != -1:
+		return false
+	return gs.map.distance(s.x, s.y, tile.x, tile.y) <= s.culture_ring
 
-# The marker prefix for a work-grid cell. A worked tile carries the • dot; the
-# city centre also shows its ⌂ glyph (and is always worked). A manual lock is
-# flagged with ★ (locked+worked) or ☆ (locked but not currently worked). Pure so
-# the worked-vs-blank/dot convention is directly unit-testable.
+# The marker prefix for a work-grid cell. A currently-worked tile carries the #
+# worked marker; the city centre also shows its ⌂ glyph (and is always worked, so
+# it carries the # too). A manual lock is flagged with ★ (locked+worked) or ☆
+# (locked but not currently worked). Pure so the worked-vs-unworked convention is
+# directly unit-testable.
 func _tile_grid_marker(is_center: bool, is_worked: bool, is_locked: bool) -> String:
 	var prefix: String = "⌂" if is_center else ""
 	if is_locked:
 		return prefix + ("★ " if is_worked else "☆ ")
-	return prefix + ("• " if is_worked else "  ")
+	return prefix + ("# " if is_worked else "  ")
 
 # Specialists: current counts and +/- buttons per assignable type, read from the
 # specialists data table (output, GP type, slot ceiling). Adding is capped by the
