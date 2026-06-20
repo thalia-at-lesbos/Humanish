@@ -249,13 +249,14 @@ gs.pending_assembly_events
 gs.deals                         §7 persistent diplomatic deals (recurring per-turn items, cancellable)
 gs.pending_deal_events
 gs.pending_flips / gs.pending_era_advances / gs.pending_wild_events
+gs.pending_first_contacts        §7 newly-met player pairs (per-direction)
 gs.pending_tech_completions / gs.pending_great_people
 gs.pending_productions / gs.pending_growth / gs.pending_improvements
 ```
 
 Per-player diplomatic state also lives on each `Player`: `intel_points` (§7.1 EP per rival alliance) and `diplo_memory` (§7 decaying memory of rivals' acts, feeding the AI's attitude — see `Diplomacy`).
 
-The nine `pending_*` arrays are an outbox: pipeline phases push records onto them, and `SimFacade` drains each into the matching signal (`assembly_event`, `city_flipped`, `era_advanced`, `technology_completed`, `unit_created`/`settlement_founded`, `settlement_production`, `settlement_grown`) at the next opportunity. ID counters (`_next_unit_id` etc.) are also serialized so IDs remain stable across save/load.
+The `pending_*` arrays are an outbox: pipeline phases push records onto them, and `SimFacade` drains each into the matching signal (`assembly_event`, `city_flipped`, `era_advanced`, `technology_completed`, `unit_created`/`settlement_founded`, `settlement_production`, `settlement_grown`, `first_contact`) at the next opportunity. **First contact (§7):** `TurnEngine._ensure_mutual_contact` detects the not-met → met transition (a fresh append to `Alliance.contacts`) during the world-step sight sweep and pushes a per-direction record onto `gs.pending_first_contacts`; `SimFacade._drain_first_contacts` (called in the world-step block) turns each into a `first_contact` signal and a "You have made contact with <name>." notification (read by the HUD message log), naming the rival via `Player.name`. The queue is transient — drained the same step, so it is not serialized (no JSON int-key coercion needed). ID counters (`_next_unit_id` etc.) are also serialized so IDs remain stable across save/load.
 
 ### `TurnEngine`
 Implements §3 as three static functions called in sequence. Every phase first consults `hooks.run(IDs.Phase.X, gs)` — if a hook returns `true` the built-in is skipped entirely.

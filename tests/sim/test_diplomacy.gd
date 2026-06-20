@@ -239,6 +239,36 @@ func test_world_step_establishes_first_contact() -> void:
 	assert_true(gs.get_player_alliance(1).has_contact_with(2),
 		"world_step detects first contact")
 
+# ── First-contact notification queue (§7) ────────────────────────────────────
+
+func test_first_contact_enqueues_one_record_per_player() -> void:
+	# A fresh meeting must enqueue exactly one first-contact record per direction
+	# (two players → two records), each naming the other player.
+	var gs = make_gs(2)
+	make_unit(gs, "warrior", 1, 5, 5)
+	make_unit(gs, "warrior", 2, 6, 5)
+	assert_true(gs.pending_first_contacts.empty(),
+		"No first-contact records before the sweep")
+	TurnEngine._detect_sight_contact(gs)
+	assert_eq(gs.pending_first_contacts.size(), 2,
+		"One first-contact record per player (mutual)")
+	var seen_for: Dictionary = {}
+	for fc in gs.pending_first_contacts:
+		seen_for[int(fc["player_id"])] = int(fc["other_player_id"])
+	assert_eq(seen_for.get(1, -1), 2, "Player 1's record names player 2")
+	assert_eq(seen_for.get(2, -1), 1, "Player 2's record names player 1")
+
+func test_first_contact_not_re_enqueued_on_later_sweeps() -> void:
+	# Once met, a subsequent sweep must not enqueue the same contact again.
+	var gs = make_gs(2)
+	make_unit(gs, "warrior", 1, 5, 5)
+	make_unit(gs, "warrior", 2, 6, 5)
+	TurnEngine._detect_sight_contact(gs)
+	gs.pending_first_contacts = []   # simulate the facade draining
+	TurnEngine._detect_sight_contact(gs)
+	assert_true(gs.pending_first_contacts.empty(),
+		"An already-met pair does not re-enqueue a first-contact record")
+
 # ── Save/load key typing (determinism) ───────────────────────────────────────
 
 func test_alliance_contacts_deserialize_as_ints() -> void:
