@@ -223,12 +223,7 @@ func _build() -> void:
 			continue
 		var btn := Button.new()
 		btn.text = "+ " + opt[1]
-		var already: bool = false
-		for existing in s.production_queue:
-			if existing.get("type") == opt[0] and existing.get("id") == opt[1]:
-				already = true
-				break
-		btn.disabled = already
+		btn.disabled = not _can_queue_more(opt[0], opt[1], s.structures, s.production_queue)
 		btn.connect("pressed", self, "_on_build", [opt[0], opt[1]])
 		grid.add_child(btn)
 	v.add_child(grid)
@@ -258,7 +253,8 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 	auto_btn.connect("pressed", self, "_on_toggle_automation", [not s.manage_citizens_auto])
 	v.add_child(auto_btn)
 
-	_line(v, "Click a tile to lock/unlock it (★ locked+worked, ☆ locked, ● auto-worked):")
+	_line(v, "Full work radius — • = worked, ⌂ = city centre, blank = unavailable.")
+	_line(v, "Click a worked/workable tile to lock/unlock it (★ locked, ☆ locked+idle):")
 
 	var worked := {}
 	for wt in s.worked_tiles:
@@ -267,31 +263,50 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 	for lt in s.locked_tiles:
 		locked[str(int(lt[0])) + "," + str(int(lt[1]))] = true
 
+	# Render the FULL (2r+1)×(2r+1) work-radius square so the grid shape is always
+	# complete. A tile the city can never work (off-map, or owned by another
+	# player) is shown as a blank cell so the layout stays legible.
+	var r: int = s.culture_ring
 	var grid := GridContainer.new()
-	grid.columns = 5
-	for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
-		# Skip tiles the city can never work (owned by another player).
-		if not (tile.owner_player_id == s.owner_player_id or tile.owner_player_id == -1):
-			continue
-		var key := str(tile.x) + "," + str(tile.y)
-		var out = TileOutput.compute(tile, db, techs)
-		var btn := Button.new()
-		var mark := ""
-		if locked.has(key):
-			mark = "★ " if worked.has(key) else "☆ "
-		elif worked.has(key):
-			mark = "● "          # auto-assigned (worked but not locked)
-		else:
-			mark = "· "
-		# The city's own tile is tagged for orientation.
-		if tile.x == s.x and tile.y == s.y:
-			mark = "⌂" + mark
-		btn.text = mark + tile.terrain_id.left(4) \
-			+ " F" + str(out[0]) + "P" + str(out[1]) + "C" + str(out[2])
-		btn.connect("pressed", self, "_on_toggle_tile",
-			[tile.x, tile.y, not locked.has(key)])
-		grid.add_child(btn)
+	grid.columns = 2 * r + 1
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var tx: int = s.x + dx
+			var ty: int = s.y + dy
+			var tile = gs.map.get_tile(tx, ty) if gs.map.is_valid(tx, ty) else null
+			if tile == null or not _tile_workable(tile, s.owner_player_id):
+				# Unavailable tile → blank cell keeps the grid rectangular.
+				var blank := Control.new()
+				grid.add_child(blank)
+				continue
+			var key := str(tile.x) + "," + str(tile.y)
+			var is_center: bool = (tile.x == s.x and tile.y == s.y)
+			# The centre tile is worked for free even if not listed in worked_tiles.
+			var is_worked: bool = worked.has(key) or is_center
+			var out = TileOutput.compute(tile, db, techs)
+			var btn := Button.new()
+			var mark: String = _tile_grid_marker(is_center, is_worked, locked.has(key))
+			btn.text = mark + tile.terrain_id.left(4) \
+				+ " F" + str(out[0]) + "P" + str(out[1]) + "C" + str(out[2])
+			btn.connect("pressed", self, "_on_toggle_tile",
+				[tile.x, tile.y, not locked.has(key)])
+			grid.add_child(btn)
 	v.add_child(grid)
+
+# Whether the city can ever work this tile: it must be owned by the city's player
+# or be unowned (-1). Tiles owned by another player are never workable.
+func _tile_workable(tile, owner_player_id: int) -> bool:
+	return tile.owner_player_id == owner_player_id or tile.owner_player_id == -1
+
+# The marker prefix for a work-grid cell. A worked tile carries the • dot; the
+# city centre also shows its ⌂ glyph (and is always worked). A manual lock is
+# flagged with ★ (locked+worked) or ☆ (locked but not currently worked). Pure so
+# the worked-vs-blank/dot convention is directly unit-testable.
+func _tile_grid_marker(is_center: bool, is_worked: bool, is_locked: bool) -> String:
+	var prefix: String = "⌂" if is_center else ""
+	if is_locked:
+		return prefix + ("★ " if is_worked else "☆ ")
+	return prefix + ("• " if is_worked else "  ")
 
 # Specialists: current counts and +/- buttons per assignable type, read from the
 # specialists data table (output, GP type, slot ceiling). Adding is capped by the
@@ -379,14 +394,34 @@ func _can_offer_production(kind: String, id: String, db, techs: Array, coastal: 
 		return false
 	return true
 
+# Whether another copy of (kind, id) may be added to this city's queue.
+# Repeatable items — units, and anything not one-per-city — stay addable even
+# when one is already queued (e.g. three warriors). One-per-city items
+# (buildings/wonders: every "structure") are blocked once they are already built
+# (present in s.structures) or already queued. Pure so the classification is
+# directly unit-testable.
+func _can_queue_more(kind: String, id: String, structures: Array, queue: Array) -> bool:
+	if not _is_one_per_city(kind):
+		return true
+	if id in structures:
+		return false
+	for existing in queue:
+		if existing.get("type") == kind and existing.get("id") == id:
+			return false
+	return true
+
+# A "structure" (building or wonder) can exist at most once per city, so it is
+# one-per-city; units (and any other repeatable item) are not.
+func _is_one_per_city(kind: String) -> bool:
+	return kind == "structure"
+
 func _on_build(itype: String, iid: String) -> void:
 	var gs = _facade.get_state()
 	var s = gs.get_settlement(_city_id)
 	if s == null:
 		return
-	for existing in s.production_queue:
-		if existing.get("type") == itype and existing.get("id") == iid:
-			return
+	if not _can_queue_more(itype, iid, s.structures, s.production_queue):
+		return
 	var q = s.production_queue.duplicate(true)
 	q.append({"type": itype, "id": iid})
 	_facade.apply_command(Commands.set_production(s.owner_player_id, _city_id, q))
