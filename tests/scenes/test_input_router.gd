@@ -87,6 +87,46 @@ class _StubView:
 	func flash_move_tile(_a, _b):
 		pass
 
+# ── Enter ends the turn (data-driven hotkey → END_TURN control) ───────────────
+
+# The hotkey table binds both KEY_ENTER (16777221) and KEY_KP_ENTER (16777222)
+# to the END_TURN control (ControlType.END_TURN == 8), the same action the HUD
+# End Turn button issues. Verified at the data layer so a future renumber of the
+# enum or a typo in hotkeys.json is caught.
+func test_enter_keys_bound_to_end_turn_control() -> void:
+	var hk = load("res://scenes/input/hotkey_map.gd").new()
+	hk.load_bindings()
+	assert_eq(hk.lookup(KEY_ENTER, false, false), IDs.ControlType.END_TURN,
+		"Enter (main row) ends the turn")
+	assert_eq(hk.lookup(KEY_KP_ENTER, false, false), IDs.ControlType.END_TURN,
+		"Numpad Enter ends the turn")
+
+func _key(scancode):
+	var e = InputEventKey.new()
+	e.scancode = scancode
+	e.pressed = true
+	return e
+
+# Pressing Enter in the main view drives the turn forward through the same
+# DO_CONTROL/END_TURN command path the button uses (so the remote-submit seam
+# still intercepts it): the turn number advances.
+func test_enter_key_advances_turn() -> void:
+	var facade = setup_facade(7070, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	var before: int = gs.turn_number
+
+	var ir = _router()
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._hotkey_map = load("res://scenes/input/hotkey_map.gd").new()
+	ir._hotkey_map.load_bindings()
+	ir._handle_keyboard(_key(KEY_ENTER))
+
+	assert_true(facade.get_state().turn_number > before,
+		"Pressing Enter ends the turn and advances the turn counter")
+
 func _mb(idx, pressed, pos):
 	var e = InputEventMouseButton.new()
 	e.button_index = idx

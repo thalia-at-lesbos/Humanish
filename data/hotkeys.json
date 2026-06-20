@@ -9,5 +9,7 @@
   "16777247": {"shift": false, "ctrl": false, "action": 15},
   "16777248": {"shift": false, "ctrl": false, "action": 22},
   "16777257": {"shift": false, "ctrl": false, "action": 23},
-  "16777217": {"shift": false, "ctrl": false, "action": 24}
+  "16777217": {"shift": false, "ctrl": false, "action": 24},
+  "16777221": {"shift": false, "ctrl": false, "action": 8},
+  "16777222": {"shift": false, "ctrl": false, "action": 8}
 }
