@@ -460,3 +460,5 @@ SimFacade._cmd_move_stack
             └─ GreatPeople.award_combat_points → Great General points/birth (§14.2)
        └─ emit_signal("combat_resolved", result)
 ```
+
+An **undefended enemy/wild city** at the destination is assaulted instead (`_assault_city`): each hit lowers the city's siege HP, and it falls (razed/captured, with their own notifications + `city_razed`/`city_conquered` signals) at 0. A hit that the city *holds* (HP still > 0) does **not** emit `combat_resolved`, so it adds a player notification ("Your *Warrior* assaulted *City* — its defences hold (siege X/Y)") for a **human** attacker — otherwise chipping a high-HP barbarian camp looks like "nothing happened" while the selection auto-advances. AI attackers are intentionally silent here (camps are assaulted constantly) to keep the message log clean.
