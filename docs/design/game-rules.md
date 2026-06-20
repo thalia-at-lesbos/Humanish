@@ -407,10 +407,14 @@ regenerates a fixed amount each owner turn, up to that maximum.
 
 * **Assault.** A settlement is taken through its tile. Any defending units must be defeated
   first (normal combat, §5.4); defeating the last defender does **not** by itself put the
-  attacker inside the settlement. Once the tile is undefended, an attack on it instead
-  **assaults the settlement**, lowering its siege health by the attacker's effective combat
-  strength. The settlement **falls** when its health reaches zero, and the attacking stack
-  enters the tile only at that point.
+  attacker inside the settlement (it takes a further attack into the now-undefended tile).
+  Once the tile is **undefended**, an attack on it **captures or razes the settlement
+  immediately** — a player attacker does not need to grind siege health down — and the
+  attacking stack enters the tile (a kept settlement becomes the attacker's; a razed tile is
+  empty land). Siege health still governs the other direction: **wild raiders** (§9) assault a
+  player settlement by lowering its siege health over successive turns rather than taking it
+  outright, which paces raids and (with the capital-survival rule) keeps a single raider from
+  destroying an undefended civilization in one blow.
 * **Raze or keep.** When a settlement falls, the attacker chooses to **raze** it (destroyed
   and removed from the game) or **keep** it (ownership transfers to the attacker). Two cases
   remove the choice: **barbarian/wild attackers always raze**, and a **size-one settlement

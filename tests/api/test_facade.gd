@@ -315,11 +315,12 @@ func test_can_stack_move_warrior_can_attack_wild_city() -> void:
 	assert_true(facade.can_stack_move(4, 4, 5, 4, [warrior.id]),
 		"A warrior can attack an adjacent wild city")
 
-func test_assault_that_holds_notifies_human_attacker() -> void:
-	# Regression (savefile pt-a-7): a warrior assaulting a high-HP wild camp lands
-	# the hit (siege HP drops) but the camp holds and the attacker doesn't advance.
-	# The "held" assault used to be silent, so the player saw nothing happen while
-	# the selection auto-advanced. A human attacker must now get a notification.
+func test_attacking_undefended_wild_camp_razes_it_immediately() -> void:
+	# Regression (savefile pt-a-7): a warrior right-clicking an undefended barbarian
+	# camp used to silently chip its siege HP for many turns ("nothing happens").
+	# §4.8 now: an undefended enemy/wild city falls to a single attack. A pop-1 camp
+	# is razed (barb captor), the warrior advances onto the now-empty tile, and the
+	# raze notification makes the outcome visible.
 	var facade = setup_facade(141, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var gs = facade.get_state()
@@ -328,39 +329,15 @@ func test_assault_that_holds_notifies_human_attacker() -> void:
 	gs.map.get_tile(4, 4).terrain_id = "grassland"
 	gs.map.get_tile(5, 4).terrain_id = "grassland"
 	var warrior = make_warrior(gs, pid, 4, 4)
-	var camp = make_settlement(gs, -2, 5, 4, 1)   # wild camp (owner -2)
+	make_settlement(gs, -2, 5, 4, 1)   # wild camp (owner -2)
 	var before: int = facade.get_notification_queue().size()
 	var ok = facade.apply_command(
 		Commands.move_stack(pid, 4, 4, 5, 4, [warrior.id]))
 	assert_true(ok, "The assault command is accepted")
-	assert_true(camp.health > 0, "A pop-1 camp holds against a single warrior hit")
+	assert_eq(gs.get_settlement_at(5, 4), null, "The undefended camp is razed at once")
+	assert_eq([warrior.x, warrior.y], [5, 4], "The warrior advances onto the razed tile")
 	var notes: Array = facade.get_notification_queue()
-	assert_true(notes.size() > before, "A held assault adds a notification")
-	var joined: String = ""
-	for n in notes:
-		joined += str(n.get("text", "")) + "\n"
-	assert_true(joined.find("defences hold") != -1,
-		"The notification reports the assault held the city")
-
-func test_assault_does_not_notify_for_ai_attacker() -> void:
-	# Keep the message log clean: an AI assaulting a camp on its own turn must not
-	# spam the human's notification queue (wild camps are assaulted constantly).
-	var facade = setup_facade(142, "small",
-		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
-		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
-	var gs = facade.get_state()
-	var ai_pid = gs.players[1].id
-	gs.players[1].is_ai = true
-	gs.current_player_id = ai_pid
-	gs.map.get_tile(4, 4).terrain_id = "grassland"
-	gs.map.get_tile(5, 4).terrain_id = "grassland"
-	var warrior = make_warrior(gs, ai_pid, 4, 4)
-	var camp = make_settlement(gs, -2, 5, 4, 1)
-	var before: int = facade.get_notification_queue().size()
-	facade.apply_command(Commands.move_stack(ai_pid, 4, 4, 5, 4, [warrior.id]))
-	assert_true(camp.health > 0, "Camp holds")
-	assert_eq(facade.get_notification_queue().size(), before,
-		"An AI assault adds no notification to the human's queue")
+	assert_true(notes.size() > before, "Razing the camp adds a notification")
 
 func test_is_hostile_tile_recognises_wild_city_and_unit() -> void:
 	var facade = setup_facade(140, "small",
