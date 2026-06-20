@@ -299,24 +299,27 @@ func test_on_build_rejects_duplicate_building() -> void:
 
 # ── Part A: work-grid worked/blank/dot markers ──────────────────────────────────
 
-func test_grid_marker_worked_carries_dot() -> void:
+func test_grid_marker_worked_carries_hash() -> void:
 	var facade = setup_facade(85, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var screen = _screen(facade)
-	# Worked but not the centre, not locked → the • dot.
-	assert_true("•" in screen._tile_grid_marker(false, true, false),
-		"A worked tile must carry the • dot")
-	# Workable but not worked, not locked → no dot (blank-ish marker).
-	assert_false("•" in screen._tile_grid_marker(false, false, false),
-		"An unworked-but-workable tile must NOT carry the dot")
+	# Worked but not the centre, not locked → the # worked marker.
+	assert_true("#" in screen._tile_grid_marker(false, true, false),
+		"A worked tile must carry the # worked marker")
+	# Workable but not worked, not locked → no # marker.
+	assert_false("#" in screen._tile_grid_marker(false, false, false),
+		"An unworked-but-workable tile must NOT carry the # marker")
 
 func test_grid_marker_center_glyph() -> void:
 	var facade = setup_facade(86, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var screen = _screen(facade)
-	# The city centre is always worked and shows its ⌂ glyph.
-	assert_true("⌂" in screen._tile_grid_marker(true, true, false),
-		"The city centre must show its ⌂ glyph")
+	# The city centre is always worked and shows its ⌂ glyph plus the # worked
+	# marker (it is always a worked tile).
+	var center: String = screen._tile_grid_marker(true, true, false)
+	assert_true("⌂" in center, "The city centre must show its ⌂ glyph")
+	assert_true("#" in center,
+		"The always-worked city centre must also carry the # worked marker")
 
 func test_grid_marker_locked() -> void:
 	var facade = setup_facade(87, "small",
@@ -327,10 +330,44 @@ func test_grid_marker_locked() -> void:
 	assert_true("☆" in screen._tile_grid_marker(false, false, true),
 		"A locked but idle tile shows ☆")
 
-func test_work_grid_renders_full_radius_with_blanks() -> void:
-	# A foreign-owned tile inside the radius is a blank (non-Button) cell, while
-	# the grid still spans the full (2r+1)^2 square.
+func test_work_grid_is_always_5x5() -> void:
+	# The work grid is a FIXED 5×5 (25-cell) shell even for a small (culture_ring
+	# 1) city — every slot is a Button, and tiles outside the real work radius are
+	# blank (no-text) buttons.
 	var facade = setup_facade(88, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	for t in gs.map.all_tiles():
+		t.terrain_id = "grassland"
+		t.owner_player_id = -1
+	var s = make_settlement(gs, pid, 8, 8, 2)
+	s.culture_ring = 1  # small city — yet the grid is still the full 5×5
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var wgrid = _work_grid(screen)
+	assert_ne(wgrid, null, "The work grid must be present")
+	assert_eq(wgrid.columns, 5, "The work grid has 5 columns")
+	assert_eq(wgrid.get_child_count(), 25,
+		"The work grid is always a fixed 5×5 = 25 cells, even for a culture_ring-1 city")
+	# Every cell is a Button (usable ones carry text; unavailable ones are blank).
+	var blanks := 0
+	for cell in wgrid.get_children():
+		assert_true(cell is Button, "Every work-grid cell is a Button (blank or labelled)")
+		if str(cell.text) == "":
+			blanks += 1
+	# A culture_ring-1 city works only the 3×3 inner ring (9 tiles) within the
+	# 5×5 shell, so the outer band (16 tiles) must be blank.
+	assert_true(blanks >= 16,
+		"Tiles outside the real work radius render as blank (no-text) buttons")
+
+func test_work_grid_usable_text_and_hash_marker() -> void:
+	# A currently-usable tile shows text; a worked tile carries the # marker while
+	# an unworked-but-usable tile does not.
+	var facade = setup_facade(89, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
 		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var gs = facade.get_state()
@@ -341,30 +378,36 @@ func test_work_grid_renders_full_radius_with_blanks() -> void:
 		t.terrain_id = "grassland"
 		t.owner_player_id = -1
 	var s = make_settlement(gs, pid, 8, 8, 2)
-	s.culture_ring = 2  # 5x5 work grid → 25 cells
-	# One in-radius tile owned by the rival → must be blank, not a button.
+	s.culture_ring = 1
+	# A foreign-owned in-radius tile → not usable → blank.
 	gs.map.get_tile(9, 8).owner_player_id = other
-	# Mark a tile as worked so a • appears.
+	# Work one usable tile so a # appears; leave (8,9) usable but unworked.
 	s.worked_tiles = [[7, 8]]
 	var screen = _screen(facade)
 	screen._city_id = s.id
 	screen.visible = true
 	screen._build()
-	var text := _all_text(screen)
-	assert_true("•" in text, "A worked tile must render with the • dot")
-	# The work grid is a (2r+1)^2 = 25-cell GridContainer with 5 columns; the
-	# foreign-owned (9,8) tile must be a blank (non-Button) cell rather than a
-	# clickable tile button.
 	var wgrid = _work_grid(screen)
-	assert_ne(wgrid, null, "The work-radius grid must be present")
-	assert_eq(wgrid.get_child_count(), 25,
-		"The work grid spans the full (2r+1)^2 square (r=2 → 25 cells)")
-	var blanks := 0
-	for cell in wgrid.get_children():
-		if not (cell is Button):
-			blanks += 1
-	assert_true(blanks >= 1,
-		"A foreign-owned in-radius tile must render as a blank (non-Button) cell")
+	assert_ne(wgrid, null, "The work grid must be present")
+	# Collect cell text by which tile each cell maps to (row-major, dx/dy -2..+2).
+	var by_tile := {}
+	var idx := 0
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			by_tile[str(s.x + dx) + "," + str(s.y + dy)] = str(wgrid.get_children()[idx].text)
+			idx += 1
+	# The worked (7,8) tile shows text including the # marker.
+	var worked_text: String = by_tile["7,8"]
+	assert_true(worked_text != "", "A usable worked tile shows its text/label")
+	assert_true("#" in worked_text, "A worked tile carries the # worked marker")
+	# An unworked but usable tile (8,9) shows text but no # marker.
+	var idle_text: String = by_tile["8,9"]
+	assert_true(idle_text != "", "An unworked but usable tile still shows text")
+	assert_false("#" in idle_text,
+		"An unworked usable tile must NOT carry the # worked marker")
+	# The foreign-owned (9,8) tile is a blank (no-text) button.
+	assert_eq(by_tile["9,8"], "",
+		"A foreign-owned in-radius tile renders as a blank (no-text) button")
 
 # Find the citizen-management work grid: the 5-column GridContainer whose cells
 # include the city-centre ⌂ marker.
