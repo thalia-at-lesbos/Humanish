@@ -199,8 +199,8 @@ func _append_tile_terrain(tx: int, ty: int) -> void:
 
 func _on_action_pressed(item: Dictionary) -> void:
 	# Map flyout item to a command. When a whole stack is selected, per-unit
-	# orders (fortify / wake) apply to every selected unit; founding a settlement
-	# stays a single-settler action on the head unit.
+	# orders (fortify / sleep / wake) apply to every selected unit; founding a
+	# settlement stays a single-settler action on the head unit.
 	var gs = _facade.get_state()
 	var sel = _facade.get_selection()
 	var uid: int = sel.head_unit()
@@ -213,6 +213,9 @@ func _on_action_pressed(item: Dictionary) -> void:
 	elif aid == IDs.UnitCmd.FORTIFY:
 		for id in sel.selected_unit_ids:
 			_facade.apply_command(Commands.unit_fortify(pid, id))
+	elif aid == IDs.UnitCmd.SLEEP:
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.unit_sleep(pid, id))
 	elif aid == IDs.UnitCmd.WAKE:
 		for id in sel.selected_unit_ids:
 			_facade.apply_command(Commands.mission_skip_turn(pid, id))
