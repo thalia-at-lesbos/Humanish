@@ -229,6 +229,62 @@ func test_plague_does_not_re_fire_while_active() -> void:
 	assert_true(abs(begins - expires) <= 1,
 		"begin/expire entries are paired — no per-turn start/stop spam (begins=%d expires=%d)" % [begins, expires])
 
+# Lock in the full plague lifecycle as it runs through the per-player pipeline
+# (process_player_events) over its whole duration — the path a live game takes,
+# which the direct-tick tests above do not exercise. Verified against a real
+# mid-game save (pt-a-8.sav) driven by AI turns: the plague's begin effect lands
+# exactly once, the instance counts down one per turn over its full duration, the
+# expire effect lands exactly once, and the instance is gone afterward — no
+# per-turn effect stacking and no overlap with itself.
+func test_plague_lifecycle_over_full_duration_via_pipeline() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.health = 100
+	# Suppress every other trigger so only the plague can ever arm, and pin the
+	# turn just inside its window so process_player_events stays deterministic.
+	for tid in gs.db.get_event_triggers():
+		if tid != "_comment" and tid != "trig_great_plague":
+			p.events_fired.append(tid)
+	# Stop the plague itself from re-arming after it fires, so we observe exactly
+	# one clean lifecycle without a follow-up instance confusing the counts.
+	gs.db.event_triggers["trig_great_plague"]["probability"] = 0
+	var duration: int = int(gs.db.get_event("great_plague").get("duration", 5))
+
+	# Begin the plague through the public apply path, then drive ticks via the
+	# pipeline (which also re-scans triggers — none can arm here).
+	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	assert_eq(cap.health, 96, "begin effect applies its -4 exactly once")
+	assert_eq(gs.active_events.size(), 1, "one plague instance active after begin")
+
+	gs.turn_number = 40
+	var begins := 0
+	var expires := 0
+	# Run the pipeline for the remaining (duration-1) persisting turns plus the
+	# expiring turn; assert the timer steps down by exactly one each turn and the
+	# begin effect never re-applies (health stays at 96 until expiry).
+	for i in range(duration):
+		gs.turn_number += 1
+		var produced = Events.process_player_events(p, gs, gs.rng)
+		for d in produced:
+			match str(d.get("kind", "")):
+				"event_fired":
+					if str(d.get("event_id", "")) == "great_plague":
+						begins += 1
+				"event_expired":
+					if str(d.get("event_id", "")) == "great_plague":
+						expires += 1
+		if i < duration - 1:
+			assert_eq(gs.active_events.size(), 1, "plague still active on tick %d" % (i + 1))
+			assert_eq(int(gs.active_events[0]["turns_left"]), duration - 1 - i,
+				"turns_left steps down by one on tick %d" % (i + 1))
+			assert_eq(cap.health, 96, "begin effect does not re-apply per turn (tick %d)" % (i + 1))
+
+	assert_eq(begins, 0, "no new plague fires (the begin was applied directly, not via a trigger)")
+	assert_eq(expires, 1, "the plague expires exactly once over its full duration")
+	assert_true(gs.active_events.empty(), "the instance is removed after it expires")
+	assert_eq(cap.health, 100, "the expire effect restores the -4 exactly once")
+
 func test_timed_event_survives_save_load() -> void:
 	# Determinism: an in-progress timed event + a parked human choice roundtrip
 	# through save/load with their int fields intact (the JSON-key gotcha).
