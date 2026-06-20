@@ -690,6 +690,17 @@ func _assault_city(lead: Unit, city: Settlement, attacker_pid: int) -> String:
 	city.health -= dmg
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	if city.health > 0:
+		# The city's defences hold this turn. Unlike a unit fight (which emits
+		# combat_resolved + a notification), a non-capturing assault used to be
+		# silent — no message, no signal — so a human chipping a high-HP barbarian
+		# camp saw "nothing happen" while the selection auto-advanced. Surface the
+		# siege progress for a human attacker so the assault is legible (§4.8).
+		var atk_p: Player = _gs.get_player(attacker_pid)
+		if atk_p != null and not atk_p.is_ai:
+			var an: String = str(_db.get_unit(lead.unit_type_id).get("name", lead.unit_type_id))
+			var hp: int = city.health if city.health > 0 else 0
+			_add_notification("Your " + an + " assaulted " + city.name \
+				+ " — its defences hold (siege " + str(hp) + "/" + str(maxh) + ").", "major")
 		return "held"
 	return _city_falls(city, attacker_pid)
 
