@@ -2580,37 +2580,17 @@ func _explore_offset(ax: int, ay: int, bx: int, by: int) -> Array:
 # The scene fog layer's accumulated ever-seen memory is presentation-only and is
 # NOT part of this — it must never be read back into sim logic.
 func player_visible_tiles(player_id: int) -> Dictionary:
-	var seen: Dictionary = {}
-	var su: int = _db.get_constant("unit_sight", 2)
-	var sc: int = _db.get_constant("city_sight", 3)
-	for un in _gs.units:
-		if un.owner_player_id == player_id:
-			for k in Visibility.visible_tiles(_gs.map, _db, un.x, un.y, su):
-				seen[k] = true
-	for s in _gs.settlements:
-		if s.owner_player_id == player_id:
-			for k in Visibility.visible_tiles(_gs.map, _db, s.x, s.y, sc):
-				seen[k] = true
-	_add_territory_vision(player_id, seen)
-	return seen
+	# Single source of truth: the pure sight set computed in the sim layer (unit ∪
+	# city ∪ owned territory ∪ ring fringe), shared with the turn pipeline's fog
+	# memory commit so the rendered fog and the committed memory agree exactly.
+	return TurnEngine.player_visible_set(_gs, player_id)
 
-# Adds cultural-border vision into `seen`: every tile the player owns, plus a
-# `territory_vision_ring`-wide fringe of tiles just outside owned territory. Owned
-# tiles are always added (no LOS/terrain gate); the ring is the union of the
-# Chebyshev disc of radius `ring` around each owned tile, minus the owned tiles
-# themselves (those are already in). Wrap-safe via map-normalized keys.
-func _add_territory_vision(player_id: int, seen: Dictionary) -> void:
-	var ring: int = _db.get_constant("territory_vision_ring", 1)
-	if ring < 0:
-		ring = 0
-	for tile in _gs.map.all_tiles():
-		if tile.owner_player_id != player_id:
-			continue
-		seen[str(tile.x) + "," + str(tile.y)] = true
-		if ring == 0:
-			continue
-		for nb in _gs.map.tiles_in_range(tile.x, tile.y, ring):
-			seen[str(nb.x) + "," + str(nb.y)] = true
+# Persistent fog memory (§fog): the "x,y" → last-seen-snapshot map a player has
+# accumulated, read by the scene fog layer / world view so revealed fog and
+# remembered terrain survive save/load. Returns an empty Dictionary for a player
+# with no recorded memory (e.g. an AI, which renders no fog).
+func get_seen_memory(player_id: int) -> Dictionary:
+	return SeenMemory.for_player(_gs, player_id)
 
 # BFS outward from the unit over passable, domain-legal tiles to the nearest tile
 # the player cannot currently see (`seen`). Returns that frontier Tile, or null

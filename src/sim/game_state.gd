@@ -162,6 +162,17 @@ var pending_growth: Array = []
 # Each entry is {"player_id": int, "improvement_id": String, "x": int, "y": int}.
 var pending_improvements: Array = []
 
+# Persistent per-player fog-of-war memory (§fog). For each player that needs fog
+# (a non-AI / human player — AIs read full state and never render fog), records
+# the set of tiles ever seen plus a compact last-seen snapshot of each, so revealed
+# fog and remembered terrain survive save/load. Keyed by player_id (int) → {"x,y" →
+# snapshot}. Maintained deterministically in the turn pipeline (SeenMemory.commit_
+# visible from TurnEngine.player_step), read by the presentation layer through
+# SimFacade.get_seen_memory. Serialized; deserialize coerces the int player-id keys
+# and per-snapshot int fields back to int (the JSON float/string-key gotcha) via
+# SeenMemory.deserialize.
+var seen_memory: Dictionary = {}
+
 # Auto-incrementing IDs
 var _next_unit_id: int = 1
 var _next_settlement_id: int = 1
@@ -321,6 +332,7 @@ func serialize() -> Dictionary:
 		"assembly": assembly.duplicate(true),
 		"deals": deals.duplicate(true),
 		"open_borders": open_borders.duplicate(true),
+		"seen_memory": SeenMemory.serialize(seen_memory),
 		"active_events": active_events.duplicate(true),
 		"pending_event_choices": pending_event_choices.duplicate(true),
 		"_next_unit_id": _next_unit_id,
@@ -386,6 +398,10 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.open_borders = []
 	for ob in d.get("open_borders", []):
 		gs.open_borders.append({"a": int(ob.get("a", -1)), "b": int(ob.get("b", -1))})
+	# Persistent fog memory (§fog): JSON makes the player-id keys strings and the
+	# per-snapshot owner/settlement ids floats; SeenMemory.deserialize coerces both
+	# back to int so post-load lookups by int player id and border colour match.
+	gs.seen_memory = SeenMemory.deserialize(d.get("seen_memory", {}))
 	# Timed events & pending human choices: coerce JSON-loaded numeric fields back to
 	# int (the recurring float/string-key gotcha) so post-load lookups still match.
 	gs.active_events = []

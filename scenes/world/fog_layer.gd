@@ -20,6 +20,13 @@ extends Node2D
 # hidden in remembered-but-not-visible areas (the renderer reads
 # get_visible_tiles()), so the player sees the old terrain but not stale unit
 # positions — "previous state until vision updates it".
+#
+# The "explored" set is SIM-BACKED and PERSISTENT: it derives from the player's
+# serialized seen-memory (SimFacade.get_seen_memory, committed in the turn
+# pipeline), so revealed fog now survives save/load. WorldView renders an
+# explored-but-not-visible tile from that memory's LAST-SEEN snapshot rather than
+# live state, so a remembered tile shows terrain/borders/settlement as last
+# observed.
 
 const TILE_SIZE: int = 40
 # Fully opaque: never-seen tiles are blacked out completely, with no transparency
@@ -58,8 +65,9 @@ func get_explored_tiles() -> Dictionary:
 func rebuild(player_id: int) -> void:
 	_visible_tiles = {}
 	# Explored memory is per player. When the active player changes (hotseat
-	# handoff), start their memory fresh rather than leaking the previous
-	# player's discoveries.
+	# handoff), reset the live accumulation rather than leaking the previous
+	# player's discoveries — it is reseeded from this player's persistent memory
+	# below.
 	if player_id != _explored_owner:
 		_explored_tiles = {}
 		_explored_owner = player_id
@@ -69,6 +77,13 @@ func rebuild(player_id: int) -> void:
 	if gs == null or gs.map == null:
 		return
 
+	# Explored memory is now SIM-BACKED so it PERSISTS across save/load: seed the
+	# remembered set from the player's serialized seen-memory snapshot (committed
+	# in the turn pipeline). On a fresh game / pre-memory save this is empty and we
+	# fall back to live accumulation only.
+	for key in _facade.get_seen_memory(player_id):
+		_explored_tiles[key] = true
+
 	# Single source of truth for current visibility: the facade's authoritative
 	# set (unit sight ∪ city sight ∪ owned territory ∪ one-ring fringe), already
 	# terrain-aware (sight_bonus + LOS) and map-normalized. We do not recompute
@@ -76,7 +91,10 @@ func rebuild(player_id: int) -> void:
 	# mover, and now also lifts over the player's whole cultural territory.
 	_visible_tiles = _facade.player_visible_tiles(player_id)
 
-	# Everything in current sight joins the remembered set.
+	# Everything in current sight also joins the remembered set, so a tile lights
+	# up the instant it is seen (before the next end-of-turn commit folds it into
+	# the persistent memory) and stays remembered after the unit that saw it moves
+	# on within the same turn.
 	for key in _visible_tiles:
 		_explored_tiles[key] = true
 
