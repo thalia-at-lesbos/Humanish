@@ -2746,10 +2746,16 @@ func tile_info_text(tx: int, ty: int) -> String:
 		lines.append("Resource: " + str(_db.get_resource(tile.resource_id).get("name", tile.resource_id.capitalize())))
 	if tile.improvement_id != "":
 		lines.append("Improvement: " + str(_db.get_improvement(tile.improvement_id).get("name", tile.improvement_id.capitalize())))
-	var out: Dictionary = ter.get("base_output", {})
-	lines.append("Yields: " + str(int(out.get("food", 0))) + "F " \
-		+ str(int(out.get("production", 0))) + "P " \
-		+ str(int(out.get("commerce", 0))) + "C")
+	# Full computed yield (terrain → feature → resource → improvement → transport),
+	# from the perspective of the player viewing the tile, so a built improvement's
+	# bonus (and resource yields it unlocks) show up in the readout, not just the
+	# raw terrain base.
+	var viewer: Player = _gs.get_player(_gs.current_player_id)
+	var techs: Array = viewer.technologies if viewer != null else []
+	var out: Array = TileOutput.compute(tile, _db, techs)
+	lines.append("Yields: " + str(out[IDs.Output.FOOD]) + "F " \
+		+ str(out[IDs.Output.PRODUCTION]) + "P " \
+		+ str(out[IDs.Output.COMMERCE]) + "C")
 	lines.append("Move cost: " + str(int(ter.get("movement_cost", 100)) / 100) \
 		+ "   Defence: +" + str(int(ter.get("defence_bonus", 0))) + "%")
 

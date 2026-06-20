@@ -42,6 +42,18 @@ func test_improvement_requires_tech() -> void:
 	assert_true(out_with_tech[IDs.Output.PRODUCTION] >= out_no_tech[IDs.Output.PRODUCTION],
 		"Mine production with tech >= without tech")
 
+func test_improvement_adds_documented_bonus() -> void:
+	# Building a farm on grassland (agriculture known) adds exactly its documented
+	# +1 food bonus over the bare-tile output.
+	var db = _db()
+	var tile = _tile("grassland")
+	var base = TileOutput.compute(tile, db, ["agriculture"])
+	tile.improvement_id = "farm"
+	var improved = TileOutput.compute(tile, db, ["agriculture"])
+	var bonus: int = int(db.get_improvement("farm").get("output_delta", {}).get("food", 0))
+	assert_eq(improved[IDs.Output.FOOD], base[IDs.Output.FOOD] + bonus,
+		"Farm adds its documented food bonus to grassland output")
+
 func test_resource_needs_tech_and_improvement() -> void:
 	var db = _db()
 	var tile = _tile("hills")

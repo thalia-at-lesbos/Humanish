@@ -315,6 +315,32 @@ func test_tile_info_text_reports_terrain() -> void:
 	assert_true(text.find("Grassland") >= 0, "Tile info names the terrain")
 	assert_true(text.find("Yields") >= 0, "Tile info lists yields")
 
+func test_tile_info_text_reflects_improvement_yield() -> void:
+	# A built improvement (mine on hills, +1 production once Mining is known) must
+	# raise the readout's yields above the bare-terrain base — the readout computes
+	# the full tile output, not just terrain.base_output.
+	var facade = setup_facade(140, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	if not ("mining" in gs.players[0].technologies):
+		gs.players[0].technologies.append("mining")
+	var tile = gs.map.get_tile(3, 3)
+	tile.terrain_id = "hills"
+	tile.feature_id = ""
+	tile.resource_id = ""
+	var db = facade._db
+	var base = TileOutput.compute(tile, db, gs.players[0].technologies)
+	tile.improvement_id = "mine"
+	var improved = TileOutput.compute(tile, db, gs.players[0].technologies)
+	assert_gt(improved[IDs.Output.PRODUCTION], base[IDs.Output.PRODUCTION],
+		"Mine on hills raises sim production over base")
+	var text = facade.tile_info_text(3, 3)
+	assert_true(text.find("Mine") >= 0, "Readout names the improvement")
+	assert_true(text.find(str(improved[IDs.Output.PRODUCTION]) + "P") >= 0,
+		"Readout's yields reflect the improved production, not the terrain base")
+
 func test_tile_info_text_shows_foreign_unit() -> void:
 	var facade = setup_facade(1500, "small",
 		[{"name": "Rome", "leader_id": "", "traits": [], "starting_gold": 50},
