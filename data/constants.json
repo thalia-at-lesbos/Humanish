@@ -103,6 +103,7 @@
   "ocean_travel_tech": "optics",
   "open_borders_tech": "writing",
   "city_sight": 3,
+  "territory_vision_ring": 1,
   "wild_detect_radius": 4,
   "wild_wave_length": 4,
   "wild_alert_cooldown": 8,

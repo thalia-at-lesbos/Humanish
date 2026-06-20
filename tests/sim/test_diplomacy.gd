@@ -221,6 +221,41 @@ func test_first_contact_via_border_tile() -> void:
 		"Sighting a rival's border tile establishes contact")
 	assert_true(gs.get_player_alliance(2).has_contact_with(1), "…mutually")
 
+func test_first_contact_via_own_territory_vision() -> void:
+	# Player 1 owns a tile but has NO unit or city anywhere near it. A rival unit
+	# standing directly on that owned tile must still establish contact, because a
+	# player watches their own cultural territory.
+	var gs = make_gs(2)
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	make_unit(gs, "warrior", 2, 10, 10)   # rival sitting inside player 1's border
+	# No player-1 unit/city is in normal sight range of (10,10).
+	assert_false(gs.get_player_alliance(1).has_contact_with(2),
+		"No contact before the territory sweep")
+	TurnEngine._detect_sight_contact(gs)
+	assert_true(gs.get_player_alliance(1).has_contact_with(2),
+		"A rival inside my borders meets me via territory vision")
+	assert_true(gs.get_player_alliance(2).has_contact_with(1), "…mutually")
+
+func test_first_contact_via_territory_one_ring() -> void:
+	# A rival unit one tile OUTSIDE player 1's border (on the one-ring fringe) also
+	# establishes contact, with no friendly unit/city anywhere near.
+	var gs = make_gs(2)
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	make_unit(gs, "warrior", 2, 11, 10)   # adjacent to the border tile (ring 1)
+	TurnEngine._detect_sight_contact(gs)
+	assert_true(gs.get_player_alliance(1).has_contact_with(2),
+		"A rival stepping adjacent to my border meets me via the one-ring fringe")
+
+func test_no_first_contact_two_rings_beyond_border() -> void:
+	# A rival two tiles beyond the border (outside the default one-ring fringe),
+	# with no friendly sight source near, does NOT establish contact.
+	var gs = make_gs(2)
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	make_unit(gs, "warrior", 2, 13, 10)   # two tiles beyond the ring-1 fringe
+	TurnEngine._detect_sight_contact(gs)
+	assert_false(gs.get_player_alliance(1).has_contact_with(2),
+		"A rival two rings beyond my border is not met via territory vision")
+
 func test_first_contact_ignores_wild_forces() -> void:
 	# A wild unit (owner -2) near a player must not create a contact entry.
 	var gs = make_gs(2)

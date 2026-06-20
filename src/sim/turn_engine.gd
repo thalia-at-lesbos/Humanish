@@ -1678,6 +1678,20 @@ static func _detect_sight_contact(gs: GameState) -> void:
 	for s in gs.settlements:
 		if s.owner_player_id >= 0:
 			_scan_sight_contact(gs, presence, s.x, s.y, city_sight, s.owner_player_id)
+	# Cultural-border vision: a player also sees their own territory and a one-ring
+	# fringe just beyond it (width = territory_vision_ring), so a rival standing on
+	# (or whose unit/city/border lies on) a tile you own or border meets you, even
+	# with no unit or city of yours nearby. Each owned tile acts as a radius-`ring`
+	# sight source (plain Chebyshev disc — owned ground watches itself with no LOS
+	# gate; the fringe is what the ring adds).
+	var ring: int = db.get_constant("territory_vision_ring", 1)
+	if ring < 0:
+		ring = 0
+	for tile in gs.map.all_tiles():
+		var owner: int = tile.owner_player_id
+		if owner < 0:
+			continue
+		_scan_presence_contact(gs, presence, tile.x, tile.y, ring, owner)
 
 static func _add_presence(presence: Dictionary, x: int, y: int, player_id: int) -> void:
 	var key: String = "%d,%d" % [x, y]
@@ -1694,6 +1708,20 @@ static func _scan_sight_contact(gs: GameState, presence: Dictionary,
 		cx: int, cy: int, radius: int, seer_id: int) -> void:
 	var seen: Dictionary = Visibility.visible_tiles(gs.map, gs.db, cx, cy, radius)
 	for key in seen:
+		var here: Dictionary = presence.get(key, {})
+		for other_id in here:
+			if int(other_id) != seer_id:
+				_ensure_mutual_contact(gs, seer_id, int(other_id))
+
+# Cultural-border vision contact: every tile within Chebyshev radius `ring` of an
+# owned tile at (cx, cy) is watched by its owner with no line-of-sight gate (your
+# own ground, plus the one-ring fringe, is always watched). Records contact with
+# every other player present on any of those tiles. The disc includes the owned
+# tile itself (ring 0), so a rival standing directly on your border meets you.
+static func _scan_presence_contact(gs: GameState, presence: Dictionary,
+		cx: int, cy: int, ring: int, seer_id: int) -> void:
+	for tile in gs.map.tiles_in_range(cx, cy, ring):
+		var key: String = "%d,%d" % [tile.x, tile.y]
 		var here: Dictionary = presence.get(key, {})
 		for other_id in here:
 			if int(other_id) != seer_id:

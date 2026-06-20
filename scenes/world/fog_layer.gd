@@ -69,16 +69,12 @@ func rebuild(player_id: int) -> void:
 	if gs == null or gs.map == null:
 		return
 
-	var sight_unit: int = gs.db.get_constant("unit_sight", 2)
-	var sight_city: int = gs.db.get_constant("city_sight", 3)
-
-	for u in gs.units:
-		if u.owner_player_id == player_id:
-			_add_visible_range(u.x, u.y, sight_unit, gs.map)
-
-	for s in gs.settlements:
-		if s.owner_player_id == player_id:
-			_add_visible_range(s.x, s.y, sight_city, gs.map)
+	# Single source of truth for current visibility: the facade's authoritative
+	# set (unit sight ∪ city sight ∪ owned territory ∪ one-ring fringe), already
+	# terrain-aware (sight_bonus + LOS) and map-normalized. We do not recompute
+	# sight here, so the fog exactly matches contact detection and the explore
+	# mover, and now also lifts over the player's whole cultural territory.
+	_visible_tiles = _facade.player_visible_tiles(player_id)
 
 	# Everything in current sight joins the remembered set.
 	for key in _visible_tiles:
@@ -100,15 +96,6 @@ func reveal_all() -> void:
 			_visible_tiles[k] = true
 			_explored_tiles[k] = true
 	update()
-
-func _add_visible_range(cx: int, cy: int, radius: int, wmap) -> void:
-	# Terrain-aware sight (source sight_bonus + LOS blocking) via the shared pure
-	# Visibility helper, so the fog matches contact detection and wild darkness.
-	# Keys are already map-normalized so wrap-x is canonical for the renderer.
-	var gs = _facade.get_state()
-	var seen: Dictionary = Visibility.visible_tiles(wmap, gs.db, cx, cy, radius)
-	for key in seen:
-		_visible_tiles[key] = true
 
 func sync_camera(zoom: float, offset: Vector2) -> void:
 	_zoom = zoom
