@@ -1490,14 +1490,26 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 		if workers_needed < 0:
 			workers_needed = 0
 		s.worked_tiles = []
+		# The city centre tile is always worked for free (§4.1): a settlement
+		# "immediately claims its own tile" and draws its yield regardless of size,
+		# so it does not consume a population worker slot. Seeding it here is what
+		# lets a fresh size-1 city run a positive food surplus and grow — without
+		# it the lone citizen works a single off-centre tile and the centre's yield
+		# is lost (net surplus 0). Excluded from the locked-set and candidate pool
+		# below so it is never double-counted or charged against the budget.
+		var center_key := str(s.x) + "," + str(s.y)
+		if gs.map.is_valid(s.x, s.y):
+			s.worked_tiles.append([s.x, s.y])
 		# Honour manual locks first: a player-locked tile is always worked, as
 		# long as it is in range, ownable, and within the worker budget.
 		var assigned: int = 0
-		var locked_set := {}
+		var locked_set := {center_key: true}
 		for lt in s.locked_tiles:
 			if assigned >= workers_needed:
 				break
 			var lx: int = int(lt[0]); var ly: int = int(lt[1])
+			if lx == s.x and ly == s.y:
+				continue  # centre is already worked for free
 			if not gs.map.is_valid(lx, ly):
 				continue
 			var ltile = gs.map.get_tile(lx, ly)
@@ -1508,11 +1520,12 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 			s.worked_tiles.append([lx, ly])
 			locked_set[str(lx) + "," + str(ly)] = true
 			assigned += 1
-		# When citizen management is manual, stop here — only locked tiles work.
+		# When citizen management is manual, stop here — only the centre and the
+		# player's locked tiles are worked.
 		if not s.manage_citizens_auto:
 			continue
-		# Gather candidate tiles owned by this player (excluding ones already
-		# locked-in above).
+		# Gather candidate tiles owned by this player (excluding the centre, which
+		# is already worked above, and any tiles already locked-in).
 		var candidates := []
 		for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
 			if locked_set.has(str(tile.x) + "," + str(tile.y)):

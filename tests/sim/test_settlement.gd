@@ -152,6 +152,34 @@ func _has_pair(arr, x, y) -> bool:
 			return true
 	return false
 
+func test_city_centre_is_always_worked_for_free() -> void:
+	# §4.1: the city centre tile is worked for free (it does not consume a
+	# population worker slot). A size-1 city therefore works its centre PLUS one
+	# population tile — the root of the "city never grows" bug: without the free
+	# centre a lone citizen worked a single off-centre tile and the centre's yield
+	# (and the resulting food surplus) was lost.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_true(_has_pair(s.worked_tiles, 5, 5),
+		"The city centre tile is always worked")
+	assert_eq(s.worked_tiles.size(), 2,
+		"A size-1 city works the free centre plus one population tile")
+
+func test_city_centre_not_double_counted_when_locked() -> void:
+	# Locking the centre tile must not add a duplicate or charge a worker slot.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.locked_tiles = [[5, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_eq(s.worked_tiles.size(), 2,
+		"Locking the centre does not create a duplicate or consume the budget")
+	var centre_count: int = 0
+	for p in s.worked_tiles:
+		if int(p[0]) == 5 and int(p[1]) == 5:
+			centre_count += 1
+	assert_eq(centre_count, 1, "The centre appears exactly once")
+
 func test_locked_tile_is_always_worked() -> void:
 	var gs = make_gs(1)
 	var s = make_settlement(gs, 1, 5, 5, 1)
@@ -175,9 +203,10 @@ func test_manual_mode_works_only_locked_tiles() -> void:
 	s.manage_citizens_auto = false
 	s.locked_tiles = [[6, 5]]
 	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
-	assert_eq(s.worked_tiles.size(), 1,
-		"With automation off only the locked tile is worked")
-	assert_true(_has_pair(s.worked_tiles, 6, 5), "…and it is the locked tile")
+	assert_eq(s.worked_tiles.size(), 2,
+		"With automation off only the free centre and the locked tile are worked")
+	assert_true(_has_pair(s.worked_tiles, 6, 5), "…and the locked tile is worked")
+	assert_true(_has_pair(s.worked_tiles, 5, 5), "…alongside the free city centre")
 
 func test_auto_mode_fills_remaining_slots_around_locks() -> void:
 	var gs = make_gs(1)
@@ -185,9 +214,10 @@ func test_auto_mode_fills_remaining_slots_around_locks() -> void:
 	s.manage_citizens_auto = true
 	s.locked_tiles = [[6, 5]]
 	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
-	assert_eq(s.worked_tiles.size(), 3,
-		"Automation fills the remaining worker slots beyond the lock")
+	assert_eq(s.worked_tiles.size(), 4,
+		"Automation fills the remaining worker slots beyond the lock (plus free centre)")
 	assert_true(_has_pair(s.worked_tiles, 6, 5), "…while still honouring the lock")
+	assert_true(_has_pair(s.worked_tiles, 5, 5), "…and the centre is worked for free")
 
 func test_lock_and_automation_survive_serialization() -> void:
 	var gs = make_gs(1)
@@ -197,6 +227,43 @@ func test_lock_and_automation_survive_serialization() -> void:
 	var s2 = Settlement.deserialize(s.serialize())
 	assert_eq(s2.locked_tiles, [[6, 5], [4, 4]], "Locked tiles survive a save/load roundtrip")
 	assert_false(s2.manage_citizens_auto, "The automation flag survives a save/load roundtrip")
+
+# ── End-to-end growth (the full player_step pipeline) ────────────────────────
+# These drive growth through the real pipeline (worker assignment → settlement
+# step), the path that exposed the "city never grows" regression — the direct
+# _settlement_growth tests above can't catch a worker-assignment fault because
+# they hand-set worked_tiles.
+
+func test_wellfed_city_grows_over_turns_endtoend() -> void:
+	# A grassland city (centre 2 food + worked-tile 2 food = 4) consumes 2/turn,
+	# banks a +2 surplus, and must cross the size-1 growth threshold within a
+	# reasonable horizon and increase population.
+	var gs = make_gs(1, 42, 20, 20)
+	var s = make_settlement(gs, 1, 10, 10, 1)
+	Influence.found_claim(gs.map, 10, 10, 1, 2, 20)
+	var f = bare_facade(gs)
+	for _t in range(12):
+		gs.current_player_id = 1
+		f.apply_command(Commands.end_turn(1))
+	assert_true(s.population > 1,
+		"A well-fed grassland city grows over turns through the full pipeline")
+
+func test_surplus_reaches_food_box_each_turn_endtoend() -> void:
+	# After one full turn the city centre is worked and the food box has banked a
+	# positive surplus (output_food > consumption), proving the centre's yield
+	# feeds the box rather than being lost.
+	var gs = make_gs(1, 7, 20, 20)
+	var s = make_settlement(gs, 1, 10, 10, 1)
+	Influence.found_claim(gs.map, 10, 10, 1, 2, 20)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.end_turn(1))
+	assert_true(_has_pair(s.worked_tiles, 10, 10),
+		"The city centre is worked after a turn of the real pipeline")
+	var fpc: int = gs.db.get_constant("food_per_citizen", 2)
+	assert_true(s.output_food > s.population * fpc,
+		"Food output exceeds consumption, so the food box accrues a surplus")
+	assert_true(s.food_store > 0, "The surplus reaches the food box")
 
 # ── Contentment & disorder ──────────────────────────────────────────────────
 
