@@ -2480,7 +2480,8 @@ func _explore_step(u: Unit) -> void:
 #     legal candidate that opens new fog, the unit stays the course (it does not
 #     re-aim toward a fractionally-better neighbour). Only when the heading goes
 #     stale (off-map, blocked, or revealing nothing new) does it re-aim toward the
-#     max-reveal candidate. This is what stops an open-field scout ping-ponging
+#     (`Visibility.visible_tiles` footprint vs the player's current sight set,
+#     `player_visible_tiles`). This is what stops an open-field scout ping-ponging
 #     between two equally-fogged tiles: it commits to a line and walks it.
 #   * Re-aim tiebreaks: more reveal first, then the candidate that best continues
 #     the current heading (smallest turn), then stable (y, x).
@@ -2492,7 +2493,7 @@ func _explore_step(u: Unit) -> void:
 # the heading is serialized, so an explore turn is fully reproducible and survives
 # save/load.
 func _explore_choose_step(u: Unit, player_id: int, candidates: Array) -> Tile:
-	var seen: Dictionary = _player_visible_tiles(player_id)
+	var seen: Dictionary = player_visible_tiles(player_id)
 	var domain: String = str(_db.get_unit(u.unit_type_id).get("domain", "land"))
 	var ectx: Dictionary = {
 		"ocean_capable": bool(_db.get_unit(u.unit_type_id).get("ocean_capable", false)),
@@ -2563,12 +2564,22 @@ func _explore_offset(ax: int, ay: int, bx: int, by: int) -> Array:
 		dy = dy - _gs.map.height if dy > 0 else dy + _gs.map.height
 	return [dx, dy]
 
-# Set of "x,y" tile keys this player can currently see, from sim-visible state
-# only (units + settlements through the shared terrain-aware Visibility helper —
-# the same model the fog renderer, first-contact scan and wild spawn mask use).
-# This is the sim's legitimate notion of "revealed"; the scene fog layer's
-# accumulated ever-seen memory is presentation-only and off-limits here.
-func _player_visible_tiles(player_id: int) -> Dictionary:
+# Authoritative set of "x,y" tile keys this player can currently see, from
+# sim-visible state only. The single source of truth for current per-player
+# visibility, consumed by the fog renderer, the explore mover, first contact and
+# the wild spawn mask, so they all agree exactly. The union is:
+#   * unit sight   — every owned unit through the terrain-aware Visibility helper
+#   * city sight   — every owned settlement, likewise
+#   * own territory — every tile the player culturally owns is always fully seen,
+#                     regardless of terrain/LOS (you watch your own borders)
+#   * a one-ring fringe one tile beyond that territory (width = the data-driven
+#     `territory_vision_ring` constant, default 1), so a rival stepping up to your
+#     border is seen even with no unit nearby
+# This is additive (it unions with sight, never replacing it). Keys are
+# map-normalized "x,y" (wrap-canonical), matching the Visibility / presence map.
+# The scene fog layer's accumulated ever-seen memory is presentation-only and is
+# NOT part of this — it must never be read back into sim logic.
+func player_visible_tiles(player_id: int) -> Dictionary:
 	var seen: Dictionary = {}
 	var su: int = _db.get_constant("unit_sight", 2)
 	var sc: int = _db.get_constant("city_sight", 3)
@@ -2580,7 +2591,26 @@ func _player_visible_tiles(player_id: int) -> Dictionary:
 		if s.owner_player_id == player_id:
 			for k in Visibility.visible_tiles(_gs.map, _db, s.x, s.y, sc):
 				seen[k] = true
+	_add_territory_vision(player_id, seen)
 	return seen
+
+# Adds cultural-border vision into `seen`: every tile the player owns, plus a
+# `territory_vision_ring`-wide fringe of tiles just outside owned territory. Owned
+# tiles are always added (no LOS/terrain gate); the ring is the union of the
+# Chebyshev disc of radius `ring` around each owned tile, minus the owned tiles
+# themselves (those are already in). Wrap-safe via map-normalized keys.
+func _add_territory_vision(player_id: int, seen: Dictionary) -> void:
+	var ring: int = _db.get_constant("territory_vision_ring", 1)
+	if ring < 0:
+		ring = 0
+	for tile in _gs.map.all_tiles():
+		if tile.owner_player_id != player_id:
+			continue
+		seen[str(tile.x) + "," + str(tile.y)] = true
+		if ring == 0:
+			continue
+		for nb in _gs.map.tiles_in_range(tile.x, tile.y, ring):
+			seen[str(nb.x) + "," + str(nb.y)] = true
 
 # BFS outward from the unit over passable, domain-legal tiles to the nearest tile
 # the player cannot currently see (`seen`). Returns that frontier Tile, or null

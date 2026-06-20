@@ -21,3 +21,39 @@ func test_fog_layer_script_compiles() -> void:
 func test_visibility_helper_compiles() -> void:
 	assert_true(load("res://src/world/visibility.gd").can_instance(),
 		"Visibility helper must compile")
+
+# After the border-vision refactor the fog layer reads its current-visible set
+# straight from SimFacade.player_visible_tiles, so an owned cultural-border tile
+# (with no unit/city nearby) now lifts the fog.
+func _mini_facade_with_owned_tile():
+	var gs = load("res://src/sim/game_state.gd").new()
+	gs.db = load("res://src/core/data_db.gd").new()
+	gs.db.load_all()
+	gs.rng = load("res://src/core/rng.gd").new()
+	gs.rng.init(1)
+	gs.map = load("res://src/world/world_map.gd").new()
+	gs.map.init(20, 20, false, false)
+	for t in gs.map.all_tiles():
+		t.terrain_id = "grassland"
+	var p = load("res://src/sim/player.gd").new()
+	p.id = 1
+	p.alliance_id = 1
+	gs.players.append(p)
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	var f = load("res://src/api/sim_facade.gd").new()
+	f._gs = gs
+	f._db = gs.db
+	f._dirty = load("res://src/api/dirty_flags.gd").new()
+	f._hooks = load("res://src/sim/hooks.gd").new()
+	return f
+
+func test_fog_rebuild_reflects_owned_territory() -> void:
+	var f = _mini_facade_with_owned_tile()
+	var fog = load("res://scenes/world/fog_layer.gd").new()
+	fog.init(f)
+	fog.rebuild(1)
+	var seen = fog.get_visible_tiles()
+	assert_true(seen.has("10,10"), "Fog lifts over an owned cultural-border tile")
+	assert_true(seen.has("11,10"), "…and over the one-ring fringe beyond it")
+	assert_false(seen.has("13,10"), "…but not two rings beyond the border")
+	fog.free()

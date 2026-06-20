@@ -692,3 +692,51 @@ func test_entering_goody_hut_consumes_it_and_applies_reward() -> void:
 	assert_false(gs.map.get_tile(3, 2).has_discovery, "The hut is consumed on entry")
 	assert_eq(gs.get_player(pid).treasury, 40, "The goody reward is applied (gold banked)")
 	assert_signal_emitted(facade, "goody_received", "entering a hut emits goody_received")
+
+# ── Cultural-border vision: player_visible_tiles (border-vision feature) ──────
+
+func test_player_visible_tiles_includes_owned_territory_and_one_ring() -> void:
+	# A player with no units/cities still sees every owned tile plus a one-tile
+	# fringe just outside it. Owned tile (10,10); the ring adds its 8 neighbours.
+	var gs = make_gs(2)
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	var f = bare_facade(gs)
+	var seen = f.player_visible_tiles(1)
+	assert_true(seen.has("10,10"), "Own territory tile is visible")
+	# All 8 ring-1 neighbours are visible.
+	for d in [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]:
+		var k = str(10 + d[0]) + "," + str(10 + d[1])
+		assert_true(seen.has(k), "One-ring fringe tile %s is visible" % k)
+	# Two rings out, with no unit anywhere, is NOT visible.
+	assert_false(seen.has("12,10"), "A tile two rings beyond the border is not visible")
+	assert_false(seen.has("10,12"), "…and likewise on the other axis")
+
+func test_player_visible_tiles_unions_with_unit_sight() -> void:
+	# Territory vision is additive: a far-off unit's sight still shows up alongside
+	# the territory + ring contribution.
+	var gs = make_gs(2)
+	gs.map.get_tile(2, 2).owner_player_id = 1
+	make_unit(gs, "warrior", 1, 15, 15)   # well away from the owned tile
+	var f = bare_facade(gs)
+	var seen = f.player_visible_tiles(1)
+	assert_true(seen.has("2,2"), "Owned territory still contributes")
+	assert_true(seen.has("15,15"), "The unit's own tile is in sight")
+	assert_true(seen.has("16,15"), "A tile within the unit's sight radius is visible")
+
+func test_player_visible_tiles_excludes_rival_territory() -> void:
+	# Player 1 does not see player 2's territory through the territory rule.
+	var gs = make_gs(2)
+	gs.map.get_tile(15, 15).owner_player_id = 2
+	var f = bare_facade(gs)
+	var seen = f.player_visible_tiles(1)
+	assert_false(seen.has("15,15"), "A rival's owned tile is not visible to player 1")
+
+func test_player_visible_tiles_ring_width_is_data_driven() -> void:
+	# Bumping territory_vision_ring widens the fringe.
+	var gs = make_gs(2)
+	gs.db.constants["territory_vision_ring"] = 2
+	gs.map.get_tile(10, 10).owner_player_id = 1
+	var f = bare_facade(gs)
+	var seen = f.player_visible_tiles(1)
+	assert_true(seen.has("12,10"), "With ring=2 a tile two rings out is visible")
+	assert_false(seen.has("13,10"), "…but three rings out is still hidden")
