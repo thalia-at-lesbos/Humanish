@@ -149,6 +149,18 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 	effective = (effective * health) / 100
 	return 1 if effective < 1 else effective
 
+# Whether this unit may initiate combat (attack an enemy unit or assault a city).
+# Non-combatants — civilians (settler/worker/spy/missionary/…) and any unit with no
+# base strength — cannot attack: a right-click on a hostile tile with only such a
+# unit selected must be a no-op rather than a wasted, strength-0 "assault" (§5.3).
+# This is the single sim-side gate, consulted by both the move command and the
+# UI's can_stack_move so the input model and the rules agree.
+func can_attack(db: DataDB) -> bool:
+	if base_strength <= 0:
+		return false
+	var data: Dictionary = db.get_unit(unit_type_id)
+	return str(data.get("classification", "")) != "civilian"
+
 # Firepower feeds the §5.4 per-hit damage model, distinct from combat strength.
 # For most units firepower equals the effective strength passed in; siege and a
 # few special types carry a distinct value via the `firepower` data field (a

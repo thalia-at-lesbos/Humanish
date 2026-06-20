@@ -18,6 +18,64 @@ func _router():
 	add_child_autofree(ir)
 	return ir
 
+# Canary: a parse error in the router script still loads (load() returns a broken
+# GDScript) but cannot instance; can_instance() reports the compile state without
+# throwing, so this fails loudly instead of GUT silently swallowing the error.
+func test_input_router_script_compiles() -> void:
+	var script = load("res://scenes/input/input_router.gd")
+	assert_not_null(script, "input_router.gd loads")
+	assert_true(script.can_instance(), "input_router.gd compiles (no parse error)")
+
+# A worker (or other civilian) standing on the same tile as a warrior. After the
+# left-click cycle, the active selection can be the civilian — a right-click on an
+# adjacent wild/enemy city must still attack with the escorting warrior, not be a
+# silent no-op (the reported regression). Routed as the whole owned stack so the
+# move command picks the combat-capable unit as the attacker.
+func test_right_click_civilian_selected_attacks_wild_city_via_escort() -> void:
+	var facade = setup_facade(3434, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(3, 3).terrain_id = "grassland"
+	gs.map.get_tile(4, 3).terrain_id = "grassland"
+	var worker = make_unit(gs, "worker", pid, 3, 3)
+	var warrior = make_warrior(gs, pid, 3, 3)
+	make_settlement(gs, -2, 4, 3, 1)   # wild camp (owner -2) adjacent
+	facade.select_unit(worker.id)      # the cycle landed on the civilian
+
+	var ir = _router()
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._handle_move_click(4, 3, gs)
+	assert_true(warrior.has_attacked,
+		"Right-click on a wild city attacks with the escorting warrior, even though "
+		+ "a civilian was the active selection")
+
+# The escort escalation only fires for a hostile target. A civilian selected and
+# right-clicking an empty tile moves just that civilian (a normal worker move) —
+# it must NOT drag the escorting warrior along (that would be the old whole-tile
+# behaviour the per-unit move was meant to fix).
+func test_right_click_civilian_selected_empty_tile_moves_only_civilian() -> void:
+	var facade = setup_facade(3535, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(3, 3).terrain_id = "grassland"
+	gs.map.get_tile(4, 3).terrain_id = "grassland"
+	var worker = make_unit(gs, "worker", pid, 3, 3)
+	var warrior = make_warrior(gs, pid, 3, 3)
+	facade.select_unit(worker.id)
+
+	var ir = _router()
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._handle_move_click(4, 3, gs)
+	assert_eq([worker.x, worker.y], [4, 3], "The selected worker moves onto the empty tile")
+	assert_eq([warrior.x, warrior.y], [3, 3],
+		"…and the escorting warrior is not dragged along (no hostile escalation)")
+
 # Minimal WorldView double: maps 64px cells to tiles and records pans.
 class _StubView:
 	extends Reference

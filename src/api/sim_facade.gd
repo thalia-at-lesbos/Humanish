@@ -478,6 +478,26 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 	if path.empty() and not (fx == tx and fy == ty):
 		return false
 
+	# Attacks must be led by a combatant. The destination tile is hostile when it
+	# holds an enemy unit or a city we are at war with (pathfinding only routes onto
+	# an enemy tile as the final, attacked tile). If so:
+	#   • refuse the order outright when NO mover can attack (a lone worker/settler/
+	#     spy/… — base_strength 0 — would otherwise walk up and waste its turn on a
+	#     strength-0 "assault"); this is what makes a right-click with only a civilian
+	#     selected a no-op (can_stack_move mirrors this gate so the UI and rules agree);
+	#   • otherwise make sure a combat-capable mover leads, so a civilian at the head
+	#     of a mixed stack never fights the battle in place of an escorting warrior (§5.3).
+	if _enemy_settlement_at(tx, ty, player_id) != null \
+			or Stack.get_defender(_gs.units, tx, ty, player_id, _gs) != null:
+		var attacker: Unit = null
+		for mu in moving_units:
+			if mu.can_attack(_db):
+				attacker = mu
+				break
+		if attacker == null:
+			return false
+		lead = attacker
+
 	# Move one step at a time, consuming each unit's movement allowance (which is
 	# set per unit class from data/units.json). The stack stops once its slowest
 	# member is out of points; a unit with any points left may always enter one
@@ -2476,10 +2496,36 @@ func can_stack_move(fx: int, fy: int, tx: int, ty: int, unit_ids: Array = []) ->
 	var movers: Array = _stack_movers(fx, fy, _gs.current_player_id, unit_ids)
 	if movers.empty():
 		return false
+	# Entering an enemy-held / hostile-city tile is an attack, so it is only a legal
+	# target when at least one mover can actually fight. A civilian-only selection
+	# (worker/settler/spy/…) right-clicking a hostile tile is therefore an illegal
+	# target the host treats as "inspect", not a wasted strength-0 assault — this
+	# mirrors the same gate in _cmd_move_stack so the UI and the rules agree (§5.3).
+	if _enemy_settlement_at(tx, ty, _gs.current_player_id) != null \
+			or Stack.get_defender(_gs.units, tx, ty, _gs.current_player_id, _gs) != null:
+		var any_attacker: bool = false
+		for mu in movers:
+			if mu.can_attack(_db):
+				any_attacker = true
+				break
+		if not any_attacker:
+			return false
 	var lead: Unit = movers[0]
 	var path: Array = Pathfinding.find_path(
 		_gs.map, fx, fy, tx, ty, lead, _db, _gs.units, _gs.current_player_id, _gs)
 	return not path.empty()
+
+# Is (tx, ty) a tile the current player would attack by entering it? True when it
+# holds an enemy/wild city (owner -2 or one we are at war with) or an enemy/wild
+# defender unit. Lets the input layer recognise an attack target so a right-click
+# can route a combat-capable stack member into it (§5.3) without re-implementing
+# the rules' hostility test.
+func is_hostile_tile(tx: int, ty: int) -> bool:
+	if _gs == null or _gs.map == null or not _gs.map.is_valid(tx, ty):
+		return false
+	if _enemy_settlement_at(tx, ty, _gs.current_player_id) != null:
+		return true
+	return Stack.get_defender(_gs.units, tx, ty, _gs.current_player_id, _gs) != null
 
 # Mark an empty tile as the inspected subject: clears any unit/city selection and
 # records the tile so the HUD can show a terrain readout (§UI bug: every tile is
