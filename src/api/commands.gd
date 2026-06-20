@@ -306,9 +306,11 @@ static func nuclear_strike(player_id: int, unit_id: int,
 #       "resources": [String]
 # `peace` clears any war between the two alliances when the deal is accepted. A
 # trade carrying any recurring item becomes a persistent Deal (§7) on acceptance.
+# `open_borders` records a bilateral open-borders agreement on acceptance (§7) —
+# the proposer must hold the open_borders_tech, else the proposal is rejected.
 static func propose_trade(player_id: int, target_alliance_id: int,
 		give: Dictionary, receive: Dictionary, peace: bool = false,
-		duration: int = -1) -> Dictionary:
+		duration: int = -1, open_borders: bool = false) -> Dictionary:
 	return {
 		"type": IDs.CommandType.PROPOSE_TRADE,
 		"player_id": player_id,
@@ -316,8 +318,14 @@ static func propose_trade(player_id: int, target_alliance_id: int,
 		"give": give.duplicate(true),
 		"receive": receive.duplicate(true),
 		"peace": peace,
-		"duration": duration
+		"duration": duration,
+		"open_borders": open_borders
 	}
+
+# Convenience factory for an open-borders proposal (§7): a trade carrying no items,
+# just the open_borders flag. The proposer must hold the open_borders_tech (Writing).
+static func propose_open_borders(player_id: int, target_alliance_id: int) -> Dictionary:
+	return propose_trade(player_id, target_alliance_id, {}, {}, false, -1, true)
 
 static func accept_trade(player_id: int, trade_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.ACCEPT_TRADE, "player_id": player_id, "trade_id": trade_id}
@@ -430,6 +438,15 @@ static func free_vassal(player_id: int, vassal_alliance_id: int) -> Dictionary:
 		"type": IDs.CommandType.FREE_VASSAL,
 		"player_id": player_id,
 		"vassal_alliance_id": vassal_alliance_id
+	}
+
+# Cancel a standing open-borders agreement (§7) with another player. Either side may
+# revoke it; afterwards the other player's territory blocks this player's units again.
+static func cancel_open_borders(player_id: int, other_player_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.CANCEL_OPEN_BORDERS,
+		"player_id": player_id,
+		"other_player_id": other_player_id
 	}
 
 static func load_unit(player_id: int, unit_id: int, transport_id: int) -> Dictionary:

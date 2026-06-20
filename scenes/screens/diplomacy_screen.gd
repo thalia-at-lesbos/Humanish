@@ -179,6 +179,21 @@ func rebuild() -> void:
 			sub_btn.connect("pressed", self, "_on_offer_per_turn", [other_alliance.id])
 			row.add_child(sub_btn)
 
+			# Open borders (§7): propose when we hold the gating tech (Writing) and have
+			# no agreement yet; cancel an existing one. Hidden entirely when we lack the
+			# tech and no agreement stands — the option is gated, not just disabled.
+			var has_ob: bool = gs.has_open_borders(my_p.id, p.id)
+			if has_ob:
+				var close_btn: Button = Button.new()
+				close_btn.text = "Close Borders"
+				close_btn.connect("pressed", self, "_on_close_borders", [p.id])
+				row.add_child(close_btn)
+			elif Diplomacy.can_open_borders(gs, gs.db, my_p.id):
+				var ob_btn: Button = Button.new()
+				ob_btn.text = "Open Borders"
+				ob_btn.connect("pressed", self, "_on_open_borders", [other_alliance.id])
+				row.add_child(ob_btn)
+
 		vbox.add_child(row)
 
 	if not any_shown:
@@ -269,6 +284,16 @@ func _on_offer_per_turn(target_aid: int) -> void:
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.propose_trade(
 		gs.current_player_id, target_aid, {"gold_per_turn": OFFER_GOLD_PER_TURN}, {}))
+	rebuild()
+
+func _on_open_borders(target_aid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.propose_open_borders(gs.current_player_id, target_aid))
+	rebuild()
+
+func _on_close_borders(other_pid: int) -> void:
+	var gs = _facade.get_state()
+	_facade.apply_command(Commands.cancel_open_borders(gs.current_player_id, other_pid))
 	rebuild()
 
 func _on_capitulate(overlord_aid: int) -> void:

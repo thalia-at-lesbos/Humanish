@@ -340,7 +340,7 @@ When you switch policies in a category, your empire enters **anarchy** for a num
 Open with **F4**. You see each rival player's stance toward you and available diplomatic options:
 
 - **Declare war / make peace** — at the alliance level; all members of an alliance are at war together.
-- **Open borders** — units may pass through each other's territory without triggering combat.
+- **Open borders** — a signable agreement that lets each side's units enter the other's cultural borders. You must have researched **Writing** to propose it. Without an open-borders agreement (and without being at war or allied), your units are blocked at a rival's borders. Either side can close their borders again, and declaring war immediately ends the agreement — at war you may invade regardless.
 - **Trade** — exchange gold, resources, or technologies (trade must benefit both sides).
 - **Alliance** — form a military alliance; you share research and stand together in war.
 - **Subjugation** — offer or accept subordination, making one alliance a client state.

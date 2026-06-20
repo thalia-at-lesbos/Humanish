@@ -439,3 +439,119 @@ func test_declare_war_records_memory_on_victim() -> void:
 	# Player 2 (the victim) now holds a war grievance against the aggressor, player 1.
 	assert_true(Diplomacy.memory_total(gs.get_player(2), 1) < 0,
 		"the attacked player remembers the declaration")
+
+# ── Open borders agreement (§7) ──────────────────────────────────────────────
+# A bilateral, Writing-gated agreement granting mutual passage. Proposed via a trade
+# carrying the open_borders flag, accepted by the other side, recorded on game state,
+# torn up by war, and surviving save/load with int coercion.
+
+func _give_tech(gs, pid, tech):
+	gs.get_player(pid).technologies.append(tech)
+
+func test_open_borders_requires_writing_to_propose() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	# Player 1 lacks Writing → the proposal is rejected and no offer is recorded.
+	assert_false(f.apply_command(Commands.propose_open_borders(1, 2)),
+		"Open-borders proposal rejected without the gating tech")
+	assert_true(gs.get_alliance(1).pending_trades.empty(),
+		"No pending trade is created by a rejected proposal")
+
+func test_open_borders_proposable_with_writing() -> void:
+	var gs = make_gs(2)
+	_give_tech(gs, 1, "writing")
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(f.apply_command(Commands.propose_open_borders(1, 2)),
+		"With Writing the proposal is accepted onto the pending-trade queue")
+	assert_eq(gs.get_alliance(1).pending_trades.size(), 1, "One offer pending")
+	assert_true(bool(gs.get_alliance(1).pending_trades[0].get("open_borders", false)),
+		"The pending offer carries the open_borders flag")
+
+func test_open_borders_recorded_on_acceptance() -> void:
+	var gs = make_gs(2)
+	_give_tech(gs, 1, "writing")
+	_give_tech(gs, 2, "writing")
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_open_borders(1, 2))
+	var tid: int = int(gs.get_alliance(1).pending_trades[0].get("id", -1))
+	gs.current_player_id = 2
+	assert_true(f.apply_command(Commands.accept_trade(2, tid)), "Player 2 accepts")
+	assert_true(gs.has_open_borders(1, 2), "Agreement recorded between the two players")
+	assert_true(gs.has_open_borders(2, 1), "Agreement is order-independent")
+	assert_true(Diplomacy.has_open_borders(gs, 1, 2), "Diplomacy reports the agreement")
+
+func test_open_borders_not_recorded_when_accepter_lacks_tech() -> void:
+	var gs = make_gs(2)
+	_give_tech(gs, 1, "writing")  # only the proposer has it
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_open_borders(1, 2))
+	var tid: int = int(gs.get_alliance(1).pending_trades[0].get("id", -1))
+	gs.current_player_id = 2
+	f.apply_command(Commands.accept_trade(2, tid))
+	assert_false(gs.has_open_borders(1, 2),
+		"No agreement forms when the accepting side lacks the gating tech")
+
+func test_ai_accepts_open_borders_via_attitude() -> void:
+	# PlayerAI._answer_trade_offers accepts a non-negative offer from a non-loathed
+	# rival; an open-borders offer is value-neutral so a neutral AI accepts it.
+	var gs = make_gs(2)
+	_give_tech(gs, 1, "writing")
+	_give_tech(gs, 2, "writing")
+	gs.get_player(2).is_ai = true
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_open_borders(1, 2))
+	gs.current_player_id = 2
+	PlayerAI.manage_diplomacy(f, 2)
+	assert_true(gs.has_open_borders(1, 2), "A neutral AI accepts a value-neutral open-borders offer")
+
+func test_ai_declines_open_borders_when_furious() -> void:
+	var gs = make_gs(2)
+	_give_tech(gs, 1, "writing")
+	_give_tech(gs, 2, "writing")
+	gs.get_player(2).is_ai = true
+	# Sour player 2's attitude toward player 1 below the accept threshold.
+	for _i in range(6):
+		Diplomacy.record(gs, gs.db, 2, 1, "declared_war")
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.propose_open_borders(1, 2))
+	gs.current_player_id = 2
+	PlayerAI.manage_diplomacy(f, 2)
+	assert_false(gs.has_open_borders(1, 2), "A furious AI declines the open-borders offer")
+
+func test_declaring_war_ends_open_borders() -> void:
+	var gs = make_gs(2)
+	gs.add_open_borders(1, 2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(gs.has_open_borders(1, 2), "Agreement stands before war")
+	f.apply_command(Commands.declare_war(1, 2))
+	assert_false(gs.has_open_borders(1, 2),
+		"Declaring war tears up the open-borders agreement (at war you invade anyway)")
+
+func test_cancel_open_borders_command() -> void:
+	var gs = make_gs(2)
+	gs.add_open_borders(1, 2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(f.apply_command(Commands.cancel_open_borders(1, 2)), "Cancel accepted")
+	assert_false(gs.has_open_borders(1, 2), "Agreement removed after cancel")
+	# Cancelling again is a no-op (nothing to remove).
+	assert_false(f.apply_command(Commands.cancel_open_borders(1, 2)),
+		"Cancelling a nonexistent agreement is a no-op")
+
+func test_open_borders_survives_save_load_with_int_coercion() -> void:
+	var gs = make_gs(2)
+	gs.add_open_borders(1, 2)
+	var json = load("res://src/api/save_load.gd").save_to_string(gs)
+	var gs2 = load("res://src/api/save_load.gd").load_from_string(json, gs.db)
+	assert_true(gs2.has_open_borders(1, 2), "Agreement survives the save/load roundtrip")
+	# The deserialized pair must use int keys, not JSON floats — has_open_borders
+	# matches on int equality, so a float key would silently miss.
+	assert_eq(typeof(int(gs2.open_borders[0]["a"])), TYPE_INT, "ids coerced to int")
+	assert_true(gs2.has_open_borders(2, 1), "Lookup is order-independent post-load")

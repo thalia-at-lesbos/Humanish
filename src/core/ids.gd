@@ -118,7 +118,10 @@ enum CommandType {
     CANCEL_DEAL = 63,
     # Release a tributary/vassal alliance back to independence (§7, the overlord's
     # half of vassalage; a vassal also breaks free automatically once strong again).
-    FREE_VASSAL = 64
+    FREE_VASSAL = 64,
+    # Cancel a standing open-borders agreement with another player (§7). Either side
+    # may revoke it; their territory then blocks the other's units again.
+    CANCEL_OPEN_BORDERS = 65
 }
 
 # Win condition types

@@ -98,6 +98,38 @@ static func _factor_score(gs, db, from_id: int, to_id: int) -> int:
 			score += int(f.get("different_religion", 0))
 	return score
 
+# ── Open borders (§7) ──────────────────────────────────────────────────────────
+
+# Whether players a and b currently share open borders — either a signed agreement
+# (gs.open_borders) or same-alliance membership (alliance-mates always pass freely).
+# This is the canonical passage predicate read by Pathfinding's border-blocking rule.
+static func has_open_borders(gs, a_id: int, b_id: int) -> bool:
+	if a_id == b_id:
+		return true
+	if gs.has_open_borders(a_id, b_id):
+		return true
+	var a_p = gs.get_player(a_id)
+	var b_p = gs.get_player(b_id)
+	if a_p != null and b_p != null and a_p.alliance_id == b_p.alliance_id:
+		return true
+	return false
+
+# The tech a player must have researched before it may propose / agree to open
+# borders, read from data/constants.json (defaults to "writing"); "" means ungated.
+static func open_borders_tech(db) -> String:
+	return db.get_constant_str("open_borders_tech", "writing")
+
+# Whether `player_id` is allowed to enter an open-borders agreement — it must hold
+# the gating tech (or the gate is unconfigured). Checked at proposal AND acceptance.
+static func can_open_borders(gs, db, player_id: int) -> bool:
+	var tech: String = open_borders_tech(db)
+	if tech == "":
+		return true
+	var p = gs.get_player(player_id)
+	if p == null:
+		return false
+	return p.has_tech(tech)
+
 static func _have_active_deal(gs, alliance_a: int, alliance_b: int) -> bool:
 	for d in gs.deals:
 		var x: int = int(d.get("a_alliance", -1))

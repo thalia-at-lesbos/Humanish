@@ -49,6 +49,38 @@ func test_screen_shows_attitude_and_offer_buttons() -> void:
 	# Attitude appears parenthesised (e.g. "(cautious)").
 	assert_true("(" in text and ")" in text, "the rival's attitude is shown")
 
+func test_open_borders_button_hidden_without_writing() -> void:
+	var facade = setup_facade(93, "small", [
+		{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		{"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}
+	], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	gs.get_alliance(gs.players[0].alliance_id).contacts.append(gs.players[1].alliance_id)
+	var screen = _screen(facade)
+	screen.show_screen()
+	assert_false("Open Borders" in _recurse_text(screen),
+		"the open-borders button is hidden when the player lacks Writing")
+
+func test_open_borders_button_routes_command_with_writing() -> void:
+	var facade = setup_facade(94, "small", [
+		{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		{"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}
+	], ["time"])
+	var gs = facade.get_state()
+	var p0 = gs.players[0]
+	gs.current_player_id = p0.id
+	p0.technologies.append("writing")
+	gs.get_alliance(p0.alliance_id).contacts.append(gs.players[1].alliance_id)
+	var screen = _screen(facade)
+	screen.show_screen()
+	assert_true("Open Borders" in _recurse_text(screen),
+		"with Writing the open-borders button appears")
+	# Driving the handler routes a proposal through apply_command.
+	screen._on_open_borders(gs.players[1].alliance_id)
+	assert_eq(gs.get_alliance(p0.alliance_id).pending_trades.size(), 1,
+		"the proposal is queued as a pending trade")
+
 func test_cancel_button_routes_command() -> void:
 	var facade = setup_facade(92, "small", [
 		{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
