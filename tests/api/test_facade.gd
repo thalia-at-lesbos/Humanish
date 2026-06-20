@@ -36,6 +36,40 @@ func test_found_settlement_creates_settlement() -> void:
 	assert_eq(gs.settlements.size(), 1, "One settlement should exist")
 	assert_eq(gs.settlements[0].name, "Alpha", "Settlement name set correctly")
 
+func test_first_contact_surfaces_notification_and_signal() -> void:
+	# When two players newly meet, the facade must drain the first-contact queue
+	# into a player-facing notification (naming the rival) and a first_contact
+	# signal, and must not re-surface an already-met pair.
+	var gs = make_gs(2)
+	make_unit(gs, "warrior", 1, 5, 5)
+	make_unit(gs, "warrior", 2, 6, 5)
+	gs.get_player(1).name = "Alice"
+	gs.get_player(2).name = "Bob"
+	var facade = bare_facade(gs)
+	watch_signals(facade)
+
+	TurnEngine._detect_sight_contact(gs)
+	facade._drain_first_contacts()
+
+	assert_signal_emit_count(facade, "first_contact", 2,
+		"One first_contact signal per met player")
+	var notes: Array = facade.get_notification_queue()
+	var contact_notes: Array = []
+	for n in notes:
+		if str(n.get("text", "")).find("made contact") != -1:
+			contact_notes.append(str(n["text"]))
+	assert_eq(contact_notes.size(), 2, "One contact notification per player")
+	var joined: String = PoolStringArray(contact_notes).join(" | ")
+	assert_true(joined.find("Alice") != -1, "Bob's notification names Alice")
+	assert_true(joined.find("Bob") != -1, "Alice's notification names Bob")
+	assert_true(gs.pending_first_contacts.empty(), "Queue cleared after draining")
+
+	# A second sweep with no new meetings surfaces nothing more.
+	TurnEngine._detect_sight_contact(gs)
+	facade._drain_first_contacts()
+	assert_eq(facade.get_notification_queue().size(), notes.size(),
+		"Already-met pair adds no further notifications")
+
 func test_found_settlement_too_close_fails() -> void:
 	var facade = setup_facade(200)
 	var gs = facade.get_state()

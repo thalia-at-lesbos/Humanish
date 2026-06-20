@@ -1704,8 +1704,16 @@ static func _ensure_mutual_contact(gs: GameState, pid_a: int, pid_b: int) -> voi
 	var b: Alliance = gs.get_player_alliance(pid_b)
 	if a == null or b == null or a.id == b.id:
 		return
+	# Detect the not-met → met transition: record a first-contact event the first
+	# time these two alliances meet (contacts only ever appends, so a fresh append
+	# is a genuine first meeting). One record per direction so each player's
+	# notification can name the other.
 	if not a.has_contact_with(b.id):
 		a.contacts.append(b.id)
+		gs.pending_first_contacts.append(
+			{"player_id": pid_a, "other_player_id": pid_b})
+		gs.pending_first_contacts.append(
+			{"player_id": pid_b, "other_player_id": pid_a})
 	if not b.has_contact_with(a.id):
 		b.contacts.append(a.id)
 

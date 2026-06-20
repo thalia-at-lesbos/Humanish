@@ -32,6 +32,7 @@ signal screen_requested(screen_id)
 signal assembly_event(event_dict)   # §7.2 session opened / resolution resolved
 signal deal_cancelled(deal_dict)    # §7 persistent deal expired or cancelled
 signal nuclear_detonated(result_dict)  # §5.7 nuke strike resolved (area effect)
+signal first_contact(player_id, other_player_id)  # §7 two players newly met
 
 var _gs: GameState
 var _hooks: Hooks
@@ -438,6 +439,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 	if next_idx == 0 or next_idx < 0:
 		TurnEngine.world_step(_gs, _hooks)
 		_drain_wild_events()
+		_drain_first_contacts()
 		_drain_assembly_events()
 		_drain_deal_events()
 		_drain_great_people()
@@ -3093,6 +3095,24 @@ func _drain_wild_events() -> void:
 				emit_signal("city_razed", sid, -2)
 	_gs.pending_wild_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface any first-contact records produced this world step (§7): the first time
+# two players meet, notify each side (naming the other) and emit a first_contact
+# signal each, then clear the queue. The records are per-direction already.
+func _drain_first_contacts() -> void:
+	if _gs.pending_first_contacts.empty():
+		return
+	for fc in _gs.pending_first_contacts:
+		var pid: int = int(fc["player_id"])
+		var other_id: int = int(fc["other_player_id"])
+		var other: Player = _gs.get_player(other_id)
+		var who: String = other.name if (other != null and other.name != "") \
+			else "another civilization"
+		_add_notification("You have made contact with " + who + ".", "major")
+		emit_signal("first_contact", pid, other_id)
+	_gs.pending_first_contacts = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 

@@ -118,6 +118,14 @@ var pending_era_advances: Array = []  # [{player_id, from, to}]
 # Each entry is {"kind": "combat"/"captured"/"razed", ...payload}.
 var pending_wild_events: Array = []
 
+# Transient first-contact records produced by TurnEngine._ensure_mutual_contact
+# the first time two players meet (§7), drained by SimFacade into notifications +
+# the first_contact signal. Not serialized: contact established this world step is
+# always drained before the turn ends, and Alliance.contacts carries the
+# persistent met state.
+# Each entry is {"player_id": int, "other_player_id": int}.
+var pending_first_contacts: Array = []
+
 # Transient tech-completion records produced by TurnEngine._apply_research and
 # _apply_special_person during a player step, drained by SimFacade into
 # notifications + the technology_completed signal. Not serialized.
