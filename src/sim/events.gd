@@ -130,7 +130,21 @@ static func trigger_holds(trig: Dictionary, player: Player, game_state) -> bool:
 		return false
 	if bool(trig.get("at_peace", false)) and _player_at_war(player.id, game_state):
 		return false
+	# A timed event already running for this player cannot re-fire — otherwise a
+	# non-one_shot timed trigger (e.g. the plague) re-arms every turn while still
+	# active, stacking overlapping instances that spam begin/expire log entries and
+	# stack their health deltas. It becomes eligible again only once it has expired.
+	var ev_id: String = str(trig.get("event_id", ""))
+	if ev_id != "" and _timed_event_active(ev_id, player.id, game_state):
+		return false
 	return true
+
+# Whether a timed event instance for `event_id` is already running for the player.
+static func _timed_event_active(event_id: String, player_id: int, game_state) -> bool:
+	for inst in game_state.active_events:
+		if str(inst.get("event_id", "")) == event_id and int(inst.get("player_id", -1)) == player_id:
+			return true
+	return false
 
 # Fire one armed trigger's event: mark a one-shot trigger spent, then either apply
 # the begin phase immediately (no choices), auto-resolve for an AI, or queue a
