@@ -1,5 +1,5 @@
 {
-  "_comment": "Random-event definitions (§9). Each event has display text, an optional choices array (a begin-phase popup; absent = auto-apply the begin `effects`), an optional integer `duration` (turns the event persists before its `expire_effects` apply), and effect lists. Trigger predicates that decide WHEN an event fires live in data/event_triggers.json. Effect verbs (read by Events._apply_effect): gold/research/culture (player or capital deltas), tech (free cheapest researchable, or `tech_id`), unit (spawn `count` of `unit_type` at the capital), building (free `structure_id` in the capital), capital_health (delta on the capital's health, used for timed plagues), heal_units (restore every owned unit to full). Magnitudes are fixed integers so applying a choice is deterministic regardless of when the human resolves the popup; only trigger selection draws gs.rng.",
+  "_comment": "Random-event definitions (§9). Each event has display text, an optional choices array (a begin-phase popup; absent = auto-apply the begin `effects`), an optional integer `duration` (turns the event persists before its `expire_effects` apply), and effect lists. Trigger predicates that decide WHEN an event fires live in data/event_triggers.json. Effect verbs (read by Events._apply_effect): gold/research/culture (player or capital deltas), tech (free cheapest researchable, or `tech_id`), unit (spawn `count` of `unit_type` at the capital), building (free `structure_id` in the capital), capital_health (delta on the capital's health; generic, used by timed events), capital_pop (delta on the capital's population, floored at 1), nearby_pop (delta on every OTHER owned city within `radius` tiles of the capital — default `event_nearby_radius` — each floored at 1), heal_units (restore every owned unit to full). Magnitudes are fixed integers so applying a choice is deterministic regardless of when the human resolves the popup; only trigger selection draws gs.rng.",
   "ancient_windfall": {
     "id": "ancient_windfall",
     "name": "Ancient Windfall",
@@ -46,12 +46,15 @@
     "text": "Hardened volunteers, eager to fight, muster at your capital.",
     "effects": [ { "verb": "unit", "unit_type": "warrior", "count": 2 } ]
   },
-  "great_plague": {
-    "id": "great_plague",
-    "name": "The Great Plague",
-    "text": "A wasting sickness sweeps your capital. It will pass in time.",
-    "duration": 5,
-    "effects": [ { "verb": "capital_health", "amount": -4 } ],
-    "expire_effects": [ { "verb": "capital_health", "amount": 4 } ]
+  "influenza": {
+    "id": "influenza",
+    "name": "Influenza Outbreak",
+    "text": "A virulent influenza sweeps through your capital and the sick are dying.",
+    "choices": [
+      { "id": "quarantine", "text": "Impose a costly quarantine (pay 100 gold, lose 3 population)",
+        "effects": [ { "verb": "gold", "amount": -100 }, { "verb": "capital_pop", "amount": -3 } ] },
+      { "id": "endure", "text": "Let it run its course (lose 3 population; nearby cities lose 2)",
+        "effects": [ { "verb": "capital_pop", "amount": -3 }, { "verb": "nearby_pop", "amount": -2, "radius": 4 } ] }
+    ]
   }
 }

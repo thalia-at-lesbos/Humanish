@@ -256,13 +256,16 @@ func test_playthrough_save_load_determinism_midgame() -> void:
 # roundtrip must reproduce the hash and resume identically.
 func test_playthrough_save_load_determinism_midevent() -> void:
 	var ng = _new_game(23); var gs = ng[0]; var f = ng[1]
+	register_test_timed_event(gs.db)
 	make_settlement(gs, 1, 8, 8, 3).health = 100
 	make_warrior(gs, 1, 4, 4)
 	make_settlement(gs, 2, 12, 12, 2).health = 100
 
-	# Stand up the lifecycle state directly: a timed plague on player 1 (mid-duration)
-	# and an unresolved choice the human still owes.
-	Events.apply_event_begin(gs.db.get_event("great_plague"), gs.get_player(1), gs)
+	# Stand up the lifecycle state directly: an in-progress timed event on player 1
+	# (mid-duration) and an unresolved choice the human still owes. (The shipped
+	# events are all instant now, so this uses a synthetic timed event — see
+	# register_test_timed_event; it must also be registered on the reload db below.)
+	Events.apply_event_begin(gs.db.get_event("test_sickness"), gs.get_player(1), gs)
 	Events.tick_active_events(gs.get_player(1), gs)   # burn one turn of the timer
 	gs.pending_event_choices.append(
 		{"event_id": "wandering_nomads", "player_id": 1, "trigger_id": "trig_wandering_nomads"})
@@ -279,7 +282,9 @@ func test_playthrough_save_load_determinism_midevent() -> void:
 	var continued_hash = f.state_hash()
 
 	var f2 = load("res://src/api/sim_facade.gd").new()
-	f2.init_for_load(make_db())
+	var db2 = make_db()
+	register_test_timed_event(db2)   # the reload db needs the timed event def to resolve its expiry
+	f2.init_for_load(db2)
 	assert_true(f2.load_save(save_str), "mid-event save loads into a fresh facade")
 	assert_eq(f2.state_hash(), mid_hash, "loaded hash matches the pre-save hash (active events intact)")
 	var gs2 = f2.get_state()

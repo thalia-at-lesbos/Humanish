@@ -125,6 +125,7 @@
   "healing_in_settlement": 30,
   "supply_range": 3,
   "max_hp": 100,
+  "event_nearby_radius": 4,
   "min_damage_per_hit": 1,
   "collateral_cap": 35,
   "first_strike_round_advantage": 1,

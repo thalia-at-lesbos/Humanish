@@ -266,6 +266,29 @@ static func _apply_effect(eff: Dictionary, player: Player, game_state) -> void:
 				var nh: int = cap_h.health + int(eff.get("amount", 0))
 				nh = mx if nh > mx else nh
 				cap_h.health = nh if nh > 0 else 0
+		"capital_pop":
+			# Population delta on the capital (e.g. influenza losses). Floored at 1 so
+			# an event never destroys a city outright. The next settlement step
+			# normalises worked tiles / specialists to the new size.
+			var cap_p: Settlement = capital_of(player.id, game_state)
+			if cap_p != null:
+				var np: int = cap_p.population + int(eff.get("amount", 0))
+				cap_p.population = np if np > 1 else 1
+		"nearby_pop":
+			# Population delta on every OTHER owned city within `radius` tiles of the
+			# capital (the outbreak's epicentre); each floored at 1. Radius is data-
+			# driven, falling back to the event_nearby_radius constant.
+			var cap_n: Settlement = capital_of(player.id, game_state)
+			if cap_n != null:
+				var radius: int = int(eff.get("radius",
+					db.get_constant("event_nearby_radius", 4)))
+				var delta: int = int(eff.get("amount", 0))
+				for s in game_state.settlements:
+					if s.owner_player_id != player.id or s == cap_n:
+						continue
+					if game_state.map.distance(cap_n.x, cap_n.y, s.x, s.y) <= radius:
+						var sp: int = s.population + delta
+						s.population = sp if sp > 1 else 1
 		"heal_units":
 			var mxh: int = db.get_constant("max_hp", 100)
 			for u in game_state.units:

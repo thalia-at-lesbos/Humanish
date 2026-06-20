@@ -153,6 +153,67 @@ func test_choice_event_blocks_then_applies_branch() -> void:
 	assert_true(gs.pending_event_choices.empty(), "the pending choice is cleared after resolving")
 	assert_true(f.get_pending_popup().empty(), "the popup is popped after resolving")
 
+# ── Influenza outbreak (§9 choice event) ─────────────────────────────────────────
+
+func test_influenza_event_is_defined_with_two_choices() -> void:
+	var gs = make_gs()
+	var ev = gs.db.get_event("influenza")
+	assert_false(ev.empty(), "the influenza event exists")
+	assert_eq(ev.get("choices", []).size(), 2, "influenza offers exactly two choices")
+	# The plague is gone entirely.
+	assert_true(gs.db.get_event("great_plague").empty(), "the great_plague event is removed")
+	assert_false(gs.db.get_event_triggers().has("trig_great_plague"),
+		"the great_plague trigger is removed")
+	assert_true(gs.db.get_event_triggers().has("trig_influenza"),
+		"an influenza trigger exists")
+
+func test_influenza_quarantine_choice_costs_gold_and_pop() -> void:
+	# Branch 1: pay 100 gold and lose 3 population in the capital.
+	var f = setup_facade()
+	var gs = f.get_state()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	p.treasury = 250
+	var cap = make_settlement(gs, 1, 5, 5, 6)   # size 6 capital
+	cap.structures.append("palace")
+	Events._fire({"id": "trig_influenza", "event_id": "influenza"}, p, gs)
+	assert_true(f.apply_command(Commands.resolve_event(1, "influenza", "quarantine")),
+		"resolving the quarantine branch succeeds")
+	assert_eq(p.treasury, 150, "quarantine costs 100 gold")
+	assert_eq(cap.population, 3, "the capital loses 3 population")
+
+func test_influenza_endure_choice_hits_capital_and_nearby_cities() -> void:
+	# Branch 2: lose 3 pop in the capital; every OWN city within the radius loses 2.
+	var f = setup_facade()
+	var gs = f.get_state()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	p.treasury = 250
+	var cap = make_settlement(gs, 1, 5, 5, 6)
+	cap.structures.append("palace")
+	var near = make_settlement(gs, 1, 7, 6, 5)   # ~2 tiles away → within radius
+	var far = make_settlement(gs, 1, 19, 19, 5)  # well outside the radius
+	Events._fire({"id": "trig_influenza", "event_id": "influenza"}, p, gs)
+	assert_true(f.apply_command(Commands.resolve_event(1, "influenza", "endure")),
+		"resolving the endure branch succeeds")
+	assert_eq(p.treasury, 250, "the endure branch costs no gold")
+	assert_eq(cap.population, 3, "the capital loses 3 population")
+	assert_eq(near.population, 3, "a nearby city loses 2 population")
+	assert_eq(far.population, 5, "a distant city is untouched")
+
+func test_influenza_population_loss_floors_at_one() -> void:
+	# A small city never drops below population 1 (an event never razes a city).
+	var f = setup_facade()
+	var gs = f.get_state()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	var cap = make_settlement(gs, 1, 5, 5, 2)   # size 2: losing 3 floors at 1
+	cap.structures.append("palace")
+	Events._fire({"id": "trig_influenza", "event_id": "influenza"}, p, gs)
+	assert_true(f.apply_command(Commands.resolve_event(1, "influenza", "endure")),
+		"resolving succeeds")
+	assert_eq(cap.population, 1, "population is floored at 1, never below")
+
 # ── Timed events (§9) ────────────────────────────────────────────────────────────
 
 func test_timed_event_expires_on_schedule() -> void:
@@ -160,8 +221,9 @@ func test_timed_event_expires_on_schedule() -> void:
 	var p = gs.get_player(1)
 	var cap = make_settlement(gs, 1, 5, 5)
 	cap.health = 100
-	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
-	assert_eq(cap.health, 96, "the plague's begin effect lowers capital health")
+	register_test_timed_event(gs.db)
+	Events.apply_event_begin(gs.db.get_event("test_sickness"), p, gs)
+	assert_eq(cap.health, 96, "the timed event's begin effect lowers capital health")
 	assert_eq(gs.active_events.size(), 1, "a timed event is registered as active")
 	# duration 5: it persists for 4 ticks, expiring (restoring) on the 5th.
 	for i in range(4):
@@ -175,37 +237,39 @@ func test_timed_event_expires_on_schedule() -> void:
 	assert_true(gs.active_events.empty(), "the expired event is removed from the active list")
 
 # A timed event already running for a player must not re-fire — otherwise a
-# non-one_shot timed trigger (the plague) re-arms each turn while still active,
-# stacking overlapping instances that spam begin/expire log lines and stack their
-# health deltas. The guard lives in trigger_holds so it is checked before the roll.
+# non-one_shot timed trigger re-arms each turn while still active, stacking
+# overlapping instances that spam begin/expire log lines and stack their deltas.
+# The guard lives in trigger_holds so it is checked before the roll.
 func test_active_timed_event_blocks_refire() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	make_settlement(gs, 1, 5, 5).health = 100
-	gs.turn_number = 30  # past the plague's min_turn (25)
-	# A plague is already running for this player.
-	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
-	assert_eq(gs.active_events.size(), 1, "one plague active")
-	var trig = gs.db.event_triggers["trig_great_plague"]
+	register_test_timed_event(gs.db)
+	gs.turn_number = 30  # past the trigger's min_turn (25)
+	# A timed event is already running for this player.
+	Events.apply_event_begin(gs.db.get_event("test_sickness"), p, gs)
+	assert_eq(gs.active_events.size(), 1, "one timed event active")
+	var trig = gs.db.event_triggers["trig_test_sickness"]
 	assert_false(Events.trigger_holds(trig, p, gs),
-		"the plague trigger does not hold while a plague is already active")
-	# A different player with no active plague is still eligible.
+		"the trigger does not hold while an instance is already active")
+	# A different player with no active instance is still eligible.
 	if gs.players.size() > 1:
 		assert_true(Events.trigger_holds(trig, gs.get_player(2), gs),
-			"another player without an active plague is still eligible")
+			"another player without an active instance is still eligible")
 
-# Drive the plague over many turns at probability 100 and assert it never overlaps
-# itself: at most one active instance at a time, and the begin/expire log entries
-# come in clean single pairs (no per-turn start/stop spam).
-func test_plague_does_not_re_fire_while_active() -> void:
+# Drive a timed event over many turns at probability 100 and assert it never
+# overlaps itself: at most one active instance at a time, and the begin/expire log
+# entries come in clean single pairs (no per-turn start/stop spam).
+func test_timed_event_does_not_re_fire_while_active() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	make_settlement(gs, 1, 5, 5).health = 100
-	# Force the plague to be the only eligible trigger and certain to fire.
+	register_test_timed_event(gs.db)
+	# Force the timed event to be the only eligible trigger and certain to fire.
 	for tid in gs.db.get_event_triggers():
-		if tid != "_comment" and tid != "trig_great_plague":
+		if tid != "_comment" and tid != "trig_test_sickness":
 			p.events_fired.append(tid)
-	gs.db.event_triggers["trig_great_plague"]["probability"] = 100
+	gs.db.event_triggers["trig_test_sickness"]["probability"] = 100
 	var begins = 0
 	var expires = 0
 	var max_active = 0
@@ -215,47 +279,47 @@ func test_plague_does_not_re_fire_while_active() -> void:
 		for d in produced:
 			match str(d.get("kind", "")):
 				"event_fired":
-					if str(d.get("event_id", "")) == "great_plague":
+					if str(d.get("event_id", "")) == "test_sickness":
 						begins += 1
 				"event_expired":
-					if str(d.get("event_id", "")) == "great_plague":
+					if str(d.get("event_id", "")) == "test_sickness":
 						expires += 1
 		if gs.active_events.size() > max_active:
 			max_active = gs.active_events.size()
-	assert_eq(max_active, 1, "never more than one plague active at a time")
-	assert_true(begins >= 1, "the plague does begin at least once")
+	assert_eq(max_active, 1, "never more than one instance active at a time")
+	assert_true(begins >= 1, "the timed event does begin at least once")
 	# With duration 5 and no overlap, begins and expires stay within one of each
-	# other (an in-flight plague may not have expired by the final turn).
+	# other (an in-flight instance may not have expired by the final turn).
 	assert_true(abs(begins - expires) <= 1,
 		"begin/expire entries are paired — no per-turn start/stop spam (begins=%d expires=%d)" % [begins, expires])
 
-# Lock in the full plague lifecycle as it runs through the per-player pipeline
+# Lock in the full timed-event lifecycle as it runs through the per-player pipeline
 # (process_player_events) over its whole duration — the path a live game takes,
-# which the direct-tick tests above do not exercise. Verified against a real
-# mid-game save (pt-a-8.sav) driven by AI turns: the plague's begin effect lands
-# exactly once, the instance counts down one per turn over its full duration, the
-# expire effect lands exactly once, and the instance is gone afterward — no
-# per-turn effect stacking and no overlap with itself.
-func test_plague_lifecycle_over_full_duration_via_pipeline() -> void:
+# which the direct-tick tests above do not exercise: the begin effect lands exactly
+# once, the instance counts down one per turn over its full duration, the expire
+# effect lands exactly once, and the instance is gone afterward — no per-turn effect
+# stacking and no overlap with itself.
+func test_timed_event_lifecycle_over_full_duration_via_pipeline() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var cap = make_settlement(gs, 1, 5, 5)
 	cap.health = 100
-	# Suppress every other trigger so only the plague can ever arm, and pin the
+	register_test_timed_event(gs.db)
+	# Suppress every other trigger so only this one can ever arm, and pin the
 	# turn just inside its window so process_player_events stays deterministic.
 	for tid in gs.db.get_event_triggers():
-		if tid != "_comment" and tid != "trig_great_plague":
+		if tid != "_comment" and tid != "trig_test_sickness":
 			p.events_fired.append(tid)
-	# Stop the plague itself from re-arming after it fires, so we observe exactly
+	# Stop the event itself from re-arming after it fires, so we observe exactly
 	# one clean lifecycle without a follow-up instance confusing the counts.
-	gs.db.event_triggers["trig_great_plague"]["probability"] = 0
-	var duration: int = int(gs.db.get_event("great_plague").get("duration", 5))
+	gs.db.event_triggers["trig_test_sickness"]["probability"] = 0
+	var duration: int = int(gs.db.get_event("test_sickness").get("duration", 5))
 
-	# Begin the plague through the public apply path, then drive ticks via the
+	# Begin the event through the public apply path, then drive ticks via the
 	# pipeline (which also re-scans triggers — none can arm here).
-	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	Events.apply_event_begin(gs.db.get_event("test_sickness"), p, gs)
 	assert_eq(cap.health, 96, "begin effect applies its -4 exactly once")
-	assert_eq(gs.active_events.size(), 1, "one plague instance active after begin")
+	assert_eq(gs.active_events.size(), 1, "one instance active after begin")
 
 	gs.turn_number = 40
 	var begins := 0
@@ -269,19 +333,19 @@ func test_plague_lifecycle_over_full_duration_via_pipeline() -> void:
 		for d in produced:
 			match str(d.get("kind", "")):
 				"event_fired":
-					if str(d.get("event_id", "")) == "great_plague":
+					if str(d.get("event_id", "")) == "test_sickness":
 						begins += 1
 				"event_expired":
-					if str(d.get("event_id", "")) == "great_plague":
+					if str(d.get("event_id", "")) == "test_sickness":
 						expires += 1
 		if i < duration - 1:
-			assert_eq(gs.active_events.size(), 1, "plague still active on tick %d" % (i + 1))
+			assert_eq(gs.active_events.size(), 1, "instance still active on tick %d" % (i + 1))
 			assert_eq(int(gs.active_events[0]["turns_left"]), duration - 1 - i,
 				"turns_left steps down by one on tick %d" % (i + 1))
 			assert_eq(cap.health, 96, "begin effect does not re-apply per turn (tick %d)" % (i + 1))
 
-	assert_eq(begins, 0, "no new plague fires (the begin was applied directly, not via a trigger)")
-	assert_eq(expires, 1, "the plague expires exactly once over its full duration")
+	assert_eq(begins, 0, "no new instance fires (the begin was applied directly, not via a trigger)")
+	assert_eq(expires, 1, "the event expires exactly once over its full duration")
 	assert_true(gs.active_events.empty(), "the instance is removed after it expires")
 	assert_eq(cap.health, 100, "the expire effect restores the -4 exactly once")
 
@@ -291,7 +355,8 @@ func test_timed_event_survives_save_load() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	make_settlement(gs, 1, 5, 5).health = 100
-	Events.apply_event_begin(gs.db.get_event("great_plague"), p, gs)
+	register_test_timed_event(gs.db)
+	Events.apply_event_begin(gs.db.get_event("test_sickness"), p, gs)
 	gs.pending_event_choices.append({"event_id": "wandering_nomads", "player_id": 1, "trigger_id": "t"})
 	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
 	assert_eq(gs2.active_events.size(), 1, "active timed event roundtrips")

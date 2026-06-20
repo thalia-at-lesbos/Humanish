@@ -150,3 +150,23 @@ func run_turns(facade, n):
 				continue
 			gs.current_player_id = p.id
 			facade.apply_command(Commands.end_turn(p.id))
+
+# Register a synthetic TIMED event into a DataDB so the generic §9 timed-event
+# machinery (duration → expire, active_events, the re-arm guard, save/load of an
+# in-progress instance) can be exercised independently of any shipped event. The
+# shipped events are all instant now (the only timed one, the plague, was removed
+# in favour of the influenza choice event), so timed-machinery tests build their
+# own. Returns the event id. Inject into every DataDB a test touches (e.g. both the
+# original and a reload db) so an active instance can resolve its expiry on each.
+func register_test_timed_event(db, dur = 5):
+	db.events["test_sickness"] = {
+		"id": "test_sickness", "name": "Test Sickness", "text": "A test malady.",
+		"duration": dur,
+		"effects": [{"verb": "capital_health", "amount": -4}],
+		"expire_effects": [{"verb": "capital_health", "amount": 4}]
+	}
+	db.event_triggers["trig_test_sickness"] = {
+		"id": "trig_test_sickness", "event_id": "test_sickness",
+		"min_turn": 25, "probability": 8, "one_shot": false, "weight": 30
+	}
+	return "test_sickness"
