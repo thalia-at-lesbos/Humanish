@@ -758,15 +758,10 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	var u: Unit = _gs.get_unit(unit_id)
 	if u == null or u.owner_player_id != player_id:
 		return false
-	var udata: Dictionary = _db.get_unit(u.unit_type_id)
-	if not udata.get("can_found", false):
+	# All founding legality (settler flag, foundable land, min distance) lives in
+	# the shared predicate so the command and the UI never diverge.
+	if not can_found_settlement_at(unit_id):
 		return false
-
-	# Check minimum distance from other settlements
-	var min_dist: int = _db.get_constant("min_settlement_distance", 3)
-	for existing in _gs.settlements:
-		if _gs.map.distance(u.x, u.y, existing.x, existing.y) < min_dist:
-			return false
 
 	# A player's first city is their capital (the earliest-founded settlement;
 	# see TurnEngine._find_capital). Decide this before appending the new one.
@@ -3023,44 +3018,103 @@ func get_tile_highlights() -> Dictionary:
 	highlights[str(u.x) + "," + str(u.y)] = 0xFFFFFF
 	return highlights
 
+# Whether `unit_id` may legally found a settlement on the tile it currently stands
+# on. The single source of truth for the founding rule, shared by the command
+# handler (_cmd_found_settlement) and the UI (so the panel only offers "Found City"
+# where it would actually succeed). Mirrors the handler's checks: the unit must be
+# the current player's settler (can_found), the tile must be foundable land (not
+# water, not a peak), and it must be at least min_settlement_distance from every
+# existing settlement.
+func can_found_settlement_at(unit_id: int) -> bool:
+	var u: Unit = _gs.get_unit(unit_id)
+	if u == null or u.owner_player_id != _gs.current_player_id:
+		return false
+	if not _db.get_unit(u.unit_type_id).get("can_found", false):
+		return false
+	if not _is_foundable_tile(u.x, u.y):
+		return false
+	var min_dist: int = _db.get_constant("min_settlement_distance", 3)
+	for existing in _gs.settlements:
+		if _gs.map.distance(u.x, u.y, existing.x, existing.y) < min_dist:
+			return false
+	return true
+
+# A tile can host a new city only if it is land (a settler cannot found on
+# water/coast) and not an impassable peak (mountain). Data-driven via the terrain
+# domain/landform fields.
+func _is_foundable_tile(x: int, y: int) -> bool:
+	var tile = _gs.map.get_tile(x, y)
+	if tile == null:
+		return false
+	var ter: Dictionary = _db.get_terrain(tile.terrain_id)
+	if str(ter.get("domain", "land")) != "land":
+		return false
+	if str(ter.get("landform", "flat")) == "peak":
+		return false
+	return true
+
+# Action list for one specific unit standing on its tile (§3.2/§3.3). This is the
+# single builder the selection panel uses so the buttons always reflect the
+# SELECTED unit (a settler in a mixed stack shows Found City; a garrisoned
+# defender shows Fortify), not whichever unit happens to be first on the tile.
+func get_unit_actions(unit_id: int) -> Array:
+	var items: Array = []
+	var u: Unit = _gs.get_unit(unit_id)
+	if u == null or u.owner_player_id != _gs.current_player_id:
+		return items
+	# Each item carries a "kind" ("mission"/"cmd") alongside its action_id because
+	# the UnitCmd and UnitMission enums share raw integer values (e.g. FORTIFY==2 and
+	# SKIP_TURN==2): the kind disambiguates which command family the panel dispatches.
+	# Found City: only when this settler may actually found here (foundable land,
+	# far enough from other settlements).
+	if can_found_settlement_at(u.id):
+		items.append({
+			"kind": "mission", "action_id": IDs.UnitMission.FOUND_SETTLEMENT,
+			"label": "Found City",
+			"unit_id": u.id,
+			"target_x": u.x, "target_y": u.y
+		})
+	# Wake: surfaced when the unit is asleep so an idle-cycle-skipped unit can be
+	# returned to active duty. Otherwise offer a plain Skip Turn for an unmoved unit.
+	if u.is_sleeping:
+		items.append({
+			"kind": "cmd", "action_id": IDs.UnitCmd.WAKE,
+			"label": "Wake",
+			"target_x": u.x, "target_y": u.y
+		})
+	elif not u.has_moved:
+		items.append({
+			"kind": "mission", "action_id": IDs.UnitMission.SKIP_TURN,
+			"label": "Skip Turn",
+			"target_x": u.x, "target_y": u.y
+		})
+	if not u.is_fortified:
+		items.append({
+			"kind": "cmd", "action_id": IDs.UnitCmd.FORTIFY,
+			"label": "Fortify",
+			"target_x": u.x, "target_y": u.y
+		})
+	# Sleep: a skip-until-woken order for any awake unit, distinct from Fortify
+	# (no defence/heal intent) — removes the unit from the idle cycle until it is
+	# woken or given another order.
+	if not u.is_sleeping:
+		items.append({
+			"kind": "cmd", "action_id": IDs.UnitCmd.SLEEP,
+			"label": "Sleep",
+			"target_x": u.x, "target_y": u.y
+		})
+	return items
+
 func get_flyout_menu(x: int, y: int) -> Array:
 	var items: Array = []
 	for u in _gs.units:
 		if u.x == x and u.y == y and u.owner_player_id == _gs.current_player_id:
-			# Settlers can found a city here.
-			if _db.get_unit(u.unit_type_id).get("can_found", false):
-				items.append({
-					"action_id": IDs.UnitMission.FOUND_SETTLEMENT,
-					"label": "Found City",
-					"unit_id": u.id,
-					"target_x": x, "target_y": y
-				})
-			if not u.has_moved:
-				items.append({
-					"action_id": IDs.UnitCmd.WAKE,
-					"label": "Skip Turn",
-					"target_x": x, "target_y": y
-				})
-			if not u.is_fortified:
-				items.append({
-					"action_id": IDs.UnitCmd.FORTIFY,
-					"label": "Fortify",
-					"target_x": x, "target_y": y
-				})
-			# Sleep: a skip-until-woken order for any unit, distinct from Fortify
-			# (no defence/heal intent) — removes the unit from the idle cycle until
-			# it is woken or given another order.
-			if not u.is_sleeping:
-				items.append({
-					"action_id": IDs.UnitCmd.SLEEP,
-					"label": "Sleep",
-					"target_x": x, "target_y": y
-				})
+			items = get_unit_actions(u.id)
 			break
 	for s in _gs.settlements:
 		if s.x == x and s.y == y and s.owner_player_id == _gs.current_player_id:
 			items.append({
-				"action_id": IDs.ControlType.OPEN_CITY_SCREEN,
+				"kind": "control", "action_id": IDs.ControlType.OPEN_CITY_SCREEN,
 				"label": "Open City",
 				"target_x": x, "target_y": y
 			})

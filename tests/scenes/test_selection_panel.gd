@@ -60,7 +60,10 @@ func test_worker_shows_build_action_buttons() -> void:
 	assert_eq(_count_buttons_named(panel, "Build Farm"), 1,
 		"A worker on a flat tile with Agriculture offers Build Farm")
 
-func test_unit_panel_omits_open_city_button() -> void:
+func test_unit_panel_shows_open_city_on_own_city_tile() -> void:
+	# Issue 2: when a selected unit shares its tile with the player's own city, the
+	# panel surfaces an Open City button (above the on-tile stack list) so the city
+	# is reachable directly, not only via left-click cycling.
 	var facade = setup_facade(81, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var gs = facade.get_state()
@@ -71,22 +74,41 @@ func test_unit_panel_omits_open_city_button() -> void:
 	make_settlement(gs, pid, 5, 5).name = "Cap"
 	var w = make_unit(gs, "warrior", pid, 5, 5)
 
-	# Sanity: the (right-click) flyout still offers Open City on that tile.
-	var has_open = false
-	for it in facade.get_flyout_menu(5, 5):
-		if int(it.get("action_id", -1)) == IDs.ControlType.OPEN_CITY_SCREEN:
-			has_open = true
-	assert_true(has_open, "Flyout should still offer Open City on a city tile")
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(w.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Open City"), 1,
+		"A unit sharing a tile with its own city shows an Open City button")
+	assert_true(panel.get_child_count() > 0, "The unit panel should still show unit info")
 
-	# But the unit selection panel must not render an Open City button.
+func test_unit_panel_omits_open_city_off_city_tile() -> void:
+	# A unit NOT on one of the player's cities shows no Open City button.
+	var facade = setup_facade(82, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# Find a tile with no settlement to stand the unit on (start cities vary by map gen).
+	var tx = -1
+	var ty = -1
+	for cy in range(gs.map.height):
+		for cx in range(gs.map.width):
+			if gs.get_settlement_at(cx, cy) == null:
+				tx = cx; ty = cy
+				break
+		if tx >= 0:
+			break
+	var w = make_unit(gs, "warrior", pid, tx, ty)
+
 	var panel = load("res://scenes/hud/selection_panel.gd").new()
 	add_child_autofree(panel)
 	panel.init(facade, null)
 	facade.select_unit(w.id)
 	panel.rebuild()
 	assert_eq(_count_buttons_named(panel, "Open City"), 0,
-		"A selected unit must not show an Open City button (no city is selected)")
-	assert_true(panel.get_child_count() > 0, "The unit panel should still show unit info")
+		"A unit not on a city tile shows no Open City button")
 
 func test_capital_panel_hides_disband_button() -> void:
 	# The capital (the city holding the Palace) cannot be disbanded, so its panel
@@ -163,7 +185,7 @@ func test_stack_panel_lists_members_and_select_all() -> void:
 	panel._on_select_all(4, 4)
 	assert_eq(facade.get_selection().selected_unit_ids.size(), 3,
 		"Select all selects the whole stack")
-	panel._on_action_pressed({"action_id": IDs.UnitCmd.FORTIFY})
+	panel._on_action_pressed({"kind": "cmd", "action_id": IDs.UnitCmd.FORTIFY})
 	for u in gs.units:
 		if u.x == 4 and u.y == 4:
 			assert_true(u.is_fortified, "Fortify-all should fortify every unit in the stack")
@@ -211,6 +233,95 @@ func test_city_panel_shows_tile_terrain() -> void:
 	panel.rebuild()
 	assert_true(_has_label_containing(panel, expected),
 		"A selected city's panel includes the tile terrain readout")
+
+func test_sleeping_unit_shows_wake_action() -> void:
+	# Issue 4: a unit that is asleep must offer a Wake button so it can rejoin the
+	# idle cycle; pressing it clears the sleep stance.
+	var facade = setup_facade(95, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var w = make_unit(gs, "warrior", pid, 8, 8)
+	facade.apply_command(Commands.unit_sleep(pid, w.id))
+	assert_true(gs.get_unit(w.id).is_sleeping, "Unit is asleep")
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(w.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Wake"), 1,
+		"A sleeping unit shows a Wake button")
+	assert_eq(_count_buttons_named(panel, "Sleep"), 0,
+		"A sleeping unit does not also show a Sleep button")
+
+func test_settler_in_mixed_stack_shows_found_city() -> void:
+	# Issue 6: a stack with a settler + warrior must show the SELECTED unit's own
+	# actions. Selecting the settler yields Found City; selecting the warrior does not.
+	var facade = setup_facade(96, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# A clear grassland tile far from any starting settlement (min distance 3).
+	var fx = -1
+	var fy = -1
+	for cy in range(gs.map.height):
+		for cx in range(gs.map.width):
+			var ok = true
+			for s in gs.settlements:
+				if gs.map.distance(cx, cy, s.x, s.y) < 3:
+					ok = false
+					break
+			if ok:
+				fx = cx; fy = cy
+				break
+		if fx >= 0:
+			break
+	gs.map.get_tile(fx, fy).terrain_id = "grassland"
+	var warrior = make_unit(gs, "warrior", pid, fx, fy)
+	var settler = make_unit(gs, "settler", pid, fx, fy)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+
+	# Selecting the warrior: no Found City.
+	facade.select_unit(warrior.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Found City"), 0,
+		"The warrior shows no Found City action")
+
+	# Selecting the settler: Found City appears.
+	facade.select_unit(settler.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Found City"), 1,
+		"Selecting the settler in the mixed stack shows its Found City action")
+
+func test_defender_in_city_shows_fortify() -> void:
+	# Issue 7: a (e.g. archer) unit garrisoned in a city must still offer Fortify.
+	var facade = setup_facade(97, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_settlement(gs, pid, 10, 10).name = "Keep"
+	var warrior = make_unit(gs, "warrior", pid, 10, 10)
+	var archer = make_unit(gs, "archer", pid, 10, 10)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(archer.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Fortify"), 1,
+		"An archer garrisoned in a city still shows the Fortify action")
+	# And the warrior on the same tile likewise.
+	facade.select_unit(warrior.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Fortify"), 1,
+		"The warrior garrisoned in the same city also shows Fortify")
 
 func test_single_unit_panel_has_no_stack_list() -> void:
 	var facade = setup_facade(86, "small",
