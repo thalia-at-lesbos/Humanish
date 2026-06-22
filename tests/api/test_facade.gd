@@ -16,6 +16,11 @@ extends "res://tests/support/sim_fixture.gd"
 
 func _settler(facade, player_id, x, y):
 	var gs = facade.get_state()
+	# Found-settlement legality now requires foundable land (not water/peak); make
+	# the settler's tile grassland so these palace/founding tests stay terrain-agnostic.
+	var tile = gs.map.get_tile(x, y)
+	if tile != null:
+		tile.terrain_id = "grassland"
 	var u = load("res://src/sim/unit.gd").new()
 	u.id = gs.next_unit_id(); u.unit_type_id = "settler"
 	u.owner_player_id = player_id; u.x = x; u.y = y
@@ -191,6 +196,145 @@ func test_found_city_action_offered_and_works() -> void:
 		"Found settlement command should succeed")
 	assert_eq(gs.settlements.size(), before + 1, "A new settlement should exist")
 	assert_null(gs.get_unit(u.id), "The founding settler should be consumed")
+
+func test_can_found_settlement_at_true_on_valid_tile() -> void:
+	var facade = setup_facade(40, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# A grassland tile far from every existing settlement.
+	var fx = -1
+	var fy = -1
+	for cy in range(gs.map.height):
+		for cx in range(gs.map.width):
+			var ok = true
+			for s in gs.settlements:
+				if gs.map.distance(cx, cy, s.x, s.y) < 3:
+					ok = false
+					break
+			if ok:
+				fx = cx; fy = cy
+				break
+		if fx >= 0:
+			break
+	gs.map.get_tile(fx, fy).terrain_id = "grassland"
+	var u = make_unit(gs, "settler", pid, fx, fy)
+	assert_true(facade.can_found_settlement_at(u.id),
+		"A settler on foundable land far from settlements can found")
+
+func test_can_found_settlement_at_false_too_close() -> void:
+	var facade = setup_facade(41, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var city = make_settlement(gs, pid, 10, 10)
+	gs.map.get_tile(11, 10).terrain_id = "grassland"   # distance 1 < min 3
+	var u = make_unit(gs, "settler", pid, 11, 10)
+	assert_false(facade.can_found_settlement_at(u.id),
+		"A settler within the minimum distance of a settlement cannot found")
+
+func test_can_found_settlement_at_false_on_water() -> void:
+	var facade = setup_facade(42, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# Place far from any settlement but on coast (sea domain) — not foundable.
+	gs.map.get_tile(14, 14).terrain_id = "coast"
+	var u = make_unit(gs, "settler", pid, 14, 14)
+	# Make sure distance is not the blocker here.
+	var blocked_by_distance = false
+	for s in gs.settlements:
+		if gs.map.distance(14, 14, s.x, s.y) < 3:
+			blocked_by_distance = true
+	assert_false(blocked_by_distance, "test tile must be far enough to isolate the terrain check")
+	assert_false(facade.can_found_settlement_at(u.id),
+		"A settler on a water tile cannot found a city")
+
+func test_can_found_settlement_at_false_for_warrior() -> void:
+	var facade = setup_facade(43, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(16, 16).terrain_id = "grassland"
+	var u = make_unit(gs, "warrior", pid, 16, 16)
+	assert_false(facade.can_found_settlement_at(u.id),
+		"A non-settler cannot found a settlement")
+
+func test_get_unit_actions_settler_includes_found_warrior_excludes() -> void:
+	# The selected-unit action list reflects the SELECTED unit even in a mixed stack.
+	var facade = setup_facade(44, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var fx = -1
+	var fy = -1
+	for cy in range(gs.map.height):
+		for cx in range(gs.map.width):
+			var ok = true
+			for s in gs.settlements:
+				if gs.map.distance(cx, cy, s.x, s.y) < 3:
+					ok = false
+					break
+			if ok:
+				fx = cx; fy = cy
+				break
+		if fx >= 0:
+			break
+	gs.map.get_tile(fx, fy).terrain_id = "grassland"
+	var warrior = make_unit(gs, "warrior", pid, fx, fy)
+	var settler = make_unit(gs, "settler", pid, fx, fy)
+
+	var settler_labels := []
+	for it in facade.get_unit_actions(settler.id):
+		settler_labels.append(str(it.get("label", "")))
+	assert_true("Found City" in settler_labels,
+		"The settler's own action list includes Found City")
+
+	var warrior_labels := []
+	for it in facade.get_unit_actions(warrior.id):
+		warrior_labels.append(str(it.get("label", "")))
+	assert_false("Found City" in warrior_labels,
+		"The warrior's own action list excludes Found City")
+	assert_true("Fortify" in warrior_labels,
+		"The warrior's action list includes Fortify")
+
+func test_get_unit_actions_fortify_in_city() -> void:
+	# A unit garrisoned in a city still offers Fortify (Issue 7).
+	var facade = setup_facade(45, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_settlement(gs, pid, 12, 12)
+	var archer = make_unit(gs, "archer", pid, 12, 12)
+	var labels := []
+	for it in facade.get_unit_actions(archer.id):
+		labels.append(str(it.get("label", "")))
+	assert_true("Fortify" in labels,
+		"An archer garrisoned in a city offers Fortify")
+
+func test_get_unit_actions_sleeping_unit_offers_wake() -> void:
+	# A sleeping unit's action list offers Wake (and not Sleep); applying it clears
+	# the sleep flag (Issue 4).
+	var facade = setup_facade(46, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var u = make_unit(gs, "warrior", pid, 9, 9)
+	facade.apply_command(Commands.unit_sleep(pid, u.id))
+	var labels := []
+	for it in facade.get_unit_actions(u.id):
+		labels.append(str(it.get("label", "")))
+	assert_true("Wake" in labels, "A sleeping unit's actions include Wake")
+	assert_false("Sleep" in labels, "A sleeping unit's actions exclude Sleep")
+	assert_true(facade.apply_command(Commands.unit_wake(pid, u.id)), "wake accepted")
+	assert_false(gs.get_unit(u.id).is_sleeping, "Wake clears the sleep flag")
 
 func test_found_city_not_offered_for_warrior() -> void:
 	var facade = setup_facade(32, "small",

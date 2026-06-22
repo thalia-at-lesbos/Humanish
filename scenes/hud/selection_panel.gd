@@ -16,9 +16,27 @@ extends VBoxContainer
 var _facade
 var _world_view
 
+# Bounded visible height for the on-tile stack list (Issue 3) so a large stack
+# scrolls instead of pushing the action buttons/terrain readout off-screen.
+const STACK_LIST_MAX_HEIGHT: int = 120
+
 func init(facade, world_view) -> void:
 	_facade = facade
 	_world_view = world_view
+
+# A natural-width, left-justified action button (Issue 1). Inside the panel's
+# VBoxContainer a Button defaults to filling the full width; SIZE_SHRINK_BEGIN
+# shrinks it to its content and anchors it to the left, while keeping every
+# action button in the same region/anchor between the state info and the terrain
+# readout.
+func _left_button(text: String) -> Button:
+	var btn: Button = Button.new()
+	btn.text = text
+	# size flags of 0 = shrink to content, anchored at the start (left). Godot 3 has
+	# no SIZE_SHRINK_BEGIN; clearing the FILL/EXPAND bits gives a left-justified,
+	# natural-width button inside the panel's VBoxContainer.
+	btn.size_flags_horizontal = 0
+	return btn
 
 func rebuild() -> void:
 	if _facade == null:
@@ -62,36 +80,53 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	state_lbl.text = "State: " + TextGen.unit_state_text(u)
 	add_child(state_lbl)
 
+	# Issue 2: when this unit shares its tile with the player's own city, surface an
+	# "Open City" action ABOVE the on-tile stack list (the city is selectable by
+	# left-click cycling too, but a direct button is the discoverable path).
+	var sel = _facade.get_selection()
+	var city_here = gs.get_settlement_at(u.x, u.y)
+	if city_here != null and city_here.owner_player_id == gs.current_player_id:
+		var open_city_btn: Button = _left_button("Open City")
+		open_city_btn.connect("pressed", self, "_on_open_city", [city_here.id])
+		add_child(open_city_btn)
+
 	# On-tile unit list: every unit the player owns on this tile, so a stack can
 	# be inspected and addressed member-by-member. Clicking a row selects just
 	# that unit; "Select all" makes subsequent action buttons apply to the whole
-	# stack at once.
-	var sel = _facade.get_selection()
+	# stack at once. The rows live in a bounded ScrollContainer (Issue 3) so a
+	# large stack stays reachable instead of overflowing off-screen.
 	var stack: Array = _owned_units_on_tile(u.x, u.y, gs)
 	if stack.size() > 1:
 		var stack_lbl: Label = Label.new()
 		stack_lbl.text = "Stack on tile (" + str(stack.size()) + "):"
 		add_child(stack_lbl)
+		var scroll: ScrollContainer = ScrollContainer.new()
+		scroll.rect_min_size = Vector2(0, STACK_LIST_MAX_HEIGHT)
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var list_vbox: VBoxContainer = VBoxContainer.new()
+		list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(list_vbox)
 		for su in stack:
 			var row: Button = Button.new()
 			var mark: String = "▸ " if su.id in sel.selected_unit_ids else "  "
 			row.text = mark + su.unit_type_id.capitalize() + "  (HP " + str(su.health) + ")"
 			row.connect("pressed", self, "_on_select_stack_member", [su.id])
-			add_child(row)
-		var all_btn: Button = Button.new()
-		all_btn.text = "Select all (" + str(stack.size()) + ")"
+			list_vbox.add_child(row)
+		add_child(scroll)
+		var all_btn: Button = _left_button("Select all (" + str(stack.size()) + ")")
 		all_btn.connect("pressed", self, "_on_select_all", [u.x, u.y])
 		add_child(all_btn)
 
-	# Action buttons from flyout menu. Skip the "Open City" action: that belongs
-	# to a selected city, not a unit that merely shares the tile with one —
-	# otherwise it lingers on screen with no city actually selected.
-	var menu: Array = _facade.get_flyout_menu(u.x, u.y)
+	# Action buttons for the SELECTED unit (Issues 4–7): the list comes from
+	# get_unit_actions(unit_id), keyed to the head unit, so a settler in a mixed
+	# stack shows Found City and a garrisoned defender shows Fortify — instead of
+	# only the first unit on the tile dictating the buttons. Buttons are wrapped in
+	# a left-aligning row container (Issue 1) so they are natural-width and
+	# left-justified within the same region between the state info above and the
+	# terrain readout below.
+	var menu: Array = _facade.get_unit_actions(u.id)
 	for item in menu:
-		if int(item.get("action_id", -1)) == IDs.ControlType.OPEN_CITY_SCREEN:
-			continue
-		var btn: Button = Button.new()
-		btn.text = str(item.get("label", ""))
+		var btn: Button = _left_button(str(item.get("label", "")))
 		btn.connect("pressed", self, "_on_action_pressed", [item])
 		add_child(btn)
 
@@ -106,28 +141,24 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	var has_explore_tag: bool = "explore" in udata_sel.get("tags", [])
 	if cls_sel == "recon" or has_explore_tag:
 		if not u.is_exploring:
-			var explore_btn: Button = Button.new()
-			explore_btn.text = "Explore"
+			var explore_btn: Button = _left_button("Explore")
 			explore_btn.connect("pressed", self, "_on_explore_pressed", [u.id])
 			add_child(explore_btn)
 		else:
-			var stop_exp_btn: Button = Button.new()
-			stop_exp_btn.text = "Stop Exploring"
+			var stop_exp_btn: Button = _left_button("Stop Exploring")
 			stop_exp_btn.connect("pressed", self, "_on_wake_pressed", [u.id])
 			add_child(stop_exp_btn)
 
 	# Heal-until-recovered buttons (Issue 9): shown when the unit is injured.
 	if u.health < 100:
-		var sleep_btn: Button = Button.new()
-		sleep_btn.text = "Sleep Until Healed"
+		var sleep_btn: Button = _left_button("Sleep Until Healed")
 		sleep_btn.connect("pressed", self, "_on_sleep_until_healed", [u.id])
 		add_child(sleep_btn)
 
 		# Fortify Until Healed: only for non-civilian units.
 		var cls: String = str(db.get_unit(u.unit_type_id).get("classification", ""))
 		if cls != "civilian":
-			var fort_btn: Button = Button.new()
-			fort_btn.text = "Fortify Until Healed"
+			var fort_btn: Button = _left_button("Fortify Until Healed")
 			fort_btn.connect("pressed", self, "_on_fortify_until_healed", [u.id])
 			add_child(fort_btn)
 
@@ -198,8 +229,10 @@ func _append_tile_terrain(tx: int, ty: int) -> void:
 	add_child(lbl)
 
 func _on_action_pressed(item: Dictionary) -> void:
-	# Map flyout item to a command. When a whole stack is selected, per-unit
-	# orders (fortify / sleep / wake) apply to every selected unit; founding a
+	# Map an action item to a command. The item's "kind" ("mission"/"cmd")
+	# disambiguates the UnitCmd/UnitMission enums (whose raw integer values overlap,
+	# e.g. FORTIFY==2 and SKIP_TURN==2). When a whole stack is selected, per-unit
+	# orders (fortify / sleep / wake / skip) apply to every selected unit; founding a
 	# settlement stays a single-settler action on the head unit.
 	var gs = _facade.get_state()
 	var sel = _facade.get_selection()
@@ -207,18 +240,23 @@ func _on_action_pressed(item: Dictionary) -> void:
 	if uid < 0:
 		return
 	var pid: int = gs.current_player_id
+	var kind: String = str(item.get("kind", ""))
 	var aid: int = int(item.get("action_id", -1))
-	if aid == IDs.UnitMission.FOUND_SETTLEMENT:
+	if kind == "mission" and aid == IDs.UnitMission.FOUND_SETTLEMENT:
 		_facade.apply_command(Commands.found_settlement(pid, int(item.get("unit_id", uid))))
-	elif aid == IDs.UnitCmd.FORTIFY:
-		for id in sel.selected_unit_ids:
-			_facade.apply_command(Commands.unit_fortify(pid, id))
-	elif aid == IDs.UnitCmd.SLEEP:
-		for id in sel.selected_unit_ids:
-			_facade.apply_command(Commands.unit_sleep(pid, id))
-	elif aid == IDs.UnitCmd.WAKE:
+	elif kind == "mission" and aid == IDs.UnitMission.SKIP_TURN:
 		for id in sel.selected_unit_ids:
 			_facade.apply_command(Commands.mission_skip_turn(pid, id))
+	elif kind == "cmd" and aid == IDs.UnitCmd.FORTIFY:
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.unit_fortify(pid, id))
+	elif kind == "cmd" and aid == IDs.UnitCmd.SLEEP:
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.unit_sleep(pid, id))
+	elif kind == "cmd" and aid == IDs.UnitCmd.WAKE:
+		for id in sel.selected_unit_ids:
+			_facade.apply_command(Commands.unit_wake(pid, id))
+	rebuild()
 
 func _on_select_stack_member(unit_id: int) -> void:
 	_facade.select_unit(unit_id)
@@ -320,8 +358,7 @@ func _add_worker_buttons(unit, gs) -> void:
 			continue
 		# All checks passed: show a button for this improvement.
 		var imp_name: String = str(imp.get("name", imp_id.capitalize()))
-		var btn: Button = Button.new()
-		btn.text = "Build " + imp_name
+		var btn: Button = _left_button("Build " + imp_name)
 		btn.connect("pressed", self, "_on_build_improvement_pressed", [unit.id, imp_id])
 		add_child(btn)
 
@@ -331,8 +368,7 @@ func _add_worker_buttons(unit, gs) -> void:
 		var feat: Dictionary = db.get_feature(feature_id)
 		if bool(feat.get("removable", false)):
 			var feat_name: String = str(feat.get("name", feature_id.capitalize()))
-			var chop_btn: Button = Button.new()
-			chop_btn.text = "Chop " + feat_name
+			var chop_btn: Button = _left_button("Chop " + feat_name)
 			chop_btn.connect("pressed", self, "_on_clear_feature_pressed", [unit.id])
 			add_child(chop_btn)
 
