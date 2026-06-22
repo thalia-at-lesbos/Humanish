@@ -22,6 +22,22 @@ func test_visibility_helper_compiles() -> void:
 	assert_true(load("res://src/world/visibility.gd").can_instance(),
 		"Visibility helper must compile")
 
+# The three fog states must stay clearly distinct and correctly ordered:
+# in-sight (no veil) brightest > explored (translucent veil) > unexplored (opaque
+# black). The explored veil is also kept light enough (alpha well under the old
+# 0.55) that remembered terrain reads clearly above pure black.
+func test_fog_state_brightness_ordering() -> void:
+	var fog = load("res://scenes/world/fog_layer.gd").new()
+	# Unexplored is fully opaque black; remembered is a partial veil; in-sight has none.
+	assert_eq(fog.FOG_COLOR.a, 1.0, "Unexplored fog is fully opaque black")
+	assert_true(fog.REMEMBERED_COLOR.a < fog.FOG_COLOR.a,
+		"Explored veil is lighter than unexplored black")
+	assert_true(fog.REMEMBERED_COLOR.a > 0.0,
+		"Explored veil is still a visible dim (darker than in-sight)")
+	assert_true(fog.REMEMBERED_COLOR.a <= 0.45,
+		"Explored veil is light enough that remembered terrain reads through")
+	fog.free()
+
 # After the border-vision refactor the fog layer reads its current-visible set
 # straight from SimFacade.player_visible_tiles, so an owned cultural-border tile
 # (with no unit/city nearby) now lifts the fog.

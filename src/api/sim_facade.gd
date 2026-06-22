@@ -805,7 +805,7 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	_gs.settlements.append(s)
 
 	# Initial cultural claim
-	Influence.found_claim(_gs.map, u.x, u.y, player_id, 2, 20)
+	Influence.found_claim(_gs.map, u.x, u.y, player_id, 2, 20, _db)
 
 	# Remove the settler unit
 	Stack.remove_unit(_gs.units, unit_id)
@@ -2549,7 +2549,11 @@ func _explore_choose_step(u: Unit, player_id: int, candidates: Array) -> Tile:
 		"gs": _gs,
 	}
 	# No reachable unseen tile anywhere ⇒ nothing left to explore.
-	if _explore_target(u, domain, ectx, seen) == null:
+	# Keep the frontier tile: when no neighbour opens fresh fog this turn, we steer
+	# toward this reachable unseen tile so the scout makes progress instead of
+	# ping-ponging along a coastline whose only unseen tiles lie across the water.
+	var frontier: Tile = _explore_target(u, domain, ectx, seen)
+	if frontier == null:
 		return null
 	var sight: int = _db.get_constant("unit_sight", 2)
 	# Map each candidate's "x,y" → its reveal count (newly-unseen tiles in sight).
@@ -2593,6 +2597,23 @@ func _explore_choose_step(u: Unit, player_id: int, candidates: Array) -> Tile:
 			best_reveal = reveal
 			best_turn = turn
 			best = c
+	# Coast-trap guard: when no candidate opens fresh fog this turn (best_reveal == 0),
+	# the reveal+heading tiebreak has no sense of WHERE the reachable frontier lies, so
+	# the scout can oscillate along a coastline whose only unseen tiles sit across water
+	# it cannot enter. Instead steer toward the reachable BFS frontier tile: pick the
+	# candidate that minimises wrap-aware distance to it (deterministic, no RNG), so the
+	# scout walks the detour to genuinely reachable unexplored land.
+	if best_reveal <= 0:
+		var fbest: Tile = null
+		var fbest_d: int = 0x7FFFFFFF
+		for c in candidates:
+			var d: int = _gs.map.distance(c.x, c.y, frontier.x, frontier.y)
+			if d < fbest_d or (d == fbest_d and fbest != null \
+					and (c.y < fbest.y or (c.y == fbest.y and c.x < fbest.x))):
+				fbest_d = d
+				fbest = c
+		if fbest != null:
+			best = fbest
 	# Record the committed heading from the chosen step (signed unit step per axis).
 	if best != null:
 		var boff: Array = _explore_offset(u.x, u.y, best.x, best.y)

@@ -69,3 +69,53 @@ func test_found_claim_wild_owner() -> void:
 	Influence.found_claim(m, 5, 5, -2, 1, 20)
 	assert_eq(m.get_tile(5, 5).owner_player_id, -2, "Wild camp centre owned by -2")
 	assert_eq(m.get_tile(5, 6).owner_player_id, -2, "Wild camp ring tile owned by -2")
+
+# ── Culture water-reach cap (§4.7): culture cannot project more than 2 tiles past
+# the shoreline, no matter how much influence reaches a far-ocean tile. ──────────
+
+# A coastal map: column x<=2 is land, x>=3 is ocean. Land tiles and ocean tiles up
+# to 2 away from land are claimable; ocean tiles 3+ away never are.
+func _coast_map(w, h):
+	var m = load("res://src/world/world_map.gd").new()
+	m.init(w, h, false, false)
+	for tile in m.all_tiles():
+		tile.terrain_id = "grassland" if tile.x <= 2 else "ocean"
+	return m
+
+func test_water_reach_cap_blocks_far_ocean() -> void:
+	# Same influence on a near-water tile (1 from land) and a far-ocean tile (3 from
+	# land). With db passed, the cap leaves the far tile unowned while near stays owned.
+	var db = _db()
+	var m = _coast_map(12, 6)
+	# (3,3): ocean, one tile from the x=2 land column → within reach (2).
+	# (6,3): ocean, four tiles from land → beyond reach.
+	m.get_tile(3, 3).influence[0] = 100
+	m.get_tile(6, 3).influence[0] = 100
+	Influence.resolve_ownership(m, db)
+	assert_eq(m.get_tile(3, 3).owner_player_id, 0, "Ocean 1 tile from land is claimable")
+	assert_eq(m.get_tile(6, 3).owner_player_id, -1, "Ocean 4 tiles from land cannot be claimed")
+
+func test_water_reach_cap_exact_boundary() -> void:
+	# A tile exactly 2 tiles from land is still claimable; 3 is not.
+	var db = _db()
+	var m = _coast_map(12, 6)
+	m.get_tile(4, 3).influence[0] = 100   # 2 from land (x=2) → claimable
+	m.get_tile(5, 3).influence[0] = 100   # 3 from land → blocked
+	Influence.resolve_ownership(m, db)
+	assert_eq(m.get_tile(4, 3).owner_player_id, 0, "Ocean exactly 2 from land is claimable")
+	assert_eq(m.get_tile(5, 3).owner_player_id, -1, "Ocean 3 from land cannot be claimed")
+
+func test_water_reach_cap_land_unaffected() -> void:
+	# Land tiles are reach 0 and always eligible regardless of the cap.
+	var db = _db()
+	var m = _coast_map(12, 6)
+	m.get_tile(0, 0).influence[0] = 5   # deep inland land tile
+	Influence.resolve_ownership(m, db)
+	assert_eq(m.get_tile(0, 0).owner_player_id, 0, "Inland land is always claimable")
+
+func test_water_reach_cap_skipped_without_db() -> void:
+	# Backward compatibility: with no db (pure unit maps) the cap is inert.
+	var m = _coast_map(12, 6)
+	m.get_tile(6, 3).influence[0] = 100
+	Influence.resolve_ownership(m)   # no db → no cap
+	assert_eq(m.get_tile(6, 3).owner_player_id, 0, "Far ocean owned when no db (cap skipped)")

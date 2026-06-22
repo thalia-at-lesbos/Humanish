@@ -630,4 +630,4 @@ static func _spawn_raider_settlement(x: int, y: int, game_state) -> void:
 	# claimed tiles are owned by -2 (resolve_ownership lets the wild owner win).
 	var radius: int = db.get_constant("wild_camp_claim_radius", 1)
 	var influence: int = db.get_constant("wild_camp_claim_influence", 20)
-	Influence.found_claim(game_state.map, x, y, -2, radius, influence)
+	Influence.found_claim(game_state.map, x, y, -2, radius, influence, db)

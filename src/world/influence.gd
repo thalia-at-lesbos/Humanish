@@ -52,9 +52,23 @@ static func spread(map: WorldMap, cx: int, cy: int,
 # Ties keep the current owner (no change).
 # Wild forces (owner -2) claim tiles just like a civ does (their Raider Camp
 # shows cultural borders); only the absence of *any* influence leaves a tile -1.
-static func resolve_ownership(map: WorldMap) -> void:
+#
+# Water reach cap (§4.7): culture cannot project indefinitely out to sea. A tile
+# more than `culture_max_water_reach` tiles (Chebyshev) from the nearest land tile
+# can never be culturally claimed, no matter how much influence reached it — so
+# coastal borders stay close to shore. `db` is optional: when null (pure-map unit
+# tests with no terrain) the cap is skipped. Land tiles are reach 0 and always
+# eligible, so normal land expansion is unaffected.
+static func resolve_ownership(map: WorldMap, db: DataDB = null) -> void:
+	var water_reach: int = -1
+	if db != null:
+		water_reach = db.get_constant("culture_max_water_reach", 2)
 	for tile in map.all_tiles():
 		if tile.influence.empty():
+			tile.owner_player_id = -1
+			continue
+		# Over-water reach cap: an ocean tile too far from land cannot be owned.
+		if water_reach >= 0 and _too_far_from_land(map, db, tile, water_reach):
 			tile.owner_player_id = -1
 			continue
 		var best_player: int = -1
@@ -69,10 +83,24 @@ static func resolve_ownership(map: WorldMap) -> void:
 		if have_winner:
 			tile.owner_player_id = best_player
 
+# True when `tile` is a water/sea tile lying strictly more than `max_reach` tiles
+# (Chebyshev) from the nearest land tile — i.e. culture should not project here.
+# A land tile is reach 0 and is never "too far". The search is bounded to the
+# (max_reach)-radius ring around the tile, so it is O(reach^2) per water tile.
+static func _too_far_from_land(map: WorldMap, db: DataDB, tile: Tile, max_reach: int) -> bool:
+	if db.get_terrain(tile.terrain_id).get("domain", "land") == "land":
+		return false   # land itself is always claimable
+	# Any land tile within max_reach rings ⇒ within reach.
+	for r in range(1, max_reach + 1):
+		for nb in map.ring_at_distance(tile.x, tile.y, r):
+			if nb != null and db.get_terrain(nb.terrain_id).get("domain", "land") == "land":
+				return false
+	return true
+
 # Immediately claim a radius of tiles for a new settlement (founding).
 # This establishes the minimal initial border.
 static func found_claim(map: WorldMap, cx: int, cy: int,
-		player_id: int, radius: int, initial_influence: int) -> void:
+		player_id: int, radius: int, initial_influence: int, db: DataDB = null) -> void:
 	for tile in map.tiles_in_range(cx, cy, radius):
 		if tile == null:
 			continue
@@ -81,4 +109,4 @@ static func found_claim(map: WorldMap, cx: int, cy: int,
 		if not tile.influence.has(player_id):
 			tile.influence[player_id] = 0
 		tile.influence[player_id] += amount
-	resolve_ownership(map)
+	resolve_ownership(map, db)

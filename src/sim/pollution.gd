@@ -50,8 +50,13 @@ static func _degrade_tile(game_state, tile: Tile, db: DataDB) -> void:
 		return
 	# Flooding (§11): a heavily polluted flat tile beside water can flood and
 	# become coast. Flat tiles are those not classed as hill/peak/mountain.
+	# A tile hosting a settlement is NEVER flooded — a founded city sits on land,
+	# and turning its tile to coast (sea domain) would strand the capital on water
+	# (it cannot be re-founded there) and orphan its garrison. Degrade it toward
+	# barren instead, like an inland tile.
 	var landform: String = str(ter.get("landform", "flat"))
-	if landform == "flat" and _adjacent_to_water(game_state, tile, db):
+	var has_settlement: bool = game_state.get_settlement_at(tile.x, tile.y) != null
+	if landform == "flat" and not has_settlement and _adjacent_to_water(game_state, tile, db):
 		tile.terrain_id = "coast"
 		tile.improvement_id = ""
 		tile.owner_player_id = -1

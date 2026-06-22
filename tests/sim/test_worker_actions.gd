@@ -808,6 +808,45 @@ func test_explore_stops_when_all_reachable_revealed() -> void:
 	assert_false(scout.is_exploring,
 		"With every reachable land tile revealed, the scout should stop exploring")
 
+func test_explore_does_not_oscillate_along_coastline() -> void:
+	# Regression (pt-b-11.sav: the easternmost scout oscillated near a coastline).
+	# A land scout walking a shore where the only nearby unseen tiles lie across the
+	# water (unreachable) used to ping-pong between two coastal tiles forever because
+	# the per-neighbour reveal+heading tiebreak had no sense of which way the
+	# REACHABLE frontier lay. The coast-trap guard now steers it toward the BFS
+	# frontier tile, so it makes steady progress and never revisits a tile.
+	#
+	# Map: a single land row (y = 5) across an otherwise-ocean map. The scout starts
+	# at the west end; the only reachable unexplored LAND is further east along the
+	# strip. Every step must advance east and never return to a visited tile.
+	var gs = make_gs(1, 42, 30, 12)
+	gs.get_player(1).treasury = 100000
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "ocean"
+	for x in range(0, 30):
+		gs.map.get_tile(x, 5).terrain_id = "grassland"
+	var scout = make_unit(gs, "scout", 1, 2, 5)
+	scout.is_exploring = true
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var visited: Dictionary = {str(scout.x) + "," + str(scout.y): true}
+	var max_x: int = scout.x
+	for _i in range(12):
+		scout.movement_left = scout.movement_total
+		scout.has_moved = false
+		if not scout.is_exploring:
+			break
+		facade._explore_step(scout)
+		var key: String = str(scout.x) + "," + str(scout.y)
+		# Never step back onto a tile already visited this run (no oscillation).
+		assert_false(visited.has(key),
+			"Exploring scout must not revisit a tile (no coastline oscillation)")
+		visited[key] = true
+		if scout.x > max_x:
+			max_x = scout.x
+	assert_true(max_x >= 6,
+		"Exploring scout should make steady progress east along the coast")
+
 func test_explore_uses_no_private_rng_state() -> void:
 	# The targeting is deterministic and draws no RNG: an explore step must not
 	# advance the shared RNG state (unlike the old random-neighbour pick).
