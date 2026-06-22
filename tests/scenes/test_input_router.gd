@@ -332,6 +332,74 @@ func test_next_idle_unit_hotkey_centers_world_view() -> void:
 	assert_eq(stub.center_calls, 1,
 		"Pressing the next-idle-unit hotkey centres the world view on the new unit")
 
+# ── Map click releases HUD keyboard focus (issues 1 + 3) ──────────────────────
+
+# After opening an advisor menu, a focused button swallows Enter (bound to End
+# Turn) and the arrow keys. A genuine map click must drop that focus. We focus a
+# real Button, route a left-click (press+release, no drag) through the router, and
+# assert the button no longer holds focus.
+func test_left_click_releases_hud_focus() -> void:
+	var facade = setup_facade(4040, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	facade.clear_selection()
+
+	# A focusable button standing in for an advisor/HUD control holding focus.
+	var btn = Button.new()
+	add_child_autofree(btn)
+	btn.grab_focus()
+	assert_true(btn.has_focus(), "Precondition: the button holds keyboard focus")
+
+	var ir = _router()   # added to the tree, so get_viewport() is live
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._handle_mouse_button(_mb(BUTTON_LEFT, true, Vector2(64, 64)))
+	ir._handle_mouse_button(_mb(BUTTON_LEFT, false, Vector2(64, 64)))
+
+	assert_false(btn.has_focus(),
+		"A map click releases HUD keyboard focus so Enter reaches End Turn again")
+
+# A right-click move also releases HUD focus (same Enter-swallowing problem).
+func test_right_click_releases_hud_focus() -> void:
+	var facade = setup_facade(4141, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	facade.clear_selection()
+
+	var btn = Button.new()
+	add_child_autofree(btn)
+	btn.grab_focus()
+	assert_true(btn.has_focus(), "Precondition: the button holds keyboard focus")
+
+	var ir = _router()
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._handle_mouse_button(_mb(BUTTON_RIGHT, true, Vector2(64, 64)))
+
+	assert_false(btn.has_focus(),
+		"A right-click move also releases HUD keyboard focus")
+
+# A drag-pan (not a click) should NOT touch selection — and the focus path it now
+# also runs must not error. (Drag suppresses the select; this guards regressions.)
+func test_left_drag_does_not_select_or_error() -> void:
+	var facade = setup_facade(4242, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	gs.current_player_id = gs.players[0].id
+	make_unit(gs, "warrior", gs.players[0].id, 1, 1)   # under the press point
+	facade.clear_selection()
+
+	var ir = _router()
+	ir._facade = facade
+	ir._world_view = _StubView.new()
+	ir._handle_mouse_button(_mb(BUTTON_LEFT, true, Vector2(64, 64)))
+	ir._handle_mouse_motion(_mm(Vector2(104, 64), BUTTON_MASK_LEFT, Vector2(40, 0)))
+	ir._handle_mouse_button(_mb(BUTTON_LEFT, false, Vector2(104, 64)))
+	assert_eq(facade.get_selection().head_unit(), -1,
+		"A drag is a pan, not a click — it never selects")
+
 # ── Click model: LEFT selects (never moves), RIGHT moves ──────────────────────
 
 func test_right_click_moves_selected_unit_onto_empty_tile() -> void:

@@ -116,6 +116,48 @@ func test_center_on_selection_noop_when_nothing_selected() -> void:
 	assert_eq([int(after.x), int(after.y)], [int(before.x), int(before.y)],
 		"…and does not move the camera")
 
+# Issue 5: opening a turn, the view jumps to a unit that still needs orders. With
+# an idle unit present, center_on_idle_or_player selects it and centres on it,
+# even though a busy (fortified) unit sits first in the unit list.
+func test_center_on_idle_or_player_focuses_idle_unit() -> void:
+	var facade = setup_facade(2828, "standard",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var busy = make_unit(gs, "warrior", pid, 3, 4)
+	busy.is_fortified = true            # first in the list, but not awaiting orders
+	var idle = make_unit(gs, "scout", pid, 13, 7)
+	facade.select_unit(busy.id)         # a stale selection on the busy unit
+
+	var wv = _world_view(facade)
+	assert_true(wv.center_on_idle_or_player(pid),
+		"center_on_idle_or_player finds the idle unit to centre on")
+	assert_eq(facade.get_selection().head_unit(), idle.id,
+		"…and the idle unit (not the fortified one) becomes the selection")
+	var t = wv.screen_to_tile(wv.get_viewport_rect().size * 0.5)
+	assert_eq([int(t.x), int(t.y)], [13, 7],
+		"…and the camera is centred on the idle unit's tile")
+
+# When no unit is idle (all fortified/asleep), it still opens the turn on
+# something the player owns by falling back to center_on_player.
+func test_center_on_idle_or_player_falls_back_when_none_idle() -> void:
+	var facade = setup_facade(2929, "standard",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var only = make_unit(gs, "warrior", pid, 8, 5)
+	only.is_fortified = true            # nothing is idle
+	facade.clear_selection()
+
+	var wv = _world_view(facade)
+	assert_true(wv.center_on_idle_or_player(pid),
+		"With nothing idle it still centres on an owned unit (fallback)")
+	var t = wv.screen_to_tile(wv.get_viewport_rect().size * 0.5)
+	assert_eq([int(t.x), int(t.y)], [8, 5],
+		"…the fallback centres on the player's (busy) unit")
+
 func test_pan_by_shifts_the_camera() -> void:
 	var facade = setup_facade(1818, "standard",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])

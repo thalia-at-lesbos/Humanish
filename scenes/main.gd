@@ -137,9 +137,13 @@ func _ready() -> void:
 		if start_fog != null:
 			start_fog.rebuild(_facade.get_state().current_player_id)
 		# player_turn_started is not emitted for the opening player, so center the
-		# map on one of their units here at game start.
-		if world_view.has_method("center_on_player"):
-			world_view.center_on_player(_facade.get_state().current_player_id)
+		# map here at game start — on a unit that still needs orders (issue 5) when
+		# there is one, else on any owned unit/settlement.
+		var opener: int = _facade.get_state().current_player_id
+		if world_view.has_method("center_on_idle_or_player"):
+			world_view.center_on_idle_or_player(opener)
+		elif world_view.has_method("center_on_player"):
+			world_view.center_on_player(opener)
 		# Sync the minimap after the opening fog build.
 		_refresh_minimap(world_view)
 
@@ -171,8 +175,11 @@ func _on_net_state_synced(active: bool, world_view) -> void:
 		var fog = world_view.get_node_or_null("FogLayer")
 		if fog != null:
 			fog.rebuild(my_id)
-		if active and world_view.has_method("center_on_player"):
-			world_view.center_on_player(my_id)
+		if active:
+			if world_view.has_method("center_on_idle_or_player"):
+				world_view.center_on_idle_or_player(my_id)
+			elif world_view.has_method("center_on_player"):
+				world_view.center_on_player(my_id)
 	_facade.get_dirty().mark_all()
 	_refresh_minimap(world_view)
 

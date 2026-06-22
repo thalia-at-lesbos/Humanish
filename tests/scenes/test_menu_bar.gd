@@ -20,6 +20,27 @@ func _bar(facade):
 	bar.init(facade)
 	return bar
 
+# Canary: a parse error in the menu bar script still loads (load() returns a
+# broken GDScript) but cannot instance; can_instance() reports the compile state
+# without throwing, so this fails loudly instead of GUT silently swallowing it.
+func test_menu_bar_script_compiles() -> void:
+	assert_true(load("res://scenes/hud/menu_bar.gd").can_instance(),
+		"menu_bar.gd must compile (no parse error)")
+
+# Issue 2: the advisor buttons are FOCUS_NONE so arrow keys (map-pan) never hop
+# keyboard focus onto them, and a focused button never swallows Enter (End Turn).
+func test_menu_bar_buttons_take_no_keyboard_focus() -> void:
+	var facade = setup_facade(43)
+	facade.get_state().current_player_id = facade.get_state().players[0].id
+	var bar = _bar(facade)
+	var checked = 0
+	for c in bar.get_children():
+		if c is Button:
+			checked += 1
+			assert_eq(c.focus_mode, Control.FOCUS_NONE,
+				"Advisor button '" + c.text + "' must not take keyboard focus")
+	assert_true(checked > 0, "There is at least one advisor button to check")
+
 func test_menu_bar_builds_a_button_per_entry() -> void:
 	var facade = setup_facade(40)
 	facade.get_state().current_player_id = facade.get_state().players[0].id

@@ -522,6 +522,26 @@ func center_on_selection() -> bool:
 	pan_to_tile(u.x, u.y)
 	return true
 
+# Open the turn looking at a unit that still needs orders. Selects the first idle
+# unit (the facade's own idle predicate — skips asleep/fortified/sentry/healing
+# units and ones mid-build/clearing) and centres on it, so a worker that just
+# finished an improvement, or any freshly-idle unit, grabs focus at turn start.
+# Falls back to center_on_player (any owned unit, then a settlement) when nothing
+# is idle. Returns true if it centred on anything.
+func center_on_idle_or_player(player_id: int) -> bool:
+	if _facade == null:
+		return false
+	# cycle_idle_units selects the first idle unit when none is selected, or the
+	# next one when something already is. Clear first so the turn deterministically
+	# opens on the *first* unit awaiting orders, not the one after a stale selection.
+	if _facade.has_method("cycle_idle_units"):
+		if _facade.has_method("clear_selection"):
+			_facade.clear_selection()
+		_facade.cycle_idle_units(false)
+		if center_on_selection():
+			return true
+	return center_on_player(player_id)
+
 # Redraw the world and keep the fog overlay locked to the same camera, so fog
 # stays pinned to the map instead of drifting when the view pans or zooms.
 func _camera_changed() -> void:
