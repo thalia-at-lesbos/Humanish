@@ -356,6 +356,11 @@ func _add_worker_buttons(unit, gs) -> void:
 		if bool(imp.get("requires_resource", false)) \
 				and not _facade._tile_offers_resource_improvement(tile, imp_id, player):
 			continue
+		# Check food requirement (cottage needs a non-zero-food tile, §5): share
+		# the facade's authoritative legality predicate so the panel never offers
+		# a build the command would reject.
+		if not _facade.can_build_improvement(player.id, unit.id, imp_id):
+			continue
 		# All checks passed: show a button for this improvement.
 		var imp_name: String = str(imp.get("name", imp_id.capitalize()))
 		var btn: Button = _left_button("Build " + imp_name)

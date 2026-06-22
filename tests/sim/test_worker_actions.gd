@@ -525,6 +525,101 @@ func test_fishing_boats_completes_in_a_single_turn() -> void:
 	assert_eq(w.building_improvement, "",
 		"Build state clears once Fishing Boats completes")
 
+# ── Fix 1: a work boat is consumed when its improvement completes ────────────
+#
+# The work boat is a single-use builder (data flag `consumed_on_use` on the unit
+# in units.json): unlike a land worker it is removed from state when the
+# improvement it is building completes. Drives the completion helper directly.
+
+func test_work_boat_consumed_when_improvement_completes() -> void:
+	var gs = make_gs(1)
+	var w = make_unit(gs, "work_boat", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "coast"
+	var wid: int = w.id
+	_complete_build(gs, w, "fishing_boats")
+	assert_eq(t.improvement_id, "fishing_boats",
+		"The fishing boats improvement is placed when the build completes")
+	assert_null(gs.get_unit(wid),
+		"A work boat (consumed_on_use) is removed from state when its build completes")
+	assert_eq(gs.units.size(), 0,
+		"No units remain after the single-use work boat is consumed")
+
+func test_land_worker_persists_when_improvement_completes() -> void:
+	# Regression guard: a normal worker has no consumed_on_use flag and must NOT be
+	# removed when its improvement finishes — it survives to improve more tiles.
+	var gs = make_gs(1)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	var wid: int = w.id
+	_complete_build(gs, w, "farm")
+	assert_eq(gs.map.get_tile(5, 5).improvement_id, "farm",
+		"The farm is placed when the worker finishes")
+	assert_not_null(gs.get_unit(wid),
+		"A normal worker persists after completing an improvement (not consumed)")
+
+func test_work_boat_data_has_consumed_on_use_flag() -> void:
+	var gs = make_gs(1)
+	var tags: Array = gs.db.get_unit("work_boat").get("tags", [])
+	assert_true("consumed_on_use" in tags,
+		"The work boat unit must carry the consumed_on_use tag (single-use builder)")
+	var wtags: Array = gs.db.get_unit("worker").get("tags", [])
+	assert_false("consumed_on_use" in wtags,
+		"A normal worker must NOT carry consumed_on_use (it persists)")
+
+# ── Fix 2: a cottage may not be built on a zero-food tile (desert) ───────────
+#
+# A cottage models a working settlement and needs a tile that can feed it: the
+# improvement carries `requires_food: true` in improvements.json and is rejected
+# on any tile whose terrain base food yield is 0 (desert, snow). Other
+# improvements (no requires_food flag) are unaffected.
+
+func test_cottage_rejected_on_desert() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "desert"  # flat landform, 0 base food
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.can_build_improvement(1, w.id, "cottage"),
+		"can_build_improvement must reject a cottage on a zero-food desert tile")
+	assert_false(facade.apply_command(Commands.build_improvement(1, w.id, "cottage")),
+		"The build command must also reject a cottage on desert")
+	assert_eq(w.building_improvement, "",
+		"No cottage build should be queued on a desert tile")
+
+func test_cottage_accepted_on_grassland() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"  # flat, 2 base food
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.can_build_improvement(1, w.id, "cottage"),
+		"can_build_improvement must accept a cottage on a food-bearing grassland tile")
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "cottage")),
+		"The build command must accept a cottage on grassland")
+
+func test_non_cottage_improvement_unaffected_on_desert() -> void:
+	# A mine has no requires_food flag, so the food gate must not touch it. Mines are
+	# hills-only though, so use a farm on a flat zero-food tile would be wrong (farm
+	# would still place); instead confirm a road (flat, no food req) builds on desert.
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "desert"  # flat, 0 base food
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.can_build_improvement(1, w.id, "road"),
+		"A road (no requires_food) must still be buildable on desert")
+
+func test_cottage_data_has_requires_food_flag() -> void:
+	var gs = make_gs(1)
+	assert_true(bool(gs.db.get_improvement("cottage").get("requires_food", false)),
+		"The cottage improvement must carry requires_food: true")
+	assert_false(bool(gs.db.get_improvement("farm").get("requires_food", false)),
+		"A farm must NOT carry requires_food (defaults off)")
+
 func test_work_boat_cannot_build_on_own_city_tile() -> void:
 	# A work boat docked in its own coastal city offers no improvement: the city
 	# centre cannot be improved. Sim rejects the command (the HUD also hides it).
