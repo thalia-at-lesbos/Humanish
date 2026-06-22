@@ -33,8 +33,11 @@ const TILE_SIZE: int = 40
 # that would let the underlying terrain bleed through.
 const FOG_COLOR: Color = Color(0.0, 0.0, 0.0, 1.0)
 # Explored-but-not-currently-visible: a translucent veil so the remembered
-# terrain reads through, dimmer than live sight.
-const REMEMBERED_COLOR: Color = Color(0.0, 0.0, 0.0, 0.55)
+# terrain reads through, dimmer than live sight. Kept light enough (40% black)
+# that remembered terrain is clearly distinguishable from never-seen black while
+# still visibly dimmer than in-sight tiles: in-sight (full) > explored (this
+# veil) > unexplored (opaque black).
+const REMEMBERED_COLOR: Color = Color(0.0, 0.0, 0.0, 0.40)
 
 var _visible_tiles: Dictionary = {}    # "x,y" → true (current sight this turn)
 var _explored_tiles: Dictionary = {}   # "x,y" → true (ever seen by this player)

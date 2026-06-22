@@ -1126,7 +1126,7 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 
 	# Spread cultural influence using the culture output.
 	Influence.spread(gs.map, s.x, s.y, culture_out, ring, s.owner_player_id, db)
-	Influence.resolve_ownership(gs.map)
+	Influence.resolve_ownership(gs.map, db)
 
 static func _settlement_upkeep(gs: GameState, s: Settlement,
 		player: Player) -> void:
