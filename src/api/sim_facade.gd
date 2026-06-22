@@ -236,6 +236,16 @@ func get_player_era(player_id: int) -> Dictionary:
 	var idx: int = Eras.player_era(p, _db)
 	return {"index": idx, "id": Eras.era_id(idx, _db), "name": Eras.era_name(idx, _db)}
 
+# Net gold per turn for a player (income - upkeep), for the HUD's signed gold
+# rate and the AI's solvency checks. Reads TurnEngine's pure economy helpers so
+# the previewed rate is exactly the delta _update_treasury will apply. 0 for an
+# unknown player.
+func get_player_gold_rate(player_id: int) -> int:
+	var p: Player = _gs.get_player(player_id)
+	if p == null:
+		return 0
+	return TurnEngine.net_gold(_gs, p)
+
 # ── Diplomatic assembly (§7.2) ────────────────────────────────────────────────
 
 # The full assembly record ({} when no founding wonder exists). Read-only.

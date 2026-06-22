@@ -807,3 +807,32 @@ func test_get_seen_memory_returns_committed_snapshot() -> void:
 	var mem = f.get_seen_memory(1)
 	assert_true(mem.has("5,5"), "End-of-turn commit records the unit's tile")
 	assert_eq(int(mem["5,5"].get("owner_player_id")), 1, "Snapshot carries the border owner")
+
+# ── Gold rate (HUD signed per-turn readout) ───────────────────────────────────
+
+func test_gold_rate_equals_income_minus_upkeep() -> void:
+	var f = setup_facade(4242)
+	var gs = f.get_state()
+	var p = gs.get_player(gs.current_player_id)
+	var expected = TurnEngine.gold_income(gs, p) - TurnEngine.gold_upkeep(gs, p)
+	assert_eq(f.get_player_gold_rate(p.id), expected,
+		"get_player_gold_rate == income - upkeep")
+
+func test_gold_rate_matches_applied_treasury_delta() -> void:
+	# The previewed rate must be exactly the delta _update_treasury applies, so the
+	# HUD never lies. Unit upkeep makes the rate negative for a fresh player, so
+	# stake the treasury first to keep the post-turn value off the insolvency clamp.
+	var f = setup_facade(4243)
+	var gs = f.get_state()
+	var p = gs.get_player(gs.current_player_id)
+	p.treasury = 1000
+	var rate = f.get_player_gold_rate(p.id)
+	var before = p.treasury
+	gs.current_player_id = p.id
+	f.apply_command(Commands.end_turn(p.id))
+	assert_eq(p.treasury - before, rate,
+		"Treasury moved by exactly the previewed gold rate")
+
+func test_gold_rate_unknown_player_is_zero() -> void:
+	var f = setup_facade(4244)
+	assert_eq(f.get_player_gold_rate(999), 0, "Unknown player has a 0 gold rate")

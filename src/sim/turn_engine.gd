@@ -1215,7 +1215,9 @@ static func _healing_rate(gs: GameState, u: Unit, player: Player) -> int:
 	# Met but not hostile: peaceful/allied territory.
 	return db.get_constant("healing_allied_territory", 15)
 
-static func _update_treasury(gs: GameState, player: Player) -> void:
+# Gross gold income for a player this turn (finance commerce + corporation HQ
+# share). Pure read — no state mutation — so the HUD/AI can preview the rate.
+static func gold_income(gs: GameState, player: Player) -> int:
 	var db: DataDB = gs.db
 	var income: int = 0
 	# Sum finance output from all settlements
@@ -1228,7 +1230,13 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 	# Corporation HQ gold: the founder earns a share per unit of input consumed in
 	# every member city worldwide (§14.6).
 	income += EconOrgs.hq_gold_for(gs, db, player)
+	return income
 
+# Gross gold upkeep for a player this turn (unit + settlement + corporation
+# maintenance, after the policy upkeep modifier). Pure read — mirrors the cost
+# side of _update_treasury so the HUD rate never diverges from the applied delta.
+static func gold_upkeep(gs: GameState, player: Player) -> int:
+	var db: DataDB = gs.db
 	# Vassalage waives unit upkeep for a number of units per city (§8). Count the
 	# player's cities, then exempt that many units below.
 	var city_count: int = 0
@@ -1276,8 +1284,16 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		upkeep += Fixed.scale(upkeep, policy_mod)
 	if upkeep < 0:
 		upkeep = 0
+	return upkeep
 
-	player.treasury += income - upkeep
+# Net gold per turn (income - upkeep) before insolvency clamping. The HUD reads
+# this as the signed gold rate; _update_treasury applies the identical value.
+static func net_gold(gs: GameState, player: Player) -> int:
+	return gold_income(gs, player) - gold_upkeep(gs, player)
+
+static func _update_treasury(gs: GameState, player: Player) -> void:
+	var db: DataDB = gs.db
+	player.treasury += net_gold(gs, player)
 
 	# Insolvency (§6.1): force research down immediately; only sell/disband as an
 	# extreme measure once the player stays broke past the grace period.

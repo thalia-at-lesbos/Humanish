@@ -229,18 +229,9 @@ func _on_load_file(filename: String) -> void:
 	_on_setup_complete(facade, _db)
 
 func _list_saves() -> Array:
-	var files: Array = []
-	var dir := Directory.new()
-	if dir.open(SaveLoadScreen.SAVE_DIR) == OK:
-		dir.list_dir_begin(true, true)
-		var fname := dir.get_next()
-		while fname != "":
-			if fname.ends_with(".sav"):
-				files.append(fname)
-			fname = dir.get_next()
-		dir.list_dir_end()
-	files.sort()
-	return files
+	# Newest-modified first, via the shared helper so this and the in-game
+	# save/load screen always present the same order.
+	return SaveLoadScreen.list_saves_by_date(SaveLoadScreen.SAVE_DIR)
 
 func _on_setup_complete(facade, db) -> void:
 	var main_scene = load("res://scenes/main.tscn").instance()
