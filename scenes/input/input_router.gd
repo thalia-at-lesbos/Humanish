@@ -76,9 +76,14 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 		_left_down = false
 		if _left_dragged:
 			return  # this gesture was a map pan, not a click
+		# A real click on the map drops keyboard focus off the HUD. After opening an
+		# advisor screen a button (or the screen's controls) can keep focus and then
+		# swallow Enter so End Turn never fires; releasing focus here restores it.
+		_release_ui_focus()
 		_perform_left_click(tx, ty, gs)
 
 	elif event.button_index == BUTTON_RIGHT and event.pressed:
+		_release_ui_focus()
 		_handle_move_click(tx, ty, gs)
 
 # The left-click action (targeting dispatch in a targeting mode, else select),
@@ -196,6 +201,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		return
 	# A single tap behaves like an immediate left click (no press-drag pan on
 	# touch), so it dispatches the select/targeting action at once.
+	_release_ui_focus()
 	var tile_pos: Vector2 = _world_view.screen_to_tile(event.position)
 	_perform_left_click(int(tile_pos.x), int(tile_pos.y), _facade.get_state())
 
@@ -244,6 +250,35 @@ func _unit_can_still_act(u) -> bool:
 func _center_on_selected_unit() -> void:
 	if _world_view != null and _world_view.has_method("center_on_selection"):
 		_world_view.center_on_selection()
+
+# Drop keyboard focus off any HUD control (issues 1 + 3). Clicking the map means
+# "I'm done with that menu" — without this, an advisor button or info-screen
+# control keeps focus after the menu closes and intercepts Enter (which is bound
+# to End Turn) and the arrow keys. Releasing focus on every genuine map click
+# returns those keys to the map/turn loop. Guarded so the headless test harness
+# (no viewport / not in the tree) is a safe no-op.
+func _release_ui_focus() -> void:
+	if not is_inside_tree():
+		return
+	# Godot 3.x has no public Viewport.gui_get_focus_owner()/gui_release_focus() on
+	# this build, so find the focused Control by walking the scene tree from the
+	# root and release it directly. has_focus()/release_focus() are stable Control
+	# API. Cheap (one pass) and only runs on a genuine map click.
+	var root = get_tree().get_root()
+	if root == null:
+		return
+	var focused = _find_focused_control(root)
+	if focused != null:
+		focused.release_focus()
+
+func _find_focused_control(node):
+	if node is Control and node.has_focus():
+		return node
+	for child in node.get_children():
+		var hit = _find_focused_control(child)
+		if hit != null:
+			return hit
+	return null
 
 func _owned_units_at(tx: int, ty: int, gs) -> Array:
 	# All units the current player owns on this tile, in stable spawn order so the

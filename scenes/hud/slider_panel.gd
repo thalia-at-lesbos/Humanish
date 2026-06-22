@@ -40,6 +40,11 @@ func _build_ui() -> void:
 		slider.max_value = 100
 		slider.step = 10
 		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# FOCUS_NONE: keep the economy sliders off the keyboard-focus chain. A
+		# focused slider would otherwise (a) steal the arrow keys that pan the map
+		# and nudge its own value, and (b) hop focus between sliders on left/right.
+		# The slider is still fully draggable with the mouse.
+		slider.focus_mode = Control.FOCUS_NONE
 		slider.connect("value_changed", self, "_on_slider_changed", [i])
 		_sliders.append(slider)
 		vbox.add_child(slider)

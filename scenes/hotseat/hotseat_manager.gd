@@ -61,7 +61,12 @@ func _on_player_turn_started(player_id: int) -> void:
 		var fog = _world_view.get_node_or_null("FogLayer")
 		if fog != null:
 			fog.rebuild(player_id)
-		if _world_view.has_method("center_on_player"):
+		# Open the turn on a unit that still needs orders (issue 5): a worker that
+		# just finished an improvement, or any freshly-idle unit, is selected and
+		# centred rather than landing on whatever owned unit happens to be first.
+		if _world_view.has_method("center_on_idle_or_player"):
+			_world_view.center_on_idle_or_player(player_id)
+		elif _world_view.has_method("center_on_player"):
 			_world_view.center_on_player(player_id)
 
 	# Show the pass-device overlay — but only in a true hotseat with two or more

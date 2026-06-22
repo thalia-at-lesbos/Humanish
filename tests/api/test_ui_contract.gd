@@ -95,6 +95,45 @@ func test_cycle_idle_units_visits_all_idle() -> void:
 	assert_true(first != second, "Cycling twice should select a different idle unit")
 	assert_true(first == uid1 or first == uid2, "First cycled unit must be one of the idle units")
 
+# Issue 5: the idle cycle must skip units that are not awaiting orders — asleep,
+# fortified, or mid-build — and only land on the one genuinely-idle unit. This is
+# the predicate behind the turn-start auto-focus.
+func test_cycle_idle_units_skips_asleep_fortified_and_building() -> void:
+	var f = setup_facade(60)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var asleep = make_unit(gs, "warrior", pid, 2, 2)
+	asleep.is_sleeping = true
+	var fortified = make_unit(gs, "warrior", pid, 3, 3)
+	fortified.is_fortified = true
+	var building = make_unit(gs, "worker", pid, 4, 4)
+	building.building_improvement = "farm"   # mid-build → not idle
+	var ready = make_unit(gs, "scout", pid, 5, 5)   # the one unit awaiting orders
+	f.clear_selection()
+	f.cycle_idle_units(false)
+	assert_eq(f.get_selection().head_unit(), ready.id,
+		"The idle cycle skips asleep/fortified/building units and selects the ready one")
+
+# Issue 5 (the pt-b-6.sav repro): a worker mid-build is NOT idle, but once it
+# FINISHES (building_improvement cleared) it becomes idle and the cycle finds it,
+# which is what lets turn-start focus shift to a worker that just completed work.
+func test_worker_becomes_idle_when_build_finishes() -> void:
+	var f = setup_facade(61)
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var worker = make_unit(gs, "worker", pid, 4, 4)
+	worker.building_improvement = "farm"
+	f.clear_selection()
+	f.cycle_idle_units(false)
+	assert_eq(f.get_selection().head_unit(), -1,
+		"A worker mid-build is not yet idle, so the cycle finds nothing")
+	worker.building_improvement = ""   # the improvement completed
+	f.cycle_idle_units(false)
+	assert_eq(f.get_selection().head_unit(), worker.id,
+		"Once the build finishes the worker is idle and the cycle selects it")
+
 # ── Capability queries ──────────────────────────────────────────────────────────
 
 func test_can_do_control_end_turn_allowed() -> void:

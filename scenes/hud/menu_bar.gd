@@ -46,6 +46,12 @@ func _build() -> void:
 	for entry in ENTRIES:
 		var btn: Button = Button.new()
 		btn.text = entry[0]
+		# FOCUS_NONE: the advisor bar is a mouse/hotkey surface only. Without this,
+		# Godot's default Control focus navigation lets the arrow keys (which are
+		# meant to pan the map) hop keyboard focus between these buttons, and a
+		# focused button then swallows Enter so it never reaches End Turn. The
+		# button still works on a mouse click — it just never takes keyboard focus.
+		btn.focus_mode = Control.FOCUS_NONE
 		btn.connect("pressed", self, "_on_open", [entry[1]])
 		add_child(btn)
 
