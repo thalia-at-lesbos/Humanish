@@ -224,14 +224,35 @@ func _on_close() -> void:
 	visible = false
 
 func _list_saves() -> Array:
-	var files: Array = []
+	return list_saves_by_date(SAVE_DIR)
+
+# List the ".sav" file names in `dir_path`, newest-modified first. Shared by the
+# in-game screen and the start-menu Load list so their ordering never drifts.
+static func list_saves_by_date(dir_path: String) -> Array:
+	var entries: Array = []   # [{name, mtime}]
 	var dir: Directory = Directory.new()
-	if dir.open(SAVE_DIR) == OK:
+	if dir.open(dir_path) == OK:
 		dir.list_dir_begin(true, true)
 		var fname: String = dir.get_next()
 		while fname != "":
 			if fname.ends_with(".sav"):
-				files.append(fname)
+				var f: File = File.new()
+				entries.append({"name": fname, "mtime": f.get_modified_time(dir_path + fname)})
 			fname = dir.get_next()
 		dir.list_dir_end()
-	return files
+	return sort_entries_newest_first(entries)
+
+# Pure helper: sort [{name, mtime}] descending by mtime (newest first), ties
+# broken by name for a stable, testable order; returns the names in that order.
+static func sort_entries_newest_first(entries: Array) -> Array:
+	var copy: Array = entries.duplicate()
+	copy.sort_custom(load("res://scenes/screens/save_load_screen.gd"), "_cmp_mtime_desc")
+	var names: Array = []
+	for e in copy:
+		names.append(e["name"])
+	return names
+
+static func _cmp_mtime_desc(a: Dictionary, b: Dictionary) -> bool:
+	if a["mtime"] != b["mtime"]:
+		return a["mtime"] > b["mtime"]
+	return str(a["name"]) < str(b["name"])

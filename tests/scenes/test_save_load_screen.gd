@@ -123,6 +123,33 @@ func test_file_list_shows_load_and_delete() -> void:
 	assert_not_null(_find_button(sl, "Load"), "Each save row should have a Load button")
 	Directory.new().remove(sl.SAVE_DIR + "del_check.sav")
 
+func test_script_compiles() -> void:
+	# Canary: GUT reports a suite green even when a scene script fails to parse, so
+	# guard the compile state explicitly (the sort helpers added a static method).
+	assert_true(load("res://scenes/screens/save_load_screen.gd").can_instance(),
+		"save_load_screen.gd must compile cleanly")
+
+func test_sort_entries_newest_first_orders_by_mtime_desc() -> void:
+	# Pure helper: newest mtime first, ties broken by name ascending for stability.
+	var SL = load("res://scenes/screens/save_load_screen.gd")
+	var entries = [
+		{"name": "old.sav", "mtime": 100},
+		{"name": "newest.sav", "mtime": 300},
+		{"name": "mid.sav", "mtime": 200},
+	]
+	assert_eq(SL.sort_entries_newest_first(entries),
+		["newest.sav", "mid.sav", "old.sav"],
+		"Newest-modified file is listed first")
+
+func test_sort_entries_breaks_ties_by_name() -> void:
+	var SL = load("res://scenes/screens/save_load_screen.gd")
+	var entries = [
+		{"name": "b.sav", "mtime": 500},
+		{"name": "a.sav", "mtime": 500},
+	]
+	assert_eq(SL.sort_entries_newest_first(entries), ["a.sav", "b.sav"],
+		"Equal mtimes fall back to name order for a stable, deterministic list")
+
 func test_rebuild_is_synchronous_and_replaces_content() -> void:
 	# rebuild() must not leave stale children behind (it once deferred frees and
 	# yielded a frame, which flashed the old widgets / a missing backdrop).
