@@ -104,6 +104,38 @@ func test_starting_units_default_to_warrior_without_hunting() -> void:
 	assert_eq(db.starting_units_for_techs(["fishing", "hunting"]),
 		["settler", "scout"], "Hunting → settler + scout")
 
+# Every society must carry a city_names list of exactly 20 distinct non-empty
+# names, capital first (index 0), so founded cities can draw historical names.
+func test_every_society_has_twenty_city_names() -> void:
+	var db = _db()
+	for sid in db.get_societies():
+		var names = db.get_city_names(sid)
+		assert_true(names is Array, "Society '%s' must have a city_names array" % sid)
+		assert_eq(names.size(), 20,
+			"Society '%s' must list exactly 20 city names" % sid)
+		assert_true(str(names[0]).strip_edges() != "",
+			"Society '%s' capital (index 0) must be non-empty" % sid)
+		var seen := {}
+		for n in names:
+			assert_true(str(n).strip_edges() != "",
+				"Society '%s' has an empty city name" % sid)
+			assert_false(seen.has(n),
+				"Society '%s' has a duplicate city name '%s'" % [sid, str(n)])
+			seen[n] = true
+
+# society_id_for_leader reverse-maps each society's unique leader to its id.
+func test_society_id_for_leader_reverse_lookup() -> void:
+	var db = _db()
+	var socs = db.get_societies()
+	for sid in socs:
+		var lid = str(socs[sid].get("leader_id", ""))
+		if lid == "":
+			continue
+		assert_eq(db.society_id_for_leader(lid), sid,
+			"leader '%s' should map back to society '%s'" % [lid, sid])
+	assert_eq(db.society_id_for_leader("nonexistent_leader_xyz"), "",
+		"Unknown leader maps to empty society id")
+
 # ── Trait AI focus (§C1) ───────────────────────────────────────────────────────
 
 # Every trait must carry an `ai_focus` block over the four strategic axes, all

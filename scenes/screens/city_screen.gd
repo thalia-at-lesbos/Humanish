@@ -70,7 +70,27 @@ func _build() -> void:
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(v)
 
-	_title(v, s.name + "   (pop " + str(s.population) + ")   @ " + str(s.x) + "," + str(s.y))
+	# Title row with prev/next navigation across this player's own cities.
+	var owned: Array = _owned_city_ids(gs, s.owner_player_id)
+	var title_row := HBoxContainer.new()
+	if owned.size() > 1:
+		var prev_btn := Button.new()
+		prev_btn.text = "◄ Prev"
+		prev_btn.connect("pressed", self, "_on_cycle_city", [-1])
+		title_row.add_child(prev_btn)
+	var title_lbl := Label.new()
+	title_lbl.text = "  " + s.name + "   (pop " + str(s.population) + ")   @ " \
+		+ str(s.x) + "," + str(s.y)
+	if owned.size() > 1:
+		title_lbl.text += "   [" + str(owned.find(_city_id) + 1) + "/" + str(owned.size()) + "]"
+	title_row.add_child(title_lbl)
+	if owned.size() > 1:
+		var next_btn := Button.new()
+		next_btn.text = "Next ►"
+		next_btn.connect("pressed", self, "_on_cycle_city", [1])
+		title_row.add_child(next_btn)
+	v.add_child(title_row)
+	v.add_child(HSeparator.new())
 	if s.in_disorder:
 		_line(v, "!! IN DISORDER — production is halted")
 
@@ -499,6 +519,31 @@ func _on_draft() -> void:
 		return
 	_facade.apply_command(Commands.draft(s.owner_player_id, _city_id))
 	rebuild()
+
+# Ordered list of settlement ids owned by a player (in gs.settlements order, which
+# is founding order). Pure-ish helper so the navigation order is deterministic.
+func _owned_city_ids(gs, player_id: int) -> Array:
+	var ids: Array = []
+	for st in gs.settlements:
+		if st.owner_player_id == player_id:
+			ids.append(st.id)
+	return ids
+
+# Cycle the displayed city to the prev (-1) / next (+1) settlement owned by the
+# same player, wrapping around. Re-opens the screen on that city.
+func _on_cycle_city(dir: int) -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	var owned: Array = _owned_city_ids(gs, s.owner_player_id)
+	if owned.size() <= 1:
+		return
+	var idx: int = owned.find(_city_id)
+	if idx < 0:
+		return
+	var next_idx: int = (idx + dir + owned.size()) % owned.size()
+	show_city(owned[next_idx])
 
 func close_screen() -> void:
 	_on_close()
