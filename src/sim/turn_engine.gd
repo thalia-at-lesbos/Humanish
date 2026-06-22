@@ -994,6 +994,12 @@ static func _advance_worker_build(gs: GameState, u: Unit) -> void:
 		gs.pending_improvements.append(entry)
 	u.building_improvement = ""
 	u.build_turns_left = 0
+	# Single-use builders (work boats) are consumed when their improvement
+	# completes (data flag `consumed_on_use` on the unit, §5): the unit is removed
+	# from state, unlike a land worker which persists. Only fires when a build
+	# actually completed on a tile (tile != null), so it happens exactly once.
+	if tile != null and "consumed_on_use" in gs.db.get_unit(u.unit_type_id).get("tags", []):
+		Stack.remove_unit(gs.units, u.id)
 
 # When an improvement completes on a tile carrying a removable feature (forest,
 # jungle), the feature is cleared unless the improvement preserves it — camps,

@@ -1076,17 +1076,20 @@ func _cmd_rush_production(cmd: Dictionary) -> bool:
 	s.rush_anger_turns = 5
 	return true
 
-func _cmd_build_improvement(cmd: Dictionary) -> bool:
-	var p: Player = _gs.get_player(int(cmd["player_id"]))
+# Shared legality predicate for a worker (unit_id) building improvement_id on its
+# current tile. Used by _cmd_build_improvement (defence-in-depth on the command),
+# the HUD worker-action panel, and the AI worker logic so all three agree on what
+# is buildable. Validates ownership, build capability, tile landform, tech, river,
+# feature, resource, and food requirements (§5). Pure read — no state mutation.
+func can_build_improvement(player_id: int, unit_id: int, imp_id: String) -> bool:
+	var p: Player = _gs.get_player(player_id)
 	if p == null:
 		return false
-	var u: Unit = _gs.get_unit(int(cmd["unit_id"]))
+	var u: Unit = _gs.get_unit(unit_id)
 	if u == null or u.owner_player_id != p.id:
 		return false
-	var udata: Dictionary = _db.get_unit(u.unit_type_id)
-	if not udata.get("can_build", false):
+	if not _db.get_unit(u.unit_type_id).get("can_build", false):
 		return false
-	var imp_id: String = str(cmd.get("improvement_id", ""))
 	var imp: Dictionary = _db.get_improvement(imp_id)
 	if imp.empty():
 		return false
@@ -1128,12 +1131,28 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 	var req_feat: String = str(imp.get("requires_feature", ""))
 	if req_feat != "" and tile.feature_id != req_feat:
 		return false
+	# Validate food requirement (§5): a cottage models a working settlement and
+	# needs a tile that can feed it — reject on a zero base-food tile (desert,
+	# snow). Data flag `requires_food` on the improvement; defaults off so other
+	# improvements are unaffected. Uses the terrain's base food yield (integer).
+	if bool(imp.get("requires_food", false)):
+		if int(ter.get("base_output", {}).get("food", 0)) <= 0:
+			return false
 	# Validate resource requirement: a resource-bound improvement (pasture,
 	# plantation, fishing boats, …) is only buildable on a tile carrying a
 	# matching resource the player can already see (its reveal tech researched).
 	if bool(imp.get("requires_resource", false)) \
 			and not _tile_offers_resource_improvement(tile, imp_id, p):
 		return false
+	return true
+
+func _cmd_build_improvement(cmd: Dictionary) -> bool:
+	var u: Unit = _gs.get_unit(int(cmd["unit_id"]))
+	var imp_id: String = str(cmd.get("improvement_id", ""))
+	if not can_build_improvement(int(cmd["player_id"]), int(cmd["unit_id"]), imp_id):
+		return false
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	var imp: Dictionary = _db.get_improvement(imp_id)
 	u.building_improvement = imp_id
 	# Serfdom speeds improvement construction (§8): fewer build turns.
 	var bt: int = int(imp.get("build_turns", 5))
