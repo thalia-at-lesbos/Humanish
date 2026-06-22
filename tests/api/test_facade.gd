@@ -36,6 +36,52 @@ func test_found_settlement_creates_settlement() -> void:
 	assert_eq(gs.settlements.size(), 1, "One settlement should exist")
 	assert_eq(gs.settlements[0].name, "Alpha", "Settlement name set correctly")
 
+# A nameless founding draws the next unused historical name from the player's
+# society list: capital (index 0) first, then index 1, then a name skipped because
+# it already names an existing settlement is jumped over.
+func test_found_settlement_uses_historical_society_names() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var p = gs.players[0]
+	p.society_id = "roman"
+	var facade = bare_facade(gs)
+	var cnames: Array = gs.db.get_city_names("roman")
+	var capital: String = str(cnames[0])
+	var second: String = str(cnames[1])
+	var third: String = str(cnames[2])
+
+	# First city → capital.
+	var u0: int = _settler(facade, p.id, 5, 5)
+	assert_true(facade.apply_command(Commands.found_settlement(p.id, u0)),
+		"Nameless first founding succeeds")
+	assert_eq(gs.settlements[0].name, capital, "First city gets the society capital")
+
+	# Second city → next name (index 1).
+	var u1: int = _settler(facade, p.id, 10, 10)
+	assert_true(facade.apply_command(Commands.found_settlement(p.id, u1)),
+		"Nameless second founding succeeds")
+	assert_eq(gs.settlements[1].name, second, "Second city gets the next name")
+
+	# Manually rename the next settlement-to-be's name onto an existing city so it
+	# is "in use"; the following founding must SKIP it and take index 3.
+	gs.settlements[1].name = third
+	var u2: int = _settler(facade, p.id, 15, 15)
+	assert_true(facade.apply_command(Commands.found_settlement(p.id, u2)),
+		"Nameless third founding succeeds")
+	assert_eq(gs.settlements[2].name, str(cnames[3]),
+		"A name already in use by an existing settlement is skipped")
+
+# With no society (or an unknown one) the founding falls back to "City N".
+func test_found_settlement_falls_back_without_society() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var facade = bare_facade(gs)  # player society_id is ""
+	var u0: int = _settler(facade, gs.players[0].id, 5, 5)
+	assert_true(facade.apply_command(Commands.found_settlement(gs.players[0].id, u0)),
+		"Nameless founding without a society still succeeds")
+	assert_true(gs.settlements[0].name.begins_with("City "),
+		"Without a society the name falls back to 'City N'")
+
 func test_first_contact_surfaces_notification_and_signal() -> void:
 	# When two players newly meet, the facade must drain the first-contact queue
 	# into a player-facing notification (naming the rival) and a first_contact

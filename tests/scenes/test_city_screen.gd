@@ -47,6 +47,32 @@ func test_city_view_builds_from_settlement() -> void:
 	assert_true(screen.get_child_count() > 0,
 		"City screen must build content (background + info) from the settlement")
 
+# Prev/Next navigation cycles the displayed city across the player's own cities.
+func test_city_screen_cycles_owned_cities() -> void:
+	var facade = setup_facade(73, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s1 = make_settlement(gs, pid, 5, 5, 1)
+	s1.name = "First"
+	var s2 = make_settlement(gs, pid, 12, 12, 1)
+	s2.name = "Second"
+
+	var screen = _screen(facade)
+	screen._city_id = s1.id
+	screen.visible = true
+	# Owned-id ordering follows settlement (founding) order.
+	assert_eq(screen._owned_city_ids(gs, pid), [s1.id, s2.id],
+		"Owned city ids list both settlements in founding order")
+	# Cycle forward → Second; forward again wraps → First; backward → Second.
+	screen._on_cycle_city(1)
+	assert_eq(screen._city_id, s2.id, "Next moves to the second city")
+	screen._on_cycle_city(1)
+	assert_eq(screen._city_id, s1.id, "Next wraps back to the first city")
+	screen._on_cycle_city(-1)
+	assert_eq(screen._city_id, s2.id, "Prev wraps to the last city")
+
 # Recursively collect the text of every Label/Button under a node.
 func _all_text(node) -> String:
 	var out := ""

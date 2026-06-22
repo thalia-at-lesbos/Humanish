@@ -300,11 +300,13 @@ func _on_start_pressed() -> void:
 		var society_btn: OptionButton = row_data["society_btn"]
 		var society_idx: int = society_btn.selected - 1  # 0 = "No Society"
 		var leader_id: String = ""
+		var society_id: String = ""
 		var traits: Array = []
 		var starting_gold: int = 100
 		var starting_techs: Array = _db.constants.get("starting_techs", []).duplicate()
 		if society_idx >= 0:
 			var sid: String = row_data["society_ids"][society_idx]
+			society_id = sid
 			var society: Dictionary = _db.get_society(sid)
 			leader_id = society.get("leader_id", "")
 			traits = society.get("traits", []).duplicate()
@@ -324,6 +326,7 @@ func _on_start_pressed() -> void:
 		player_configs.append({
 			"name": row_data["name_edit"].text,
 			"leader_id": leader_id,
+			"society_id": society_id,
 			"traits": traits,
 			"starting_gold": starting_gold,
 			"starting_techs": starting_techs,

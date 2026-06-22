@@ -194,6 +194,18 @@ func get_society(id: String) -> Dictionary:
 func get_city_names(society_id: String) -> Array:
 	return get_society(society_id).get("city_names", [])
 
+# Reverse-lookup the society id whose default leader matches `leader_id` (each
+# society has a unique leader_id). Returns "" when no society claims that leader.
+# Used to recover a player's society when only the leader_id is known.
+func society_id_for_leader(leader_id: String) -> String:
+	if leader_id == "":
+		return ""
+	var socs: Dictionary = get_societies()
+	for sid in socs:
+		if str(socs[sid].get("leader_id", "")) == leader_id:
+			return sid
+	return ""
+
 func get_leaders() -> Dictionary:
 	return leaders_traits.get("leaders", {})
 
