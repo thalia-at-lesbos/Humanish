@@ -1,109 +1,2076 @@
 {
   "traits": {
-    "aggressive":    { "id": "aggressive",    "name": "Aggressive",    "free_promotions": ["combat1"], "free_structures": ["barracks", "drydock"], "ai_focus": { "expand": 0, "military": 3, "economy": 0, "science": 0 } },
-    "charismatic":   { "id": "charismatic",   "name": "Charismatic",   "happiness_bonus": 1, "xp_bonus": 25, "promotion_cost_reduction": 25, "ai_focus": { "expand": 1, "military": 1, "economy": 0, "science": 0 } },
-    "creative":      { "id": "creative",      "name": "Creative",      "culture_per_city": 2, "free_structures": ["library", "theatre", "colosseum"], "ai_focus": { "expand": 0, "military": 0, "economy": 0, "science": 2 } },
-    "expansive":     { "id": "expansive",     "name": "Expansive",     "health_bonus": 2, "free_structures": ["granary", "harbor"], "ai_focus": { "expand": 2, "military": 0, "economy": 1, "science": 0 } },
-    "financial":     { "id": "financial",     "name": "Financial",     "commerce_bonus": 1, "commerce_bonus_threshold": 2, "ai_focus": { "expand": 0, "military": 0, "economy": 3, "science": 0 } },
-    "imperialistic": { "id": "imperialistic", "name": "Imperialistic", "great_general_rate_bonus": 50, "settler_cost_reduction": 50, "ai_focus": { "expand": 3, "military": 0, "economy": 0, "science": 0 } },
-    "industrious":   { "id": "industrious",   "name": "Industrious",   "wonder_production_bonus": 50, "free_structures": ["forge"], "ai_focus": { "expand": 0, "military": 0, "economy": 2, "science": 0 } },
-    "organized":     { "id": "organized",     "name": "Organized",     "civic_upkeep_reduction": 50, "free_structures": ["courthouse", "lighthouse"], "ai_focus": { "expand": 0, "military": 0, "economy": 2, "science": 0 } },
-    "philosophical": { "id": "philosophical", "name": "Philosophical", "great_person_rate_bonus": 100, "ai_focus": { "expand": 0, "military": 0, "economy": 0, "science": 3 } },
-    "protective":    { "id": "protective",    "name": "Protective",    "free_promotions": ["drill1", "city_garrison1"], "free_structures": ["walls", "castle"], "ai_focus": { "expand": 0, "military": 2, "economy": 0, "science": 0 } },
-    "spiritual":     { "id": "spiritual",     "name": "Spiritual",     "no_anarchy": true, "ai_focus": { "expand": 0, "military": 0, "economy": 0, "science": 2 } }
+    "aggressive": {
+      "id": "aggressive",
+      "name": "Aggressive",
+      "free_promotions": [
+        "combat1"
+      ],
+      "free_structures": [
+        "barracks",
+        "drydock"
+      ],
+      "ai_focus": {
+        "expand": 0,
+        "military": 3,
+        "economy": 0,
+        "science": 0
+      }
+    },
+    "charismatic": {
+      "id": "charismatic",
+      "name": "Charismatic",
+      "happiness_bonus": 1,
+      "xp_bonus": 25,
+      "promotion_cost_reduction": 25,
+      "ai_focus": {
+        "expand": 1,
+        "military": 1,
+        "economy": 0,
+        "science": 0
+      }
+    },
+    "creative": {
+      "id": "creative",
+      "name": "Creative",
+      "culture_per_city": 2,
+      "free_structures": [
+        "library",
+        "theatre",
+        "colosseum"
+      ],
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 0,
+        "science": 2
+      }
+    },
+    "expansive": {
+      "id": "expansive",
+      "name": "Expansive",
+      "health_bonus": 2,
+      "free_structures": [
+        "granary",
+        "harbor"
+      ],
+      "ai_focus": {
+        "expand": 2,
+        "military": 0,
+        "economy": 1,
+        "science": 0
+      }
+    },
+    "financial": {
+      "id": "financial",
+      "name": "Financial",
+      "commerce_bonus": 1,
+      "commerce_bonus_threshold": 2,
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 3,
+        "science": 0
+      }
+    },
+    "imperialistic": {
+      "id": "imperialistic",
+      "name": "Imperialistic",
+      "great_general_rate_bonus": 50,
+      "settler_cost_reduction": 50,
+      "ai_focus": {
+        "expand": 3,
+        "military": 0,
+        "economy": 0,
+        "science": 0
+      }
+    },
+    "industrious": {
+      "id": "industrious",
+      "name": "Industrious",
+      "wonder_production_bonus": 50,
+      "free_structures": [
+        "forge"
+      ],
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 2,
+        "science": 0
+      }
+    },
+    "organized": {
+      "id": "organized",
+      "name": "Organized",
+      "civic_upkeep_reduction": 50,
+      "free_structures": [
+        "courthouse",
+        "lighthouse"
+      ],
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 2,
+        "science": 0
+      }
+    },
+    "philosophical": {
+      "id": "philosophical",
+      "name": "Philosophical",
+      "great_person_rate_bonus": 100,
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 0,
+        "science": 3
+      }
+    },
+    "protective": {
+      "id": "protective",
+      "name": "Protective",
+      "free_promotions": [
+        "drill1",
+        "city_garrison1"
+      ],
+      "free_structures": [
+        "walls",
+        "castle"
+      ],
+      "ai_focus": {
+        "expand": 0,
+        "military": 2,
+        "economy": 0,
+        "science": 0
+      }
+    },
+    "spiritual": {
+      "id": "spiritual",
+      "name": "Spiritual",
+      "no_anarchy": true,
+      "ai_focus": {
+        "expand": 0,
+        "military": 0,
+        "economy": 0,
+        "science": 2
+      }
+    }
   },
-
   "leaders": {
-    "alexander":        { "id": "alexander",        "name": "Alexander",        "faction": "greek",           "traits": ["aggressive", "philosophical"],   "favorite_civic": "police_state" },
-    "asoka":            { "id": "asoka",            "name": "Asoka",            "faction": "indian",          "traits": ["organized", "spiritual"],        "favorite_civic": "universal_suffrage" },
-    "bismarck":         { "id": "bismarck",         "name": "Bismarck",         "faction": "german",          "traits": ["expansive", "industrious"],      "favorite_civic": "nationhood" },
-    "catherine":        { "id": "catherine",        "name": "Catherine",        "faction": "russian",         "traits": ["creative", "imperialistic"],     "favorite_civic": "police_state" },
-    "cyrus":            { "id": "cyrus",            "name": "Cyrus",            "faction": "persian",         "traits": ["imperialistic", "charismatic"],  "favorite_civic": "hereditary_rule" },
-    "elizabeth":        { "id": "elizabeth",        "name": "Elizabeth",        "faction": "english",         "traits": ["financial", "philosophical"],    "favorite_civic": "free_speech" },
-    "frederick":        { "id": "frederick",        "name": "Frederick",        "faction": "german",          "traits": ["organized", "philosophical"],    "favorite_civic": "free_speech" },
-    "gandhi":           { "id": "gandhi",           "name": "Gandhi",           "faction": "indian",          "traits": ["philosophical", "spiritual"],    "favorite_civic": "universal_suffrage" },
-    "genghis_khan":     { "id": "genghis_khan",     "name": "Genghis Khan",     "faction": "mongolian",       "traits": ["aggressive", "imperialistic"],   "favorite_civic": "hereditary_rule" },
-    "hatshepsut":       { "id": "hatshepsut",       "name": "Hatshepsut",       "faction": "egyptian",        "traits": ["creative", "spiritual"],         "favorite_civic": "theocracy" },
-    "huayna_capac":     { "id": "huayna_capac",     "name": "Huayna Capac",     "faction": "incan",           "traits": ["financial", "industrious"],      "favorite_civic": "representation" },
-    "isabella":         { "id": "isabella",         "name": "Isabella",         "faction": "spanish",         "traits": ["expansive", "spiritual"],        "favorite_civic": "theocracy" },
-    "julius_caesar":    { "id": "julius_caesar",    "name": "Julius Caesar",    "faction": "roman",           "traits": ["organized", "imperialistic"],    "favorite_civic": "bureaucracy" },
-    "kublai_khan":      { "id": "kublai_khan",      "name": "Kublai Khan",      "faction": "mongolian",       "traits": ["aggressive", "creative"],        "favorite_civic": "hereditary_rule" },
-    "louis_xiv":        { "id": "louis_xiv",        "name": "Louis XIV",        "faction": "french",          "traits": ["creative", "industrious"],       "favorite_civic": "police_state" },
-    "mansa_musa":       { "id": "mansa_musa",       "name": "Mansa Musa",       "faction": "malinese",        "traits": ["financial", "spiritual"],        "favorite_civic": "free_religion" },
-    "mao_zedong":       { "id": "mao_zedong",       "name": "Mao Zedong",       "faction": "chinese",         "traits": ["expansive", "protective"],       "favorite_civic": "police_state" },
-    "montezuma":        { "id": "montezuma",        "name": "Montezuma",        "faction": "aztec",           "traits": ["aggressive", "spiritual"],       "favorite_civic": "theocracy" },
-    "napoleon":         { "id": "napoleon",         "name": "Napoleon",         "faction": "french",          "traits": ["organized", "charismatic"],      "favorite_civic": "nationhood" },
-    "peter":            { "id": "peter",            "name": "Peter",            "faction": "russian",         "traits": ["expansive", "philosophical"],    "favorite_civic": "representation" },
-    "qin_shi_huang":    { "id": "qin_shi_huang",    "name": "Qin Shi Huang",    "faction": "chinese",         "traits": ["industrious", "protective"],     "favorite_civic": "bureaucracy" },
-    "roosevelt":        { "id": "roosevelt",        "name": "Roosevelt",        "faction": "american",        "traits": ["industrious", "organized"],      "favorite_civic": "representation" },
-    "saladin":          { "id": "saladin",          "name": "Saladin",          "faction": "arabian",         "traits": ["spiritual", "protective"],       "favorite_civic": "theocracy" },
-    "tokugawa":         { "id": "tokugawa",         "name": "Tokugawa",         "faction": "japanese",        "traits": ["aggressive", "protective"],      "favorite_civic": "hereditary_rule" },
-    "victoria":         { "id": "victoria",         "name": "Victoria",         "faction": "english",         "traits": ["financial", "imperialistic"],    "favorite_civic": "free_market" },
-    "washington":       { "id": "washington",       "name": "Washington",       "faction": "american",        "traits": ["expansive", "charismatic"],      "favorite_civic": "universal_suffrage" },
-
-    "augustus_caesar":  { "id": "augustus_caesar",  "name": "Augustus Caesar",  "faction": "roman",           "traits": ["organized", "imperialistic"],    "favorite_civic": "bureaucracy" },
-    "brennus":          { "id": "brennus",          "name": "Brennus",          "faction": "celtic",          "traits": ["creative", "spiritual"],         "favorite_civic": "paganism" },
-    "churchill":        { "id": "churchill",        "name": "Churchill",        "faction": "english",         "traits": ["charismatic", "protective"],     "favorite_civic": "free_speech" },
-    "hannibal":         { "id": "hannibal",         "name": "Hannibal",         "faction": "carthaginian",    "traits": ["financial", "charismatic"],      "favorite_civic": "free_market" },
-    "mehmed_ii":        { "id": "mehmed_ii",        "name": "Mehmed II",        "faction": "ottoman",         "traits": ["imperialistic", "organized"],    "favorite_civic": "theocracy" },
-    "ragnar":           { "id": "ragnar",           "name": "Ragnar",           "faction": "viking",          "traits": ["aggressive", "financial"],       "favorite_civic": "vassalage" },
-    "ramesses_ii":      { "id": "ramesses_ii",      "name": "Ramesses II",      "faction": "egyptian",        "traits": ["creative", "spiritual"],         "favorite_civic": "organized_religion" },
-    "shaka":            { "id": "shaka",            "name": "Shaka",            "faction": "zulu",            "traits": ["aggressive", "expansive"],       "favorite_civic": "police_state" },
-    "stalin":           { "id": "stalin",           "name": "Stalin",           "faction": "russian",         "traits": ["industrious", "aggressive"],     "favorite_civic": "state_property" },
-    "wang_kon":         { "id": "wang_kon",         "name": "Wang Kon",         "faction": "korean",          "traits": ["financial", "protective"],       "favorite_civic": "bureaucracy" },
-
-    "boudica":          { "id": "boudica",          "name": "Boudica",          "faction": "celtic",          "traits": ["aggressive", "charismatic"],     "favorite_civic": "nationhood" },
-    "charlemagne":      { "id": "charlemagne",      "name": "Charlemagne",      "faction": "holy_roman",      "traits": ["protective", "imperialistic"],   "favorite_civic": "organized_religion" },
-    "darius_i":         { "id": "darius_i",         "name": "Darius I",         "faction": "persian",         "traits": ["financial", "organized"],        "favorite_civic": "bureaucracy" },
-    "de_gaulle":        { "id": "de_gaulle",        "name": "De Gaulle",        "faction": "french",          "traits": ["charismatic", "industrious"],    "favorite_civic": "nationhood" },
-    "gilgamesh":        { "id": "gilgamesh",        "name": "Gilgamesh",        "faction": "sumerian",        "traits": ["aggressive", "creative"],        "favorite_civic": "theocracy" },
-    "hammurabi":        { "id": "hammurabi",        "name": "Hammurabi",        "faction": "babylonian",      "traits": ["organized", "protective"],       "favorite_civic": "bureaucracy" },
-    "joao_ii":          { "id": "joao_ii",          "name": "Joao II",          "faction": "portuguese",      "traits": ["imperialistic", "expansive"],    "favorite_civic": "free_market" },
-    "justinian_i":      { "id": "justinian_i",      "name": "Justinian I",      "faction": "byzantine",       "traits": ["spiritual", "imperialistic"],    "favorite_civic": "theocracy" },
-    "lincoln":          { "id": "lincoln",          "name": "Lincoln",          "faction": "american",        "traits": ["financial", "philosophical"],    "favorite_civic": "emancipation" },
-    "pacal_ii":         { "id": "pacal_ii",         "name": "Pacal II",         "faction": "mayan",           "traits": ["financial", "philosophical"],    "favorite_civic": "representation" },
-    "pericles":         { "id": "pericles",         "name": "Pericles",         "faction": "greek",           "traits": ["creative", "philosophical"],     "favorite_civic": "free_speech" },
-    "sitting_bull":     { "id": "sitting_bull",     "name": "Sitting Bull",     "faction": "native_american", "traits": ["philosophical", "protective"],   "favorite_civic": "paganism" },
-    "suleiman":         { "id": "suleiman",         "name": "Suleiman",         "faction": "ottoman",         "traits": ["philosophical", "imperialistic"],"favorite_civic": "free_religion" },
-    "suryavarman_ii":   { "id": "suryavarman_ii",   "name": "Suryavarman II",   "faction": "khmer",           "traits": ["creative", "expansive"],         "favorite_civic": "organized_religion" },
-    "willem_van_oranje":{ "id": "willem_van_oranje","name": "Willem van Oranje","faction": "dutch",           "traits": ["creative", "financial"],         "favorite_civic": "free_market" },
-    "zara_yaqob":       { "id": "zara_yaqob",       "name": "Zara Yaqob",       "faction": "ethiopian",       "traits": ["organized", "creative"],         "favorite_civic": "organized_religion" }
+    "alexander": {
+      "id": "alexander",
+      "name": "Alexander",
+      "faction": "greek",
+      "traits": [
+        "aggressive",
+        "philosophical"
+      ],
+      "favorite_civic": "police_state"
+    },
+    "asoka": {
+      "id": "asoka",
+      "name": "Asoka",
+      "faction": "indian",
+      "traits": [
+        "organized",
+        "spiritual"
+      ],
+      "favorite_civic": "universal_suffrage"
+    },
+    "bismarck": {
+      "id": "bismarck",
+      "name": "Bismarck",
+      "faction": "german",
+      "traits": [
+        "expansive",
+        "industrious"
+      ],
+      "favorite_civic": "nationhood"
+    },
+    "catherine": {
+      "id": "catherine",
+      "name": "Catherine",
+      "faction": "russian",
+      "traits": [
+        "creative",
+        "imperialistic"
+      ],
+      "favorite_civic": "police_state"
+    },
+    "cyrus": {
+      "id": "cyrus",
+      "name": "Cyrus",
+      "faction": "persian",
+      "traits": [
+        "imperialistic",
+        "charismatic"
+      ],
+      "favorite_civic": "hereditary_rule"
+    },
+    "elizabeth": {
+      "id": "elizabeth",
+      "name": "Elizabeth",
+      "faction": "english",
+      "traits": [
+        "financial",
+        "philosophical"
+      ],
+      "favorite_civic": "free_speech"
+    },
+    "frederick": {
+      "id": "frederick",
+      "name": "Frederick",
+      "faction": "german",
+      "traits": [
+        "organized",
+        "philosophical"
+      ],
+      "favorite_civic": "free_speech"
+    },
+    "gandhi": {
+      "id": "gandhi",
+      "name": "Gandhi",
+      "faction": "indian",
+      "traits": [
+        "philosophical",
+        "spiritual"
+      ],
+      "favorite_civic": "universal_suffrage"
+    },
+    "genghis_khan": {
+      "id": "genghis_khan",
+      "name": "Genghis Khan",
+      "faction": "mongolian",
+      "traits": [
+        "aggressive",
+        "imperialistic"
+      ],
+      "favorite_civic": "hereditary_rule"
+    },
+    "hatshepsut": {
+      "id": "hatshepsut",
+      "name": "Hatshepsut",
+      "faction": "egyptian",
+      "traits": [
+        "creative",
+        "spiritual"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "huayna_capac": {
+      "id": "huayna_capac",
+      "name": "Huayna Capac",
+      "faction": "incan",
+      "traits": [
+        "financial",
+        "industrious"
+      ],
+      "favorite_civic": "representation"
+    },
+    "isabella": {
+      "id": "isabella",
+      "name": "Isabella",
+      "faction": "spanish",
+      "traits": [
+        "expansive",
+        "spiritual"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "julius_caesar": {
+      "id": "julius_caesar",
+      "name": "Julius Caesar",
+      "faction": "roman",
+      "traits": [
+        "organized",
+        "imperialistic"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "kublai_khan": {
+      "id": "kublai_khan",
+      "name": "Kublai Khan",
+      "faction": "mongolian",
+      "traits": [
+        "aggressive",
+        "creative"
+      ],
+      "favorite_civic": "hereditary_rule"
+    },
+    "louis_xiv": {
+      "id": "louis_xiv",
+      "name": "Louis XIV",
+      "faction": "french",
+      "traits": [
+        "creative",
+        "industrious"
+      ],
+      "favorite_civic": "police_state"
+    },
+    "mansa_musa": {
+      "id": "mansa_musa",
+      "name": "Mansa Musa",
+      "faction": "malinese",
+      "traits": [
+        "financial",
+        "spiritual"
+      ],
+      "favorite_civic": "free_religion"
+    },
+    "mao_zedong": {
+      "id": "mao_zedong",
+      "name": "Mao Zedong",
+      "faction": "chinese",
+      "traits": [
+        "expansive",
+        "protective"
+      ],
+      "favorite_civic": "police_state"
+    },
+    "montezuma": {
+      "id": "montezuma",
+      "name": "Montezuma",
+      "faction": "aztec",
+      "traits": [
+        "aggressive",
+        "spiritual"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "napoleon": {
+      "id": "napoleon",
+      "name": "Napoleon",
+      "faction": "french",
+      "traits": [
+        "organized",
+        "charismatic"
+      ],
+      "favorite_civic": "nationhood"
+    },
+    "peter": {
+      "id": "peter",
+      "name": "Peter",
+      "faction": "russian",
+      "traits": [
+        "expansive",
+        "philosophical"
+      ],
+      "favorite_civic": "representation"
+    },
+    "qin_shi_huang": {
+      "id": "qin_shi_huang",
+      "name": "Qin Shi Huang",
+      "faction": "chinese",
+      "traits": [
+        "industrious",
+        "protective"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "roosevelt": {
+      "id": "roosevelt",
+      "name": "Roosevelt",
+      "faction": "american",
+      "traits": [
+        "industrious",
+        "organized"
+      ],
+      "favorite_civic": "representation"
+    },
+    "saladin": {
+      "id": "saladin",
+      "name": "Saladin",
+      "faction": "arabian",
+      "traits": [
+        "spiritual",
+        "protective"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "tokugawa": {
+      "id": "tokugawa",
+      "name": "Tokugawa",
+      "faction": "japanese",
+      "traits": [
+        "aggressive",
+        "protective"
+      ],
+      "favorite_civic": "hereditary_rule"
+    },
+    "victoria": {
+      "id": "victoria",
+      "name": "Victoria",
+      "faction": "english",
+      "traits": [
+        "financial",
+        "imperialistic"
+      ],
+      "favorite_civic": "free_market"
+    },
+    "washington": {
+      "id": "washington",
+      "name": "Washington",
+      "faction": "american",
+      "traits": [
+        "expansive",
+        "charismatic"
+      ],
+      "favorite_civic": "universal_suffrage"
+    },
+    "augustus_caesar": {
+      "id": "augustus_caesar",
+      "name": "Augustus Caesar",
+      "faction": "roman",
+      "traits": [
+        "organized",
+        "imperialistic"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "brennus": {
+      "id": "brennus",
+      "name": "Brennus",
+      "faction": "celtic",
+      "traits": [
+        "creative",
+        "spiritual"
+      ],
+      "favorite_civic": "paganism"
+    },
+    "churchill": {
+      "id": "churchill",
+      "name": "Churchill",
+      "faction": "english",
+      "traits": [
+        "charismatic",
+        "protective"
+      ],
+      "favorite_civic": "free_speech"
+    },
+    "hannibal": {
+      "id": "hannibal",
+      "name": "Hannibal",
+      "faction": "carthaginian",
+      "traits": [
+        "financial",
+        "charismatic"
+      ],
+      "favorite_civic": "free_market"
+    },
+    "mehmed_ii": {
+      "id": "mehmed_ii",
+      "name": "Mehmed II",
+      "faction": "ottoman",
+      "traits": [
+        "imperialistic",
+        "organized"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "ragnar": {
+      "id": "ragnar",
+      "name": "Ragnar",
+      "faction": "viking",
+      "traits": [
+        "aggressive",
+        "financial"
+      ],
+      "favorite_civic": "vassalage"
+    },
+    "ramesses_ii": {
+      "id": "ramesses_ii",
+      "name": "Ramesses II",
+      "faction": "egyptian",
+      "traits": [
+        "creative",
+        "spiritual"
+      ],
+      "favorite_civic": "organized_religion"
+    },
+    "shaka": {
+      "id": "shaka",
+      "name": "Shaka",
+      "faction": "zulu",
+      "traits": [
+        "aggressive",
+        "expansive"
+      ],
+      "favorite_civic": "police_state"
+    },
+    "stalin": {
+      "id": "stalin",
+      "name": "Stalin",
+      "faction": "russian",
+      "traits": [
+        "industrious",
+        "aggressive"
+      ],
+      "favorite_civic": "state_property"
+    },
+    "wang_kon": {
+      "id": "wang_kon",
+      "name": "Wang Kon",
+      "faction": "korean",
+      "traits": [
+        "financial",
+        "protective"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "boudica": {
+      "id": "boudica",
+      "name": "Boudica",
+      "faction": "celtic",
+      "traits": [
+        "aggressive",
+        "charismatic"
+      ],
+      "favorite_civic": "nationhood"
+    },
+    "charlemagne": {
+      "id": "charlemagne",
+      "name": "Charlemagne",
+      "faction": "holy_roman",
+      "traits": [
+        "protective",
+        "imperialistic"
+      ],
+      "favorite_civic": "organized_religion"
+    },
+    "darius_i": {
+      "id": "darius_i",
+      "name": "Darius I",
+      "faction": "persian",
+      "traits": [
+        "financial",
+        "organized"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "de_gaulle": {
+      "id": "de_gaulle",
+      "name": "De Gaulle",
+      "faction": "french",
+      "traits": [
+        "charismatic",
+        "industrious"
+      ],
+      "favorite_civic": "nationhood"
+    },
+    "gilgamesh": {
+      "id": "gilgamesh",
+      "name": "Gilgamesh",
+      "faction": "sumerian",
+      "traits": [
+        "aggressive",
+        "creative"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "hammurabi": {
+      "id": "hammurabi",
+      "name": "Hammurabi",
+      "faction": "babylonian",
+      "traits": [
+        "organized",
+        "protective"
+      ],
+      "favorite_civic": "bureaucracy"
+    },
+    "joao_ii": {
+      "id": "joao_ii",
+      "name": "Joao II",
+      "faction": "portuguese",
+      "traits": [
+        "imperialistic",
+        "expansive"
+      ],
+      "favorite_civic": "free_market"
+    },
+    "justinian_i": {
+      "id": "justinian_i",
+      "name": "Justinian I",
+      "faction": "byzantine",
+      "traits": [
+        "spiritual",
+        "imperialistic"
+      ],
+      "favorite_civic": "theocracy"
+    },
+    "lincoln": {
+      "id": "lincoln",
+      "name": "Lincoln",
+      "faction": "american",
+      "traits": [
+        "financial",
+        "philosophical"
+      ],
+      "favorite_civic": "emancipation"
+    },
+    "pacal_ii": {
+      "id": "pacal_ii",
+      "name": "Pacal II",
+      "faction": "mayan",
+      "traits": [
+        "financial",
+        "philosophical"
+      ],
+      "favorite_civic": "representation"
+    },
+    "pericles": {
+      "id": "pericles",
+      "name": "Pericles",
+      "faction": "greek",
+      "traits": [
+        "creative",
+        "philosophical"
+      ],
+      "favorite_civic": "free_speech"
+    },
+    "sitting_bull": {
+      "id": "sitting_bull",
+      "name": "Sitting Bull",
+      "faction": "native_american",
+      "traits": [
+        "philosophical",
+        "protective"
+      ],
+      "favorite_civic": "paganism"
+    },
+    "suleiman": {
+      "id": "suleiman",
+      "name": "Suleiman",
+      "faction": "ottoman",
+      "traits": [
+        "philosophical",
+        "imperialistic"
+      ],
+      "favorite_civic": "free_religion"
+    },
+    "suryavarman_ii": {
+      "id": "suryavarman_ii",
+      "name": "Suryavarman II",
+      "faction": "khmer",
+      "traits": [
+        "creative",
+        "expansive"
+      ],
+      "favorite_civic": "organized_religion"
+    },
+    "willem_van_oranje": {
+      "id": "willem_van_oranje",
+      "name": "Willem van Oranje",
+      "faction": "dutch",
+      "traits": [
+        "creative",
+        "financial"
+      ],
+      "favorite_civic": "free_market"
+    },
+    "zara_yaqob": {
+      "id": "zara_yaqob",
+      "name": "Zara Yaqob",
+      "faction": "ethiopian",
+      "traits": [
+        "organized",
+        "creative"
+      ],
+      "favorite_civic": "organized_religion"
+    }
   },
-
   "societies": {
-    "american":      { "id": "american",      "name": "American",        "release": "core",  "leader_id": "washington",   "leader_name": "Washington",   "description": "A young expansive republic of pioneers and industry.",            "traits": ["expansive", "charismatic"],   "starting_gold": 100, "starting_techs": ["fishing", "agriculture"],   "unique_unit": "navy_seal",         "unique_building": "mall" },
-    "arabian":       { "id": "arabian",        "name": "Arabian",         "release": "core",  "leader_id": "saladin",      "leader_name": "Saladin",      "description": "Desert faithful whose camel riders and scholars cross the sands.", "traits": ["spiritual", "protective"],    "starting_gold": 100, "starting_techs": ["mysticism", "the_wheel"],   "unique_unit": "camel_archer",      "unique_building": "madrassa" },
-    "aztec":         { "id": "aztec",          "name": "Aztec",           "release": "core",  "leader_id": "montezuma",    "leader_name": "Montezuma",    "description": "Sun-worshipping warriors who feed the gods with conquest.",        "traits": ["aggressive", "spiritual"],    "starting_gold": 100, "starting_techs": ["hunting", "mysticism"],     "unique_unit": "jaguar",            "unique_building": "sacrificial_altar" },
-    "babylonian":    { "id": "babylonian",     "name": "Babylonian",      "release": "exp2",  "leader_id": "hammurabi",    "leader_name": "Hammurabi",    "description": "Lawgivers of Mesopotamia, masters of ordered defense.",             "traits": ["organized", "protective"],    "starting_gold": 100, "starting_techs": ["agriculture", "the_wheel"], "unique_unit": "bowman",            "unique_building": "garden" },
-    "byzantine":     { "id": "byzantine",      "name": "Byzantine",       "release": "exp2",  "leader_id": "justinian_i",  "leader_name": "Justinian I",  "description": "Heirs of Rome whose cataphracts guard a holy empire.",              "traits": ["spiritual", "imperialistic"], "starting_gold": 100, "starting_techs": ["the_wheel", "mysticism"],   "unique_unit": "cataphract",        "unique_building": "hippodrome" },
-    "carthaginian":  { "id": "carthaginian",   "name": "Carthaginian",    "release": "exp1",  "leader_id": "hannibal",     "leader_name": "Hannibal",     "description": "Sea-trading financiers who muster mercenary cavalry.",              "traits": ["financial", "charismatic"],   "starting_gold": 100, "starting_techs": ["fishing", "mining"],        "unique_unit": "numidian_cavalry",  "unique_building": "cothon" },
-    "celtic":        { "id": "celtic",         "name": "Celtic",          "release": "exp1",  "leader_id": "brennus",      "leader_name": "Brennus",      "description": "Forest tribes whose guerrilla warriors know no iron's need.",       "traits": ["creative", "spiritual"],      "starting_gold": 100, "starting_techs": ["hunting", "mysticism"],     "unique_unit": "gallic_warrior",    "unique_building": "dun" },
-    "chinese":       { "id": "chinese",        "name": "Chinese",         "release": "core",  "leader_id": "qin_shi_huang","leader_name": "Qin Shi Huang","description": "An industrious dynasty of wonder-builders and crossbowmen.",        "traits": ["industrious", "protective"],  "starting_gold": 100, "starting_techs": ["agriculture", "mining"],    "unique_unit": "cho_ko_nu",         "unique_building": "pavilion" },
-    "dutch":         { "id": "dutch",          "name": "Dutch",           "release": "exp2",  "leader_id": "willem_van_oranje","leader_name": "Willem van Oranje","description": "Merchant seafarers who reclaim land from the waves.",          "traits": ["creative", "financial"],      "starting_gold": 100, "starting_techs": ["fishing", "agriculture"],   "unique_unit": "east_indiaman",     "unique_building": "dike" },
-    "egyptian":      { "id": "egyptian",       "name": "Egyptian",        "release": "core",  "leader_id": "hatshepsut",   "leader_name": "Hatshepsut",   "description": "Builders of the Nile whose chariots need no horse.",                "traits": ["creative", "spiritual"],      "starting_gold": 100, "starting_techs": ["agriculture", "the_wheel"], "unique_unit": "war_chariot",       "unique_building": "obelisk" },
-    "english":       { "id": "english",        "name": "English",         "release": "core",  "leader_id": "elizabeth",    "leader_name": "Elizabeth",    "description": "A financial island power of redcoats and exchanges.",               "traits": ["financial", "philosophical"], "starting_gold": 100, "starting_techs": ["fishing", "mining"],        "unique_unit": "redcoat",           "unique_building": "stock_exchange" },
-    "ethiopian":     { "id": "ethiopian",      "name": "Ethiopian",       "release": "exp2",  "leader_id": "zara_yaqob",   "leader_name": "Zara Yaqob",   "description": "Highland defenders whose drilled musketeers hold the passes.",      "traits": ["organized", "creative"],      "starting_gold": 100, "starting_techs": ["hunting", "mining"],        "unique_unit": "oromo_warrior",     "unique_building": "stele" },
-    "french":        { "id": "french",         "name": "French",          "release": "core",  "leader_id": "louis_xiv",    "leader_name": "Louis XIV",    "description": "Creative artisans whose salons and musketeers shine.",              "traits": ["creative", "industrious"],    "starting_gold": 100, "starting_techs": ["agriculture", "the_wheel"], "unique_unit": "musketeer",         "unique_building": "salon" },
-    "german":        { "id": "german",         "name": "German",          "release": "core",  "leader_id": "bismarck",     "leader_name": "Bismarck",     "description": "Industrial engineers whose panzers race across the field.",         "traits": ["expansive", "industrious"],   "starting_gold": 100, "starting_techs": ["hunting", "mining"],        "unique_unit": "panzer",            "unique_building": "assembly_plant" },
-    "greek":         { "id": "greek",          "name": "Greek",           "release": "core",  "leader_id": "alexander",    "leader_name": "Alexander",    "description": "Philosopher-warriors whose phalanx anchors the line.",              "traits": ["aggressive", "philosophical"],"starting_gold": 100, "starting_techs": ["fishing", "hunting"],       "unique_unit": "phalanx",           "unique_building": "odeon" },
-    "holy_roman":    { "id": "holy_roman",     "name": "Holy Roman",      "release": "exp2",  "leader_id": "charlemagne",  "leader_name": "Charlemagne",  "description": "A pious imperium of landsknechts and free cities.",                 "traits": ["protective", "imperialistic"],"starting_gold": 100, "starting_techs": ["hunting", "mysticism"],     "unique_unit": "landsknecht",       "unique_building": "rathaus" },
-    "incan":         { "id": "incan",          "name": "Incan",           "release": "core",  "leader_id": "huayna_capac", "leader_name": "Huayna Capac", "description": "Mountain financiers whose quechua scouts the high passes.",         "traits": ["financial", "industrious"],   "starting_gold": 100, "starting_techs": ["agriculture", "mysticism"], "unique_unit": "quechua",           "unique_building": "terrace" },
-    "indian":        { "id": "indian",         "name": "Indian",          "release": "core",  "leader_id": "gandhi",       "leader_name": "Gandhi",       "description": "A spiritual civilization of fast workers and great souls.",         "traits": ["philosophical", "spiritual"], "starting_gold": 100, "starting_techs": ["mysticism", "mining"],      "unique_unit": "fast_worker",       "unique_building": "mausoleum" },
-    "japanese":      { "id": "japanese",       "name": "Japanese",        "release": "core",  "leader_id": "tokugawa",     "leader_name": "Tokugawa",     "description": "Disciplined samurai who fight on at any wound.",                     "traits": ["aggressive", "protective"],   "starting_gold": 100, "starting_techs": ["fishing", "the_wheel"],     "unique_unit": "samurai",           "unique_building": "shale_plant" },
-    "khmer":         { "id": "khmer",          "name": "Khmer",           "release": "exp2",  "leader_id": "suryavarman_ii","leader_name": "Suryavarman II","description": "Temple-builders whose ballista elephants storm cities.",           "traits": ["creative", "expansive"],      "starting_gold": 100, "starting_techs": ["hunting", "mining"],        "unique_unit": "ballista_elephant", "unique_building": "baray" },
-    "korean":        { "id": "korean",         "name": "Korean",          "release": "exp1",  "leader_id": "wang_kon",     "leader_name": "Wang Kon",     "description": "Scholarly defenders whose hwacha rain fire on attackers.",          "traits": ["financial", "protective"],    "starting_gold": 100, "starting_techs": ["mysticism", "mining"],      "unique_unit": "hwacha",            "unique_building": "seowon" },
-    "malinese":      { "id": "malinese",       "name": "Malinese",        "release": "core",  "leader_id": "mansa_musa",   "leader_name": "Mansa Musa",   "description": "Gold-rich traders whose skirmishers need no bow training.",         "traits": ["financial", "spiritual"],     "starting_gold": 100, "starting_techs": ["mining", "the_wheel"],      "unique_unit": "skirmisher",        "unique_building": "mint" },
-    "mayan":         { "id": "mayan",          "name": "Mayan",           "release": "exp2",  "leader_id": "pacal_ii",     "leader_name": "Pacal II",     "description": "Astronomer-kings whose holkan guard the jungle cities.",            "traits": ["financial", "philosophical"], "starting_gold": 100, "starting_techs": ["mysticism", "mining"],      "unique_unit": "holkan",            "unique_building": "ball_court" },
-    "mongolian":     { "id": "mongolian",      "name": "Mongolian",       "release": "core",  "leader_id": "genghis_khan", "leader_name": "Genghis Khan", "description": "Horse-lords whose keshiks ride faster than any foe.",               "traits": ["aggressive", "imperialistic"],"starting_gold": 100, "starting_techs": ["hunting", "the_wheel"],     "unique_unit": "keshik",            "unique_building": "ger" },
-    "native_american":{ "id": "native_american","name": "Native American","release": "core",  "leader_id": "sitting_bull", "leader_name": "Sitting Bull", "description": "Plains nations whose dog soldiers need neither copper nor iron.",   "traits": ["philosophical", "protective"],"starting_gold": 100, "starting_techs": ["fishing", "agriculture"],   "unique_unit": "dog_soldier",       "unique_building": "totem_pole" },
-    "ottoman":       { "id": "ottoman",        "name": "Ottoman",         "release": "exp1",  "leader_id": "mehmed_ii",    "leader_name": "Mehmed II",    "description": "Gunpowder empire whose janissaries heal from every kill.",          "traits": ["imperialistic", "organized"], "starting_gold": 100, "starting_techs": ["agriculture", "the_wheel"], "unique_unit": "janissary",         "unique_building": "hammam" },
-    "persian":       { "id": "persian",        "name": "Persian",         "release": "core",  "leader_id": "cyrus",        "leader_name": "Cyrus",        "description": "An imperial heartland whose immortals never falter.",               "traits": ["imperialistic", "charismatic"],"starting_gold": 100, "starting_techs": ["agriculture", "hunting"],  "unique_unit": "immortal",          "unique_building": "apothecary" },
-    "portuguese":    { "id": "portuguese",     "name": "Portuguese",      "release": "exp2",  "leader_id": "joao_ii",      "leader_name": "Joao II",      "description": "Explorers whose carracks chart trade routes across oceans.",         "traits": ["imperialistic", "expansive"], "starting_gold": 100, "starting_techs": ["fishing", "mining"],        "unique_unit": "carrack",           "unique_building": "feitoria" },
-    "roman":         { "id": "roman",          "name": "Roman",           "release": "core",  "leader_id": "julius_caesar","leader_name": "Julius Caesar","description": "Disciplined legions whose praetorians outmatch any sword.",         "traits": ["organized", "imperialistic"], "starting_gold": 100, "starting_techs": ["fishing", "mining"],        "unique_unit": "praetorian",        "unique_building": "forum" },
-    "russian":       { "id": "russian",        "name": "Russian",         "release": "core",  "leader_id": "catherine",    "leader_name": "Catherine",    "description": "A vast creative empire whose cossacks charge at full strength.",     "traits": ["creative", "imperialistic"],  "starting_gold": 100, "starting_techs": ["hunting", "mining"],        "unique_unit": "cossack",           "unique_building": "research_institute" },
-    "spanish":       { "id": "spanish",        "name": "Spanish",         "release": "core",  "leader_id": "isabella",     "leader_name": "Isabella",     "description": "Zealous conquistadors who found cities far from home.",              "traits": ["expansive", "spiritual"],     "starting_gold": 100, "starting_techs": ["fishing", "mysticism"],     "unique_unit": "conquistador",      "unique_building": "citadel" },
-    "sumerian":      { "id": "sumerian",       "name": "Sumerian",        "release": "exp2",  "leader_id": "gilgamesh",    "leader_name": "Gilgamesh",    "description": "The first cities, whose vultures and ziggurats herald civilization.","traits": ["aggressive", "creative"],     "starting_gold": 100, "starting_techs": ["agriculture", "the_wheel"], "unique_unit": "vulture",           "unique_building": "ziggurat" },
-    "viking":        { "id": "viking",         "name": "Viking",          "release": "exp1",  "leader_id": "ragnar",       "leader_name": "Ragnar",       "description": "Raiders whose berserkers storm ashore and strike twice.",            "traits": ["aggressive", "financial"],    "starting_gold": 100, "starting_techs": ["fishing", "hunting"],       "unique_unit": "berserker",         "unique_building": "trading_post" },
-    "zulu":          { "id": "zulu",           "name": "Zulu",            "release": "exp1",  "leader_id": "shaka",        "leader_name": "Shaka",        "description": "Fast-mustering impis who flank and overrun the enemy.",              "traits": ["aggressive", "expansive"],    "starting_gold": 100, "starting_techs": ["agriculture", "hunting"],   "unique_unit": "impi",              "unique_building": "ikhanda" }
+    "american": {
+      "id": "american",
+      "name": "American",
+      "release": "core",
+      "leader_id": "washington",
+      "leader_name": "Washington",
+      "description": "A young expansive republic of pioneers and industry.",
+      "traits": [
+        "expansive",
+        "charismatic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "agriculture"
+      ],
+      "unique_unit": "navy_seal",
+      "unique_building": "mall",
+      "city_names": [
+        "Washington",
+        "New York",
+        "Boston",
+        "Philadelphia",
+        "Chicago",
+        "Atlanta",
+        "Los Angeles",
+        "Seattle",
+        "New Orleans",
+        "Cincinnati",
+        "Detroit",
+        "St. Louis",
+        "Miami",
+        "Dallas",
+        "Houston",
+        "Denver",
+        "Portland",
+        "Baltimore",
+        "Pittsburgh",
+        "Nashville"
+      ]
+    },
+    "arabian": {
+      "id": "arabian",
+      "name": "Arabian",
+      "release": "core",
+      "leader_id": "saladin",
+      "leader_name": "Saladin",
+      "description": "Desert faithful whose camel riders and scholars cross the sands.",
+      "traits": [
+        "spiritual",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "mysticism",
+        "the_wheel"
+      ],
+      "unique_unit": "camel_archer",
+      "unique_building": "madrassa",
+      "city_names": [
+        "Mecca",
+        "Medina",
+        "Baghdad",
+        "Damascus",
+        "Cairo",
+        "Cordoba",
+        "Aden",
+        "Muscat",
+        "Riyadh",
+        "Basra",
+        "Mosul",
+        "Sanaa",
+        "Tripoli",
+        "Jeddah",
+        "Kufa",
+        "Najaf",
+        "Karbala",
+        "Taif",
+        "Homs",
+        "Aleppo"
+      ]
+    },
+    "aztec": {
+      "id": "aztec",
+      "name": "Aztec",
+      "release": "core",
+      "leader_id": "montezuma",
+      "leader_name": "Montezuma",
+      "description": "Sun-worshipping warriors who feed the gods with conquest.",
+      "traits": [
+        "aggressive",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mysticism"
+      ],
+      "unique_unit": "jaguar",
+      "unique_building": "sacrificial_altar",
+      "city_names": [
+        "Tenochtitlan",
+        "Texcoco",
+        "Tlacopan",
+        "Tlatelolco",
+        "Xochimilco",
+        "Tula",
+        "Cholula",
+        "Teotihuacan",
+        "Cempoala",
+        "Malinalco",
+        "Tzintzuntzan",
+        "Azcapotzalco",
+        "Cuauhtitlan",
+        "Tlacopan",
+        "Xaltocan",
+        "Zumpango",
+        "Tepexpan",
+        "Atlapalco",
+        "Huexotla",
+        "Coatlichan"
+      ]
+    },
+    "babylonian": {
+      "id": "babylonian",
+      "name": "Babylonian",
+      "release": "exp2",
+      "leader_id": "hammurabi",
+      "leader_name": "Hammurabi",
+      "description": "Lawgivers of Mesopotamia, masters of ordered defense.",
+      "traits": [
+        "organized",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "the_wheel"
+      ],
+      "unique_unit": "bowman",
+      "unique_building": "garden",
+      "city_names": [
+        "Babylon",
+        "Nineveh",
+        "Nippur",
+        "Ur",
+        "Uruk",
+        "Eridu",
+        "Lagash",
+        "Kish",
+        "Sippar",
+        "Akkad",
+        "Eshnunna",
+        "Assur",
+        "Nimrud",
+        "Isin",
+        "Larsa",
+        "Girsu",
+        "Adab",
+        "Umma",
+        "Chaldea",
+        "Susa"
+      ]
+    },
+    "byzantine": {
+      "id": "byzantine",
+      "name": "Byzantine",
+      "release": "exp2",
+      "leader_id": "justinian_i",
+      "leader_name": "Justinian I",
+      "description": "Heirs of Rome whose cataphracts guard a holy empire.",
+      "traits": [
+        "spiritual",
+        "imperialistic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "the_wheel",
+        "mysticism"
+      ],
+      "unique_unit": "cataphract",
+      "unique_building": "hippodrome",
+      "city_names": [
+        "Constantinople",
+        "Thessalonica",
+        "Antioch",
+        "Nicaea",
+        "Trebizond",
+        "Ephesus",
+        "Edessa",
+        "Smyrna",
+        "Pergamon",
+        "Heraklion",
+        "Adrianople",
+        "Varna",
+        "Sinop",
+        "Dyrrachium",
+        "Cherson",
+        "Sozopol",
+        "Preslav",
+        "Mesembria",
+        "Myra",
+        "Patras"
+      ]
+    },
+    "carthaginian": {
+      "id": "carthaginian",
+      "name": "Carthaginian",
+      "release": "exp1",
+      "leader_id": "hannibal",
+      "leader_name": "Hannibal",
+      "description": "Sea-trading financiers who muster mercenary cavalry.",
+      "traits": [
+        "financial",
+        "charismatic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "mining"
+      ],
+      "unique_unit": "numidian_cavalry",
+      "unique_building": "cothon",
+      "city_names": [
+        "Carthage",
+        "Utica",
+        "Hadrumetum",
+        "Theveste",
+        "Hippo Regius",
+        "Leptis Magna",
+        "Sabratha",
+        "Cirta",
+        "Oea",
+        "Tingis",
+        "Volubilis",
+        "Zama",
+        "Thapsus",
+        "Panormus",
+        "Lilybaeum",
+        "Motya",
+        "Soluntum",
+        "Drepana",
+        "Agrigento",
+        "Sulci"
+      ]
+    },
+    "celtic": {
+      "id": "celtic",
+      "name": "Celtic",
+      "release": "exp1",
+      "leader_id": "brennus",
+      "leader_name": "Brennus",
+      "description": "Forest tribes whose guerrilla warriors know no iron's need.",
+      "traits": [
+        "creative",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mysticism"
+      ],
+      "unique_unit": "gallic_warrior",
+      "unique_building": "dun",
+      "city_names": [
+        "Viroconium",
+        "Camulodunum",
+        "Londinium",
+        "Eburacum",
+        "Deva",
+        "Noviomagus",
+        "Lugdunum",
+        "Glevum",
+        "Durovernum",
+        "Durobrivae",
+        "Venta Belgarum",
+        "Calleva",
+        "Isca",
+        "Ratae",
+        "Lindum",
+        "Duroliponte",
+        "Aquae Sulis",
+        "Corinium",
+        "Moridunum",
+        "Eboracum"
+      ]
+    },
+    "chinese": {
+      "id": "chinese",
+      "name": "Chinese",
+      "release": "core",
+      "leader_id": "qin_shi_huang",
+      "leader_name": "Qin Shi Huang",
+      "description": "An industrious dynasty of wonder-builders and crossbowmen.",
+      "traits": [
+        "industrious",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "mining"
+      ],
+      "unique_unit": "cho_ko_nu",
+      "unique_building": "pavilion",
+      "city_names": [
+        "Beijing",
+        "Shanghai",
+        "Nanjing",
+        "Chengdu",
+        "Xi'an",
+        "Hangzhou",
+        "Guangzhou",
+        "Suzhou",
+        "Wuhan",
+        "Kaifeng",
+        "Luoyang",
+        "Chongqing",
+        "Yangzhou",
+        "Fuzhou",
+        "Ningbo",
+        "Tianjin",
+        "Quanzhou",
+        "Taiyuan",
+        "Changsha",
+        "Zhengzhou"
+      ]
+    },
+    "dutch": {
+      "id": "dutch",
+      "name": "Dutch",
+      "release": "exp2",
+      "leader_id": "willem_van_oranje",
+      "leader_name": "Willem van Oranje",
+      "description": "Merchant seafarers who reclaim land from the waves.",
+      "traits": [
+        "creative",
+        "financial"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "agriculture"
+      ],
+      "unique_unit": "east_indiaman",
+      "unique_building": "dike",
+      "city_names": [
+        "Amsterdam",
+        "Rotterdam",
+        "The Hague",
+        "Utrecht",
+        "Leiden",
+        "Delft",
+        "Haarlem",
+        "Middelburg",
+        "Dordrecht",
+        "Groningen",
+        "Nijmegen",
+        "Maastricht",
+        "Bruges",
+        "Antwerp",
+        "Ghent",
+        "Eindhoven",
+        "Breda",
+        "Arnhem",
+        "Gouda",
+        "Enkhuizen"
+      ]
+    },
+    "egyptian": {
+      "id": "egyptian",
+      "name": "Egyptian",
+      "release": "core",
+      "leader_id": "hatshepsut",
+      "leader_name": "Hatshepsut",
+      "description": "Builders of the Nile whose chariots need no horse.",
+      "traits": [
+        "creative",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "the_wheel"
+      ],
+      "unique_unit": "war_chariot",
+      "unique_building": "obelisk",
+      "city_names": [
+        "Thebes",
+        "Memphis",
+        "Heliopolis",
+        "Amarna",
+        "Pi-Ramesses",
+        "Luxor",
+        "Karnak",
+        "Alexandria",
+        "Abydos",
+        "Hermopolis",
+        "Edfu",
+        "Hierakonpolis",
+        "Aswan",
+        "Sais",
+        "Bubastis",
+        "Giza",
+        "Buto",
+        "Athribis",
+        "Avaris",
+        "Naucratis"
+      ]
+    },
+    "english": {
+      "id": "english",
+      "name": "English",
+      "release": "core",
+      "leader_id": "elizabeth",
+      "leader_name": "Elizabeth",
+      "description": "A financial island power of redcoats and exchanges.",
+      "traits": [
+        "financial",
+        "philosophical"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "mining"
+      ],
+      "unique_unit": "redcoat",
+      "unique_building": "stock_exchange",
+      "city_names": [
+        "London",
+        "York",
+        "Nottingham",
+        "Hastings",
+        "Canterbury",
+        "Coventry",
+        "Warwick",
+        "Newcastle",
+        "Oxford",
+        "Liverpool",
+        "Birmingham",
+        "Bristol",
+        "Cambridge",
+        "Winchester",
+        "Lincoln",
+        "Norwich",
+        "Gloucester",
+        "Leicester",
+        "Durham",
+        "Portsmouth"
+      ]
+    },
+    "ethiopian": {
+      "id": "ethiopian",
+      "name": "Ethiopian",
+      "release": "exp2",
+      "leader_id": "zara_yaqob",
+      "leader_name": "Zara Yaqob",
+      "description": "Highland defenders whose drilled musketeers hold the passes.",
+      "traits": [
+        "organized",
+        "creative"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mining"
+      ],
+      "unique_unit": "oromo_warrior",
+      "unique_building": "stele",
+      "city_names": [
+        "Addis Ababa",
+        "Axum",
+        "Lalibela",
+        "Gondar",
+        "Harar",
+        "Adwa",
+        "Dire Dawa",
+        "Jimma",
+        "Mekele",
+        "Bahir Dar",
+        "Dessie",
+        "Awash",
+        "Nekemte",
+        "Djibouti",
+        "Shashamene",
+        "Jijiga",
+        "Wukro",
+        "Adigrat",
+        "Debre Markos",
+        "Shire"
+      ]
+    },
+    "french": {
+      "id": "french",
+      "name": "French",
+      "release": "core",
+      "leader_id": "louis_xiv",
+      "leader_name": "Louis XIV",
+      "description": "Creative artisans whose salons and musketeers shine.",
+      "traits": [
+        "creative",
+        "industrious"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "the_wheel"
+      ],
+      "unique_unit": "musketeer",
+      "unique_building": "salon",
+      "city_names": [
+        "Paris",
+        "Lyon",
+        "Marseille",
+        "Bordeaux",
+        "Orléans",
+        "Reims",
+        "Rouen",
+        "Nantes",
+        "Tours",
+        "Dijon",
+        "Toulouse",
+        "Strasbourg",
+        "Chartres",
+        "Amiens",
+        "Rennes",
+        "Troyes",
+        "Poitiers",
+        "Avignon",
+        "Montpellier",
+        "Caen"
+      ]
+    },
+    "german": {
+      "id": "german",
+      "name": "German",
+      "release": "core",
+      "leader_id": "bismarck",
+      "leader_name": "Bismarck",
+      "description": "Industrial engineers whose panzers race across the field.",
+      "traits": [
+        "expansive",
+        "industrious"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mining"
+      ],
+      "unique_unit": "panzer",
+      "unique_building": "assembly_plant",
+      "city_names": [
+        "Berlin",
+        "Hamburg",
+        "Munich",
+        "Cologne",
+        "Frankfurt",
+        "Nuremberg",
+        "Dresden",
+        "Mainz",
+        "Augsburg",
+        "Stuttgart",
+        "Erfurt",
+        "Aachen",
+        "Trier",
+        "Heidelberg",
+        "Breslau",
+        "Leipzig",
+        "Magdeburg",
+        "Regensburg",
+        "Mannheim",
+        "Dortmund"
+      ]
+    },
+    "greek": {
+      "id": "greek",
+      "name": "Greek",
+      "release": "core",
+      "leader_id": "alexander",
+      "leader_name": "Alexander",
+      "description": "Philosopher-warriors whose phalanx anchors the line.",
+      "traits": [
+        "aggressive",
+        "philosophical"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "hunting"
+      ],
+      "unique_unit": "phalanx",
+      "unique_building": "odeon",
+      "city_names": [
+        "Athens",
+        "Sparta",
+        "Corinth",
+        "Argos",
+        "Thebes",
+        "Epidaurus",
+        "Olympia",
+        "Delphi",
+        "Thessaloniki",
+        "Chalcis",
+        "Eretria",
+        "Megara",
+        "Sicyon",
+        "Phlius",
+        "Troizen",
+        "Plataea",
+        "Amphipolis",
+        "Mytilene",
+        "Miletus",
+        "Syracuse"
+      ]
+    },
+    "holy_roman": {
+      "id": "holy_roman",
+      "name": "Holy Roman",
+      "release": "exp2",
+      "leader_id": "charlemagne",
+      "leader_name": "Charlemagne",
+      "description": "A pious imperium of landsknechts and free cities.",
+      "traits": [
+        "protective",
+        "imperialistic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mysticism"
+      ],
+      "unique_unit": "landsknecht",
+      "unique_building": "rathaus",
+      "city_names": [
+        "Vienna",
+        "Prague",
+        "Frankfurt",
+        "Nuremberg",
+        "Augsburg",
+        "Cologne",
+        "Munich",
+        "Aachen",
+        "Trier",
+        "Regensburg",
+        "Magdeburg",
+        "Mainz",
+        "Ulm",
+        "Salzburg",
+        "Brno",
+        "Bern",
+        "Basle",
+        "Constance",
+        "Worms",
+        "Speyer"
+      ]
+    },
+    "incan": {
+      "id": "incan",
+      "name": "Incan",
+      "release": "core",
+      "leader_id": "huayna_capac",
+      "leader_name": "Huayna Capac",
+      "description": "Mountain financiers whose quechua scouts the high passes.",
+      "traits": [
+        "financial",
+        "industrious"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "mysticism"
+      ],
+      "unique_unit": "quechua",
+      "unique_building": "terrace",
+      "city_names": [
+        "Cusco",
+        "Machu Picchu",
+        "Tiwanaku",
+        "Ollantaytambo",
+        "Huanuco Pampa",
+        "Chan Chan",
+        "Chinchero",
+        "Vitcos",
+        "Chucuito",
+        "Cajamarca",
+        "Limatambo",
+        "Incahuasi",
+        "Piquillacta",
+        "Huaytara",
+        "Pumpu",
+        "Tambococha",
+        "Hatunqolla",
+        "Raqchi",
+        "Vilcashuaman",
+        "Caranqui"
+      ]
+    },
+    "indian": {
+      "id": "indian",
+      "name": "Indian",
+      "release": "core",
+      "leader_id": "gandhi",
+      "leader_name": "Gandhi",
+      "description": "A spiritual civilization of fast workers and great souls.",
+      "traits": [
+        "philosophical",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "mysticism",
+        "mining"
+      ],
+      "unique_unit": "fast_worker",
+      "unique_building": "mausoleum",
+      "city_names": [
+        "Delhi",
+        "Agra",
+        "Varanasi",
+        "Mumbai",
+        "Pataliputra",
+        "Vijayanagara",
+        "Madurai",
+        "Kanchi",
+        "Taxila",
+        "Ujjain",
+        "Mathura",
+        "Surat",
+        "Lahore",
+        "Multan",
+        "Thanjavur",
+        "Hampi",
+        "Calicut",
+        "Bangalore",
+        "Hyderabad",
+        "Cochin"
+      ]
+    },
+    "japanese": {
+      "id": "japanese",
+      "name": "Japanese",
+      "release": "core",
+      "leader_id": "tokugawa",
+      "leader_name": "Tokugawa",
+      "description": "Disciplined samurai who fight on at any wound.",
+      "traits": [
+        "aggressive",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "the_wheel"
+      ],
+      "unique_unit": "samurai",
+      "unique_building": "shale_plant",
+      "city_names": [
+        "Kyoto",
+        "Tokyo",
+        "Nara",
+        "Osaka",
+        "Hiroshima",
+        "Nagasaki",
+        "Sapporo",
+        "Sendai",
+        "Fukuoka",
+        "Yokohama",
+        "Nagoya",
+        "Kamakura",
+        "Nikko",
+        "Kanazawa",
+        "Kagoshima",
+        "Matsuyama",
+        "Okayama",
+        "Kobe",
+        "Kumamoto",
+        "Hakata"
+      ]
+    },
+    "khmer": {
+      "id": "khmer",
+      "name": "Khmer",
+      "release": "exp2",
+      "leader_id": "suryavarman_ii",
+      "leader_name": "Suryavarman II",
+      "description": "Temple-builders whose ballista elephants storm cities.",
+      "traits": [
+        "creative",
+        "expansive"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mining"
+      ],
+      "unique_unit": "ballista_elephant",
+      "unique_building": "baray",
+      "city_names": [
+        "Angkor",
+        "Phnom Penh",
+        "Siem Reap",
+        "Preah Vihear",
+        "Krong Kep",
+        "Battambang",
+        "Kampot",
+        "Pursat",
+        "Kratie",
+        "Stung Treng",
+        "Prey Veng",
+        "Takeo",
+        "Kompong Cham",
+        "Pailin",
+        "Svay Rieng",
+        "Koh Kong",
+        "Kep",
+        "Anlong Veng",
+        "Udong",
+        "Roulos"
+      ]
+    },
+    "korean": {
+      "id": "korean",
+      "name": "Korean",
+      "release": "exp1",
+      "leader_id": "wang_kon",
+      "leader_name": "Wang Kon",
+      "description": "Scholarly defenders whose hwacha rain fire on attackers.",
+      "traits": [
+        "financial",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "mysticism",
+        "mining"
+      ],
+      "unique_unit": "hwacha",
+      "unique_building": "seowon",
+      "city_names": [
+        "Seoul",
+        "Busan",
+        "Kaesong",
+        "Pyongyang",
+        "Gyeongju",
+        "Gaesung",
+        "Incheon",
+        "Daegu",
+        "Gwangju",
+        "Daejeon",
+        "Ulsan",
+        "Jeonju",
+        "Cheongju",
+        "Wonju",
+        "Andong",
+        "Jinju",
+        "Chuncheon",
+        "Pohang",
+        "Suwon",
+        "Changwon"
+      ]
+    },
+    "malinese": {
+      "id": "malinese",
+      "name": "Malinese",
+      "release": "core",
+      "leader_id": "mansa_musa",
+      "leader_name": "Mansa Musa",
+      "description": "Gold-rich traders whose skirmishers need no bow training.",
+      "traits": [
+        "financial",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "mining",
+        "the_wheel"
+      ],
+      "unique_unit": "skirmisher",
+      "unique_building": "mint",
+      "city_names": [
+        "Timbuktu",
+        "Niani",
+        "Gao",
+        "Kumbi Saleh",
+        "Djenné",
+        "Walata",
+        "Koumbi",
+        "Kangaba",
+        "Dakar",
+        "Bamako",
+        "Kayes",
+        "Segou",
+        "Mopti",
+        "Sikasso",
+        "Kita",
+        "Kidal",
+        "Tessalit",
+        "Araouane",
+        "Taoudenni",
+        "Bobo-Dioulasso"
+      ]
+    },
+    "mayan": {
+      "id": "mayan",
+      "name": "Mayan",
+      "release": "exp2",
+      "leader_id": "pacal_ii",
+      "leader_name": "Pacal II",
+      "description": "Astronomer-kings whose holkan guard the jungle cities.",
+      "traits": [
+        "financial",
+        "philosophical"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "mysticism",
+        "mining"
+      ],
+      "unique_unit": "holkan",
+      "unique_building": "ball_court",
+      "city_names": [
+        "Tikal",
+        "Chichen Itza",
+        "Palenque",
+        "Uxmal",
+        "Calakmul",
+        "Copan",
+        "Quirigua",
+        "Caracol",
+        "Xunantunich",
+        "Lamanai",
+        "Cobá",
+        "Tulum",
+        "Ek Balam",
+        "Dzibilchaltun",
+        "Edzna",
+        "Kabah",
+        "Sayil",
+        "Labna",
+        "Oxkintok",
+        "Bonampak"
+      ]
+    },
+    "mongolian": {
+      "id": "mongolian",
+      "name": "Mongolian",
+      "release": "core",
+      "leader_id": "genghis_khan",
+      "leader_name": "Genghis Khan",
+      "description": "Horse-lords whose keshiks ride faster than any foe.",
+      "traits": [
+        "aggressive",
+        "imperialistic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "the_wheel"
+      ],
+      "unique_unit": "keshik",
+      "unique_building": "ger",
+      "city_names": [
+        "Karakorum",
+        "Ulaanbaatar",
+        "Khanbaliq",
+        "Samarkand",
+        "Bukhara",
+        "Shangdu",
+        "Tabriz",
+        "Khanate",
+        "Almaty",
+        "Turfan",
+        "Kashgar",
+        "Hami",
+        "Dunhuang",
+        "Zhongdu",
+        "Nanjing",
+        "Yinchuan",
+        "Lintan",
+        "Liangzhou",
+        "Lhasa",
+        "Beshbaliq"
+      ]
+    },
+    "native_american": {
+      "id": "native_american",
+      "name": "Native American",
+      "release": "core",
+      "leader_id": "sitting_bull",
+      "leader_name": "Sitting Bull",
+      "description": "Plains nations whose dog soldiers need neither copper nor iron.",
+      "traits": [
+        "philosophical",
+        "protective"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "agriculture"
+      ],
+      "unique_unit": "dog_soldier",
+      "unique_building": "totem_pole",
+      "city_names": [
+        "Cahokia",
+        "Taos",
+        "Mesa Verde",
+        "Chaco Canyon",
+        "Canyon de Chelly",
+        "Bandelier",
+        "Walpi",
+        "Oraibi",
+        "Acoma",
+        "Zuni",
+        "Hopewell",
+        "Poverty Point",
+        "Natchez",
+        "Moundville",
+        "Etowah",
+        "Spiro",
+        "Aztec Ruins",
+        "Tuzigoot",
+        "Montezuma Castle",
+        "Keet Seel"
+      ]
+    },
+    "ottoman": {
+      "id": "ottoman",
+      "name": "Ottoman",
+      "release": "exp1",
+      "leader_id": "mehmed_ii",
+      "leader_name": "Mehmed II",
+      "description": "Gunpowder empire whose janissaries heal from every kill.",
+      "traits": [
+        "imperialistic",
+        "organized"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "the_wheel"
+      ],
+      "unique_unit": "janissary",
+      "unique_building": "hammam",
+      "city_names": [
+        "Istanbul",
+        "Bursa",
+        "Edirne",
+        "Ankara",
+        "Izmir",
+        "Konya",
+        "Trabzon",
+        "Erzurum",
+        "Salonika",
+        "Sofia",
+        "Belgrade",
+        "Sarajevo",
+        "Buda",
+        "Damascus",
+        "Cairo",
+        "Baghdad",
+        "Tripoli",
+        "Tunis",
+        "Algiers",
+        "Jerusalem"
+      ]
+    },
+    "persian": {
+      "id": "persian",
+      "name": "Persian",
+      "release": "core",
+      "leader_id": "cyrus",
+      "leader_name": "Cyrus",
+      "description": "An imperial heartland whose immortals never falter.",
+      "traits": [
+        "imperialistic",
+        "charismatic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "hunting"
+      ],
+      "unique_unit": "immortal",
+      "unique_building": "apothecary",
+      "city_names": [
+        "Persepolis",
+        "Susa",
+        "Ecbatana",
+        "Pasargadae",
+        "Isfahan",
+        "Shiraz",
+        "Tabriz",
+        "Nishapur",
+        "Merv",
+        "Herat",
+        "Ctesiphon",
+        "Bishapur",
+        "Gur",
+        "Ahvaz",
+        "Hamadan",
+        "Qazvin",
+        "Ray",
+        "Ardeshir-Khwarrah",
+        "Gondeshapur",
+        "Kerman"
+      ]
+    },
+    "portuguese": {
+      "id": "portuguese",
+      "name": "Portuguese",
+      "release": "exp2",
+      "leader_id": "joao_ii",
+      "leader_name": "Joao II",
+      "description": "Explorers whose carracks chart trade routes across oceans.",
+      "traits": [
+        "imperialistic",
+        "expansive"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "mining"
+      ],
+      "unique_unit": "carrack",
+      "unique_building": "feitoria",
+      "city_names": [
+        "Lisbon",
+        "Porto",
+        "Coimbra",
+        "Braga",
+        "Évora",
+        "Faro",
+        "Setúbal",
+        "Santarém",
+        "Guimarães",
+        "Viseu",
+        "Sintra",
+        "Cascais",
+        "Funchal",
+        "Angra",
+        "Sagres",
+        "Elvas",
+        "Castelo Branco",
+        "Viana do Castelo",
+        "Lamego",
+        "Chaves"
+      ]
+    },
+    "roman": {
+      "id": "roman",
+      "name": "Roman",
+      "release": "core",
+      "leader_id": "julius_caesar",
+      "leader_name": "Julius Caesar",
+      "description": "Disciplined legions whose praetorians outmatch any sword.",
+      "traits": [
+        "organized",
+        "imperialistic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "mining"
+      ],
+      "unique_unit": "praetorian",
+      "unique_building": "forum",
+      "city_names": [
+        "Rome",
+        "Antium",
+        "Capua",
+        "Naples",
+        "Cumae",
+        "Ravenna",
+        "Milan",
+        "Aquileia",
+        "Brindisi",
+        "Pompeii",
+        "Tarentum",
+        "Croton",
+        "Syracuse",
+        "Carthago Nova",
+        "Londinium",
+        "Lugdunum",
+        "Massilia",
+        "Caesarea",
+        "Carthage",
+        "Tingis"
+      ]
+    },
+    "russian": {
+      "id": "russian",
+      "name": "Russian",
+      "release": "core",
+      "leader_id": "catherine",
+      "leader_name": "Catherine",
+      "description": "A vast creative empire whose cossacks charge at full strength.",
+      "traits": [
+        "creative",
+        "imperialistic"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "hunting",
+        "mining"
+      ],
+      "unique_unit": "cossack",
+      "unique_building": "research_institute",
+      "city_names": [
+        "Moscow",
+        "Kiev",
+        "Novgorod",
+        "St. Petersburg",
+        "Kazan",
+        "Yaroslavl",
+        "Pskov",
+        "Tver",
+        "Smolensk",
+        "Vladimir",
+        "Murom",
+        "Ryazan",
+        "Nizhniy Novgorod",
+        "Rostov",
+        "Suzdal",
+        "Kostroma",
+        "Astrakhan",
+        "Perm",
+        "Tobolsk",
+        "Yekaterinburg"
+      ]
+    },
+    "spanish": {
+      "id": "spanish",
+      "name": "Spanish",
+      "release": "core",
+      "leader_id": "isabella",
+      "leader_name": "Isabella",
+      "description": "Zealous conquistadors who found cities far from home.",
+      "traits": [
+        "expansive",
+        "spiritual"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "mysticism"
+      ],
+      "unique_unit": "conquistador",
+      "unique_building": "citadel",
+      "city_names": [
+        "Madrid",
+        "Seville",
+        "Barcelona",
+        "Toledo",
+        "Cordoba",
+        "Zaragoza",
+        "Granada",
+        "Valencia",
+        "Malaga",
+        "Burgos",
+        "Salamanca",
+        "Santiago",
+        "Pamplona",
+        "Bilbao",
+        "Cadiz",
+        "Murcia",
+        "Leon",
+        "Oviedo",
+        "Alcala",
+        "Segovia"
+      ]
+    },
+    "sumerian": {
+      "id": "sumerian",
+      "name": "Sumerian",
+      "release": "exp2",
+      "leader_id": "gilgamesh",
+      "leader_name": "Gilgamesh",
+      "description": "The first cities, whose vultures and ziggurats herald civilization.",
+      "traits": [
+        "aggressive",
+        "creative"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "the_wheel"
+      ],
+      "unique_unit": "vulture",
+      "unique_building": "ziggurat",
+      "city_names": [
+        "Eridu",
+        "Uruk",
+        "Ur",
+        "Nippur",
+        "Lagash",
+        "Kish",
+        "Umma",
+        "Girsu",
+        "Adab",
+        "Aksak",
+        "Sippar",
+        "Larak",
+        "Bad-tibira",
+        "Zimbir",
+        "Shuruppak",
+        "Isin",
+        "Eshnunna",
+        "Assur",
+        "Khafajah",
+        "Nuffar"
+      ]
+    },
+    "viking": {
+      "id": "viking",
+      "name": "Viking",
+      "release": "exp1",
+      "leader_id": "ragnar",
+      "leader_name": "Ragnar",
+      "description": "Raiders whose berserkers storm ashore and strike twice.",
+      "traits": [
+        "aggressive",
+        "financial"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "fishing",
+        "hunting"
+      ],
+      "unique_unit": "berserker",
+      "unique_building": "trading_post",
+      "city_names": [
+        "Asgard",
+        "Uppsala",
+        "Birka",
+        "Hedeby",
+        "Ribe",
+        "Kaupang",
+        "Jorvik",
+        "Dublin",
+        "Normandy",
+        "Novgorod",
+        "Trondheim",
+        "Bergen",
+        "Oslo",
+        "Lund",
+        "Roskilde",
+        "Viborg",
+        "Odense",
+        "Aalborg",
+        "Lejre",
+        "Sigtuna"
+      ]
+    },
+    "zulu": {
+      "id": "zulu",
+      "name": "Zulu",
+      "release": "exp1",
+      "leader_id": "shaka",
+      "leader_name": "Shaka",
+      "description": "Fast-mustering impis who flank and overrun the enemy.",
+      "traits": [
+        "aggressive",
+        "expansive"
+      ],
+      "starting_gold": 100,
+      "starting_techs": [
+        "agriculture",
+        "hunting"
+      ],
+      "unique_unit": "impi",
+      "unique_building": "ikhanda",
+      "city_names": [
+        "Ulundi",
+        "Eshowe",
+        "Ondini",
+        "kwaHlomendlini",
+        "Nodwengu",
+        "Mlambongwenya",
+        "Nobamba",
+        "Babanango",
+        "Nkandla",
+        "Melmoth",
+        "Vryheid",
+        "Empangeni",
+        "Richards Bay",
+        "Stanger",
+        "Pinetown",
+        "Durban",
+        "Pietermaritzburg",
+        "Ladysmith",
+        "Newcastle",
+        "Dundee"
+      ]
+    }
   }
 }

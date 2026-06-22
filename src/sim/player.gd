@@ -82,6 +82,16 @@ var is_ai: bool = false
 # Active celebration turns
 var celebration_turns: int = 0
 
+# Society this player belongs to (mirrors setup cfg["society_id"]; empty for
+# society-less/headless games). Used to look up the historical city-name list.
+var society_id: String = ""
+
+# Historical city names already assigned to this player's settlements, in
+# founding order. The founding logic picks the first name from the society's
+# city_names list that is not yet in this array, then appends it here so the
+# same name is never reused.
+var used_city_names: Array = []
+
 # IDs of scripted events already fired for this player (so once-only events
 # do not repeat).
 var events_fired: Array = []
@@ -147,7 +157,9 @@ func serialize() -> Dictionary:
 		"pending_golden_age_gp": pending_golden_age_gp,
 		"great_general_points": great_general_points,
 		"great_general_threshold": great_general_threshold,
-		"great_generals_produced": great_generals_produced
+		"great_generals_produced": great_generals_produced,
+		"society_id": society_id,
+		"used_city_names": used_city_names.duplicate()
 	}
 
 static func deserialize(d: Dictionary):
@@ -199,4 +211,6 @@ static func deserialize(d: Dictionary):
 	p.great_general_points = int(d.get("great_general_points", 0))
 	p.great_general_threshold = int(d.get("great_general_threshold", 0))
 	p.great_generals_produced = int(d.get("great_generals_produced", 0))
+	p.society_id = str(d.get("society_id", ""))
+	p.used_city_names = d.get("used_city_names", []).duplicate()
 	return p

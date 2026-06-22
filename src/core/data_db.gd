@@ -189,6 +189,11 @@ func get_societies() -> Dictionary:
 func get_society(id: String) -> Dictionary:
 	return get_societies().get(id, {})
 
+# Historical city names for a society (data/leaders_traits.json "city_names" array,
+# capital first). Returns [] when the society is unknown or has no list.
+func get_city_names(society_id: String) -> Array:
+	return get_society(society_id).get("city_names", [])
+
 func get_leaders() -> Dictionary:
 	return leaders_traits.get("leaders", {})
 

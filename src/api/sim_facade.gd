@@ -117,6 +117,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		p.id = _gs.next_player_id()
 		p.name = str(cfg.get("name", "Player " + str(p.id)))
 		p.leader_id = str(cfg.get("leader_id", ""))
+		p.society_id = str(cfg.get("society_id", ""))
 		p.traits = cfg.get("traits", []).duplicate()
 		p.free_early_wins = int(difficulty.get("free_early_wins", 0))
 		p.treasury = int(cfg.get("starting_gold", 100))
@@ -764,6 +765,16 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	# Found the settlement
 	var s := Settlement.new()
 	s.id = _gs.next_settlement_id()
+	# Determine the city name: explicit override > next unused historical name > fallback.
+	if sname == "":
+		var player: Player = _gs.get_player(player_id)
+		if player != null and player.society_id != "":
+			var cnames: Array = _db.get_city_names(player.society_id)
+			for cname in cnames:
+				if not (cname in player.used_city_names):
+					sname = cname
+					player.used_city_names.append(cname)
+					break
 	s.name = sname if sname != "" else "City " + str(s.id)
 	s.owner_player_id = player_id
 	s.x = u.x; s.y = u.y
