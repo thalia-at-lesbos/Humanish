@@ -70,6 +70,45 @@ func test_naval_raiders_spawn_on_open_water() -> void:
 			assert_eq(gs.db.get_terrain(gs.map.get_tile(u.x, u.y).terrain_id).get("domain"),
 				"sea", "a naval raider spawns on a sea tile")
 
+# The sailing gate is specifically the `sailing` tech: it is the only tech a player
+# needs for the cheapest naval raider stock (the Galley), so granting exactly sailing
+# (the era gate already lifted) is what opens the seas, and the raider spawned is the
+# Galley — an owner-agnostic, water-domain barbarian unit.
+func test_sailing_tech_specifically_opens_the_seas_with_a_galley() -> void:
+	var gs = make_gs(2, 25)
+	_add_ocean(gs)
+	gs.difficulty_id = "warlord"
+	gs.turn_number = 60
+	gs.players[0].technologies.append("alphabet")  # classical era → era gate lifts
+	make_settlement(gs, 1, 2, 2)
+	make_settlement(gs, 1, 2, 17)
+	make_settlement(gs, 2, 17, 2)
+	gs.db.difficulties["warlord"]["unowned_water_tiles_per_wild_unit"] = 20
+	# Era + turn + city gates are all clear, but no naval tech yet → still empty.
+	for _i in range(5):
+		WildForces.spawn_naval(gs, gs.rng)
+	assert_eq(_count_naval(gs), 0, "no naval raiders before any player researches sailing")
+	# Grant exactly sailing → the seas open, and the raider is the Galley.
+	gs.players[0].technologies.append("sailing")
+	for _i in range(10):
+		WildForces.spawn_naval(gs, gs.rng)
+	assert_true(_count_naval(gs) > 0, "sailing alone opens the seas to naval raiders")
+	for u in gs.units:
+		if u.is_wild and gs.db.get_unit(u.unit_type_id).get("domain", "land") == "sea":
+			assert_eq(u.unit_type_id, "galley",
+				"the sailing-era naval raider is the Galley")
+
+# Data check: a water-domain barbarian raider unit exists, is owner-agnostic stock
+# (no `unique_to`), carries combat strength, and is gated on the sailing tech.
+func test_galley_is_water_domain_barbarian_stock() -> void:
+	var gs = make_gs()
+	var g: Dictionary = gs.db.get_unit("galley")
+	assert_false(g.empty(), "the galley unit exists in data")
+	assert_eq(str(g.get("domain", "land")), "sea", "the galley is a water-domain unit")
+	assert_true(int(g.get("base_strength", 0)) > 0, "the galley has combat strength (raider stock)")
+	assert_eq(str(g.get("unique_to", "")), "", "the galley is generic (not a society unique)")
+	assert_eq(str(g.get("tech_required", "")), "sailing", "the galley is gated on sailing")
+
 # ── Behaviour ───────────────────────────────────────────────────────────────────
 
 func test_naval_raider_attacks_a_unit_it_lands_on() -> void:
