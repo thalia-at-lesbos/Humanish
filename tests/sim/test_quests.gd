@@ -84,6 +84,20 @@ func test_quest_arms_when_prereq_met() -> void:
 	var armed = Quests.arm_quest("classic_literature", p, gs)
 	assert_eq(str(armed.get("kind", "")), "quest_armed", "arm_quest reports an armed descriptor")
 	assert_eq(gs.active_quests.size(), 1, "the armed quest is tracked on active_quests")
+	# The descriptor carries the flavour text and the concrete objective so the UI
+	# can describe the quest to the player when it starts (§4).
+	assert_true(str(armed.get("text", "")) != "", "arm descriptor carries the quest flavour text")
+	assert_eq(str(armed.get("objective", "")), "Build 7 libraries.",
+		"arm descriptor carries the authored objective")
+
+func test_every_quest_has_an_objective() -> void:
+	var db = make_db()
+	for qid in db.get_quests():
+		if qid == "_comment":
+			continue
+		var q = db.get_quest(qid)
+		assert_true(str(q.get("objective", "")) != "",
+			"quest '%s' has an authored objective" % qid)
 
 func test_quest_not_eligible_without_prereq() -> void:
 	var gs = make_gs()

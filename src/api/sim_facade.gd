@@ -3383,7 +3383,16 @@ func _drain_quest_events() -> void:
 		var nm: String = str(q.get("name", q.get("quest_id", "")))
 		match str(q.get("kind", "")):
 			"quest_armed":
-				_add_notification("New quest: " + nm + ".", "major")
+				# Surface the quest's full flavour description and its concrete
+				# objective when it starts (§4) — the data rides on the descriptor.
+				var line: String = "New quest — " + nm
+				var desc: String = str(q.get("text", ""))
+				if desc != "":
+					line += ": " + desc
+				var obj: String = str(q.get("objective", ""))
+				if obj != "":
+					line += "  Objective: " + obj
+				_add_notification(line, "major")
 			"quest_completed":
 				_add_notification("Quest complete: " + nm + ".", "major")
 			"quest_reward_pending":

@@ -13,12 +13,16 @@ extends Node
 # Start-of-turn "what now?" prompts for the local human player. When a turn opens
 # it walks a short to-do list and pops the relevant chooser so nothing is silently
 # wasted:
+#   0. a mandatory random-event / quest-reward choice is owed → raise the event
+#      choice popup (the decision blocks End Turn, so it comes first).
 #   1. no research selected  → open the tech chooser (issue: ask what to research)
 #   2. a city with an empty production queue → open its city screen (ask what to
 #      produce), one idle city at a time.
-# It chains via each chooser's `closed` signal: pick research, then get walked
-# through each idle city. Each item is offered at most once per turn so cancelling
-# never re-opens the same prompt in a loop.
+# It chains via each chooser's `closed` signal: resolve any pending choice, pick
+# research, then get walked through each idle city. The research/city items are
+# offered at most once per turn so cancelling never re-opens the same prompt in a
+# loop; the event step is unguarded and re-checked each pass, so it keeps surfacing
+# while a choice remains owed (resolving one removes it from the pending queue).
 #
 # Like the rest of the scene layer this is a pure SimFacade *client* — it only
 # reads get_state() and opens existing screens; it never mutates sim state itself.
@@ -27,6 +31,7 @@ extends Node
 var _facade
 var _tech_chooser
 var _city_screen
+var _event_screen
 
 # Re-armed each new turn (keyed by turn+player) so a prompt is offered once.
 var _turn_key: String = ""
@@ -36,16 +41,19 @@ var _cities_offered: Dictionary = {}   # settlement_id -> true
 # player opened themselves never kicks off the chain.
 var _chaining: bool = false
 
-func init(facade, tech_chooser, city_screen) -> void:
+func init(facade, tech_chooser, city_screen, event_screen = null) -> void:
 	_facade = facade
 	_tech_chooser = tech_chooser
 	_city_screen = city_screen
+	_event_screen = event_screen
 	if _facade != null:
 		_facade.connect("player_turn_started", self, "_on_turn_started")
 	if _tech_chooser != null:
 		_tech_chooser.connect("closed", self, "_on_chooser_closed")
 	if _city_screen != null:
 		_city_screen.connect("closed", self, "_on_chooser_closed")
+	if _event_screen != null:
+		_event_screen.connect("closed", self, "_on_chooser_closed")
 
 func _on_turn_started(player_id: int) -> void:
 	if _facade == null:
@@ -87,6 +95,14 @@ func _advance(player_id: int) -> void:
 	if p == null or p.is_ai:
 		_chaining = false
 		return
+	# 0. A mandatory event / quest-reward choice owed by this player (§9, §4). Not
+	# guarded per-turn: re-checked each pass so every queued choice is surfaced, and
+	# it must be answered before End Turn is allowed.
+	if _event_screen != null and _event_screen.has_method("show_event"):
+		var descriptor: Dictionary = _build_event_descriptor(player_id)
+		if not descriptor.empty():
+			_event_screen.show_event(descriptor)
+			return
 	# 1. Research.
 	if not _research_offered and p.current_research_id == "" and _has_researchable(p):
 		_research_offered = true
@@ -110,6 +126,29 @@ func _on_chooser_closed() -> void:
 	if gs == null:
 		return
 	_advance(gs.current_player_id)
+
+# Build the popup descriptor for a player's first unresolved event choice, or {}
+# when none is owed. The pending entry carries the pre-rolled branches; flavour
+# name/text come baked in for a quest reward, else from the event definition.
+func _build_event_descriptor(player_id: int) -> Dictionary:
+	if _facade == null or not _facade.has_method("get_pending_event"):
+		return {}
+	var pe: Dictionary = _facade.get_pending_event(player_id)
+	if pe.empty():
+		return {}
+	var choices: Array = []
+	for ch in pe.get("resolved_choices", []):
+		choices.append({"id": str(ch.get("id", "")), "text": str(ch.get("text", ""))})
+	if choices.empty():
+		return {}
+	var eid: String = str(pe.get("event_id", ""))
+	var nm: String = str(pe.get("name", ""))
+	var txt: String = str(pe.get("text", ""))
+	if nm == "" and _facade._db != null:
+		var ev: Dictionary = _facade._db.get_event(eid)
+		nm = str(ev.get("name", eid))
+		txt = str(ev.get("text", ""))
+	return {"event_id": eid, "name": nm, "text": txt, "choices": choices}
 
 # First of the player's settlements with no production queued that has not already
 # been offered this turn.

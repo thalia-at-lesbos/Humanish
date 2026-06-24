@@ -185,7 +185,8 @@ static func arm_quest(quest_id: String, player: Player, game_state) -> Dictionar
 	game_state.active_quests.append(rec)
 	return {
 		"kind": "quest_armed", "player_id": player.id, "quest_id": quest_id,
-		"name": str(quest.get("name", quest_id)), "text": str(quest.get("text", ""))
+		"name": str(quest.get("name", quest_id)), "text": str(quest.get("text", "")),
+		"objective": str(quest.get("objective", ""))
 	}
 
 # ── Reward dispatch ──────────────────────────────────────────────────────────────────
