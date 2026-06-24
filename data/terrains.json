@@ -8,6 +8,7 @@
     "base_output": { "food": 2, "production": 1, "commerce": 0 },
     "defence_bonus": 0,
     "river_commerce_bonus": 1,
+    "degrades_to": "plains",
     "notes": "+1 Commerce adjacent to river"
   },
   "plains": {
@@ -19,6 +20,7 @@
     "base_output": { "food": 1, "production": 1, "commerce": 0 },
     "defence_bonus": 0,
     "river_commerce_bonus": 1,
+    "degrades_to": "desert",
     "notes": "+1 Commerce adjacent to river"
   },
   "desert": {
@@ -41,6 +43,7 @@
     "base_output": { "food": 1, "production": 0, "commerce": 0 },
     "defence_bonus": 0,
     "improvement_time_penalty": 25,
+    "degrades_to": "snow",
     "notes": "Improvements take 25% longer"
   },
   "snow": {
@@ -52,6 +55,7 @@
     "base_output": { "food": 0, "production": 0, "commerce": 0 },
     "defence_bonus": 0,
     "no_improvements": true,
+    "degrades_to": "desert",
     "notes": "No improvements possible"
   },
   "coast": {
@@ -84,6 +88,7 @@
     "defence_bonus": 25,
     "sight_bonus": 1,
     "blocks_sight": true,
+    "degrades_to": "plains",
     "notes": "-1 Food, +1 Production; +25% defense; +1 sight range; blocks line of sight"
   },
   "mountain": {
@@ -96,6 +101,7 @@
     "defence_bonus": 50,
     "impassable": true,
     "blocks_sight": true,
+    "degrades_to": "hills",
     "notes": "Peak; cannot be entered by land units; blocks line of sight"
   }
 }

@@ -34,9 +34,6 @@ var influence: Dictionary = {}
 # Derived from influence by influence.gd
 var owner_player_id: int = -1  # -1 = unowned
 
-# Environmental state
-var pollution: int = 0
-
 # Exploration: an undiscovered site that yields a reward when first entered (§9)
 var has_discovery: bool = false
 
@@ -67,7 +64,6 @@ func serialize() -> Dictionary:
 		"river_w": river_w,
 		"influence": influence.duplicate(),
 		"owner_player_id": owner_player_id,
-		"pollution": pollution,
 		"improvement_turns_left": improvement_turns_left,
 		"improvement_age": improvement_age,
 		"has_discovery": has_discovery
@@ -86,7 +82,6 @@ static func deserialize(d: Dictionary):
 	for k in inf:
 		t.influence[int(k)] = int(inf[k])
 	t.owner_player_id = int(d.get("owner_player_id", -1))
-	t.pollution = int(d.get("pollution", 0))
 	t.improvement_turns_left = int(d.get("improvement_turns_left", 0))
 	t.improvement_age = int(d.get("improvement_age", 0))
 	t.has_discovery = bool(d.get("has_discovery", false))

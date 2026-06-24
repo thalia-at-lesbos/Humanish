@@ -40,6 +40,14 @@ func test_blast_radius_from_data():
 	assert_eq(Nuclear.blast_radius(gs.db, tac), 0, "tactical nuke is a point strike")
 	assert_eq(Nuclear.blast_radius(gs.db, icbm), 1, "ICBM has radius 1")
 
+func test_detonate_increments_nuke_tally():
+	# §11 global warming reads gs.nukes_exploded; every detonation bumps it.
+	var gs = make_gs(2)
+	var attacker = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	assert_eq(gs.nukes_exploded, 0, "Tally starts at zero")
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_eq(gs.nukes_exploded, 1, "A detonation increments the nuke tally")
+
 func test_detonate_softens_units_but_floors_at_one():
 	var gs = make_gs(2)
 	var attacker = make_unit(gs, "tactical_nuke", 1, 5, 5)

@@ -272,7 +272,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 2. Advance shared alliance research stores. Tributaries pay tribute to overlords (`_collect_tribute`), then vassalage maintenance runs (`Vassalage.world_tick`, §7: shared war/peace re-sync + liberation of recovered vassals)
 3. Per-tile upkeep (`_tile_upkeep` — charges each owned, improved tile's improvement maintenance)
 4. Spawn wild/raider forces (`WildForces`), then let them act (`WildAI.run` — §9 scouts, camp alerts, mustered raid waves; pushes fights/razes onto `gs.pending_wild_events`)
-5. Environmental degradation (`Pollution`)
+5. Environmental degradation (`Nuclear.meltdown_tick` then `GlobalWarming.tick`)
 6. Assign special sites (stub)
 7. Assembly/voting (`Assembly.world_tick` runs the §7.2 world-assembly lifecycle: sessions, resident elections, resolutions; gated on a built Apostolic Palace / United Nations. Diplomatic victory is delivered here via the UN election — `Assembly.apply_effect "diplomatic_victory"` — not by a standalone population poll)
 8. Increment `turn_number`
@@ -355,7 +355,7 @@ Tracks war state (`at_war_with`), contacts, subordination, shared research store
 - **`Beliefs`** — founding (first-eligible random draw), passive spread within range each turn
 - **`EconOrgs`** — §14.6 corporations: founded by a special person/Great Merchant (`found` erects the corporation's `hq_structure` in the founding city), organically `spread_all` like beliefs (costs treasury) or deliberately via an executive unit (`SimFacade._cmd_spread_corporation`, the `spread_corporation`-tagged unit, charged `corporation_executive_spread_cost`). Per-city output (`get_output_delta`) is the flat `output_delta` plus `output_per_input_resource × accessible-input-count` (distinct input resources the city owner has connected); `maintenance_for` charges per member city (Free Market `corporation_maintenance_reduction` halves it) and `hq_gold_for` pays the founder per unit of input consumed worldwide — both wired into `TurnEngine._update_treasury`. Mercantilism/State Property set the `corporations_disabled` civic flag, under which a player's corporations produce nothing, cost no maintenance, and cannot be spread into. Keyed off `data/econ_orgs.json` (HQ/executive/maintenance/HQ-gold per corp); HQ structures carry a `corporation_hq` flag so they are granted by founding, never offered as a normal build
 - **`WildForces`** — BtS-derived spawn model (§9.2/§9.3 provisional): turn/era/city gates, then a per-area unowned-tile density top-up (`((unowned/divisor) − existing)/4 + 1`) for units, and a gated/probabilistic/distance-checked raider-camp spawn (a freshly spawned camp immediately `Influence.found_claim`s a small owner-`-2` ring so it has visible cultural borders). Also `spawn_animals` (§9.3): quiet-phase wildlife on dark/unowned tiles up to a per-difficulty density, thinned once raiders take over; and `spawn_naval` (§9.4): the same per-area density model over water areas, using the strongest sea unit any player has unlocked. Reads per-difficulty tables from `data/difficulties.json`
-- **`Pollution`** — per-settlement accumulation each turn; per-tile RNG degradation chain
+- **`GlobalWarming`** — §11 map-wide degradation pass: building unhealthiness (`#BAD_HEALTH`) + cumulative nukes (`gs.nukes_exploded`) yield `GW_VALUE` strike attempts each world step, each landing with chance `gw_chance − forest-defence`; a landed strike degrades one random non-city land tile one rung toward `gw_base_terrain` (desert), feature first, following each terrain's data-driven `degrades_to` chain (any land terrain — e.g. mountain → hills → plains → desert). Forest/jungle cover (feature `growth_probability` > 0) defends. Pure static, RNG via `gs.rng`
 - **`WinConditions`** — stateless evaluation against `gs`; returns winning `alliance_id` or −1
 - **`Scoring`** — weighted sum of (land tiles, population, technology count) per alliance
 - **`Nuclear`** — §5.7 nuclear weapons & radioactive fallout (pure static, provisional): `is_nuke(db, unit)` checks the `nuke` tag; `strike(gs, x, y, strength, radius)` detonates over a target tile — area damage to all units/settlements in the blast radius, ground stripping (forest/jungle/improvement removal), and Fallout feature contamination. The meltdown/`contain()` world-tick runs inside `TurnEngine.world_step`. All the integer-math chances and magnitudes live in `data/constants.json`; every stochastic step draws from the shared `gs.rng`
@@ -442,7 +442,7 @@ Player calls: facade.apply_command(Commands.end_turn(player_id))
              ├─ alliance research stores
              ├─ tile upkeep                  → player.treasury
              ├─ WildForces + WildAI.run      → gs.units (appended), gs.pending_wild_events
-             ├─ Pollution + Nuclear.meltdown → tile.pollution, tile.terrain_id, fallout
+             ├─ Nuclear.meltdown + GlobalWarming → gs.nukes_exploded, tile.terrain_id, fallout
              ├─ Assembly.world_tick          → gs.pending_assembly_events
              ├─ gs.turn_number += 1
              ├─ advance current_player_id

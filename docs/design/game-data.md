@@ -873,6 +873,12 @@ Provide +1 Health city-wide when connected. All also provide additional Food yie
 | Coast | 1 | 0 | 2 | Water; +10% defense |
 | Ocean | 1 | 0 | 1 | Water; deep-water; restricted early access |
 
+**Global-warming erosion (`degrades_to`).** Each land terrain declares the terrain a
+global-warming strike erodes it into (game-rules §11). The chains converge on the barren base
+terrain (`gw_base_terrain`, desert): `grassland → plains → desert`, `tundra → snow → desert`,
+`hills → plains → desert`, `mountain → hills → plains → desert`. Desert has no successor (it is
+the terminal); water terrains are never targeted.
+
 ### 11.2 Landform Modifiers
 
 | Landform | Yield Change | Move Cost | Defense | Other |
@@ -885,8 +891,8 @@ Provide +1 Health city-wide when connected. All also provide additional Food yie
 
 | Feature | Food | Production | Commerce | Move Cost | Defense | Notes |
 |---------|------|------------|----------|-----------|---------|-------|
-| Forest | 0 | +1 | 0 | +1 | +50% | Can be chopped for +20 prod (more with Math) |
-| Jungle | −1 | 0 | 0 | +1 | +50% | Removed before most improvements; disease risk |
+| Forest | 0 | +1 | 0 | +1 | +50% | Can be chopped for +20 prod (more with Math); `growth_probability` > 0 → counts as forest cover that defends against global warming (§11 game-rules) |
+| Jungle | −1 | 0 | 0 | +1 | +50% | Removed before most improvements; disease risk; `growth_probability` > 0 → defends against global warming (§11 game-rules) |
 | Flood Plains | +3 | 0 | 0 | 0 | −33% | Only on Desert tiles adjacent to rivers |
 | Oasis | +3 | 0 | +2 | 0 | 0 | Only in Desert; cannot be improved |
 | Fallout | −3 | −3 | −3 | +1 | 0 | Nuclear contamination; can be cleaned by Workers |
@@ -1358,6 +1364,23 @@ civ culture), `wild_spawn_min_distance` (2, min tiles a unit spawns from civ uni
 `wild_city_creation_turns_elapsed` / `wild_city_creation_prob` fallbacks used when a difficulty
 omits its per-level value. The Ancient era's `no_wild_units` flag (`data/ages.json`) gates the
 era check (BtS `bNoBarbUnits`).
+
+### 15.11 Global warming (§11)
+
+Constants in `data/constants.json` driving the global-warming degradation pass (game-rules §11):
+
+| Constant | Value | Meaning |
+|----------|------:|---------|
+| `gw_base_terrain` | `desert` | The terrain that strikes degrade tiles toward (the terminal of the degrade chain). |
+| `gw_chance` | 20 | Base per-strike landing chance (integer percent) before forest defence. |
+| `gw_forest_ratio` | 50 | Weight of forest/jungle cover in `GW_DEFENSE = #FOREST/#LAND × gw_forest_ratio` (percent subtracted from the landing chance). |
+| `gw_global_unhealth_ratio` | 20 | Weight of building unhealthiness in `GW_VALUE` (strikes per turn). |
+| `gw_nuclear_ratio` | 50 | Per-nuke contribution to `GW_VALUE`: each detonation adds `gw_nuclear_ratio/100` strike attempts. |
+
+A tile counts as forest cover (`#FOREST`) when its feature carries a positive `growth_probability`
+(§11.3) — Forest and Jungle by default. `#BAD_HEALTH` is the summed structure `health_penalty`
+across all cities; `#NUKES_EXPLODED` is `GameState.nukes_exploded`, the cumulative count of ICBM /
+tactical-nuke / Nuclear-Plant-meltdown explosions.
 
 ---
 
