@@ -827,3 +827,167 @@ func test_structure_bonuses_survive_save_load() -> void:
 	# Confirm the deserialized values are true ints (the JSON float-key gotcha).
 	assert_eq(typeof(cap2.structure_bonuses["forge"]["production"]), TYPE_INT,
 		"the bonus value is coerced back to int on load")
+
+# ── Phase 4: DESTROY_BLDG / PILLAGE / REVOLT / PEACE / WAR / ESP ──────────────────
+
+func test_phase4_events_load_cleanly() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 4 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["airliner_crash", "fugitive", "wedding_feud", "looters", "hurricane",
+			"cyclone", "tsunami", "monsoon", "blizzard", "volcano", "mining_accident",
+			"cigarette_smoker", "heroic_gesture", "great_mediator", "industrial_fire",
+			"heresy", "defecting_agent", "jail", "broken_dam"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 4 event '%s' is in the catalogue" % eid)
+
+func test_destroy_building_cheap_filter_removes_only_cheap() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # cost 60 (cheap)
+	s.structures.append("market")   # cost 150 (expensive)
+	Events.apply_effects([{"verb": "destroy_building", "count": 9, "cost": "cheap",
+		"scope": "capital"}], p, gs)
+	assert_false(s.has_structure("granary"), "the cheap building is destroyed")
+	assert_true(s.has_structure("market"), "the expensive building survives a cheap-filter")
+
+func test_destroy_building_expensive_filter() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # cost 60 (cheap)
+	s.structures.append("market")   # cost 150 (expensive)
+	Events.apply_effects([{"verb": "destroy_building", "count": 1, "cost": "expensive",
+		"scope": "capital"}], p, gs)
+	assert_true(s.has_structure("granary"), "the cheap building survives an expensive-filter")
+	assert_false(s.has_structure("market"), "the expensive building is destroyed")
+
+func test_destroy_building_never_removes_palace_or_wonders() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("palace")
+	s.structures.append("pyramids")  # a wonder
+	Events.apply_effects([{"verb": "destroy_building", "count": 9, "cost": "any",
+		"scope": "capital"}], p, gs)
+	assert_true(s.has_structure("palace"), "the palace is never destroyed")
+	assert_true(s.has_structure("pyramids"), "wonders are never destroyed")
+
+func test_destroy_building_count_caps_removals() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # 60
+	s.structures.append("forge")    # 120
+	s.structures.append("market")   # 150
+	Events.apply_effects([{"verb": "destroy_building", "count": 2, "cost": "any",
+		"scope": "capital"}], p, gs)
+	# Cheapest-first: granary (60) and forge (120) go; market (150) survives.
+	assert_eq(s.structures.size(), 1, "exactly count buildings are removed")
+	assert_true(s.has_structure("market"), "the dearest building survives a count-2 destroy")
+
+func test_pillage_clears_own_improvement() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"improvement_id": "mine", "improvement_age": 4})
+	Events.apply_effects([{"verb": "pillage", "count": 1}], p, gs)
+	assert_eq(t.improvement_id, "", "the pillaged tile's improvement is cleared")
+	assert_eq(t.improvement_age, 0, "the improvement age resets")
+
+func test_pillage_rival_targets_neighbour_near_a_city() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# A rival improvement next to our city (in radius), and our own improvement.
+	var rival_t = _own_tile(gs, 2, 6, 5, {"improvement_id": "farm"})
+	var own_t = _own_tile(gs, 1, 7, 7, {"improvement_id": "mine"})
+	Events.apply_effects([{"verb": "pillage", "count": 1, "match": {"owner": "rival"}}], p, gs)
+	assert_eq(rival_t.improvement_id, "", "the rival's nearby improvement is pillaged")
+	assert_eq(own_t.improvement_id, "mine", "our own improvement is untouched")
+
+func test_revolt_sets_disorder_turns() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "revolt", "turns": 3, "scope": "capital"}], p, gs)
+	assert_eq(s.revolt_turns, 3, "the city is thrown into 3 turns of revolt")
+	assert_true(s.in_disorder, "the city is in disorder")
+
+func test_make_peace_ends_war_and_warms_attitude() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	assert_true(gs.are_at_war(1, 2), "the players start at war")
+	Events.apply_effects([{"verb": "make_peace", "attitude": 2}], p, gs)
+	assert_false(gs.are_at_war(1, 2), "make_peace ends the war on both sides")
+	assert_eq(Diplomacy.memory_total(p, 2), 2, "make_peace warms the attitude toward the rival")
+
+func test_declare_war_starts_war_on_both_sides() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	assert_false(gs.are_at_war(1, 2), "the players start at peace")
+	Events.apply_effects([{"verb": "declare_war", "attitude": -1}], p, gs)
+	assert_true(gs.are_at_war(1, 2), "declare_war puts both alliances at war")
+	assert_eq(Diplomacy.memory_total(p, 2), -1, "declare_war sours the attitude toward the rival")
+
+func test_espionage_grants_and_drains_floored_at_zero() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# Rival player 2 sits in alliance 2; EP is ledgered per target alliance.
+	Events.apply_effects([{"verb": "espionage", "amount": 1000}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 1000, "espionage grants points against the rival alliance")
+	Events.apply_effects([{"verb": "espionage", "amount": -300}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 700, "espionage drains points")
+	Events.apply_effects([{"verb": "espionage", "amount": -5000}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 0, "the espionage ledger is floored at zero")
+
+func test_intel_points_survive_save_load_as_int_keys() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "espionage", "amount": 800}], p, gs)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var p2 = gs2.get_player(1)
+	assert_eq(int(p2.intel_points.get(2, 0)), 800, "the intel ledger roundtrips through save/load")
+	# The dict key must be a true int (the JSON float/string-key gotcha).
+	assert_true(p2.intel_points.has(2), "the intel ledger key is coerced back to int on load")
+
+func test_revolt_state_survives_save_load() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "revolt", "turns": 4, "scope": "capital"}], p, gs)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var s2 = gs2.get_settlement(s.id)
+	assert_eq(s2.revolt_turns, 4, "the revolt counter roundtrips")
+	assert_eq(typeof(s2.revolt_turns), TYPE_INT, "revolt_turns is a true int on load")
+	assert_true(s2.in_disorder, "the disorder flag roundtrips")
+
+func test_heroic_gesture_press_on_keeps_the_war() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	# The AI auto-resolves the first branch (press_on) which carries no effects.
+	p.is_ai = true
+	Events.fire_event("heroic_gesture", p, gs)
+	assert_true(gs.are_at_war(1, 2), "pressing on leaves the war running")
+
+func test_great_mediator_accept_makes_peace() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	# Human path: firing parks the pre-rolled choices; applying the named branch resolves.
+	Events.fire_event("great_mediator", p, gs)
+	assert_true(Events.apply_choice("great_mediator", "accept", p, gs),
+		"the accept branch is applied")
+	assert_false(gs.are_at_war(1, 2), "accepting the mediation ends the war")
+	assert_eq(Diplomacy.memory_total(p, 2), 2, "the mediated peace warms the attitude")

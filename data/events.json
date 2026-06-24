@@ -884,5 +884,277 @@
       { "id": "evangelize", "text": "Spread the good word (your religion spreads to 3 cities)",
         "effects": [ { "verb": "spread_religion", "count": 3, "scope": "any", "max_other_religions": 1 } ] }
     ]
+  },
+
+  "airliner_crash": {
+    "id": "airliner_crash", "name": "Airliner Crash",
+    "text": "An airliner goes down near your border. The wreckage holds secrets — and grief.",
+    "active": 70, "weight": 300,
+    "prereq": { "players_tech": { "tech": "flight", "count": 2 } },
+    "choices": [
+      { "id": "mourn", "text": "Offer condolences (+1 attitude with a neighbour)",
+        "effects": [ { "verb": "attitude", "amount": 1 } ] },
+      { "id": "recover_intel", "text": "Quietly recover the black box (+1000 espionage points)",
+        "effects": [ { "verb": "espionage", "amount": 1000 } ] },
+      { "id": "study_wreck", "text": "Reverse-engineer the wreck (+15% research; a neighbour resents it)",
+        "effects": [ { "verb": "research_pct_remaining", "percent": 15 },
+          { "verb": "attitude", "amount": -1 } ] }
+    ]
+  },
+
+  "fugitive": {
+    "id": "fugitive", "name": "Fugitive",
+    "text": "A fugitive from a neighbouring realm seeks asylum in your lands.",
+    "active": 90, "weight": 200,
+    "prereq": { "tech_all": [ "feudalism" ] },
+    "choices": [
+      { "id": "extradite", "text": "Return him in chains (+1 attitude with a neighbour)",
+        "effects": [ { "verb": "attitude", "amount": 1 } ] },
+      { "id": "shelter", "text": "Grant him sanctuary (a neighbour is angered; you gain intelligence)",
+        "effects": [ { "verb": "attitude", "amount": -1 },
+          { "verb": "chance", "percent": 50, "then": [ { "verb": "espionage", "amount": 200 } ] } ] }
+    ]
+  },
+
+  "wedding_feud": {
+    "id": "wedding_feud", "name": "Wedding Feud",
+    "text": "A royal wedding to a neighbour of a different faith curdles into a feud.",
+    "active": 90, "weight": 200,
+    "choices": [
+      { "id": "snub", "text": "Snub them (a neighbour is offended)",
+        "effects": [ { "verb": "attitude", "amount": -1 } ] },
+      { "id": "appease", "text": "Buy goodwill (pay 20 gold; +1 happy 10 turns, but they still bristle)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "attitude", "amount": -1 },
+          { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "capital" } ] },
+      { "id": "take_offence", "text": "Take grave offence (pay 10 gold; declare war on the offender)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "declare_war", "attitude": -1 } ] }
+    ]
+  },
+
+  "looters": {
+    "id": "looters", "name": "Looters",
+    "text": "Discontent in a neighbour's city spills over into a looting spree near your border.",
+    "active": 70, "weight": 100,
+    "choices": [
+      { "id": "opportunist", "text": "Let your people join in (pillage 1 of the neighbour's improvements)",
+        "effects": [ { "verb": "pillage", "count": 1, "match": { "owner": "rival" } } ] },
+      { "id": "organize_raid", "text": "Organize the raid (pay 10 gold; pillage 3 of the neighbour's improvements)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "pillage", "count": 3, "match": { "owner": "rival" } } ] },
+      { "id": "sabotage", "text": "Bankroll saboteurs (spend espionage; pillage and burn a building)",
+        "effects": [ { "verb": "espionage", "amount": -200 },
+          { "verb": "pillage", "count": 2, "match": { "owner": "rival" } } ] },
+      { "id": "restrain", "text": "Restrain your people (a neighbour resents the chaos)",
+        "effects": [ { "verb": "attitude", "amount": -1 } ] }
+    ]
+  },
+
+  "hurricane": {
+    "id": "hurricane", "name": "Hurricane",
+    "text": "A hurricane batters one of your coastal cities.",
+    "active": 75, "weight": 100,
+    "prereq": { "coastal": true, "min_pop": 3 },
+    "choices": [
+      { "id": "rebuild", "text": "Survey the ruins (a cheap and an expensive building are destroyed)",
+        "effects": [ { "verb": "destroy_building", "count": 1, "cost": "cheap", "scope": "capital" },
+          { "verb": "destroy_building", "count": 1, "cost": "expensive", "scope": "capital" } ] },
+      { "id": "evacuate", "text": "Evacuate the waterfront (lose 1 population instead)",
+        "effects": [ { "verb": "capital_pop", "amount": -1 } ] }
+    ]
+  },
+
+  "cyclone": {
+    "id": "cyclone", "name": "Cyclone",
+    "text": "A cyclone tears across one of your coastal cities.",
+    "active": 70, "weight": 100,
+    "prereq": { "coastal": true },
+    "choices": [
+      { "id": "weather_it", "text": "Weather the storm (two cheap buildings are destroyed)",
+        "effects": [ { "verb": "destroy_building", "count": 2, "cost": "cheap", "scope": "capital" } ] },
+      { "id": "shelter", "text": "Shelter the people (lose 1 population instead)",
+        "effects": [ { "verb": "capital_pop", "amount": -1 } ] }
+    ]
+  },
+
+  "tsunami": {
+    "id": "tsunami", "name": "Tsunami",
+    "text": "A towering tsunami crashes over one of your coastal cities.",
+    "active": 0, "weight": 0,
+    "prereq": { "coastal": true, "tech_all": [ "metal_casting" ] },
+    "choices": [
+      { "id": "endure", "text": "Endure the deluge (buildings are swept away and population is lost)",
+        "effects": [ { "verb": "destroy_building", "count": 2, "cost": "any", "scope": "capital" },
+          { "verb": "capital_pop", "amount": -5 } ] }
+    ]
+  },
+
+  "monsoon": {
+    "id": "monsoon", "name": "Monsoon",
+    "text": "A relentless monsoon floods one of your inland cities.",
+    "active": 85, "weight": 100,
+    "prereq": { "tech_all": [ "pottery" ] },
+    "choices": [
+      { "id": "drain", "text": "Drain the streets (a cheap building is lost)",
+        "effects": [ { "verb": "destroy_building", "count": 1, "cost": "cheap", "scope": "capital" } ] },
+      { "id": "relocate", "text": "Relocate the lowlands (lose 1 population instead)",
+        "effects": [ { "verb": "capital_pop", "amount": -1 } ] }
+    ]
+  },
+
+  "blizzard": {
+    "id": "blizzard", "name": "Blizzard",
+    "text": "A blizzard buries the roads and works around one of your cities.",
+    "active": 80, "weight": 100,
+    "prereq": { "tile": { "improvement": "mine", "in_city_radius": true } },
+    "choices": [
+      { "id": "dig_out", "text": "Let the snows win (an improvement and its road are buried)",
+        "effects": [ { "verb": "remove_improvement", "match": { "in_city_radius": true } },
+          { "verb": "remove_route", "match": { "in_city_radius": true } } ] },
+      { "id": "clear", "text": "Pay the work gangs (pay 5 gold)",
+        "effects": [ { "verb": "gold", "amount": -5 } ] }
+    ]
+  },
+
+  "volcano": {
+    "id": "volcano", "name": "Volcano",
+    "text": "A peak near one of your cities erupts, burying the works on its slopes.",
+    "active": 70, "weight": 100,
+    "prereq": { "tile": { "terrain": "mountain", "in_city_radius": true } },
+    "effects": [ { "verb": "remove_improvement", "match": { "in_city_radius": true } } ]
+  },
+
+  "mining_accident": {
+    "id": "mining_accident", "name": "Mining Accident",
+    "text": "A cave-in strikes one of your mines.",
+    "active": 90, "weight": 200,
+    "choices": [
+      { "id": "rescue", "text": "Fund the rescue (pay 20 gold)",
+        "effects": [ { "verb": "gold", "amount": -20 } ] },
+      { "id": "abandon_cheap", "text": "Cut your losses (pay 5 gold; lose the mine)",
+        "effects": [ { "verb": "gold", "amount": -5 },
+          { "verb": "remove_improvement", "match": { "improvement": "mine" } } ] },
+      { "id": "abandon", "text": "Abandon the shaft (lose the mine; the people seethe)",
+        "effects": [ { "verb": "remove_improvement", "match": { "improvement": "mine" } },
+          { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" } ] }
+    ]
+  },
+
+  "cigarette_smoker": {
+    "id": "cigarette_smoker", "name": "Cigarette Smoker",
+    "text": "A careless smoker sets fire to your theatre.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "theatre" },
+    "choices": [
+      { "id": "compensate", "text": "Compensate the troupe (pay 30 gold)",
+        "effects": [ { "verb": "gold", "amount": -30 } ] },
+      { "id": "minor", "text": "Salvage what you can (pay 10 gold; lose the theatre)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "destroy_building", "count": 1, "cost": "any", "scope": "capital" } ] },
+      { "id": "lose", "text": "Let it burn (lose the theatre; the city is angry)",
+        "effects": [ { "verb": "destroy_building", "count": 1, "cost": "any", "scope": "capital" },
+          { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" } ] }
+    ]
+  },
+
+  "heroic_gesture": {
+    "id": "heroic_gesture", "name": "Heroic Gesture",
+    "text": "With the war turning your way, an envoy proposes an honourable peace.",
+    "active": 80, "weight": 350,
+    "prereq": { "at_war": true },
+    "choices": [
+      { "id": "press_on", "text": "Press your advantage (carry on the war)",
+        "effects": [] },
+      { "id": "magnanimous", "text": "Make a magnanimous peace (+1 attitude with the foe)",
+        "effects": [ { "verb": "make_peace", "attitude": 1 } ] }
+    ]
+  },
+
+  "great_mediator": {
+    "id": "great_mediator", "name": "Great Mediator",
+    "text": "After a long war, a respected mediator offers to broker peace.",
+    "active": 85, "weight": 200,
+    "prereq": { "at_war": true },
+    "choices": [
+      { "id": "refuse", "text": "Refuse the mediation (the war goes on)",
+        "effects": [] },
+      { "id": "accept", "text": "Accept the mediation (+2 attitude; end the war)",
+        "effects": [ { "verb": "make_peace", "attitude": 2 } ] }
+    ]
+  },
+
+  "industrial_fire": {
+    "id": "industrial_fire", "name": "Industrial Fire",
+    "text": "A fire breaks out in one of your factories.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "factory" },
+    "choices": [
+      { "id": "let_burn", "text": "Let it burn out (lose the factory)",
+        "effects": [ { "verb": "destroy_building", "count": 1, "cost": "expensive", "scope": "capital" } ] },
+      { "id": "douse", "text": "Pour in the fire crews (pay 100 gold; save the factory)",
+        "effects": [ { "verb": "gold", "amount": -100 } ] }
+    ]
+  },
+
+  "heresy": {
+    "id": "heresy", "name": "Heresy",
+    "text": "A heretical movement challenges the state faith.",
+    "active": 85, "weight": 200,
+    "prereq": { "civic": "theocracy", "state_religion": true },
+    "choices": [
+      { "id": "suppress", "text": "Suppress it harshly (anger now; the faith spreads to 2 cities)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" },
+          { "verb": "spread_religion", "count": 2, "scope": "own" } ] },
+      { "id": "debate", "text": "Win the debate (pay 10 gold; +15% religious research)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "research_pct_remaining", "percent": 15 } ] },
+      { "id": "ignore", "text": "Ignore the zealots (nothing happens)",
+        "effects": [] }
+    ]
+  },
+
+  "defecting_agent": {
+    "id": "defecting_agent", "name": "Defecting Agent",
+    "text": "One of your intelligence agents goes missing — perhaps defected.",
+    "active": 75, "weight": 100,
+    "prereq": { "building": "intelligence_agency" },
+    "choices": [
+      { "id": "write_off", "text": "Write off the loss (-300 espionage points)",
+        "effects": [ { "verb": "espionage", "amount": -300 } ] },
+      { "id": "hunt", "text": "Hunt the defector (pay 20 gold; you may recover the loss)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "chance", "percent": 50, "then": [ { "verb": "espionage", "amount": 300 } ] } ] },
+      { "id": "blame_rival", "text": "Blame a rival publicly (a neighbour resents the accusation)",
+        "effects": [ { "verb": "attitude", "amount": -2 } ] }
+    ]
+  },
+
+  "jail": {
+    "id": "jail", "name": "Jail",
+    "text": "Conditions in your city jail spark a public outcry.",
+    "active": 80, "weight": 100,
+    "prereq": { "building": "jail" },
+    "choices": [
+      { "id": "ignore", "text": "Ignore the outcry (-1 happy for 10 turns)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" } ] },
+      { "id": "reform", "text": "Reform the jail (pay 100 gold)",
+        "effects": [ { "verb": "gold", "amount": -100 } ] }
+    ]
+  },
+
+  "broken_dam": {
+    "id": "broken_dam", "name": "Broken Dam",
+    "text": "The dam above one of your cities gives way.",
+    "active": 75, "weight": 100,
+    "prereq": { "building": "hydro_plant" },
+    "choices": [
+      { "id": "flood", "text": "The waters break through (lose the hydro plant, anger, and population)",
+        "effects": [ { "verb": "destroy_building", "count": 1, "cost": "expensive", "scope": "capital" },
+          { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" },
+          { "verb": "capital_pop", "amount": -1 } ] },
+      { "id": "shore_up", "text": "Shore up the dam (pay 100 gold; save the plant)",
+        "effects": [ { "verb": "gold", "amount": -100 } ] }
+    ]
   }
 }

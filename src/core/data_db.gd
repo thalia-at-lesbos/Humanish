@@ -420,7 +420,9 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 		"nearby_pop", "heal_units", "food_store", "golden_age", "attitude",
 		"grant_promotion", "city_happy_timed", "place_resource", "tile_yield",
 		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance",
-		"structure_yield", "specialist", "settle_great_person", "spread_religion"]
+		"structure_yield", "specialist", "settle_great_person", "spread_religion",
+		"destroy_building", "pillage", "revolt", "make_peace", "declare_war",
+		"espionage"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):

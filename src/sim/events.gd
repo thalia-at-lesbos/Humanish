@@ -463,6 +463,169 @@ static func _apply_effect(eff: Dictionary, player: Player, game_state) -> void:
 			_apply_settle_great_person(eff, player, game_state)
 		"spread_religion":
 			_apply_spread_religion(eff, player, game_state)
+		"destroy_building":
+			_apply_destroy_building(eff, player, game_state)
+		"pillage":
+			_apply_pillage(eff, player, game_state)
+		"revolt":
+			_apply_revolt(eff, player, game_state)
+		"make_peace":
+			_apply_make_peace(eff, player, game_state)
+		"declare_war":
+			_apply_declare_war(eff, player, game_state)
+		"espionage":
+			_apply_espionage(eff, player, game_state)
+
+# DESTROY_BLDG (§9): remove up to `count` standing structures from the scoped city
+# (default the capital), filtered by hammer cost — `cost` is "cheap" (<=
+# event_building_cheap_max), "expensive" (above it), or "any" (default). Wonders and
+# the palace are never destroyed (the palace would orphan the capital). Deterministic:
+# the cheapest-then-id matching structures are removed first.
+static func _apply_destroy_building(eff: Dictionary, player: Player, game_state) -> void:
+	var db: DataDB = game_state.db
+	var count: int = int(eff.get("count", 1))
+	if count <= 0:
+		return
+	var cost_filter: String = str(eff.get("cost", "any"))
+	var cheap_max: int = db.get_constant("event_building_cheap_max", 100)
+	for s in _scoped_settlements(str(eff.get("scope", "capital")), player, game_state):
+		# Candidate structures: real (non-wonder, non-palace) buildings matching the
+		# cost band, ordered cheapest-then-id so removal is deterministic.
+		var cands: Array = []
+		for sid in s.structures:
+			if sid == "palace":
+				continue
+			var sd: Dictionary = db.get_structure(sid)
+			if sd.empty() or bool(sd.get("is_wonder", false)):
+				continue
+			var c: int = int(sd.get("cost", 0))
+			if cost_filter == "cheap" and c > cheap_max:
+				continue
+			if cost_filter == "expensive" and c <= cheap_max:
+				continue
+			cands.append({"id": sid, "cost": c})
+		cands.sort_custom(load("res://src/sim/events.gd"), "_cmp_building_cost")
+		var removed: int = 0
+		for cand in cands:
+			if removed >= count:
+				break
+			s.structures.erase(str(cand["id"]))
+			removed += 1
+
+# Cheapest-then-id ascending comparator for deterministic building destruction.
+static func _cmp_building_cost(a, b) -> bool:
+	if int(a["cost"]) != int(b["cost"]):
+		return int(a["cost"]) < int(b["cost"])
+	return str(a["id"]) < str(b["id"])
+
+# PILLAGE (§9): clear the improvement on up to `count` tiles. By default targets the
+# acting player's own improved tiles; match.owner "rival" targets a rival's improved
+# tiles within event_city_radius of one of the player's cities (the "looters raid the
+# neighbour" case). Deterministic first-match map scan; combine with the `match` tile
+# predicate keys (terrain/feature/improvement/resource).
+static func _apply_pillage(eff: Dictionary, player: Player, game_state) -> void:
+	var db: DataDB = game_state.db
+	var count: int = int(eff.get("count", 1))
+	if count <= 0:
+		return
+	var spec: Dictionary = eff.get("match", {})
+	var want_rival: bool = str(spec.get("owner", "own")) == "rival"
+	var pillaged: int = 0
+	for t in game_state.map.all_tiles():
+		if pillaged >= count:
+			break
+		if t.improvement_id == "":
+			continue
+		if want_rival:
+			if t.owner_player_id == player.id or t.owner_player_id < 0:
+				continue
+			if not _tile_in_city_radius(player.id, t, game_state, db):
+				continue
+		else:
+			if t.owner_player_id != player.id:
+				continue
+		if spec.has("terrain") and t.terrain_id != str(spec["terrain"]):
+			continue
+		if spec.has("feature") and t.feature_id != str(spec["feature"]):
+			continue
+		if spec.has("improvement") and t.improvement_id != str(spec["improvement"]):
+			continue
+		if spec.has("resource") and t.resource_id != str(spec["resource"]):
+			continue
+		t.improvement_id = ""
+		t.improvement_age = 0
+		pillaged += 1
+
+# REVOLT (§9): throw the scoped city (default the capital) into `turns` turns of
+# disorder — it produces nothing until the occupation counter ticks out (§4.8, the
+# same machinery a freshly-conquered city uses). No-op for turns <= 0.
+static func _apply_revolt(eff: Dictionary, player: Player, game_state) -> void:
+	var turns: int = int(eff.get("turns", 0))
+	if turns <= 0:
+		return
+	for s in _scoped_settlements(str(eff.get("scope", "capital")), player, game_state):
+		s.revolt_turns = turns
+		s.in_disorder = true
+
+# PEACE (§9): end the war between the player's alliance and a rival's, optionally
+# warming the rival's attitude. The rival is the lowest-id living rival; a positive
+# `attitude` bumps the player's event-memory toward them.
+static func _apply_make_peace(eff: Dictionary, player: Player, game_state) -> void:
+	var rid: int = _pick_rival(player, game_state)
+	if rid < 0:
+		return
+	var rival: Player = game_state.get_player(rid)
+	if rival == null:
+		return
+	var mine: Alliance = game_state.get_alliance(player.alliance_id)
+	var theirs: Alliance = game_state.get_alliance(rival.alliance_id)
+	if mine == null or theirs == null or mine.id == theirs.id:
+		return
+	mine.at_war_with.erase(theirs.id)
+	theirs.at_war_with.erase(mine.id)
+	var att: int = int(eff.get("attitude", 0))
+	if att != 0:
+		_adjust_memory(player, rid, att, game_state)
+
+# WAR (§9): declare war on a rival's alliance (offer-or-declare collapses to a
+# declaration here — the §7 layer's offer flow is presentation-side). Records the war
+# on both alliances and, with a signed `attitude`, the diplomatic memory.
+static func _apply_declare_war(eff: Dictionary, player: Player, game_state) -> void:
+	var rid: int = _pick_rival(player, game_state)
+	if rid < 0:
+		return
+	var rival: Player = game_state.get_player(rid)
+	if rival == null:
+		return
+	var mine: Alliance = game_state.get_alliance(player.alliance_id)
+	var theirs: Alliance = game_state.get_alliance(rival.alliance_id)
+	if mine == null or theirs == null or mine.id == theirs.id:
+		return
+	if not (theirs.id in mine.at_war_with):
+		mine.at_war_with.append(theirs.id)
+	if not (mine.id in theirs.at_war_with):
+		theirs.at_war_with.append(mine.id)
+	var att: int = int(eff.get("attitude", 0))
+	if att != 0:
+		_adjust_memory(player, rid, att, game_state)
+
+# ESP (§9): grant or drain `amount` espionage points against a rival's alliance.
+# `Player.intel_points` is the per-alliance EP ledger; the rival is the lowest-id
+# living rival (the reference treats EP as a pool, so a single rival suffices).
+# Floored at zero — an event never drives the ledger negative.
+static func _apply_espionage(eff: Dictionary, player: Player, game_state) -> void:
+	var amount: int = int(eff.get("amount", 0))
+	if amount == 0:
+		return
+	var rid: int = _pick_rival(player, game_state)
+	if rid < 0:
+		return
+	var rival: Player = game_state.get_player(rid)
+	if rival == null or rival.alliance_id == player.alliance_id:
+		return
+	var aid: int = rival.alliance_id
+	var v: int = int(player.intel_points.get(aid, 0)) + amount
+	player.intel_points[aid] = v if v > 0 else 0
 
 # Bank percent% of the current research's remaining cost (gain=true) or shave
 # percent% of its full cost off the store (gain=false). No-op without a current tech.
