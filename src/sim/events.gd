@@ -455,6 +455,14 @@ static func _apply_effect(eff: Dictionary, player: Player, game_state) -> void:
 					rr_tile.improvement_id = ""
 		"spawn_wild":
 			_apply_spawn_wild(eff, player, game_state)
+		"structure_yield":
+			_apply_structure_yield(eff, player, game_state)
+		"specialist":
+			_apply_specialist(eff, player, game_state)
+		"settle_great_person":
+			_apply_settle_great_person(eff, player, game_state)
+		"spread_religion":
+			_apply_spread_religion(eff, player, game_state)
 
 # Bank percent% of the current research's remaining cost (gain=true) or shave
 # percent% of its full cost off the store (gain=false). No-op without a current tech.
@@ -554,6 +562,125 @@ static func _apply_city_happy_timed(eff: Dictionary, player: Player, game_state)
 			targets.append(s)
 	for s in targets:
 		s.timed_happiness.append({"amount": amount, "turns_left": turns})
+
+# The owned settlements an event verb targets, by scope: "capital" (the one city,
+# default), "all" (every owned city), or "all_state_religion" (owned cities holding
+# the player's adopted state religion). Shared by the §9 cluster verbs.
+static func _scoped_settlements(scope: String, player: Player, game_state) -> Array:
+	var targets: Array = []
+	if scope == "capital":
+		var cap: Settlement = capital_of(player.id, game_state)
+		if cap != null:
+			targets.append(cap)
+	else:
+		for s in game_state.settlements:
+			if s.owner_player_id != player.id:
+				continue
+			if scope == "all_state_religion" and s.belief_id != player.state_religion:
+				continue
+			targets.append(s)
+	return targets
+
+# STRUCT_YIELD (§9): grant a persistent per-structure yield/culture/research/happy
+# bonus to the scoped cities that hold the named structure (e.g. "+1 production for
+# the city's forge"). The bonus rides on Settlement.structure_bonuses and is folded
+# into the output/culture/research/contentment sites only while the structure stands.
+static func _apply_structure_yield(eff: Dictionary, player: Player, game_state) -> void:
+	var struct_id: String = str(eff.get("structure_id", ""))
+	if struct_id == "":
+		return
+	var channels: Array = ["food", "production", "commerce", "culture", "research", "happiness"]
+	for s in _scoped_settlements(str(eff.get("scope", "capital")), player, game_state):
+		if not s.has_structure(struct_id):
+			continue
+		for ch in channels:
+			var amt: int = int(eff.get(ch, 0))
+			if amt != 0:
+				s.add_structure_bonus(struct_id, ch, amt)
+
+# SPEC (§9): grant `count` free specialists of `specialist_type` in the scoped
+# cities (default the capital). The next settlement step normalises worked tiles.
+static func _apply_specialist(eff: Dictionary, player: Player, game_state) -> void:
+	var stype: String = str(eff.get("specialist_type", ""))
+	if stype == "":
+		return
+	var count: int = int(eff.get("count", 1))
+	if count <= 0:
+		return
+	for s in _scoped_settlements(str(eff.get("scope", "capital")), player, game_state):
+		s.specialists[stype] = int(s.specialists.get(stype, 0)) + count
+
+# SGP (§9): settle a free Great Person of `gp_type` (general/prophet/merchant/
+# artist/scientist/spy) in the capital — modelled as a permanent super-specialist of
+# the great person's underlying specialist type, exactly as GreatPeople join_city
+# does (§14.1). No unit is spawned; the GP arrives already settled.
+static func _apply_settle_great_person(eff: Dictionary, player: Player, game_state) -> void:
+	var cap: Settlement = capital_of(player.id, game_state)
+	if cap == null:
+		return
+	var stype: String = _settled_gp_specialist(str(eff.get("gp_type", "")))
+	if stype == "":
+		return
+	var add: int = int(game_state.db.get_constant("gp_super_specialist_count", 1))
+	cap.specialists[stype] = int(cap.specialists.get(stype, 0)) + add
+
+# Map a Great Person type onto the specialist type a settled one works as (§14.1):
+# a settled General works as an engineer (production); the rest map by name.
+static func _settled_gp_specialist(gp_type: String) -> String:
+	match gp_type:
+		"general", "engineer":
+			return "engineer"
+		"prophet", "priest":
+			return "priest"
+		"artist":
+			return "artist"
+		"scientist":
+			return "scientist"
+		"merchant":
+			return "merchant"
+		"spy":
+			return "spy"
+	return ""
+
+# SPREAD (§9): spread a religion to up to `count` cities. `belief` names the religion
+# (default the player's state religion); `scope` selects "own" (default), "foreign",
+# or "any" cities. Only converts a city that does not already hold `belief`; honours
+# the optional `max_other_religions` filter (the reference's "≤1 other religion" gate:
+# a city already holding a *different* religion is skipped when max_other_religions
+# is 0). Deterministic city-id scan order.
+static func _apply_spread_religion(eff: Dictionary, player: Player, game_state) -> void:
+	var belief: String = str(eff.get("belief", ""))
+	if belief == "":
+		belief = player.state_religion
+	if belief == "":
+		return
+	var count: int = int(eff.get("count", 1))
+	if count <= 0:
+		return
+	var scope: String = str(eff.get("scope", "own"))
+	var allow_other: bool = not eff.has("max_other_religions") \
+		or int(eff.get("max_other_religions", 1)) >= 1
+	# Deterministic order: lowest settlement id first.
+	var ordered: Array = game_state.settlements.duplicate()
+	ordered.sort_custom(load("res://src/sim/events.gd"), "_cmp_settlement_id")
+	var spread: int = 0
+	for s in ordered:
+		if spread >= count:
+			break
+		if scope == "own" and s.owner_player_id != player.id:
+			continue
+		if scope == "foreign" and s.owner_player_id == player.id:
+			continue
+		if s.belief_id == belief:
+			continue
+		if s.belief_id != "" and not allow_other:
+			continue
+		s.belief_id = belief
+		spread += 1
+
+# Settlement-id ascending comparator for deterministic spread order.
+static func _cmp_settlement_id(a, b) -> bool:
+	return a.id < b.id
 
 # Place a resource on a matching owned tile, optionally clearing its feature and
 # laying an improvement / route (e.g. cultivating spices into a plantation).

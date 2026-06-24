@@ -346,6 +346,12 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	total_food     += int(spec_out["food"])
 	total_prod     += int(spec_out["production"])
 	total_commerce += int(spec_out["commerce"])
+
+	# Persistent per-structure event yield bonuses (§9 STRUCT_YIELD): each applies
+	# only while its structure is present (Settlement.structure_yield filters on that).
+	total_food     += s.structure_yield("food")
+	total_prod     += s.structure_yield("production")
+	total_commerce += s.structure_yield("commerce")
 	# Mercantilism grants a free, population-free specialist per city; it is not an
 	# assigned type, so it yields the generic specialist commerce directly (§8).
 	total_commerce += PolicyEffects.sum_int(player, db, "free_specialist_per_city") \
@@ -603,6 +609,10 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 			pos += a
 		else:
 			timed_neg += -a
+
+	# Persistent per-structure event happiness bonuses (§9 STRUCT_YIELD, e.g. +1 happy
+	# for the hospital) — a flat comfort face while the structure stands.
+	pos += s.structure_yield("happiness")
 
 	# Convert anger percentage to negative sentiment citizens
 	var anger_div: int = db.get_constant("anger_divisor", 100)
@@ -1125,6 +1135,9 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 	# Artist/priest specialists add culture directly (§6.5), outside the commerce
 	# split (it is yield, not taxed commerce).
 	culture_out += Specialists.settlement_channel(db, s, "culture")
+	# Persistent per-structure event culture bonuses (§9 STRUCT_YIELD, e.g. +2 culture
+	# for the colosseum) — direct yield, applied only while the structure stands.
+	culture_out += s.structure_yield("culture")
 	s.culture_total += culture_out
 
 	# Ring expansion
@@ -1419,6 +1432,9 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		# Scientist specialists yield science directly (§6.5), outside the commerce
 		# split (it is yield, not taxed commerce).
 		research_income += Specialists.settlement_channel(db, s, "science")
+		# Persistent per-structure event research bonuses (§9 STRUCT_YIELD, e.g. +1
+		# research for the library) — direct science yield while the structure stands.
+		research_income += s.structure_yield("research")
 		scientists += int(s.specialists.get("scientist", 0))
 
 	# Representation: scientist specialists yield extra science directly (§8).

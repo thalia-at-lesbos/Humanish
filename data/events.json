@@ -555,5 +555,334 @@
     "prereq": { "tech_all": [ "refrigeration" ],
       "tile": { "resource": "banana", "improvement": "plantation", "route": true } },
     "effects": [ { "verb": "gold", "range": [160, 240] } ]
+  },
+
+  "inspired_mission": {
+    "id": "inspired_mission", "name": "Inspired Mission",
+    "text": "A charismatic missionary rallies the faithful of your state religion.",
+    "active": 75, "weight": 200,
+    "prereq": { "state_religion": true },
+    "effects": [ { "verb": "spread_religion", "count": 4, "scope": "any", "max_other_religions": 1 } ]
+  },
+
+  "hymns_and_sculptures": {
+    "id": "hymns_and_sculptures", "name": "Hymns and Sculptures",
+    "text": "Your cathedral inspires a generation of devotional artists.",
+    "active": 20, "weight": 200,
+    "prereq": { "building": "cathedral" },
+    "effects": [ { "verb": "specialist", "specialist_type": "artist", "count": 1, "scope": "capital" } ]
+  },
+
+  "bards_tale": {
+    "id": "bards_tale", "name": "A Bard's Tale",
+    "text": "A wandering bard composes an epic in your honour.",
+    "active": 90, "weight": 200,
+    "prereq": { "tech_all": [ "music" ] },
+    "choices": [
+      { "id": "listen", "text": "Enjoy the performance (+100 culture)",
+        "effects": [ { "verb": "culture", "amount": 100 } ] },
+      { "id": "patronize", "text": "Become the bard's patron (pay 50 gold, +450 culture)",
+        "effects": [ { "verb": "gold", "amount": -50 }, { "verb": "culture", "amount": 450 } ] }
+    ]
+  },
+
+  "ice_sculpture": {
+    "id": "ice_sculpture", "name": "Ice Sculpture",
+    "text": "An artisan carves a wonder from the tundra ice.",
+    "active": 70, "weight": 100,
+    "prereq": { "tech_all": [ "aesthetics" ], "tile": { "terrain": "tundra" } },
+    "choices": [
+      { "id": "display", "text": "Display it proudly (+100 culture)",
+        "effects": [ { "verb": "culture", "amount": 100 } ] },
+      { "id": "patron", "text": "Take the artist into your court (pay 30 gold, settle a Great Artist)",
+        "effects": [ { "verb": "gold", "amount": -30 },
+          { "verb": "settle_great_person", "gp_type": "artist" } ] }
+    ]
+  },
+
+  "patron_of_knowledge": {
+    "id": "patron_of_knowledge", "name": "Patron of Knowledge",
+    "text": "A wealthy patron endows your library with rare manuscripts.",
+    "active": 85, "weight": 200,
+    "prereq": { "building": "library" },
+    "choices": [
+      { "id": "study", "text": "Pore over the new texts (+10% toward your current research)",
+        "effects": [ { "verb": "research_pct_remaining", "percent": 10 } ] },
+      { "id": "endow", "text": "Endow the library (pay 20 gold; +1 research from the library forever)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "structure_yield", "structure_id": "library", "research": 1, "scope": "capital" } ] }
+    ]
+  },
+
+  "master_smith": {
+    "id": "master_smith", "name": "Master Smith",
+    "text": "A master smith takes up residence at your forge.",
+    "active": 70, "weight": 100,
+    "prereq": { "building": "forge" },
+    "effects": [ { "verb": "structure_yield", "structure_id": "forge", "production": 1, "scope": "capital" } ]
+  },
+
+  "rural_farmers": {
+    "id": "rural_farmers", "name": "Rural Farmers",
+    "text": "Rural farmers flock to sell their produce at your grocer.",
+    "active": 80, "weight": 100,
+    "prereq": { "building": "grocer" },
+    "effects": [ { "verb": "structure_yield", "structure_id": "grocer", "food": 1, "scope": "capital" } ]
+  },
+
+  "money_changers": {
+    "id": "money_changers", "name": "Money Changers",
+    "text": "Money changers set up shop in your market.",
+    "active": 75, "weight": 100,
+    "prereq": { "building": "market" },
+    "effects": [ { "verb": "structure_yield", "structure_id": "market", "commerce": 1, "scope": "capital" } ]
+  },
+
+  "literacy": {
+    "id": "literacy", "name": "Literacy",
+    "text": "A surge of literacy produces a brilliant scholar.",
+    "active": 30, "weight": 100,
+    "prereq": { "building": "library" },
+    "effects": [ { "verb": "settle_great_person", "gp_type": "scientist" } ]
+  },
+
+  "miracle": {
+    "id": "miracle", "name": "Miracle",
+    "text": "Pilgrims claim a miracle has occurred at your city walls.",
+    "active": 90, "weight": 200,
+    "prereq": { "building": "walls", "state_religion": true },
+    "choices": [
+      { "id": "shrine", "text": "Enshrine the spot (+1 commerce from the walls forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "walls", "commerce": 1, "scope": "capital" } ] },
+      { "id": "pilgrimage", "text": "Proclaim a pilgrimage (pay 20 gold; spread your religion to 2 cities)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "spread_religion", "count": 2, "scope": "any", "max_other_religions": 1 } ] }
+    ]
+  },
+
+  "esteemed_playwright": {
+    "id": "esteemed_playwright", "name": "An Esteemed Playwright",
+    "text": "An esteemed playwright premieres at your theatre.",
+    "active": 85, "weight": 200,
+    "prereq": { "building": "theatre" },
+    "choices": [
+      { "id": "residency", "text": "Offer a residency (+1 commerce from the theatre forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "theatre", "commerce": 1, "scope": "capital" } ] },
+      { "id": "commission", "text": "Commission a new play (+3 culture)",
+        "effects": [ { "verb": "culture", "amount": 3 } ] }
+    ]
+  },
+
+  "favorite_son": {
+    "id": "favorite_son", "name": "Favorite Son",
+    "text": "A local champion triumphs at the colosseum games.",
+    "active": 85, "weight": 200,
+    "obsolete": [ "steam_power" ],
+    "prereq": { "building": "colosseum" },
+    "choices": [
+      { "id": "purse", "text": "Award a victory purse (+20 gold)",
+        "effects": [ { "verb": "gold", "amount": 20 } ] },
+      { "id": "statue", "text": "Erect a statue (+2 culture from the colosseum forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "colosseum", "culture": 2, "scope": "capital" } ] }
+    ]
+  },
+
+  "secret_knowledge": {
+    "id": "secret_knowledge", "name": "Secret Knowledge",
+    "text": "Your monks uncover forgotten secret knowledge.",
+    "active": 70, "weight": 200,
+    "prereq": { "building": "monastery", "min_era": 3 },
+    "choices": [
+      { "id": "decode", "text": "Decode the texts (+15% toward your current research)",
+        "effects": [ { "verb": "research_pct_remaining", "percent": 15 } ] },
+      { "id": "preserve", "text": "Preserve them in the monastery (pay 10 gold; +4 culture from the monastery forever)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "structure_yield", "structure_id": "monastery", "culture": 4, "scope": "capital" } ] }
+    ]
+  },
+
+  "high_warlord": {
+    "id": "high_warlord", "name": "High Warlord",
+    "text": "A feared warlord offers to serve your crown from his castle stronghold.",
+    "active": 80, "weight": 200,
+    "obsolete": [ "radio" ],
+    "prereq": { "building": "castle" },
+    "choices": [
+      { "id": "tribute", "text": "Accept his tribute (+100 gold)",
+        "effects": [ { "verb": "gold", "amount": 100 } ] },
+      { "id": "levy", "text": "Levy his retinue (two pikemen)",
+        "effects": [ { "verb": "unit", "unit_type": "pikeman", "count": 2 } ] },
+      { "id": "ennoble", "text": "Ennoble the warlord (settle a Great General)",
+        "effects": [ { "verb": "settle_great_person", "gp_type": "general" } ] }
+    ]
+  },
+
+  "spoiled_grain": {
+    "id": "spoiled_grain", "name": "Spoiled Grain",
+    "text": "Rot spreads through the granary stores.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "granary" },
+    "choices": [
+      { "id": "discard", "text": "Discard the spoiled grain (lose half your stored food)",
+        "effects": [ { "verb": "food_store", "pct": 50 } ] },
+      { "id": "treat", "text": "Pay for fresh stores (pay 20 gold)",
+        "effects": [ { "verb": "gold", "amount": -20 } ] }
+    ]
+  },
+
+  "angel_of_mercy": {
+    "id": "angel_of_mercy", "name": "Angel of Mercy",
+    "text": "A devoted nurse becomes the soul of your hospital.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "hospital" },
+    "choices": [
+      { "id": "fund", "text": "Fund her clinic (+2 gold from the hospital forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "hospital", "commerce": 2, "scope": "capital" } ] },
+      { "id": "honor", "text": "Honour her publicly (pay 10 gold; +1 happy from the hospital forever)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "structure_yield", "structure_id": "hospital", "happiness": 1, "scope": "capital" } ] }
+    ]
+  },
+
+  "chilly_flight": {
+    "id": "chilly_flight", "name": "Chilly Flight",
+    "text": "A heroic pilot lands safely at your airport in foul weather.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "airport" },
+    "effects": [ { "verb": "structure_yield", "structure_id": "airport", "commerce": 2, "scope": "capital" } ]
+  },
+
+  "new_dynasty": {
+    "id": "new_dynasty", "name": "A New Dynasty",
+    "text": "A new royal dynasty rises in your capital, drawing talent to court.",
+    "active": 45, "weight": 100,
+    "prereq": { "civic": "hereditary_rule", "min_era": 2 },
+    "choices": [
+      { "id": "general", "text": "Crown a warrior-king (settle a Great General)",
+        "effects": [ { "verb": "settle_great_person", "gp_type": "general" } ] },
+      { "id": "merchant", "text": "Crown a merchant-prince (settle a Great Merchant)",
+        "effects": [ { "verb": "settle_great_person", "gp_type": "merchant" } ] },
+      { "id": "priest", "text": "Crown a priest-king (settle a Great Prophet)",
+        "effects": [ { "verb": "settle_great_person", "gp_type": "prophet" } ] }
+    ]
+  },
+
+  "too_close_to_call": {
+    "id": "too_close_to_call", "name": "Too Close To Call",
+    "text": "A contested election is settled in your courthouses.",
+    "active": 60, "weight": 100,
+    "prereq": { "civic": "universal_suffrage", "building": "courthouse" },
+    "choices": [
+      { "id": "recount", "text": "Order a careful recount (+1 gold from the courthouse forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "courthouse", "commerce": 1, "scope": "capital" } ] },
+      { "id": "celebrate", "text": "Celebrate the result (+3 culture from the courthouse forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "courthouse", "culture": 3, "scope": "capital" } ] }
+    ]
+  },
+
+  "great_beast": {
+    "id": "great_beast", "name": "The Great Beast",
+    "text": "Hunters corner a legendary beast near your camp.",
+    "active": 75, "weight": 100,
+    "obsolete": [ "education" ],
+    "prereq": { "tech_all": [ "polytheism", "hunting" ], "state_religion": true,
+      "tile": { "improvement": "camp" } },
+    "choices": [
+      { "id": "feast", "text": "Hold a hunting feast (+1 food on a tile)",
+        "effects": [ { "verb": "tile_yield", "food": 1, "match": { "improvement": "camp" } } ] },
+      { "id": "festival", "text": "Proclaim a festival (+1 happy for 40 turns in your faithful cities)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 40, "scope": "all_state_religion" } ] }
+    ]
+  },
+
+  "controversial_philosopher": {
+    "id": "controversial_philosopher", "name": "Controversial Philosopher",
+    "text": "A controversial philosopher stirs debate in your capital.",
+    "active": 75, "weight": 1000,
+    "obsolete": [ "scientific_method" ],
+    "prereq": { "tech_all": [ "philosophy" ], "civic": "theocracy" },
+    "choices": [
+      { "id": "tolerate", "text": "Tolerate the debate (+1 happy for 15 turns in the capital)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 15, "scope": "capital" } ] },
+      { "id": "patron", "text": "Make him a court scholar (a free Scientist specialist)",
+        "effects": [ { "verb": "specialist", "specialist_type": "scientist", "count": 1, "scope": "capital" } ] },
+      { "id": "academy", "text": "Found an Academy for him (pay 30 gold; build an Academy)",
+        "effects": [ { "verb": "gold", "amount": -30 },
+          { "verb": "building", "structure_id": "academy" } ] }
+    ]
+  },
+
+  "civ_game": {
+    "id": "civ_game", "name": "The Civilization Game",
+    "text": "A wildly popular strategy game sweeps your computerised society.",
+    "active": 80, "weight": 100,
+    "prereq": { "tech_all": [ "computers" ] },
+    "choices": [
+      { "id": "embrace", "text": "Embrace the craze (+1 happy for 10 turns in every city)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] },
+      { "id": "study", "text": "Study its design (+3 research from your universities forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "university", "research": 3, "scope": "all" } ] },
+      { "id": "license", "text": "License the game (gain gold)",
+        "effects": [ { "verb": "gold", "range": [280, 360] } ] }
+    ]
+  },
+
+  "rabbi": {
+    "id": "rabbi", "name": "The Rabbi",
+    "text": "A revered rabbi draws converts and scholars to your monastery.",
+    "active": 0, "weight": 100,
+    "obsolete": [ "mass_media" ],
+    "prereq": { "tech_all": [ "paper" ], "state_religion": true, "building": "monastery" },
+    "choices": [
+      { "id": "convert", "text": "Send him to preach (spread your religion to 3 cities)",
+        "effects": [ { "verb": "spread_religion", "count": 3, "scope": "any", "max_other_religions": 1 } ] },
+      { "id": "scholar", "text": "Keep him as a scholar (a free Scientist specialist)",
+        "effects": [ { "verb": "specialist", "specialist_type": "scientist", "count": 1, "scope": "capital" } ] },
+      { "id": "endow", "text": "Endow his monastery (+2 culture from the monastery forever and 50 gold)",
+        "effects": [ { "verb": "gold", "amount": 50 },
+          { "verb": "structure_yield", "structure_id": "monastery", "culture": 2, "scope": "capital" } ] }
+    ]
+  },
+
+  "golden_buddha": {
+    "id": "golden_buddha", "name": "The Golden Buddha",
+    "text": "Your smiths cast a golden idol from the gold of your mines.",
+    "active": 0, "weight": 100,
+    "obsolete": [ "steam_power" ],
+    "prereq": { "building": "forge", "tile": { "resource": "gold", "improvement": "mine", "route": true } },
+    "choices": [
+      { "id": "sell", "text": "Sell the gold leaf (gain gold)",
+        "effects": [ { "verb": "gold", "range": [180, 200] } ] },
+      { "id": "enshrine", "text": "Enshrine it at the forge (+6 culture from the forge forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "forge", "culture": 6, "scope": "capital" } ] }
+    ]
+  },
+
+  "preaching_researcher": {
+    "id": "preaching_researcher", "name": "The Preaching Researcher",
+    "text": "A scholar-monk lectures across your university and monastery.",
+    "active": 0, "weight": 100,
+    "prereq": { "building": "monastery", "tech_all": [ "education" ] },
+    "choices": [
+      { "id": "sermons", "text": "Publish his sermons (+2 culture)",
+        "effects": [ { "verb": "culture", "amount": 2 } ] },
+      { "id": "endow", "text": "Endow his chair (pay 20 gold; +2 culture and +2 research from the monastery forever)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "structure_yield", "structure_id": "monastery", "culture": 2, "research": 2, "scope": "capital" } ] }
+    ]
+  },
+
+  "freedom_concert": {
+    "id": "freedom_concert", "name": "Freedom Concert",
+    "text": "A jubilant concert celebrates freedom of worship in your city.",
+    "active": 95, "weight": 100,
+    "prereq": { "civic": "free_religion", "tech_any": [ "radio", "industrialism" ], "state_religion": true },
+    "choices": [
+      { "id": "rejoice", "text": "Join the celebration (+1 pop and +1 happy for 10 turns in the capital)",
+        "effects": [ { "verb": "capital_pop", "amount": 1 },
+          { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "capital" } ] },
+      { "id": "evangelize", "text": "Spread the good word (your religion spreads to 3 cities)",
+        "effects": [ { "verb": "spread_religion", "count": 3, "scope": "any", "max_other_religions": 1 } ] }
+    ]
   }
 }

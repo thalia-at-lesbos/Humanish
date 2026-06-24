@@ -419,7 +419,8 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 		"culture", "tech", "unit", "building", "capital_health", "capital_pop",
 		"nearby_pop", "heal_units", "food_store", "golden_age", "attitude",
 		"grant_promotion", "city_happy_timed", "place_resource", "tile_yield",
-		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance"]
+		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance",
+		"structure_yield", "specialist", "settle_great_person", "spread_religion"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):
@@ -443,5 +444,19 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 					_errors.append("Event '%s' place_resource '%s' not a resource" % [eid, eff.get("resource", "")])
 				if eff.has("add_improvement") and not improvements.has(str(eff["add_improvement"])):
 					_errors.append("Event '%s' place_resource add_improvement '%s' not an improvement" % [eid, eff["add_improvement"]])
+			"structure_yield":
+				if not structures.has(str(eff.get("structure_id", ""))):
+					_errors.append("Event '%s' structure_yield '%s' not in structures table" % [eid, eff.get("structure_id", "")])
+			"specialist":
+				if not specialists.has(str(eff.get("specialist_type", ""))):
+					_errors.append("Event '%s' specialist effect type '%s' not a specialist" % [eid, eff.get("specialist_type", "")])
+			"settle_great_person":
+				var gp_known := ["general", "prophet", "priest", "artist", "scientist", "merchant", "spy", "engineer"]
+				if not (str(eff.get("gp_type", "")) in gp_known):
+					_errors.append("Event '%s' settle_great_person gp_type '%s' unknown" % [eid, eff.get("gp_type", "")])
+			"spread_religion":
+				var b = str(eff.get("belief", ""))
+				if b != "" and not beliefs.has(b):
+					_errors.append("Event '%s' spread_religion belief '%s' not a belief" % [eid, b])
 			"chance":
 				_validate_event_effects(eid, eff.get("then", []))

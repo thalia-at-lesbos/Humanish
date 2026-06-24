@@ -71,6 +71,14 @@ var special_persons_produced: int = 0
 # Rushing penalty turns
 var rush_anger_turns: int = 0
 
+# Persistent per-structure yield bonuses from random events (§9 STRUCT_YIELD, e.g.
+# "+1 production for the city's forge", "+2 culture for the colosseum"). Keyed by
+# structure_id → {food,production,commerce,culture,research,happiness} (any subset).
+# A bonus only takes effect while the named structure is actually present, so it is
+# folded into the output/culture/research/contentment sites via structure_yield().
+# Serialized; deserialize coerces each channel back to int (the JSON float gotcha).
+var structure_bonuses: Dictionary = {}
+
 # Timed happiness modifiers from random events (§9): each {amount:int, turns_left:int}.
 # A positive amount is a temporary happy face (added to positive_sentiment); a
 # negative amount is a temporary angry face — "like whipped" anger — contributing
@@ -115,6 +123,25 @@ var alert_cooldown: int = 0
 func has_structure(struct_id: String) -> bool:
 	return struct_id in structures
 
+# Sum a structure-bonus channel (food/production/commerce/culture/research/
+# happiness) over every present structure that carries an event bonus (§9
+# STRUCT_YIELD). A bonus on a structure the city has lost contributes nothing.
+func structure_yield(channel: String) -> int:
+	var total: int = 0
+	for struct_id in structure_bonuses:
+		if not (struct_id in structures):
+			continue
+		total += int(structure_bonuses[struct_id].get(channel, 0))
+	return total
+
+# Add an event yield bonus to a structure (§9 STRUCT_YIELD). Channels accumulate so
+# the same structure can be boosted twice (e.g. two Money Changers on one market).
+func add_structure_bonus(struct_id: String, channel: String, amount: int) -> void:
+	if not structure_bonuses.has(struct_id):
+		structure_bonuses[struct_id] = {}
+	var b: Dictionary = structure_bonuses[struct_id]
+	b[channel] = int(b.get(channel, 0)) + amount
+
 func effective_workers() -> int:
 	return 0 if population <= discontented else population - discontented
 
@@ -145,6 +172,7 @@ func serialize() -> Dictionary:
 		"manage_citizens_auto": manage_citizens_auto,
 		"specialists": specialists.duplicate(),
 		"structures": structures.duplicate(),
+		"structure_bonuses": structure_bonuses.duplicate(true),
 		"belief_id": belief_id, "econ_org_id": econ_org_id,
 		"special_person_points": special_person_points,
 		"special_person_threshold": special_person_threshold,
@@ -186,6 +214,15 @@ static func deserialize(d: Dictionary):
 	s.manage_citizens_auto = bool(d.get("manage_citizens_auto", true))
 	s.specialists = d.get("specialists", {}).duplicate()
 	s.structures = d.get("structures", []).duplicate()
+	# Per-structure event yield bonuses (§9 STRUCT_YIELD): coerce each channel value
+	# back to int so post-load output/contentment math matches (the JSON float gotcha).
+	s.structure_bonuses = {}
+	var sb_in: Dictionary = d.get("structure_bonuses", {})
+	for struct_id in sb_in:
+		var ch: Dictionary = {}
+		for channel in sb_in[struct_id]:
+			ch[str(channel)] = int(sb_in[struct_id][channel])
+		s.structure_bonuses[str(struct_id)] = ch
 	s.belief_id = str(d.get("belief_id", ""))
 	s.econ_org_id = str(d.get("econ_org_id", ""))
 	s.special_person_points = int(d.get("special_person_points", 0))

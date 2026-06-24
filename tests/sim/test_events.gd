@@ -639,3 +639,191 @@ func test_holy_ritual_cost_is_paid() -> void:
 	_own_tile(gs, 1, 6, 6, {"resource_id": "incense", "improvement_id": "plantation", "transport_id": "road"})
 	Events.fire_event("holy_ritual", p, gs)
 	assert_eq(p.treasury, 120, "Holy Ritual banks 20 gold from the pilgrims' offerings")
+
+# ── Phase 3 cluster events load ──────────────────────────────────────────────────
+
+func test_phase3_events_load_cleanly() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 3 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["hymns_and_sculptures", "master_smith", "money_changers", "literacy",
+			"miracle", "new_dynasty", "civ_game", "freedom_concert", "inspired_mission",
+			"rabbi", "golden_buddha", "preaching_researcher"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 3 event '%s' is in the catalogue" % eid)
+
+# ── STRUCT_YIELD verb + folding ──────────────────────────────────────────────────
+
+func test_structure_yield_verb_records_a_persistent_bonus() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	Events.apply_effects([{"verb": "structure_yield", "structure_id": "forge",
+		"production": 1, "scope": "capital"}], p, gs)
+	assert_eq(s.structure_yield("production"), 1, "the forge production bonus is recorded")
+	assert_eq(s.structure_yield("commerce"), 0, "unrelated channels stay zero")
+
+func test_structure_yield_only_counts_while_structure_present() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	s.add_structure_bonus("forge", "production", 2)
+	assert_eq(s.structure_yield("production"), 2, "present structure contributes its bonus")
+	s.structures.erase("forge")
+	assert_eq(s.structure_yield("production"), 0, "a lost structure's bonus is dormant")
+
+func test_structure_yield_accumulates() -> void:
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("market")
+	s.add_structure_bonus("market", "commerce", 1)
+	s.add_structure_bonus("market", "commerce", 1)
+	assert_eq(s.structure_yield("commerce"), 2, "two Money Changers stack on one market")
+
+func test_master_smith_event_boosts_forge_production() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	Events.fire_event("master_smith", p, gs)
+	assert_eq(s.structure_yield("production"), 1, "Master Smith grants +1 forge production")
+
+# ── SPEC verb ────────────────────────────────────────────────────────────────────
+
+func test_specialist_verb_grants_free_specialist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "specialist", "specialist_type": "artist",
+		"count": 1, "scope": "capital"}], p, gs)
+	assert_eq(int(s.specialists.get("artist", 0)), 1, "a free Artist specialist is added")
+
+func test_hymns_event_grants_artist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("cathedral")
+	Events.fire_event("hymns_and_sculptures", p, gs)
+	assert_eq(int(s.specialists.get("artist", 0)), 1, "Hymns and Sculptures yields an Artist")
+
+# ── SGP verb ─────────────────────────────────────────────────────────────────────
+
+func test_settle_great_person_general_settles_as_engineer() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	var add = int(gs.db.get_constant("gp_super_specialist_count", 1))
+	Events.apply_effects([{"verb": "settle_great_person", "gp_type": "general"}], p, gs)
+	assert_eq(int(s.specialists.get("engineer", 0)), add, "a settled General works as an engineer")
+
+func test_settle_great_person_scientist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.fire_event("literacy", p, gs)
+	assert_true(int(s.specialists.get("scientist", 0)) >= 1,
+		"Literacy settles a Great Scientist in the city")
+
+# ── SPREAD verb ──────────────────────────────────────────────────────────────────
+
+func test_spread_religion_converts_n_cities() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "buddhism"
+	var a = make_settlement(gs, 1, 5, 5)
+	var b = make_settlement(gs, 1, 9, 9)
+	var c = make_settlement(gs, 1, 12, 12)
+	Events.apply_effects([{"verb": "spread_religion", "count": 2, "scope": "own"}], p, gs)
+	var converted = 0
+	for s in [a, b, c]:
+		if s.belief_id == "buddhism":
+			converted += 1
+	assert_eq(converted, 2, "exactly two own cities convert (count cap)")
+
+func test_spread_religion_skips_other_religion_when_filtered() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "christianity"
+	var a = make_settlement(gs, 1, 5, 5)
+	var b = make_settlement(gs, 1, 9, 9)
+	b.belief_id = "buddhism"  # already holds another religion
+	Events.apply_effects([{"verb": "spread_religion", "count": 5, "scope": "own",
+		"max_other_religions": 0}], p, gs)
+	assert_eq(a.belief_id, "christianity", "an empty city converts")
+	assert_eq(b.belief_id, "buddhism", "a city holding another religion is skipped under the filter")
+
+func test_spread_religion_foreign_scope() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "judaism"
+	make_settlement(gs, 1, 5, 5)
+	var foreign = make_settlement(gs, 2, 9, 9)
+	Events.apply_effects([{"verb": "spread_religion", "count": 3, "scope": "foreign"}], p, gs)
+	assert_eq(foreign.belief_id, "judaism", "the foreign scope converts a rival's city")
+
+# ── STRUCT_YIELD folds into the output/contentment/culture/research sites ─────────
+
+func test_structure_yield_folds_into_production_output() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.structures.append("forge")
+	s.food_store = 1000  # keep the city from shrinking during the growth step
+	TurnEngine._settlement_growth(gs, s, p)
+	var base_prod = s.output_production
+	s.add_structure_bonus("forge", "production", 2)
+	TurnEngine._settlement_growth(gs, s, p)
+	assert_eq(s.output_production, base_prod + 2, "a forge production bonus folds into output")
+
+func test_structure_yield_happiness_folds_into_contentment() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 4)
+	s.structures.append("hospital")
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var base_pos = s.positive_sentiment
+	s.add_structure_bonus("hospital", "happiness", 1)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, base_pos + 1, "a hospital happy bonus folds into contentment")
+
+func test_structure_yield_culture_folds_into_culture() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("colosseum")
+	s.output_commerce = 0
+	s.culture_total = 0
+	TurnEngine._settlement_culture(gs, s, p)
+	var base_culture = s.culture_total
+	s.add_structure_bonus("colosseum", "culture", 2)
+	TurnEngine._settlement_culture(gs, s, p)
+	assert_eq(s.culture_total, base_culture + 2, "a colosseum culture bonus folds into culture")
+
+func test_structure_yield_research_folds_into_research() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.current_research_id = "writing"
+	p.research_store = 0
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("library")
+	s.output_commerce = 0
+	s.add_structure_bonus("library", "research", 5)
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 5, "a library research bonus folds into research income")
+
+# ── Save / load of structure_bonuses ─────────────────────────────────────────────
+
+func test_structure_bonuses_survive_save_load() -> void:
+	var gs = make_gs()
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.structures.append("forge")
+	cap.add_structure_bonus("forge", "production", 2)
+	cap.add_structure_bonus("forge", "culture", 3)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var cap2 = gs2.get_settlement(cap.id)
+	assert_eq(cap2.structure_yield("production"), 2, "the forge production bonus roundtrips")
+	assert_eq(cap2.structure_yield("culture"), 3, "the forge culture bonus roundtrips")
+	# Confirm the deserialized values are true ints (the JSON float-key gotcha).
+	assert_eq(typeof(cap2.structure_bonuses["forge"]["production"]), TYPE_INT,
+		"the bonus value is coerced back to int on load")
