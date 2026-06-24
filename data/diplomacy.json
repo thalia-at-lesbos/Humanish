@@ -18,7 +18,8 @@
     "fair_trade": {"value": 8, "decay": 1},
     "traded_tech": {"value": 6, "decay": 1},
     "made_peace": {"value": 8, "decay": 1},
-    "gave_gift": {"value": 10, "decay": 1}
+    "gave_gift": {"value": 10, "decay": 1},
+    "event": {"value": 0, "decay": 1}
   },
   "deal_accept_min_attitude": 1,
   "war_min_attitude": 2,

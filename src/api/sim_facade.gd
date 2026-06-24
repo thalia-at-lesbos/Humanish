@@ -154,6 +154,11 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# the engine stays generic and society→unit mapping lives in the caller.
 	_place_all_starting_units(player_configs, starts)
 
+	# Roll this game's random-event roster (§9): each event's `active` inclusion
+	# percent is drawn once from gs.rng in fixed event-id order, so the roster is
+	# deterministic for the seed and is captured by save/load (active_event_ids).
+	Events.roll_active_events(_gs)
+
 # Initialize only the non-serialized scaffolding (db, hooks, UI state) so a save
 # can be loaded into a fresh facade without running setup(). load_save() then
 # supplies the GameState. Used by the start menu's "Load Game" path.
@@ -436,6 +441,14 @@ func _remote_submit() -> bool:
 func _cmd_end_turn(player_id: int) -> bool:
 	var player: Player = _gs.get_player(player_id)
 	if player == null:
+		return false
+
+	# A human may not end their turn while a random-event choice is unanswered (§9):
+	# the decision is mandatory. Re-raise the popup and refuse the End Turn. (AI
+	# choices auto-resolve inside the event step, so they never park one.)
+	if not player.is_ai and not get_pending_event(player_id).empty():
+		_maybe_raise_event_popup(player_id)
+		_add_notification("You must resolve the pending event first.", "major")
 		return false
 
 	# Advance all exploring scouts for this player before the turn pipeline runs.
@@ -3364,8 +3377,10 @@ func _maybe_raise_event_popup(player_id: int) -> void:
 	if pending.empty():
 		return
 	var ev: Dictionary = _db.get_event(str(pending.get("event_id", "")))
+	# Present the pre-rolled branches parked at fire time (id + display text); their
+	# concrete effects are already baked, so the human's pick draws no RNG (§9).
 	var options: Array = []
-	for ch in ev.get("choices", []):
+	for ch in pending.get("resolved_choices", []):
 		options.append({"id": str(ch.get("id", "")), "text": str(ch.get("text", ""))})
 	push_popup({
 		"type": IDs.PopupType.EVENT,

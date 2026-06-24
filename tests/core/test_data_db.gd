@@ -221,21 +221,23 @@ func test_goody_unit_types_resolve() -> void:
 func test_event_tables_load_and_are_well_formed() -> void:
 	var db = _db()
 	assert_true(db.get_events().size() > 1, "events.json defines a catalogue")
-	assert_true(db.get_event_triggers().size() > 1, "event_triggers.json defines triggers")
-	assert_true(db.get_errors().empty(), "DataDB loads cleanly with the event tables")
+	assert_true(db.get_errors().empty(), "DataDB loads cleanly with the reworked event table")
 
-func test_event_triggers_reference_real_events() -> void:
+func test_events_carry_inline_selection_fields() -> void:
+	# The reworked schema folds the trigger predicates into each event: every real
+	# event carries an `active` inclusion percent and a selection `weight`.
 	var db = _db()
-	for tid in db.get_event_triggers():
-		if tid == "_comment":
+	for eid in db.get_events():
+		if eid == "_comment":
 			continue
-		var eid = str(db.event_triggers[tid].get("event_id", ""))
-		assert_true(db.get_events().has(eid),
-			"trigger '%s' event_id '%s' must name a real event" % [tid, eid])
+		var ev = db.get_events()[eid]
+		assert_true(ev.has("active"), "event '%s' declares an active inclusion percent" % eid)
+		assert_true(ev.has("weight"), "event '%s' declares a selection weight" % eid)
 
 func test_event_effect_refs_resolve() -> void:
-	# Every unit/structure/tech referenced by an event effect must exist (the loader
-	# enforces this; assert directly so a bad ref is caught here too).
+	# Every unit/structure/promotion/resource referenced by an event effect (begin,
+	# choice, expire, or nested chance.then) must exist. The loader enforces this;
+	# assert directly so a bad ref is caught here too.
 	var db = _db()
 	for eid in db.get_events():
 		if eid == "_comment":
@@ -245,13 +247,25 @@ func test_event_effect_refs_resolve() -> void:
 		for ch in ev.get("choices", []):
 			lists.append(ch.get("effects", []))
 		for effects in lists:
-			for eff in effects:
-				if str(eff.get("verb", "")) == "unit":
-					assert_true(db.units.has(str(eff.get("unit_type", ""))),
-						"event '%s' unit effect must name a real unit" % eid)
-				elif str(eff.get("verb", "")) == "building":
-					assert_true(db.structures.has(str(eff.get("structure_id", ""))),
-						"event '%s' building effect must name a real structure" % eid)
+			_assert_event_effects_resolve(db, eid, effects)
+
+func _assert_event_effects_resolve(db, eid, effects) -> void:
+	for eff in effects:
+		match str(eff.get("verb", "")):
+			"unit", "spawn_wild":
+				assert_true(db.units.has(str(eff.get("unit_type", ""))),
+					"event '%s' unit effect must name a real unit" % eid)
+			"building":
+				assert_true(db.structures.has(str(eff.get("structure_id", ""))),
+					"event '%s' building effect must name a real structure" % eid)
+			"grant_promotion":
+				assert_true(db.promotions.has(str(eff.get("promotion", ""))),
+					"event '%s' grant_promotion must name a real promotion" % eid)
+			"place_resource":
+				assert_true(db.resources.has(str(eff.get("resource", ""))),
+					"event '%s' place_resource must name a real resource" % eid)
+			"chance":
+				_assert_event_effects_resolve(db, eid, eff.get("then", []))
 
 # ── Corporations (§14.6) ─────────────────────────────────────────────────────
 

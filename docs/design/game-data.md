@@ -56,7 +56,8 @@ sections:
   "§17  Spaceship Parts":        "Space Race component list"
   "§18  Assembly & Resolutions": "World-government assembly mechanics and resolution catalogue (provisional)"
   "§19  Data field reference":   "JSON field schemas (§19.1–§19.4) and serialized entity fields (§19.5) — provisional"
-  "§20  Reference-parity data domains": "Data tables to add for reference parity (specialists, corporations, events+triggers, goody huts, espionage missions, diplomacy, score victory, map normalize)"
+  "§20  Reference-parity data domains": "Data tables to add for reference parity (specialists, corporations, goody huts, espionage missions, diplomacy, score victory, map normalize)"
+  "§21  Random events":          "events.json record schema, selection framework, prereq/effect vocabulary, and the full event (1–174) + quest (1–18) catalogue"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1746,7 +1747,6 @@ parity goal; the development sequencing is in
 |--------|-----------------|-------------------------------|--------------|
 | **Specialists** | 14 types (`citizen, priest, artist, scientist, merchant, engineer, spy` + 7 great-person counterparts); each with output vector, GP-point type, slots | Implicit via unit `generated_by` tags + per-structure slot counts (§14.5) | `data/specialists.json` |
 | **Corporations** | 7 corporations, each with HQ building, executive unit, input-resource set, per-city maintenance, resource-count-scaled output | `econ_orgs` (9), lighter model — no HQ-gold share, executive unit, or maintenance (§14.6) | `data/corporations.json` |
-| **Random events + triggers** | Large catalogue (hundreds) with trigger predicates, choice popups, apply + expire phases, weights, chaining | One-shot `data/events.json` (1 record), single treasury delta, no triggers/choices/expiry (§9) | `data/events.json` (expanded) + `data/event_triggers.json` |
 | **Goody huts** | Map-placed huts (`GOODY_HUT` improvement) with a weighted reward table consumed by the first land unit | "Discovery sites" on Terra maps only; no general placement or reward table | `data/goodies.json` + map placement stage |
 | **Espionage missions** | ~18 mission records (steal tech, sabotage, incite, …) with costs, target gates, interception | Alliance-scope EP accrual + 3 hard-coded screen missions; spy-unit missions deferred (§7.1) | `data/espionage_missions.json` |
 | **Diplomacy: deals, attitude, memory** | Persistent deal objects (one-off + per-turn), AI attitude (5 levels) from weighted factors, decaying memory of acts, denial reasons | Trades = expiring dicts; no attitude/memory layer (§7) | `data/diplomacy.json` (attitude factors, memory kinds/decay, denial reasons) |
@@ -1756,3 +1756,298 @@ parity goal; the development sequencing is in
 > These rows are the data-side companion to the rules updates in `game-rules.md`
 > (§4.2/§4.3/§5.4/§6.3/§6.5/§7/§8/§9/§10) and supersede the prior, lighter models where they
 > conflict.
+
+---
+
+## 21. Random events
+
+The random-event system (`data/events.json`, rules in `game-rules.md` §9) is a
+first-class, data-driven domain. Every event is **one self-contained record** — there
+is no separate trigger table. A representative **vertical slice** of events ships
+today (marked ✅ below); the remaining records and the 18 quests are catalogued here as
+the authoritative data spec, with the engineering roadmap and per-event subsystem
+requirements in `docs/planning/event-subsystem-planning.md`.
+
+> Magnitudes are the reference's **normal/standard** values. Map-size and game-speed
+> scaling of counts/magnitudes is deferred (planning doc §5); ship the standard
+> integers verbatim.
+
+### 21.1 Selection framework
+
+| Stage | Rule |
+|-------|------|
+| **Grace** | No event fires before `event_grace_turns` (20) — a flat count, **not** pace-scaled. |
+| **Per-era chance** | One roll per player per turn at `event_era_chance[era]` = `[1,2,4,4,6,8,10]`% (Ancient→Future) decides whether *any* event fires. |
+| **Per-game roster** | At setup each event's `active`% is rolled once into `GameState.active_event_ids` (serialized); only rostered events can occur this game. |
+| **Weighted pick** | Among eligible events, one is drawn weighted by `weight`. |
+| **Eligibility** | In roster · all `prereq` hold · holds no `obsolete` tech · not a still-running timed instance · (if `one_shot`) unfired. |
+| **Mandatory choice** | A human cannot End Turn while an event decision is unresolved. |
+| **Determinism** | `range` magnitudes and `chance` branches are rolled once at fire time (fixed order) and baked into the resolved branches, so applying a choice draws no RNG. |
+
+### 21.2 Record schema
+
+```jsonc
+"forest_fire": {
+  "name": "...", "text": "...",
+  "active": 70, "weight": 100,          // inclusion % and selection weight
+  "prereq": { ... },                     // predicate dict (table below)
+  "obsolete": ["nationalism", ...],      // any held tech disqualifies
+  "choices": [ {"id","text","effects":[...]} ],  // OR a bare begin "effects":[...]
+  "duration": 5, "expire_effects": [...] // optional timed event
+}
+```
+
+**Prereq predicates** (all ANDed; absent keys impose no constraint):
+
+| Key | Holds when |
+|-----|-----------|
+| `tech_all` / `tech_any` | player holds all / any of the listed techs |
+| `building` | player owns the structure in some city |
+| `civic` | the policy is active in some category |
+| `state_religion` | player has adopted a state religion |
+| `resource_absent` | player owns no tile with the resource |
+| `min_pop` / `max_pop` | some owned city is ≥ / ≤ the size |
+| `min_era` / `max_era` | player's era is within bounds (0–6) |
+| `at_war` / `at_peace` | player's war state |
+| `coastal` | some owned city is adjacent to sea |
+| `players_tech {tech,count}` | ≥ count players hold the tech |
+| `tile {terrain,feature,improvement,resource,route,in_city_radius}` | an owned tile matches every key given |
+
+**Effect verbs** (begin / choice / expire / nested `chance.then`):
+
+| Verb | Effect |
+|------|--------|
+| `gold` | treasury delta (`amount`, or `range:[min,max]` rolled at fire) |
+| `research` / `research_pct_remaining` / `research_pct_loss` | beaker delta, or ± a percent of the current tech's remaining/full cost |
+| `culture` | capital culture delta |
+| `tech` | grant a named tech, or the cheapest researchable |
+| `unit` / `spawn_wild` | spawn `count` of `unit_type` at the capital / as wild raiders nearby |
+| `building` | grant a free structure in the capital |
+| `capital_health` / `capital_pop` / `nearby_pop` | capital health / population, or nearby-city population (floored at 1) |
+| `food_store` | capital food-store delta (`amount` or `pct`) |
+| `heal_units` | restore all owned units |
+| `golden_age` | start/extend a free Golden Age |
+| `attitude {target,amount}` | diplo-memory delta toward a rival / all met players |
+| `grant_promotion {promotion,classification?/domain?/unit_types?}` | gift a promotion to matching units |
+| `city_happy_timed {amount,turns,scope}` | timed happy (+) / angry (−) face on capital / all / state-religion cities |
+| `place_resource {resource,match,remove_feature?,add_improvement?,add_route?}` | seed a resource on a matching owned tile |
+| `tile_yield {food?,production?,commerce?,match}` | permanent per-tile yield delta |
+| `remove_feature` / `remove_improvement` / `remove_route` | clear a matching owned tile's feature / improvement / route |
+| `chance {percent,then:[...]}` | fire-time roller: on success splice in `then` (supports the reference's "chance of option N" / loop) |
+
+### 21.3 Event catalogue (1–174)
+
+**Status:** ✅ shipped · ◻ planned (see planning doc for the subsystem each needs).
+Magnitudes are normal/standard.
+
+#### Events 1–40
+| # | Name | Prereq | Obsolete | A/W | Result | Status |
+|---|------|--------|----------|-----|--------|:--:|
+|1|Forest Fire|forest in city radius|—|70/100|pay 10 / pay 4 + lose forest / lose forest + angry|✅|
+|2|City Ruins|own city-ruins feature|radio/refrig/plastics/satellites/adv-flight/ecology|90/1000|15% tech / +gold for chance of more|◻|
+|3|Happy Hunting|tundra forest + archery|steam/steel/sci-method/artillery|90/500|+8 food in city store|◻|
+|4|Motherload|gold mine + road + early tech|—|90/200|20–40 gold|✅|
+|5|Washed Out|road/rail|—|80/100|lose a road / pay 20|✅|
+|6|At the Sword|1 damaged swordsman|machinery/feud/music/phil/civil/theo|100/500|+3 XP to that swordsman|◻|
+|7|Man named Jed|scout/explorer + unrevealed oil under unit|—|75/5000|nothing / pay 10 reveal oil|◻|
+|8|Inspired Mission|city w/ 2 religions incl. state|—|75/200|spread state religion 4/+1/+4 own & foreign|◻|
+|9|Hymns & Sculptures|cathedral + 10 cathedrals globally|—|20/200|free Artist specialist|◻|
+|10|Careless Apprentice|forge|radio/refrig/…|75/200|pay 50 / pay 10 lose forge / lose forge + angry|◻|
+|11|Famine|—|—|70/100|nothing / -50% food + attitude / pay + -100% food + attitude|◻|
+|12|Slave Revolt|slavery + pop≥4 + early tech|—|80/500|angry + -pop + revolt + chains|◻|
+|13|Blessed Sea|*(Quest 1)*|—|—|see §21.4|◻|
+|14|Airliner Crash|border + other has flight|—|70/300|+att / +1000 EP / +tech% -att|◻|
+|15|Farm Bandits|farmed wheat/rice/corn + road + unit|—|85/200|pay 10 / -5 food + unit can't attack / -5 food|◻|
+|16|Holy Mountain|*(Quest 2)*|—|—|see §21.4|◻|
+|17|Horticulture|forest/jungle + calendar|—|80/200|+1 commerce tile / pay + chance / +health + scientist|◻|
+|18|Fugitive|feudalism|—|90/200|±attitude chains|◻|
+|19|Pestilence 1/2|pasture/plantation tile|—|55/100, 100/100|destroy tile improvement|◻|
+|20|Marathon|at war, enemy first-strike|—|100/800|free Golden Age|✅ *(prereq simplified to at_war)*|
+|21|Faux Pas|—|—|70/100|-1 attitude with an AI|✅|
+|22|Joyous Wedding|same state religion as neighbour|—|90/200|nothing / pay + att / pay + att|◻|
+|23|Wedding Feud|different state religion neighbour|—|90/200|-att / pay -att +happy / pay -att +att war-offer|◻|
+|24|Left at the Altar|share borders w/ AI|—|80/100|-1 attitude|◻|
+|25|Spicy|forest + calendar + ≤4 happy res + no spices|—|50/100|gain Spices / cultivate (plantation+road)|✅ *(happy-res prereq dropped)*|
+|26|Tornado|plains improvement + early tech|—|75/200|improvement destroyed|◻|
+|27|Baby Boom|signed a peace treaty|—|100/500|all cities +10 food store|◻|
+|28|Bard's Tale|music|—|90/200|+100 / pay +450 / radio: pay +250 all|◻|
+|29|Looters|angry citizen in neighbour AI city|—|70/100|pillage 1 / pay pillage 2-4 / -EP pillage + destroy bldg / -att|◻|
+|30|Brothers in Need|same religion + tradeable spare resource + AI at war|—|100/1000|gift Copper/Iron/Horse/Ivory/Oil/Uranium|◻|
+|31|Hurricane|coastal + early tech + pop>2|—|75/100|destroy cheap+expensive bldg / -1 pop|◻|
+|32|Cyclone|coastal + early tech|—|70/100|destroy bldgs / -1 pop|◻|
+|33|Tsunami|coastal + medieval tech|—|0/0|destroy city if <6 pop / lose bldgs+5 pop|◻ *(disabled, A=0)*|
+|34|Monsoon|inland + early tech + jungle nearby|—|85/100|destroy bldgs / -1 pop|◻|
+|35|Blizzard|tundra improvement + road + early tech|—|80/100|destroy improvement+route / pay 5|◻|
+|36|Volcano|peak tile + early tech|—|70/100|destroy cottages around peak|◻|
+|37|Dust Bowl|4 farmed plains + civil service|—|70/100|pay 40 lose farm / lose farm + loop|✅|
+|38|Parrots|jungle + animal husbandry|—|85/50|+1 commerce tile|◻|
+|39|Jade|mine + iron + road|—|85/50|+2 commerce tile|◻|
+|40|Black Pearls|clams + fishing boat|—|70/50|+1 commerce tile|◻|
+
+#### Events 41–80
+| # | Name | Prereq | Obsolete | A/W | Result | Status |
+|---|------|--------|----------|-----|--------|:--:|
+|41|Saltpeter|4 forest-hill + gunpowder|—|90/20|+1 commerce tiles|◻|
+|42|Clunker Coal|coal mine + road|—|90/50|-1 production tile|◻|
+|43|Sour Crude|oil + well/platform|—|90/50|-1 production tile|◻|
+|44|Truffles|grass tile|—|70/20|+1 food +1 commerce tile|✅|
+|45|Sea Turtles|coastal + calendar|—|70/20|+1 food tile|◻|
+|46|Tin|mined hill + bronze working|—|85/50|+2 production tile|◻|
+|47|Prairie Dogs|plains + animal husbandry|—|70/50|+1 commerce tile|◻|
+|48|Ice Sculpture|tundra + aesthetics|—|70/100|+100 culture / pay + settled great artist|◻|
+|49|Appleseed|plains + civil service|—|75/50|tile gains forest + food|◻|
+|50|Mining Accident|mine + several techs|—|90/200|pay 20 / pay 5 lose mine / lose mine + angry|◻|
+|51|Breakthrough|—|—|80/50|+10% remaining tech|✅|
+|52|Setback|—|—|65/30|-8% research|✅|
+|53|Running Bulls|pastured cows + road + AH + feudalism|—|70/200|+100 / pay +300 culture|◻|
+|54|Great Depression|≥1 founded corporation|—|40/100|all players -25% gold|◻|
+|55|Bermuda Triangle|naval ship on ocean + flight|—|50/100|unit destroyed|◻|
+|56|Patron of Knowledge|library|—|85/200|+10% tech / pay + library +1 research|◻|
+|57|Master Smith|forge|—|70/100|+1 production for the forge|◻|
+|58|Rural Farmers|grocer|—|80/100|+1 food for the grocer|◻|
+|59|Money Changers|market|—|75/100|+1 gold for the market|◻|
+|60|Bowyer|archery|nat/print/edu/gun/astro|35/50|all archers +Combat I|✅|
+|61|Horseshoe|pastured horse + road|steam/steel/sci/artillery|30/50|all mounted +Flanking I|◻|
+|62|Champion|peace + undamaged 3XP unit no Leadership|nat/print/…|30/50|unit gains Leadership|◻|
+|63|Motor Oil|oil + well/platform|—|90/200|+50 gold / pay +15 free unit support|◻|
+|64|Federal Reserve|free market + ≥1000 gold + corporation|—|90/200|-10% / pay -25% inflation|◻|
+|65|Electric Company|emancipation + no angry + electricity|—|90/200|+1 happy every city|◻|
+|66|Hindenburg|airship + radio|—|85/500|nothing / pay +1 happy per airport|◻|
+|67|Comet Fragment|forest-tundra bare tile + rocketry|—|80/100|+5% spaceship +2 research/lab − forest|◻|
+|68|Subway|public transport + pop≥25|—|80/400×|+5 commerce to public transport|◻|
+|69|Gold Rush|mine + pop≤5 + industrial era|—|90/500|+1 pop / pay +3 pop|✅|
+|70|Influenza|pop≥10 + modern/future + no medicine|—|45/400|pay -3 pop / -3 pop + nearby -2|◻|
+|71|Solo Flight|≥8 landmasses + flight|—|90/100|+1 att with all met|◻|
+|72|Antelope|bare forest + hunting + ≤4 happy res + can-have-deer|—|55/200|tile gains Deer / pay + road + camp|◻|
+|73|Whale Of A Thing|ocean + sailing + ≤4 happy res + can-have-whale|—|50/100|tile gains Whale|◻|
+|74|Hi Yo Silver|bare hill + mining + ≤4 happy res + can-have-silver|—|35/200|gains Silver / pay + mine + road|◻|
+|75|Wining Monks|monastery + bare grass/plains + monarchy + no wine|—|65/100|gains Wine / pay + winery + road|◻|
+|76|Independent Films|mass media + not own Hollywood|—|35/100|+1 Movie bonus|◻|
+|77|Ancient Olympics|polytheism + non-Abrahamic state religion|machinery/…|75/400|nothing / pay +att all neighbours|◻|
+|78|Modern Olympics|sci-method + Event 77.2 occurred|—|100/500|+1 att all met|◻|
+|79|Interstate|universal suffrage + industrialism + emancipation|—|100/100|faster road movement|◻|
+|80|Earth Day|environmentalism + industrialism/radio|—|95/100|+1 happy 10t all / pay + AIs switch Environmentalism|✅ *(AI-civic branch dropped)*|
+
+#### Events 81–120
+| # | Name | Prereq | Obsolete | A/W | Result | Status |
+|---|------|--------|----------|-----|--------|:--:|
+|81|Freedom Concert|free religion + ind/radio + 3-religion city|—|95/100|+1 pop +1 happy / spread religions|◻|
+|82|Axe Haft|bronze working|nat/print/…|25/200|all axemen +Shock|◻|
+|83|Tower Shield|mining|machinery/…|20/200|all melee +Cover|◻|
+|84|Smokeless Powder|gunpowder|rifling/steel/sci|40/200|all musketmen +Pinch|◻|
+|85|Stronger Fittings|machinery|nat/print/…|25/200|all crossbowmen +Combat I|◻|
+|86|Firing Pins|military science|steam/sci/artillery|25/200|all grenadiers +Pinch|◻|
+|87|Rifled Cannon|rifling + steel|radio/…|35/200|all cannons +Combat I|◻|
+|88|Metal Decks|flight + industrialism|composites|35/200|all carriers +Drill III|◻|
+|89|Long Range Fighters|flight|composites|20/200|all fighters +Range I|◻|
+|90|Halberd|engineering|steam/…|25/200|all pikemen +Shock|◻|
+|91|Reinforced Hull|metal casting|nat/print/…|25/200|all triremes +Combat I|◻|
+|92|Cigarette Smoker|drama + theater|—|80/200|-30 / -10 + destroy theater / destroy + angry|◻|
+|93|Heroic Gesture|at war and winning|—|80/350|nothing / make peace +att|◻|
+|94|Great Mediator|at war ≥10 turns|—|85/200|nothing / make peace +att|◻|
+|95|Forty Thieves|organized religion + horseback|nat/print/…|90/200|+2 commerce tile|◻|
+|96|Ancient Texts|bare desert + steam/steel/sci/artillery|—|90/200|15% tech / pay +att all|◻|
+|97|Waters of Life|oasis tile|medicine|95/200|+1 commerce tile|◻|
+|98|Impact Crater|jungle/forest + physics + no uranium|—|20/200|nothing / pay reveal Uranium + mine|◻|
+|99|The Huns|player knows HBR + player knows iron working|nat/print/…|20/200|4 barb horse archers|✅|
+|100|The Vandals|metal casting + iron working (any player)|nat/…|20/200|4 barb swordsmen|◻|
+|101|The Goths|mathematics + iron working|nat/…|20/200|4 barb axemen|◻|
+|102|The Philistines|monotheism + bronze working|nat/…|20/200|4 barb spearmen|◻|
+|103|The Vedic Aryans|polytheism + archery|nat/…|20/200|4 barb archers|◻|
+|104|Holy Ritual|temple + incense plantation + road|—|90/200|pay 20|◻|
+|105|Security Tax|walls + early tech|nat/print/…|70/500|20–80 gold|✅|
+|106|Literacy|all cities have library + nat/print/…|—|30/100|1 city settled great scientist|◻|
+|107|Farm Plows|forge + iron mine + road|—|90/100|30–60 gold|◻|
+|108|Stained Glass|cathedral|—|90/100|40–70 gold|◻|
+|109|Marble Statues|aesthetics + marble quarry + road|—|90/100|50–70 gold|◻|
+|110|Crab Cakes|grocer + crabs + fishing boats|—|90/100|30–70 gold|◻|
+|111|Boilers|steel + factory|—|90/100|90–140 gold|◻|
+|112|Personal Computers|computers + factory|—|90/100|140–230 gold|◻|
+|113|Fuel Additives|ecology + public transport|—|90/100|110–180 gold|◻|
+|114|Hamburger Joint|radio + pastured cows + road|—|90/100|240–330 gold|◻|
+|115|Tea|sci-method + harbor + not mercantilism|—|90/100|50–100 gold|◻|
+|116|Fashion|radio + factory + silk plantation + road|—|90/100|180–260 gold|◻|
+|117|Thoroughbred|stable + horse pasture + road|—|90/100|30–70 gold|◻|
+|118|Girls Best Friend|forge + gems mine + road|—|90/100|120–180 gold|◻|
+|119|Banana Split|refrigeration + banana plantation + road|—|90/100|160–240 gold|◻|
+|120|Horse Whispering|*(Quest 3)*|—|—|see §21.4|◻|
+
+#### Events 121–174
+| # | Name | Prereq | Obsolete | A/W | Result | Status |
+|---|------|--------|----------|-----|--------|:--:|
+|121–126|Harbormaster / Classic Lit / Master Blacksmith / Best Defense / Sports League / Crusade|*(Quests 4–9)*|—|—|see §21.4|◻|
+|127|Miracle|walls + state religion|—|90/200|+1 commerce walls / pay + spread religion 2|◻|
+|128|Esteemed Playwright|theater + not slavery|—|85/200|+1 commerce theater / pay +3 culture|◻|
+|129|Favorite Son|colosseum|steam/…|85/200|+20 gold / pay +2 culture colosseum|◻|
+|130|Secret Knowledge|monastery + renaissance tech|—|70/200|15% religious tech / pay +4 culture monastery|◻|
+|131|High Warlord|castle + not emancipation|radio/…|80/200|+100 gold / 2 pikemen / settled great general|◻|
+|132|Spoiled Grain|granary|—|80/200|lose stored food / pay 20|◻|
+|133|Angel of Mercy|hospital|—|80/200|+2 gold hospital / pay +1 happy hospital|◻|
+|134|Chilly Flight|airport|—|80/200|+2 gold airport|◻|
+|135|Industrial Fire|factory|—|80/200|destroy factory / pay 100|◻|
+|136|Laboratory|laboratory + free speech|—|80/200|15% tech|◻|
+|137|Experienced Captain|drydock + 7XP naval unit|—|95/200|+2 gold drydock / pay + Military Academy|◻|
+|138|Heresy|theocracy|—|85/200|angry + spread / pay +15% religious tech / nothing|◻|
+|139|Partisans|emancipation + a razed city|—|35/0|drafted units at site / half at capital|◻ *(disabled, W=0)*|
+|140|New Dynasty|hereditary rule + capital + medieval tech|—|45/100|settled great general/merchant/priest|◻|
+|141|Crisis in the Senate|representation + nat/print/…|—|55/100|+2 EP barracks / 400-600 gold / +1 happy all|◻|
+|142|Too Close To Call|universal suffrage + nat/…|—|60/100|+1 gold courthouses / +3 culture courthouses|◻|
+|143|Charismatic|police state + nat/…|—|65/100|all gun units +March / +2 happy all|◻|
+|144|Friendly Locals|damaged unit|—|90/50|unit +1 XP|◻|
+|145–153|Greed / War Chariots / Elite Swords / Warships / Guns Butter / Noble Knights / Overwhelm / Corporate Expansion / Hostile Takeover|*(Quests 10–18)*|—|—|see §21.4|◻|
+|154|Civ Game|computers|—|80/100|+1 happy all / +3 research universities / ~320 gold|◻|
+|155|Slave Revolt Warning|slavery + pop≥4|—|0/0|warning text only|◻ *(A=0)*|
+|156|Immigrants|≥55 culture/turn city + net-happy + printing press|—|80/200|+1 pop|◻|
+|157|Healing Plant|—|feudalism/machinery/phil|70/100|timed happy / angry chains / health faces|◻|
+|158|Great Beast|camp + hunting + polytheism + state religion|education|75/100|+1 food / pay +pop / +happy 40t state-religion cities|◻|
+|159|Controversial Philosopher|capital >35 research + theocracy + philosophy|sci-method|75/1000|+happy 15t / -happy + scientist / pay + Academy|◻|
+|160|Defecting Agent|≥5 intelligence agencies + contact|—|75/100|-300 EP / pay chance / -2 att|◻|
+|161|Jail|jail|—|80/100|-1 happy / pay 100|◻|
+|162|Spy Discovered|industrialism + contact + ≥4 cities + capital|robotics|60/100|+400 EP +att / pay + Great Spy / war + support + tanks|◻|
+|163|Nuclear Protests|free speech + ≥10 nukes|—|75/120|disband nukes +3 happy / -2 happy 1 city / pay 400|◻|
+|164|Better Coal|coal mine|—|75/100|+4 production coal plants / +2 prod +1 health drydocks|◻|
+|165|Broken Dam|hydro plant|—|75/100|lose plant + angry -pop / pay variants|◻|
+|166|Rabbi|Judaism + Jewish monastery + paper|mass media|0/0|convert cities / scientist / culture+gold|◻ *(A=0)*|
+|167|Golden Buddha|Buddhism + forge + gold mine + road|steam power|0/0|180-200 gold / +6 culture forge / +350 culture all|◻ *(A=0)*|
+|168|Preaching Researcher|Christianity + Christian monastery + university|—|0/0|+2 culture / pay +culture +research monastery|◻ *(A=0)*|
+|169|Toxcatl|Aztec + sacrificial altar + ≥1 unit|education|90/100|+2 angry / pay + unit immobile 3t|◻|
+|170|Dissident Priest|Egyptian + non-state-religion non-capital city + 30 culture|printing press|90/100|angry + revolt / angry all / pay + libraries +research|◻|
+|171|Pasture Built|cow/horse/sheep/pig bare tile + animal husbandry|calendar|80/100|tile gains pasture + road|◻|
+|172|Rogue Station|broadcast tower + assembly line + Russian + state property + contact|—|90/100|-EP lose tower / angry / angry + factories prod|◻|
+|173|Anti-Monarchists|French + hereditary rule|—|90/100|+3 happy palace / +2 gold cathedrals|◻|
+|174|Impeachment|American + constitution + capital|—|90/100|+6 angry +1 happy 10t all / +2 prod courthouse + revolt|◻|
+
+**3.13 changelog deltas** (apply when porting): many ancient/classical events also
+obsolete with **Astronomy**; events 130/141/142/143 may also occur *after* Astronomy;
+the quests gain a **One City Challenge** human gate; barbarian-uprising events use a
+dedicated city-attack AI.
+
+### 21.4 Quest catalogue (1–18) — deferred subsystem
+
+Quests are **multi-turn goals**: a trigger arms the quest, the player pursues an
+**aim** over many turns (often under a constraint), and completing it grants a
+**reward** (frequently a choice of three). This needs a Quest-tracking subsystem
+(`GameState.active_quests`, a per-player progress step, aim/constraint predicates) not
+yet built — design in `docs/planning/event-subsystem-planning.md` §4. Counts shown are
+standard-size; the reference scales them by world size's default player count.
+
+| Q | Name | Prereq | Aim | Reward(s) |
+|---|------|--------|-----|-----------|
+|1|Blessed Sea|galley+ · Eastern state religion · many landmasses · few settled|cities on ~10 landmasses, never switch religion|convert 20 cities / temple in size-5+ cities / a Great Prophet|
+|2|Holy Mountain|Abrahamic state religion|build ~14 temples/monasteries (cathedral=4) to reveal peak, settle it|+1 happy all cities|
+|3|Horse Whispering|animal husbandry + horse|build ~7 stables|~6 Horse Archers / mounted +Sentry / stables +1 food|
+|4|Harbormaster|compass + ≥40% water map|build ~7 harbors + ~4 caravels|naval +Combat I / harbors +1 gold / naval +Navigation I|
+|5|Classic Literature|writing|build ~7 libraries|+2 research a library / an ancient tech / Great Library scientist|
+|6|Master Blacksmith|forge|build ~7 forges, keep trigger city|reveal Copper / swordsmen +Shock / engineer specialist|
+|7|Best Defense|engineering|build ~7 castles|melee +City Garrison I / +3 att all / Great Wall EP|
+|8|Sports League|construction|build ~7 colosseums|+1 happy per colosseum / +4 culture each / Statue-of-Zeus golden age|
+|9|Crusade|state religion, don't hold Holy City|conquer the Holy City|~4 conscripts / build shrine / spread religion ~7 cities|
+|10|Greed|bronze working + lacking a strategic resource|conquer that resource|~4 units needing it|
+|11|War Chariots|the wheel + state religion|build ~8 chariots|chariots +Combat I / spread religion 5 cities|
+|12|Elite Swords|iron working + state religion|build ~8 swordsmen|swords +City Raider I / melee +Drill I|
+|13|Warships|sailing + metal casting + ≥55% water|build ~7 triremes|triremes +Combat I / Great Lighthouse harbors +2 commerce|
+|14|Guns Butter|gunpowder|build ~8 musketmen|musket +Pinch / Vassalage:400 gold / Taj Mahal golden age|
+|15|Noble Knights|guilds + horseback|build ~8 knights|knights +Flanking I / spread religion / Oracle great priest|
+|16|Overwhelm|flight + industrialism + ≥55% water|build 4 destroyers/2 battleships/3 carriers/9 fighters|fleet +Combat I / harbors +5 commerce / Nuke Ban|
+|17|Corporate Expansion|own a corp HQ|spread corp to ~8 new cities|+10 gold for the HQ|
+|18|Hostile Takeover|own corp HQ lacking a corp resource|own all the corp's resources|+20 gold for the HQ|

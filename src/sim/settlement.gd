@@ -71,6 +71,14 @@ var special_persons_produced: int = 0
 # Rushing penalty turns
 var rush_anger_turns: int = 0
 
+# Timed happiness modifiers from random events (§9): each {amount:int, turns_left:int}.
+# A positive amount is a temporary happy face (added to positive_sentiment); a
+# negative amount is a temporary angry face — "like whipped" anger — contributing
+# |amount| discontented citizens. Ticked down one per turn in TurnEngine._tick_states
+# and folded into _update_contentment. Serialized so a running modifier survives
+# save/load (deserialize coerces amount/turns_left to int).
+var timed_happiness: Array = []
+
 # Entrenchment for garrison (number of turns garrisoned)
 var garrison_turns: int = 0
 
@@ -142,6 +150,7 @@ func serialize() -> Dictionary:
 		"special_person_threshold": special_person_threshold,
 		"special_persons_produced": special_persons_produced,
 		"rush_anger_turns": rush_anger_turns,
+		"timed_happiness": timed_happiness.duplicate(true),
 		"garrison_turns": garrison_turns,
 		"defence_value": defence_value,
 		"health": health, "peak_population": peak_population,
@@ -183,6 +192,12 @@ static func deserialize(d: Dictionary):
 	s.special_person_threshold = int(d.get("special_person_threshold", 100))
 	s.special_persons_produced = int(d.get("special_persons_produced", 0))
 	s.rush_anger_turns = int(d.get("rush_anger_turns", 0))
+	s.timed_happiness = []
+	for tm in d.get("timed_happiness", []):
+		s.timed_happiness.append({
+			"amount": int(tm.get("amount", 0)),
+			"turns_left": int(tm.get("turns_left", 0))
+		})
 	s.garrison_turns = int(d.get("garrison_turns", 0))
 	s.defence_value = int(d.get("defence_value", 0))
 	s.health = int(d.get("health", -1))

@@ -64,7 +64,12 @@ static func compute(tile: Tile, db: DataDB, known_techs: Array) -> Array:
 				var commerce_bonus: int = int(tr.get("commerce_bonus", 0))
 				out[IDs.Output.COMMERCE] += commerce_bonus
 
-	# 7. Clamp all outputs >= 0
+	# 7. Permanent event-granted yield deltas (§9, e.g. Truffles, Horticulture).
+	out[IDs.Output.FOOD]       += tile.event_food
+	out[IDs.Output.PRODUCTION] += tile.event_production
+	out[IDs.Output.COMMERCE]   += tile.event_commerce
+
+	# 8. Clamp all outputs >= 0
 	for i in range(out.size()):
 		out[i] = max(0, out[i])
 

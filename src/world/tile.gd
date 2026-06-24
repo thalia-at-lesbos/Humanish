@@ -45,6 +45,14 @@ var improvement_turns_left: int = 0
 # `upgrade_turns`. Reset on upgrade or when the improvement changes.
 var improvement_age: int = 0
 
+# Permanent per-tile yield deltas granted by random events (§9, e.g. Truffles,
+# Horticulture). Folded into TileOutput.compute on top of terrain/feature/
+# improvement/resource yields. Serialized only when nonzero so unaffected tiles add
+# nothing to the save / determinism hash.
+var event_food: int = 0
+var event_production: int = 0
+var event_commerce: int = 0
+
 # Entrenchment per-unit is on the unit; this tracks tile-level fortification count
 # (not part of base spec but used for improvement tracking)
 
@@ -53,7 +61,7 @@ func _init(px: int = 0, py: int = 0) -> void:
 	y = py
 
 func serialize() -> Dictionary:
-	return {
+	var d := {
 		"x": x, "y": y,
 		"terrain_id": terrain_id,
 		"feature_id": feature_id,
@@ -68,6 +76,13 @@ func serialize() -> Dictionary:
 		"improvement_age": improvement_age,
 		"has_discovery": has_discovery
 	}
+	# Event-granted yield deltas ride along only when present, so unaffected tiles
+	# add nothing to the save / determinism hash.
+	if event_food != 0 or event_production != 0 or event_commerce != 0:
+		d["event_food"] = event_food
+		d["event_production"] = event_production
+		d["event_commerce"] = event_commerce
+	return d
 
 static func deserialize(d: Dictionary):
 	var t = load("res://src/world/tile.gd").new(int(d["x"]), int(d["y"]))
@@ -85,4 +100,7 @@ static func deserialize(d: Dictionary):
 	t.improvement_turns_left = int(d.get("improvement_turns_left", 0))
 	t.improvement_age = int(d.get("improvement_age", 0))
 	t.has_discovery = bool(d.get("has_discovery", false))
+	t.event_food = int(d.get("event_food", 0))
+	t.event_production = int(d.get("event_production", 0))
+	t.event_commerce = int(d.get("event_commerce", 0))
 	return t
