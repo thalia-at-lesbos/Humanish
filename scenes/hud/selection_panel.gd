@@ -20,9 +20,34 @@ var _world_view
 # scrolls instead of pushing the action buttons/terrain readout off-screen.
 const STACK_LIST_MAX_HEIGHT: int = 120
 
+# Near-opaque dark-charcoal backing so the unit info, action buttons and tile
+# readout read clearly against the map (Issue 1). Drawn in _draw() behind the
+# VBox's children — a child ColorRect would be pulled into the vertical layout,
+# whereas drawing fills the whole panel rect and never intercepts mouse clicks
+# meant for the buttons. The padding bleeds the fill a few pixels past the
+# content so labels/buttons are not flush against the charcoal edge.
+const BG_COLOR: Color = Color(0.10, 0.11, 0.13, 0.90)
+const BG_PADDING: int = 4
+
 func init(facade, world_view) -> void:
 	_facade = facade
 	_world_view = world_view
+
+# Paint the charcoal background behind all content. _draw() runs before the
+# child controls render, so the fill always sits behind the labels/buttons; it
+# does not participate in layout and never blocks input. When the panel is empty
+# (no selection) get_children() is empty and the VBox collapses to zero size, so
+# nothing is drawn — the background only appears when there is content.
+func _draw() -> void:
+	if get_child_count() == 0:
+		return
+	var pad: Vector2 = Vector2(BG_PADDING, BG_PADDING)
+	draw_rect(Rect2(-pad, rect_size + pad * 2.0), BG_COLOR)
+
+# The VBox resizes as content is added/removed; repaint the background to match.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		update()
 
 # A natural-width, left-justified action button (Issue 1). Inside the panel's
 # VBoxContainer a Button defaults to filling the full width; SIZE_SHRINK_BEGIN
@@ -54,6 +79,11 @@ func rebuild() -> void:
 		_build_city_panel(head_cid, gs)
 	elif sel.has_inspected_tile():
 		_build_tile_panel(int(sel.inspected_tile.x), int(sel.inspected_tile.y))
+
+	# Repaint the charcoal backing after the content set changes (the resize
+	# notification covers most cases, but an explicit update() guarantees the fill
+	# tracks an empty→populated transition that may not change the panel's size).
+	update()
 
 func _build_unit_panel(unit_id: int, gs) -> void:
 	var u = gs.get_unit(unit_id)
