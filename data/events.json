@@ -175,5 +175,385 @@
           { "verb": "chance", "percent": 50,
             "then": [ { "verb": "remove_improvement", "match": { "terrain": "plains", "improvement": "farm" } } ] } ] }
     ]
+  },
+
+  "parrots": {
+    "id": "parrots", "name": "Parrots",
+    "text": "Bright parrots flock to the jungle near one of your cities — their feathers fetch a fine price.",
+    "active": 85, "weight": 50,
+    "prereq": { "tech_all": [ "animal_husbandry" ],
+      "tile": { "feature": "jungle", "in_city_radius": true } },
+    "effects": [ { "verb": "tile_yield", "commerce": 1,
+      "match": { "feature": "jungle", "in_city_radius": true } } ]
+  },
+
+  "jade": {
+    "id": "jade", "name": "Jade",
+    "text": "Miners working an iron mine uncover a seam of fine green jade.",
+    "active": 85, "weight": 50,
+    "prereq": { "tile": { "improvement": "mine", "resource": "iron", "route": true } },
+    "effects": [ { "verb": "tile_yield", "commerce": 2,
+      "match": { "improvement": "mine", "resource": "iron", "route": true } } ]
+  },
+
+  "black_pearls": {
+    "id": "black_pearls", "name": "Black Pearls",
+    "text": "Your fishers haul up rare black pearls along with the day's catch of clams.",
+    "active": 70, "weight": 50,
+    "prereq": { "tile": { "resource": "clam", "improvement": "fishing_boats" } },
+    "effects": [ { "verb": "tile_yield", "commerce": 1,
+      "match": { "resource": "clam", "improvement": "fishing_boats" } } ]
+  },
+
+  "saltpeter": {
+    "id": "saltpeter", "name": "Saltpeter",
+    "text": "A deposit of saltpeter is found in a wooded hill, prized by the powder-makers.",
+    "active": 90, "weight": 20,
+    "prereq": { "tech_all": [ "gunpowder" ],
+      "tile": { "terrain": "hills", "feature": "forest" } },
+    "effects": [ { "verb": "tile_yield", "commerce": 1,
+      "match": { "terrain": "hills", "feature": "forest" } } ]
+  },
+
+  "clunker_coal": {
+    "id": "clunker_coal", "name": "Clunker Coal",
+    "text": "A coal seam at one of your mines proves to be poor, sooty stuff.",
+    "active": 90, "weight": 50,
+    "prereq": { "tile": { "resource": "coal", "improvement": "mine", "route": true } },
+    "effects": [ { "verb": "tile_yield", "production": -1,
+      "match": { "resource": "coal", "improvement": "mine", "route": true } } ]
+  },
+
+  "sour_crude": {
+    "id": "sour_crude", "name": "Sour Crude",
+    "text": "The crude from one of your wells turns out to be sour and hard to refine.",
+    "active": 90, "weight": 50,
+    "prereq": { "tile": { "resource": "oil", "improvement": "well" } },
+    "effects": [ { "verb": "tile_yield", "production": -1,
+      "match": { "resource": "oil", "improvement": "well" } } ]
+  },
+
+  "sea_turtles": {
+    "id": "sea_turtles", "name": "Sea Turtles",
+    "text": "A nesting ground of sea turtles is found off your coast — a reliable source of food.",
+    "active": 70, "weight": 20,
+    "prereq": { "tech_all": [ "calendar" ], "coastal": true,
+      "tile": { "terrain": "coast" } },
+    "effects": [ { "verb": "tile_yield", "food": 1,
+      "match": { "terrain": "coast" } } ]
+  },
+
+  "tin": {
+    "id": "tin", "name": "Tin",
+    "text": "A vein of tin is struck in one of your hill mines, vital for casting bronze.",
+    "active": 85, "weight": 50,
+    "prereq": { "tech_all": [ "bronze_working" ],
+      "tile": { "terrain": "hills", "improvement": "mine" } },
+    "effects": [ { "verb": "tile_yield", "production": 2,
+      "match": { "terrain": "hills", "improvement": "mine" } } ]
+  },
+
+  "prairie_dogs": {
+    "id": "prairie_dogs", "name": "Prairie Dogs",
+    "text": "Trappers find a thriving prairie-dog colony on the plains — their pelts sell well.",
+    "active": 70, "weight": 50,
+    "prereq": { "tech_all": [ "animal_husbandry" ],
+      "tile": { "terrain": "plains" } },
+    "effects": [ { "verb": "tile_yield", "commerce": 1,
+      "match": { "terrain": "plains" } } ]
+  },
+
+  "forty_thieves": {
+    "id": "forty_thieves", "name": "Forty Thieves",
+    "text": "A band of brigands is broken up on one of your roads, their plundered hoard recovered.",
+    "active": 90, "weight": 200,
+    "prereq": { "civic": "organized_religion", "tech_all": [ "horseback_riding" ],
+      "tile": { "route": true } },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "tile_yield", "commerce": 2,
+      "match": { "route": true } } ]
+  },
+
+  "ancient_texts": {
+    "id": "ancient_texts", "name": "Ancient Texts",
+    "text": "An expedition into the desert recovers a cache of ancient scholarly texts.",
+    "active": 90, "weight": 200,
+    "prereq": { "tech_any": [ "steam_power", "steel", "scientific_method", "artillery" ],
+      "tile": { "terrain": "desert" } },
+    "choices": [
+      { "id": "study", "text": "Have your scholars study them (advance 15% toward your research)",
+        "effects": [ { "verb": "research_pct_remaining", "percent": 15 } ] },
+      { "id": "share", "text": "Share the find with your neighbours (improve relations with all you have met)",
+        "effects": [ { "verb": "attitude", "target": "all_met", "amount": 20 } ] }
+    ]
+  },
+
+  "waters_of_life": {
+    "id": "waters_of_life", "name": "Waters of Life",
+    "text": "A desert oasis in your lands becomes a celebrated stop for traders.",
+    "active": 95, "weight": 200,
+    "prereq": { "tile": { "feature": "oasis" } },
+    "obsolete": [ "medicine" ],
+    "effects": [ { "verb": "tile_yield", "commerce": 1,
+      "match": { "feature": "oasis" } } ]
+  },
+
+  "horseshoe": {
+    "id": "horseshoe", "name": "Horseshoe",
+    "text": "A farrier perfects a new horseshoe, and your riders learn to wheel and flank with it.",
+    "active": 30, "weight": 50,
+    "prereq": { "tile": { "resource": "horse", "improvement": "pasture", "route": true } },
+    "obsolete": [ "steam_power", "steel", "scientific_method", "artillery" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "flanking1", "classification": "mounted" } ]
+  },
+
+  "axe_haft": {
+    "id": "axe_haft", "name": "Axe Haft",
+    "text": "A smith devises a sturdier axe haft, and your axemen strike with new force.",
+    "active": 25, "weight": 200,
+    "prereq": { "tech_all": [ "bronze_working" ] },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "shock", "unit_types": [ "axeman" ] } ]
+  },
+
+  "tower_shield": {
+    "id": "tower_shield", "name": "Tower Shield",
+    "text": "Your warriors adopt the tall tower shield, far better at warding off blows.",
+    "active": 20, "weight": 200,
+    "prereq": { "tech_all": [ "mining" ] },
+    "obsolete": [ "machinery", "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "cover", "classification": "melee" } ]
+  },
+
+  "smokeless_powder": {
+    "id": "smokeless_powder", "name": "Smokeless Powder",
+    "text": "Your gunsmiths refine a cleaner powder, and your musketmen fire with deadly precision.",
+    "active": 40, "weight": 200,
+    "prereq": { "tech_all": [ "gunpowder" ] },
+    "obsolete": [ "rifling", "steel", "scientific_method" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "pinch", "unit_types": [ "musketman" ] } ]
+  },
+
+  "stronger_fittings": {
+    "id": "stronger_fittings", "name": "Stronger Fittings",
+    "text": "Stronger fittings make your crossbows more reliable, and the bolts fly truer.",
+    "active": 25, "weight": 200,
+    "prereq": { "tech_all": [ "machinery" ] },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "combat1", "unit_types": [ "crossbowman" ] } ]
+  },
+
+  "firing_pins": {
+    "id": "firing_pins", "name": "Firing Pins",
+    "text": "A new firing pin makes your grenadiers' weapons faster to load and surer to fire.",
+    "active": 25, "weight": 200,
+    "prereq": { "tech_all": [ "military_science" ] },
+    "obsolete": [ "steam_power", "scientific_method", "artillery" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "pinch", "unit_types": [ "grenadier" ] } ]
+  },
+
+  "rifled_cannon": {
+    "id": "rifled_cannon", "name": "Rifled Cannon",
+    "text": "Rifling the cannon bores doubles their accuracy and range.",
+    "active": 35, "weight": 200,
+    "prereq": { "tech_all": [ "rifling", "steel" ] },
+    "obsolete": [ "radio" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "combat1", "unit_types": [ "cannon" ] } ]
+  },
+
+  "metal_decks": {
+    "id": "metal_decks", "name": "Metal Decks",
+    "text": "Armoured metal flight decks let your carriers launch and recover aircraft far more efficiently.",
+    "active": 35, "weight": 200,
+    "prereq": { "tech_all": [ "flight", "industrialism" ] },
+    "obsolete": [ "composites" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "drill3", "unit_types": [ "carrier" ] } ]
+  },
+
+  "halberd": {
+    "id": "halberd", "name": "Halberd",
+    "text": "Your pikemen take up the halberd, hooking and hewing through any charge.",
+    "active": 25, "weight": 200,
+    "prereq": { "tech_all": [ "engineering" ] },
+    "obsolete": [ "steam_power", "steel", "scientific_method", "artillery" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "shock", "unit_types": [ "pikeman" ] } ]
+  },
+
+  "reinforced_hull": {
+    "id": "reinforced_hull", "name": "Reinforced Hull",
+    "text": "Reinforced hulls let your triremes ram harder and survive rougher seas.",
+    "active": 25, "weight": 200,
+    "prereq": { "tech_all": [ "metal_casting" ] },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "combat1", "unit_types": [ "trireme" ] } ]
+  },
+
+  "the_vandals": {
+    "id": "the_vandals", "name": "The Vandals",
+    "text": "A war-band of Vandals descends on your frontier, blades drawn.",
+    "active": 20, "weight": 200,
+    "prereq": {
+      "tech_all": [ "metal_casting" ],
+      "players_tech": { "tech": "iron_working", "count": 1 }
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "spawn_wild", "unit_type": "swordsman", "count": 4, "near": "capital" } ]
+  },
+
+  "the_goths": {
+    "id": "the_goths", "name": "The Goths",
+    "text": "A host of Goths comes raiding out of the wilderness.",
+    "active": 20, "weight": 200,
+    "prereq": {
+      "tech_all": [ "mathematics" ],
+      "players_tech": { "tech": "iron_working", "count": 1 }
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "spawn_wild", "unit_type": "axeman", "count": 4, "near": "capital" } ]
+  },
+
+  "the_philistines": {
+    "id": "the_philistines", "name": "The Philistines",
+    "text": "A column of Philistine spearmen marches against your lands.",
+    "active": 20, "weight": 200,
+    "prereq": {
+      "tech_all": [ "monotheism" ],
+      "players_tech": { "tech": "bronze_working", "count": 1 }
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "spawn_wild", "unit_type": "spearman", "count": 4, "near": "capital" } ]
+  },
+
+  "the_vedic_aryans": {
+    "id": "the_vedic_aryans", "name": "The Vedic Aryans",
+    "text": "Vedic Aryan archers sweep down upon your borders.",
+    "active": 20, "weight": 200,
+    "prereq": {
+      "tech_all": [ "polytheism" ],
+      "players_tech": { "tech": "archery", "count": 1 }
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "spawn_wild", "unit_type": "archer", "count": 4, "near": "capital" } ]
+  },
+
+  "holy_ritual": {
+    "id": "holy_ritual", "name": "Holy Ritual",
+    "text": "Pilgrims gather at your temple for an incense-burning rite, and leave offerings behind.",
+    "active": 90, "weight": 200,
+    "prereq": { "building": "temple",
+      "tile": { "resource": "incense", "improvement": "plantation", "route": true } },
+    "effects": [ { "verb": "gold", "amount": 20 } ]
+  },
+
+  "farm_plows": {
+    "id": "farm_plows", "name": "Farm Plows",
+    "text": "Your smiths forge sturdy iron plows, and the farmers pay handsomely for them.",
+    "active": 90, "weight": 100,
+    "prereq": { "building": "forge",
+      "tile": { "resource": "iron", "improvement": "mine", "route": true } },
+    "effects": [ { "verb": "gold", "range": [30, 60] } ]
+  },
+
+  "stained_glass": {
+    "id": "stained_glass", "name": "Stained Glass",
+    "text": "Pilgrims flock to admire the new stained glass in your cathedral, and their donations pour in.",
+    "active": 90, "weight": 100,
+    "prereq": { "building": "cathedral" },
+    "effects": [ { "verb": "gold", "range": [40, 70] } ]
+  },
+
+  "marble_statues": {
+    "id": "marble_statues", "name": "Marble Statues",
+    "text": "Your sculptors carve celebrated statues from quarried marble, sold to collectors abroad.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "aesthetics" ],
+      "tile": { "resource": "marble", "improvement": "quarry", "route": true } },
+    "effects": [ { "verb": "gold", "range": [50, 70] } ]
+  },
+
+  "crab_cakes": {
+    "id": "crab_cakes", "name": "Crab Cakes",
+    "text": "A craze for crab cakes sweeps your markets, enriching the fishers.",
+    "active": 90, "weight": 100,
+    "prereq": { "building": "grocer",
+      "tile": { "resource": "crab", "improvement": "fishing_boats" } },
+    "effects": [ { "verb": "gold", "range": [30, 70] } ]
+  },
+
+  "boilers": {
+    "id": "boilers", "name": "Boilers",
+    "text": "Your factory begins turning out steel boilers, and the orders flood in.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "steel" ], "building": "factory" },
+    "effects": [ { "verb": "gold", "range": [90, 140] } ]
+  },
+
+  "personal_computers": {
+    "id": "personal_computers", "name": "Personal Computers",
+    "text": "Your factories begin assembling personal computers, and demand is staggering.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "computers" ], "building": "factory" },
+    "effects": [ { "verb": "gold", "range": [140, 230] } ]
+  },
+
+  "fuel_additives": {
+    "id": "fuel_additives", "name": "Fuel Additives",
+    "text": "A new cleaner-burning fuel additive becomes the standard, and your public transit pays it forward.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "ecology" ], "building": "public_transportation" },
+    "effects": [ { "verb": "gold", "range": [110, 180] } ]
+  },
+
+  "hamburger_joint": {
+    "id": "hamburger_joint", "name": "Hamburger Joint",
+    "text": "A wildly popular hamburger chain opens in your lands, built on your cattle pastures.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "radio" ],
+      "tile": { "resource": "cow", "improvement": "pasture", "route": true } },
+    "effects": [ { "verb": "gold", "range": [240, 330] } ]
+  },
+
+  "tea": {
+    "id": "tea", "name": "Tea",
+    "text": "A brisk tea trade springs up through your harbours.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "scientific_method" ], "building": "harbor" },
+    "effects": [ { "verb": "gold", "range": [50, 100] } ]
+  },
+
+  "fashion": {
+    "id": "fashion", "name": "Fashion",
+    "text": "A silk fashion house in your lands becomes the toast of the world.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "radio" ], "building": "factory",
+      "tile": { "resource": "silk", "improvement": "plantation", "route": true } },
+    "effects": [ { "verb": "gold", "range": [180, 260] } ]
+  },
+
+  "thoroughbred": {
+    "id": "thoroughbred", "name": "Thoroughbred",
+    "text": "Your stables breed a celebrated line of thoroughbred horses, fetching a fortune.",
+    "active": 90, "weight": 100,
+    "prereq": { "building": "stable",
+      "tile": { "resource": "horse", "improvement": "pasture", "route": true } },
+    "effects": [ { "verb": "gold", "range": [30, 70] } ]
+  },
+
+  "girls_best_friend": {
+    "id": "girls_best_friend", "name": "A Girl's Best Friend",
+    "text": "Gems from one of your mines are cut into dazzling jewels by your forge-masters.",
+    "active": 90, "weight": 100,
+    "prereq": { "building": "forge",
+      "tile": { "resource": "gems", "improvement": "mine", "route": true } },
+    "effects": [ { "verb": "gold", "range": [120, 180] } ]
+  },
+
+  "banana_split": {
+    "id": "banana_split", "name": "Banana Split",
+    "text": "A refrigerated banana trade flourishes through your plantations.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "refrigeration" ],
+      "tile": { "resource": "banana", "improvement": "plantation", "route": true } },
+    "effects": [ { "verb": "gold", "range": [160, 240] } ]
   }
 }

@@ -523,3 +523,119 @@ func test_exploration_reward_is_rng_deterministic() -> void:
 	var ub = make_unit(b, "warrior", 1, 5, 5)
 	var rb = Events.exploration_reward(ub, b, b.rng)
 	assert_eq(ra["type"], rb["type"], "the same seed rolls the same goody type")
+
+# ── Phase 2 catalogue events ─────────────────────────────────────────────────────
+
+func test_phase2_events_load_cleanly() -> void:
+	# The ported pure-verb catalogue must pass DataDB validation (every prereq,
+	# obsolete, unit, structure, tech, promotion and resource ref resolves).
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 2 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["jade", "saltpeter", "sour_crude", "tin", "axe_haft", "the_vandals",
+			"holy_ritual", "banana_split", "ancient_texts"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 2 event '%s' is in the catalogue" % eid)
+
+func test_tile_yield_negative_lowers_production() -> void:
+	# Sour Crude bakes a -1 production delta onto a sour oil well.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"resource_id": "oil", "improvement_id": "well"})
+	Events.fire_event("sour_crude", p, gs)
+	assert_eq(t.event_production, -1, "Sour Crude subtracts 1 production from the well tile")
+
+func test_tile_yield_multi_key_match() -> void:
+	# Tin requires a hill mine: the match must hit a tile satisfying BOTH terrain and
+	# improvement (and skip a hill that has no mine).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.technologies.append("bronze_working")
+	make_settlement(gs, 1, 5, 5)
+	_own_tile(gs, 1, 6, 6, {"terrain_id": "hills"})  # hill, but no mine — must be skipped
+	var mined = _own_tile(gs, 1, 8, 8, {"terrain_id": "hills", "improvement_id": "mine"})
+	assert_true(Events.prereq_holds(gs.db.get_event("tin").get("prereq", {}), p, gs),
+		"Tin's prereq holds with a teched hill mine owned")
+	Events.fire_event("tin", p, gs)
+	assert_eq(mined.event_production, 2, "Tin adds +2 production to the hill mine")
+	assert_eq(gs.map.get_tile(6, 6).event_production, 0, "the bare hill is untouched")
+
+func test_grant_promotion_by_unit_types() -> void:
+	# Axe Haft grants Shock to axemen only, by unit_types filter (not classification).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.technologies.append("bronze_working")
+	make_settlement(gs, 1, 5, 5)
+	var axe = make_unit(gs, "axeman", 1, 5, 5)        # melee axeman — targeted
+	var sword = make_unit(gs, "swordsman", 1, 5, 5)   # also melee, NOT an axeman
+	Events.fire_event("axe_haft", p, gs)
+	assert_true(axe.has_promotion("shock"), "the axeman gains Shock")
+	assert_false(sword.has_promotion("shock"), "a non-axeman melee unit is unaffected")
+
+func test_horseshoe_grants_flanking_to_mounted() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var rider = make_unit(gs, "horse_archer", 1, 5, 5)  # mounted
+	var foot = make_unit(gs, "axeman", 1, 5, 5)         # melee
+	Events.fire_event("horseshoe", p, gs)
+	assert_true(rider.has_promotion("flanking1"), "the mounted unit gains Flanking I")
+	assert_false(foot.has_promotion("flanking1"), "a non-mounted unit is unaffected")
+
+func test_wild_spawn_event_drops_typed_raiders() -> void:
+	# The Vandals spawn four wild swordsmen near the capital.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	Events.fire_event("the_vandals", p, gs)
+	var swords = 0
+	for u in gs.units:
+		if u.owner_player_id == -2 and u.unit_type_id == "swordsman":
+			swords += 1
+	assert_eq(swords, 4, "The Vandals spawns four wild swordsmen")
+
+func test_vandals_prereq_uses_players_tech() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	p.technologies.append("metal_casting")
+	var pr = gs.db.get_event("the_vandals").get("prereq", {})
+	assert_false(Events.prereq_holds(pr, p, gs), "The Vandals needs a player to hold Iron Working")
+	gs.get_player(2).technologies.append("iron_working")
+	assert_true(Events.prereq_holds(pr, p, gs), "The Vandals fires once any player knows Iron Working")
+
+func test_ancient_texts_share_branch_lifts_all_met() -> void:
+	# The 'share' branch applies +20 attitude to every met rival (all_met target).
+	var gs = make_gs(3, 5)
+	var p = gs.get_player(1)
+	p.is_ai = false
+	make_settlement(gs, 1, 5, 5)
+	p.technologies.append("scientific_method")
+	_own_tile(gs, 1, 7, 7, {"terrain_id": "desert"})
+	Events.fire_event("ancient_texts", p, gs)
+	assert_true(Events.apply_choice("ancient_texts", "share", p, gs), "the share branch resolves")
+	assert_eq(Diplomacy.memory_total(p, 2), 20, "player 2's attitude improves")
+	assert_eq(Diplomacy.memory_total(p, 3), 20, "player 3's attitude improves too (all_met)")
+
+func test_gold_event_with_building_prereq_pays_in_range() -> void:
+	# Stained Glass needs a cathedral and pays 40..70 gold.
+	var gs = make_gs(2, 314)
+	var p = gs.get_player(1)
+	p.treasury = 0
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("cathedral")
+	assert_true(Events.prereq_holds(gs.db.get_event("stained_glass").get("prereq", {}), p, gs),
+		"the cathedral satisfies Stained Glass")
+	Events.fire_event("stained_glass", p, gs)
+	assert_true(p.treasury >= 40 and p.treasury <= 70,
+		"Stained Glass pays within 40..70 (got %d)" % p.treasury)
+
+func test_holy_ritual_cost_is_paid() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 100
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("temple")
+	_own_tile(gs, 1, 6, 6, {"resource_id": "incense", "improvement_id": "plantation", "transport_id": "road"})
+	Events.fire_event("holy_ritual", p, gs)
+	assert_eq(p.treasury, 120, "Holy Ritual banks 20 gold from the pilgrims' offerings")
