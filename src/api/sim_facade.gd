@@ -457,10 +457,9 @@ func _cmd_end_turn(player_id: int) -> bool:
 		return false
 
 	# A human may not end their turn while a random-event choice is unanswered (§9):
-	# the decision is mandatory. Re-raise the popup and refuse the End Turn. (AI
-	# choices auto-resolve inside the event step, so they never park one.)
+	# the decision is mandatory and is surfaced by the event-choice popup at turn
+	# start. (AI choices auto-resolve inside the event step, so they never park one.)
 	if not player.is_ai and not get_pending_event(player_id).empty():
-		_maybe_raise_event_popup(player_id)
 		_add_notification("You must resolve the pending event first.", "major")
 		return false
 
@@ -502,8 +501,6 @@ func _cmd_end_turn(player_id: int) -> bool:
 		emit_signal("player_turn_started", _gs.current_player_id)
 		# Raise the assembly ballot for a human who still owes a vote (§7.2).
 		_maybe_raise_vote_popup(_gs.current_player_id)
-		# Raise a random-event choice popup for a human with an unresolved event (§9).
-		_maybe_raise_event_popup(_gs.current_player_id)
 
 	_dirty.mark_all()
 	return true
@@ -3384,7 +3381,8 @@ func _drain_events() -> void:
 # Surface quest-lifecycle records produced during the quest player-step (§4): one
 # notification + a quest_event signal each, then clear the queue. A reward-pending quest
 # parked a non-skippable choice into pending_event_choices under a "quest:<id>" event_id;
-# the existing _maybe_raise_event_popup path raises it at the player's next turn start.
+# the event-choice popup (TurnPrompts → get_pending_event) raises it at the player's
+# next turn start, exactly like a random-event choice.
 func _drain_quest_events() -> void:
 	if _gs.pending_quest_events.empty():
 		return
@@ -3463,30 +3461,6 @@ func ack_quest_info(player_id: int, quest_id: String) -> void:
 			_quest_info_popups.remove(i)
 			return
 
-# Push a CHOOSE_EVENT popup for a human player who has an unresolved event choice
-# (§9). AI choices are auto-resolved inside the event step, so they never queue.
-func _maybe_raise_event_popup(player_id: int) -> void:
-	var p: Player = _gs.get_player(player_id)
-	if p == null or p.is_ai:
-		return
-	var pending: Dictionary = get_pending_event(player_id)
-	if pending.empty():
-		return
-	var ev: Dictionary = _db.get_event(str(pending.get("event_id", "")))
-	# Present the pre-rolled branches parked at fire time (id + display text); their
-	# concrete effects are already baked, so the human's pick draws no RNG (§9).
-	var options: Array = []
-	for ch in pending.get("resolved_choices", []):
-		options.append({"id": str(ch.get("id", "")), "text": str(ch.get("text", ""))})
-	push_popup({
-		"type": IDs.PopupType.EVENT,
-		"player_id": player_id,
-		"event_id": str(pending.get("event_id", "")),
-		"name": str(ev.get("name", "")),
-		"text": str(ev.get("text", "")),
-		"choices": options
-	})
-
 # The first unresolved event choice owed by a player (§9), or {} when none. Mirrors
 # get_pending_vote: lets presentation re-raise the prompt after a load.
 func get_pending_event(player_id: int) -> Dictionary:
@@ -3514,11 +3488,6 @@ func _cmd_resolve_event(cmd: Dictionary) -> bool:
 	if player == null or not Events.apply_choice(event_id, choice_id, player, _gs):
 		return false
 	_gs.pending_event_choices.remove(idx)
-	# Drop the matching popup if it is at the head of the queue.
-	var top: Dictionary = get_pending_popup()
-	if int(top.get("type", -1)) == IDs.PopupType.EVENT \
-			and str(top.get("event_id", "")) == event_id:
-		resolve_popup({})
 	var ev: Dictionary = _db.get_event(event_id)
 	_add_notification("Event resolved: " + str(ev.get("name", event_id)) + ".", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
