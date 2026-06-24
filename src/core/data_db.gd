@@ -508,9 +508,9 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 # `effects[]` / per-choice `effects[]` use known event-effect verbs (validated via the
 # event-effect validator). Structure refs inside a build_count aim are checked too.
 func _validate_quest_refs() -> void:
-	var aim_kinds := ["build_count", "cities_on_landmasses", "control_named_tile",
-		"conquer_resource", "conquer_holy_city", "spread_corp", "own_corp_resources",
-		"build_fleet"]
+	var aim_kinds := ["build_count", "build_units", "build_fleet",
+		"cities_on_landmasses", "control_named_tile", "conquer_resource",
+		"conquer_holy_city", "spread_corp", "own_corp_resources"]
 	var constraint_kinds := ["never_switch_state_religion", "keep_trigger_city"]
 	for qid in quests:
 		if qid == "_comment":
@@ -529,6 +529,31 @@ func _validate_quest_refs() -> void:
 			for also_id in aim.get("also", []):
 				if not structures.has(str(also_id)):
 					_errors.append("Quest '%s' aim also '%s' not in structures" % [qid, also_id])
+			for w_id in aim.get("weights", {}):
+				if not structures.has(str(w_id)):
+					_errors.append("Quest '%s' aim weights '%s' not in structures" % [qid, w_id])
+		if ak == "build_units":
+			var ut := []
+			if aim.has("unit_types"):
+				ut = aim["unit_types"]
+			elif str(aim.get("unit_type", "")) != "":
+				ut = [str(aim["unit_type"])]
+			for uid in ut:
+				if not units.has(str(uid)):
+					_errors.append("Quest '%s' aim unit_type '%s' not in units" % [qid, uid])
+		if ak == "build_fleet":
+			for uid in aim.get("composition", {}):
+				if not units.has(str(uid)):
+					_errors.append("Quest '%s' aim composition '%s' not in units" % [qid, uid])
+		if ak == "conquer_resource":
+			var rl := []
+			if aim.has("resources"):
+				rl = aim["resources"]
+			elif str(aim.get("resource", "")) != "":
+				rl = [str(aim["resource"])]
+			for rid in rl:
+				if not resources.has(str(rid)):
+					_errors.append("Quest '%s' aim resource '%s' not a resource" % [qid, rid])
 		if q.has("constraint"):
 			var ck = str(q["constraint"].get("kind", ""))
 			if not (ck in constraint_kinds):

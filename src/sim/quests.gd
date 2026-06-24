@@ -43,19 +43,31 @@ class_name Quests
 # Aim kinds (dispatched in _aim_progress / _aim_complete) the full §4 catalogue needs:
 #   build_count            — build N of a structure (some count as >1, e.g. cathedral=4)
 #                            [IMPLEMENTED — the Classic Literature slice]
-#   cities_on_landmasses   — own cities spread over N distinct landmasses        [STUB]
-#   control_named_tile     — control a specific named tile / wonder              [STUB]
-#   conquer_resource       — control a tile carrying a named resource (Greed)    [STUB]
-#   conquer_holy_city      — hold the holy city of a religion (Crusade)          [STUB]
-#   spread_corp            — spread a corporation to N new cities (Corp Expansion)[STUB]
-#   own_corp_resources     — own every input resource of a corporation          [STUB]
-#   build_fleet            — build a specific fleet composition (Overwhelm)      [STUB]
+#   build_units            — own N standing units of one or more unit types (chariots,
+#                            swordsmen, musketmen, …)                       [IMPLEMENTED]
+#   build_fleet            — own a specific fleet composition: each named unit type at
+#                            its own threshold, ALL required (Overwhelm)    [IMPLEMENTED]
+#   cities_on_landmasses   — own cities spread over N distinct landmasses (Blessed Sea):
+#                            land tiles flood-filled into connected masses  [IMPLEMENTED]
+#   conquer_resource       — control a tile carrying one of the named resources (Greed)
+#                                                                           [IMPLEMENTED]
+#   own_corp_resources     — access every input resource of the player's corporation
+#                            (Hostile Takeover)                            [IMPLEMENTED]
+#   spread_corp            — spread the player's corporation to N new member cities
+#                            since arming (Corporate Expansion)            [IMPLEMENTED]
+#   control_named_tile     — own a settlement on a tile matching a spec (generic;
+#                            no shipped quest uses it but the kind is live) [IMPLEMENTED]
+#   conquer_holy_city      — hold the holy city of a religion (Crusade). The engine has
+#                            no holy-city *settlement* model (founded_beliefs records
+#                            only the founder player, holy_site_structure is never
+#                            placed), so this returns no progress and Crusade ships
+#                            disabled (active:0), matching how unbuildable events ship.
 #
 # Constraint kinds (dispatched in _constraint_violated):
 #   never_switch_state_religion — fail if the player changes state religion after arming
 #                                 [IMPLEMENTED]
-#   keep_trigger_city           — fail if the trigger settlement is lost (Master
-#                                 Blacksmith) [STUB]
+#   keep_trigger_city           — fail if the trigger settlement (the player's capital at
+#                                 arming) is lost (Master Blacksmith)      [IMPLEMENTED]
 #
 # A new aim/constraint kind is a single `match` case below plus, if it needs a baseline,
 # a snapshot key written in _make_snapshot. Nothing else changes.
@@ -246,9 +258,24 @@ static func _aim_progress(aim: Dictionary, rec: Dictionary, player: Player, game
 	match str(aim.get("kind", "")):
 		"build_count":
 			return _build_count(aim, rec, player, game_state)
+		"build_units":
+			return _build_units(aim, player, game_state)
+		"build_fleet":
+			return _fleet_met_types(aim, player, game_state)
+		"cities_on_landmasses":
+			return _cities_on_landmasses(player, game_state)
+		"conquer_resource":
+			return _conquer_resource(aim, player, game_state)
+		"own_corp_resources":
+			return _own_corp_resources(player, game_state)
+		"spread_corp":
+			return _spread_corp(rec, player, game_state)
+		"control_named_tile":
+			return _control_named_tile(aim, player, game_state)
+		"conquer_holy_city":
+			# No holy-city settlement model (see header) — Crusade ships disabled.
+			return 0
 		_:
-			# Unimplemented aim kinds (catalogue stubs) never advance — the quest simply
-			# stays armed until the next subagent implements its kind.
 			return 0
 
 # Whether the aim is satisfied.
@@ -256,6 +283,25 @@ static func _aim_complete(aim: Dictionary, rec: Dictionary, player: Player, game
 	match str(aim.get("kind", "")):
 		"build_count":
 			return _build_count(aim, rec, player, game_state) >= int(aim.get("count", 1))
+		"build_units":
+			return _build_units(aim, player, game_state) >= int(aim.get("count", 1))
+		"build_fleet":
+			# All required: every named type meets its own threshold. An empty
+			# composition never completes.
+			var comp_size: int = (aim.get("composition", {})).size()
+			return comp_size > 0 and _fleet_met_types(aim, player, game_state) >= comp_size
+		"cities_on_landmasses":
+			return _cities_on_landmasses(player, game_state) >= int(aim.get("count", 1))
+		"conquer_resource":
+			return _conquer_resource(aim, player, game_state) >= 1
+		"own_corp_resources":
+			return _own_corp_resources(player, game_state) >= 1
+		"spread_corp":
+			return _spread_corp(rec, player, game_state) >= int(aim.get("count", 1))
+		"control_named_tile":
+			return _control_named_tile(aim, player, game_state) >= 1
+		"conquer_holy_city":
+			return false
 		_:
 			return false
 
@@ -288,6 +334,157 @@ static func _build_count(aim: Dictionary, rec: Dictionary, player: Player, game_
 			total += int(targets[sid])
 	return total
 
+# build_units aim: count the player's standing units whose type is in `unit_types`
+# (the units-built quests — chariots/swordsmen/musketmen/knights/horse archers/
+# triremes). Counts current owned copies, the unit-side mirror of build_count's
+# default standing-structure tally.
+static func _build_units(aim: Dictionary, player: Player, game_state) -> int:
+	var types: Array = aim.get("unit_types", [])
+	if types.empty():
+		var one: String = str(aim.get("unit_type", ""))
+		if one != "":
+			types = [one]
+	var total: int = 0
+	for u in game_state.units:
+		if u.owner_player_id == player.id and (u.unit_type_id in types):
+			total += 1
+	return total
+
+# build_fleet aim: a `composition` map (unit_type_id -> required count). Returns how
+# many of the named types currently MEET their threshold; the aim completes only when
+# that equals the number of named types (every leg satisfied). The Overwhelm quest.
+static func _fleet_met_types(aim: Dictionary, player: Player, game_state) -> int:
+	var comp: Dictionary = aim.get("composition", {})
+	if comp.empty():
+		return 0
+	# Tally owned units per type in one pass.
+	var have: Dictionary = {}
+	for u in game_state.units:
+		if u.owner_player_id == player.id and comp.has(u.unit_type_id):
+			have[u.unit_type_id] = int(have.get(u.unit_type_id, 0)) + 1
+	var met: int = 0
+	for t in comp:
+		if int(have.get(t, 0)) >= int(comp[t]):
+			met += 1
+	return met
+
+# cities_on_landmasses aim: the number of DISTINCT landmasses on which the player owns
+# a settlement. Landmasses are connected components of land tiles (4-neighbour flood
+# fill over non-sea terrain); a city's mass is the component of its own tile. Pure
+# integer scan, no RNG. (Blessed Sea.)
+static func _cities_on_landmasses(player: Player, game_state) -> int:
+	var labels: Dictionary = _landmass_labels(game_state)
+	var seen: Dictionary = {}
+	for s in game_state.settlements:
+		if s.owner_player_id != player.id:
+			continue
+		var key: int = int(labels.get(_tile_key(s.x, s.y, game_state), -1))
+		if key >= 0:
+			seen[key] = true
+	return seen.size()
+
+# Flood-fill every land tile into a connected-component id (4-neighbour adjacency,
+# honouring map wrap via WorldMap.neighbours4). Returns tile_key -> component id.
+# Sea tiles are omitted. Deterministic scan order (row-major).
+static func _landmass_labels(game_state) -> Dictionary:
+	var db: DataDB = game_state.db
+	var labels: Dictionary = {}
+	var next_id: int = 0
+	for t in game_state.map.all_tiles():
+		if _is_sea(t, db):
+			continue
+		var k: int = _tile_key(t.x, t.y, game_state)
+		if labels.has(k):
+			continue
+		# New component: BFS from this tile over connected land.
+		labels[k] = next_id
+		var queue: Array = [t]
+		while not queue.empty():
+			var cur: Tile = queue.pop_back()
+			for nt in game_state.map.neighbours4(cur.x, cur.y):
+				if nt == null or _is_sea(nt, db):
+					continue
+				var nk: int = _tile_key(nt.x, nt.y, game_state)
+				if labels.has(nk):
+					continue
+				labels[nk] = next_id
+				queue.append(nt)
+		next_id += 1
+	return labels
+
+static func _is_sea(t: Tile, db: DataDB) -> bool:
+	return str(db.get_terrain(t.terrain_id).get("domain", "land")) == "sea"
+
+# A stable integer key for a tile (row-major); landmass labels are keyed by it.
+static func _tile_key(x: int, y: int, game_state) -> int:
+	return y * game_state.map.width + x
+
+# conquer_resource aim: 1 if the player owns a tile carrying any of the named
+# `resources` (single `resource` also accepted), else 0. (Greed.)
+static func _conquer_resource(aim: Dictionary, player: Player, game_state) -> int:
+	var wanted: Array = aim.get("resources", [])
+	if wanted.empty():
+		var one: String = str(aim.get("resource", ""))
+		if one != "":
+			wanted = [one]
+	for t in game_state.map.all_tiles():
+		if t.owner_player_id == player.id and t.resource_id != "" and (t.resource_id in wanted):
+			return 1
+	return 0
+
+# own_corp_resources aim: 1 once the player can access EVERY input resource of the
+# corporation they founded (the same access test EconOrgs uses for output/HQ gold).
+# Zero if they founded no corporation. (Hostile Takeover.)
+static func _own_corp_resources(player: Player, game_state) -> int:
+	var org_id: String = EconOrgs.corporation_of_player(game_state, player.id)
+	if org_id == "":
+		return 0
+	var org: Dictionary = game_state.db.econ_orgs.get(org_id, {})
+	var inputs: Array = org.get("input_resources", [])
+	if inputs.empty():
+		return 0
+	if EconOrgs.accessible_input_count(game_state, org, player.id) >= inputs.size():
+		return 1
+	return 0
+
+# spread_corp aim: the number of cities hosting the player's corporation BEYOND the
+# count present at arming (the snapshot baseline under CORP_BASELINE_KEY). Counts every
+# member city worldwide, mirroring the reference's "spread to N new cities". (Corporate
+# Expansion.)
+static func _spread_corp(rec: Dictionary, player: Player, game_state) -> int:
+	var org_id: String = EconOrgs.corporation_of_player(game_state, player.id)
+	if org_id == "":
+		return 0
+	var current: int = 0
+	for s in game_state.settlements:
+		if s.econ_org_id == org_id:
+			current += 1
+	var baseline: int = int(rec.get("snapshot", {}).get(CORP_BASELINE_KEY, 0))
+	var delta: int = current - baseline
+	return delta if delta > 0 else 0
+
+# control_named_tile aim: 1 if the player owns a settlement standing on a tile matching
+# `match` (terrain/feature/improvement/resource). Generic — no shipped quest uses it,
+# but the kind is live so a future "settle the named tile" quest is pure data.
+static func _control_named_tile(aim: Dictionary, player: Player, game_state) -> int:
+	var spec: Dictionary = aim.get("match", {})
+	for s in game_state.settlements:
+		if s.owner_player_id != player.id:
+			continue
+		var t: Tile = game_state.map.get_tile(s.x, s.y)
+		if t == null:
+			continue
+		if spec.has("terrain") and t.terrain_id != str(spec["terrain"]):
+			continue
+		if spec.has("feature") and t.feature_id != str(spec["feature"]):
+			continue
+		if spec.has("improvement") and t.improvement_id != str(spec["improvement"]):
+			continue
+		if spec.has("resource") and t.resource_id != str(spec["resource"]):
+			continue
+		return 1
+	return 0
+
 # ── Constraint dispatcher ────────────────────────────────────────────────────────────
 
 # Whether the active quest's constraint is now violated (→ drop the quest). An empty
@@ -301,9 +498,19 @@ static func _constraint_violated(constraint: Dictionary, rec: Dictionary, player
 			# sentinel key STATE_RELIGION_KEY; failing if the player has since changed it.
 			var snap: Dictionary = rec.get("snapshot", {})
 			return str(snap.get(STATE_RELIGION_KEY, "")) != player.state_religion
+		"keep_trigger_city":
+			# The trigger settlement id (the player's capital at arming) is stashed under
+			# TRIGGER_CITY_KEY; the constraint fails if the player no longer owns it
+			# (it was lost / razed / captured). A missing baseline never fails.
+			var tsnap: Dictionary = rec.get("snapshot", {})
+			var trigger_id: int = int(tsnap.get(TRIGGER_CITY_KEY, -1))
+			if trigger_id < 0:
+				return false
+			for s in game_state.settlements:
+				if s.id == trigger_id and s.owner_player_id == player.id:
+					return false
+			return true
 		_:
-			# Unimplemented constraint kinds never fire — the quest is never wrongly
-			# dropped before the next subagent implements its kind.
 			return false
 
 # ── Snapshot baseline ────────────────────────────────────────────────────────────────
@@ -311,22 +518,42 @@ static func _constraint_violated(constraint: Dictionary, rec: Dictionary, player
 # A snapshot baseline captured at arming, keyed by aim/constraint kind:
 #   * build_count + since_arm — settlement_id (int) -> 1 for every owned city already
 #     holding a target structure (so "cities that did NOT have it" can be diffed).
+#   * spread_corp — CORP_BASELINE_KEY -> the count of cities hosting the player's
+#     corporation at arming (so "spread to N NEW cities" can be diffed).
 #   * never_switch_state_religion — the state religion id under STATE_RELIGION_KEY.
-# Both shapes serialize cleanly; the int settlement-id keys are coerced back to int on
-# deserialize (the JSON float/string-key gotcha).
+#   * keep_trigger_city — the trigger settlement id under TRIGGER_CITY_KEY (the
+#     player's capital at arming).
+# All shapes serialize cleanly; the int settlement-id keys (and the sentinel keys) are
+# coerced back to int on deserialize (the JSON float/string-key gotcha). Sentinel keys
+# are negative so they never collide with a real settlement id.
 const STATE_RELIGION_KEY: int = -1   # sentinel snapshot key (no settlement has id -1)
+const TRIGGER_CITY_KEY: int = -2     # keep_trigger_city baseline
+const CORP_BASELINE_KEY: int = -3    # spread_corp baseline member-city count
 
 static func _make_snapshot(quest: Dictionary, player: Player, game_state) -> Dictionary:
 	var snap: Dictionary = {}
 	var aim: Dictionary = quest.get("aim", {})
-	if str(aim.get("kind", "")) == "build_count" and bool(aim.get("since_arm", false)):
+	var aim_kind: String = str(aim.get("kind", ""))
+	if aim_kind == "build_count" and bool(aim.get("since_arm", false)):
 		var sid: String = str(aim.get("structure_id", ""))
 		for s in game_state.settlements:
 			if s.owner_player_id == player.id and s.has_structure(sid):
 				snap[s.id] = 1
+	if aim_kind == "spread_corp":
+		var org_id: String = EconOrgs.corporation_of_player(game_state, player.id)
+		var n: int = 0
+		if org_id != "":
+			for s in game_state.settlements:
+				if s.econ_org_id == org_id:
+					n += 1
+		snap[CORP_BASELINE_KEY] = n
 	var constraint: Dictionary = quest.get("constraint", {})
-	if str(constraint.get("kind", "")) == "never_switch_state_religion":
+	var ckind: String = str(constraint.get("kind", ""))
+	if ckind == "never_switch_state_religion":
 		snap[STATE_RELIGION_KEY] = player.state_religion
+	if ckind == "keep_trigger_city":
+		var cap: Settlement = Events.capital_of(player.id, game_state)
+		snap[TRIGGER_CITY_KEY] = (cap.id if cap != null else -1)
 	return snap
 
 # ── Helpers ──────────────────────────────────────────────────────────────────────────

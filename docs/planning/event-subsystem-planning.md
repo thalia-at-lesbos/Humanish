@@ -1,7 +1,9 @@
 # Event subsystem — planning & catalogue
 
-**Status:** in progress. The selection **framework** and a representative **vertical
-slice** of events are built and tested (branch `feat/event-subsystem-rework`). This
+**Status:** in progress. The event selection **framework** + event vertical slice are
+built and tested, and the **quest subsystem is now complete** — the full **18-quest
+catalogue** (Quests 1–18) ships with all aim/constraint predicates implemented (branch
+`feat/event-catalogue-buildout`, building on `feat/event-subsystem-rework`). This
 document is the shared memory for *filling out the rest*: it catalogues all **174
 events + 18 quests** from the reference ruleset, records which engine mechanics each
 needs, and lays out the roadmap. It is collaborative planning (per `CLAUDE.md`) —
@@ -61,6 +63,49 @@ add_improvement/add_route) · `tile_yield` · `remove_feature` · `remove_improv
 · `bowyer` · `spicy` · `truffles` · `marathon` · `earth_day` · `gold_rush` ·
 `security_tax` · `the_huns` · `dust_bowl`. Each exercises at least one framework
 feature and one supporting mechanic; all covered by `tests/sim/test_events.gd`.
+
+### 1.6 Quest subsystem + full 18-quest catalogue (complete)
+`src/sim/quests.gd` (the framework) + `data/quests.json` (all 18 quests) are built and
+tested (`tests/sim/test_quests.gd`, 25 cases). A `TurnEngine` player-step phase arms
+eligible quests (shared event prereq vocabulary + per-game `active`/`weight` roster),
+re-evaluates each active quest's aim/constraint, queues a reward on success (reusing
+the §9 event effect verbs + pending-choice popup machinery), and drops a quest on
+constraint violation. Quest records live on `GameState.active_quests` and survive
+save/load (snapshot int-key coercion in `GameState.deserialize`).
+
+**Aim kinds implemented:** `build_count` (structures, with `weights`/`also`/`since_arm`)
+· `build_units` (standing units of given types) · `build_fleet` (a `composition`
+map, every leg required) · `cities_on_landmasses` (4-neighbour flood-fill of land
+tiles into connected masses; count distinct masses the player has a city on) ·
+`conquer_resource` (own a tile carrying a named resource) · `spread_corp`
+(member-city count diffed against the arming baseline) · `own_corp_resources` (access
+every input of the player's founded corporation, via `EconOrgs.accessible_input_count`)
+· `control_named_tile` (own a settlement on a tile matching a spec — generic, no
+shipped quest uses it) · `conquer_holy_city` (no progress — see below).
+**Constraint kinds:** `never_switch_state_religion` · `keep_trigger_city` (the
+player's capital at arming).
+**New shared prereq predicates** (added to `Events.prereq_holds` + ignored-key-safe in
+the validator): `min_water_fraction` (map sea-tile %), `corp_hq` (founded a
+corporation), `corp_missing_input` (founded one but lacks an input). Rewards reuse
+existing event verbs (`structure_yield`, `grant_promotion`, `unit`, `spread_religion`,
+`settle_great_person`, `specialist`, `reveal_resource`, `golden_age`, `gold`,
+`espionage`, `attitude`, `city_happy_timed`).
+
+**Shipped disabled / simplified:**
+- **Crusade (Q9)** ships `active: 0` (disabled): the engine has no holy-city
+  *settlement* model — `founded_beliefs` records only the founder *player*, and
+  `holy_site_structure` is never placed — so `conquer_holy_city` cannot identify a
+  target city. Disabled exactly as the reference disables unbuildable events; the aim
+  returns no progress. Re-enable once a holy-city settlement is tracked.
+- **Holy Mountain (Q2)** faithfully simplifies "reveal a peak then settle it" to the
+  `build_count` aim (14 temples/monasteries, cathedral×4) it gates on, plus the +1-happy
+  reward — peak reveal/settle is unmodelled.
+- **Corporate Expansion / Hostile Takeover (Q17/Q18)** rewards are a one-shot `gold`
+  lump (10 / 20) rather than a recurring per-HQ commerce bonus: `structure_yield`
+  needs a concrete `structure_id` but the founded corporation (hence its HQ structure)
+  varies per game. The gold lump benefits the player whose HQ earned it.
+- **Overwhelm (Q16)** "Nuke Ban" reward branch is simplified to an attitude bump with
+  all met civilizations (no nuke/treaty model).
 
 ---
 
@@ -291,12 +336,17 @@ dedicated city-attack AI. Track these as per-event `obsolete`/eligibility tweaks
 
 ---
 
-## 4. Quests (1–18) — deferred subsystem
+## 4. Quests (1–18) — BUILT
+
+**Done** (`feat/event-catalogue-buildout`): the quest tracking subsystem and all 18
+quests are shipped — see §1.6 for the as-built summary, the implemented aim/constraint
+kinds, and the four faithful simplifications / one disabled quest (Crusade, `active:0`).
+The table below is the design source the catalogue was ported from.
 
 Quests are **multi-turn goals**: a trigger arms the quest, the player works toward an
 **aim** over many turns (without violating a constraint, e.g. "never switch state
-religion"), and completing it grants a **reward** (often a choice of three). This needs
-a new **Quest tracking subsystem** not present today:
+religion"), and completing it grants a **reward** (often a choice of three). The
+**Quest tracking subsystem** that powers this (now built):
 
 - `GameState.active_quests` (serialized): `{quest_id, player_id, start_turn, progress,
   snapshot}` — `snapshot` captures the baseline for "cities that did not have it when
@@ -360,7 +410,8 @@ Until then, ship the standard integers verbatim (current behaviour).
    military/destructive cluster (14,18,29,31–36,92–94,135,160–165,172).
 5. **Phase 5 — niche systems:** INFLATION, MOVIE, SPACE, ROUTE_SPEED, DRAFT,
    UNIT_SUPPORT, CIV_ID, corp ops.
-6. **Phase 6 — Quest subsystem** (its own branch): tracking + 18 quests.
+6. **Done — Phase 6 — Quest subsystem** (`feat/event-catalogue-buildout`): tracking
+   framework + all 18 quests + aim/constraint predicates + tests. See §1.6.
 7. **Phase 7 — scaling** (§5) once the catalogue is broad enough to balance.
 
 Each phase adds events in `data/events.json` and tests in `tests/sim/test_events.gd`;

@@ -203,6 +203,18 @@ static func prereq_holds(pr: Dictionary, player: Player, game_state) -> bool:
 		return false
 	if bool(pr.get("coastal", false)) and not _player_has_coastal_city(player.id, game_state):
 		return false
+	# min_water_fraction (§4 quests): the map is at least N% sea tiles (the naval quests'
+	# "≥40%/≥55% water map" gate). A whole-map property, not per-player.
+	if pr.has("min_water_fraction") and _map_water_fraction(game_state) < int(pr["min_water_fraction"]):
+		return false
+	# corp_hq (§4 corporation quests): the player has founded a corporation (owns its
+	# HQ). Gates Corporate Expansion / Hostile Takeover.
+	if bool(pr.get("corp_hq", false)) and EconOrgs.corporation_of_player(game_state, player.id) == "":
+		return false
+	# corp_missing_input (§4 Hostile Takeover): the player founded a corporation but
+	# cannot access all of its input resources yet (so the conquest goal is live).
+	if bool(pr.get("corp_missing_input", false)) and not _corp_missing_input(player, game_state):
+		return false
 	if pr.has("players_tech"):
 		var spec: Dictionary = pr["players_tech"]
 		if _players_with_tech(game_state, str(spec.get("tech", ""))) < int(spec.get("count", 1)):
@@ -1201,6 +1213,31 @@ static func _player_has_coastal_city(player_id: int, game_state) -> bool:
 				if t != null and str(db.get_terrain(t.terrain_id).get("domain", "land")) == "sea":
 					return true
 	return false
+
+# The percent of map tiles whose terrain is sea-domain (integer 0–100), used by the
+# min_water_fraction prereq. Zero on an empty map.
+static func _map_water_fraction(game_state) -> int:
+	var db: DataDB = game_state.db
+	var tiles: Array = game_state.map.all_tiles()
+	if tiles.empty():
+		return 0
+	var sea: int = 0
+	for t in tiles:
+		if str(db.get_terrain(t.terrain_id).get("domain", "land")) == "sea":
+			sea += 1
+	return sea * 100 / tiles.size()
+
+# True if the player founded a corporation but does not yet access ALL of its input
+# resources (the Hostile Takeover gate). False when they have no corporation.
+static func _corp_missing_input(player: Player, game_state) -> bool:
+	var org_id: String = EconOrgs.corporation_of_player(game_state, player.id)
+	if org_id == "":
+		return false
+	var org: Dictionary = game_state.db.econ_orgs.get(org_id, {})
+	var inputs: Array = org.get("input_resources", [])
+	if inputs.empty():
+		return false
+	return EconOrgs.accessible_input_count(game_state, org, player.id) < inputs.size()
 
 static func _players_with_tech(game_state, tech_id: String) -> int:
 	if tech_id == "":

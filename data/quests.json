@@ -1,5 +1,118 @@
 {
-  "_comment": "Multi-turn quest catalogue (§4 of the event-subsystem plan). A quest is a multi-turn goal: a per-player step ARMS an eligible quest, the player works toward an AIM over many turns without violating a CONSTRAINT, and completing it grants a REWARD. Read by the Quests module (src/sim/quests.gd). QUEST RECORD SHAPE: { id (String), name (display), text (flavour), active (0-100 per-game inclusion percent rolled once at setup, like events), weight (relative arming weight among the currently-eligible quests), prereq {…} (REUSES the event prereq vocabulary verbatim — Events.prereq_holds: tech_all/tech_any, building, civic, state_religion, resource_absent, min_pop/max_pop, min_era/max_era, at_war/at_peace, coastal, players_tech, tile, society, max_happy_resources, can_have_resource), aim {kind, …}, optional constraint {kind, …}, reward {effects:[…] OR choices:[{id,text,effects:[…],ai_prefer?}]} }. AIM kinds (Quests._aim_progress/_aim_complete): build_count {structure_id, count, weight_self? (the structure's own multiplier, default 1), also? (more structure ids each counting 1), weights? (structure_id->multiplier, e.g. cathedral:4), since_arm? (only count copies built after arming, diffed against the snapshot baseline)} [IMPLEMENTED]; cities_on_landmasses, control_named_tile, conquer_resource, conquer_holy_city, spread_corp, own_corp_resources, build_fleet [STUBBED — the next subagent implements these for quests 1-4,6-18]. CONSTRAINT kinds (Quests._constraint_violated): never_switch_state_religion [IMPLEMENTED]; keep_trigger_city [STUBBED]. REWARD effects REUSE the event effect verbs (Events._apply_effect): gold, culture, tech, unit, building, structure_yield, specialist, settle_great_person, spread_religion, golden_age, grant_promotion, reveal_resource, etc. A choices[] reward parks a non-skippable 3-choice popup reusing the event pending-choice machinery (AI auto-picks ai_prefer/first). Magnitudes are normal/standard; map-size & game-speed scaling is deferred (§5). Only the Classic Literature vertical slice ships here; the other 17 quests are added by a later subagent.",
+  "_comment": "Multi-turn quest catalogue (§4 of the event-subsystem plan). A quest is a multi-turn goal: a per-player step ARMS an eligible quest, the player works toward an AIM over many turns without violating a CONSTRAINT, and completing it grants a REWARD. Read by the Quests module (src/sim/quests.gd). QUEST RECORD SHAPE: { id (String), name (display), text (flavour), active (0-100 per-game inclusion percent rolled once at setup, like events; ship 0 to disable a quest whose core mechanic is unmodelled), weight (relative arming weight among the currently-eligible quests), prereq {…} (REUSES the event prereq vocabulary verbatim — Events.prereq_holds: tech_all/tech_any, building, civic, state_religion, resource_absent, min_pop/max_pop, min_era/max_era, at_war/at_peace, coastal, players_tech, tile, society, max_happy_resources, can_have_resource, min_water_fraction), aim {kind, …}, optional constraint {kind, …}, reward {effects:[…] OR choices:[{id,text,effects:[…],ai_prefer?}]} }. AIM kinds (Quests._aim_progress/_aim_complete): build_count {structure_id, count, weight_self?, also?, weights? (structure_id->multiplier, e.g. cathedral:4), since_arm?}; build_units {unit_types[], count}; build_fleet {composition: unit_type->count, all required}; cities_on_landmasses {count}; conquer_resource {resources[]}; spread_corp {count, snapshot-diffed}; own_corp_resources {}; control_named_tile {match}; conquer_holy_city {} (no holy-city settlement model — Crusade ships active:0). CONSTRAINT kinds (Quests._constraint_violated): never_switch_state_religion; keep_trigger_city (the player's capital at arming). REWARD effects REUSE the event effect verbs (Events._apply_effect): gold, culture, tech, unit, building, structure_yield, specialist, settle_great_person, spread_religion, golden_age, grant_promotion, reveal_resource, etc. A choices[] reward parks a non-skippable 3-choice popup reusing the event pending-choice machinery (AI auto-picks ai_prefer/first). Magnitudes are normal/standard; map-size & game-speed scaling is deferred (§5).",
+
+  "blessed_sea": {
+    "id": "blessed_sea",
+    "name": "Blessed Sea",
+    "text": "The seas part for the faithful. Found cities across many distant shores while keeping the true faith.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["sailing"], "state_religion": true },
+    "aim": { "kind": "cities_on_landmasses", "count": 10 },
+    "constraint": { "kind": "never_switch_state_religion" },
+    "reward": {
+      "text": "Your maritime faith is legendary. Choose its blessing:",
+      "choices": [
+        {
+          "id": "convert_cities",
+          "text": "Spread your state religion to twenty cities.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "spread_religion", "count": 20, "scope": "any" }]
+        },
+        {
+          "id": "temples_in_great_cities",
+          "text": "A temple rises in every great city.",
+          "effects": [{ "verb": "building", "structure_id": "temple" }]
+        },
+        {
+          "id": "great_prophet",
+          "text": "A Great Prophet settles in your capital.",
+          "effects": [{ "verb": "settle_great_person", "gp_type": "prophet" }]
+        }
+      ]
+    }
+  },
+
+  "holy_mountain": {
+    "id": "holy_mountain",
+    "name": "Holy Mountain",
+    "text": "Pilgrims speak of a sacred peak. Raise temples and monasteries across the land until the mountain reveals itself and the faithful may settle its slopes.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "state_religion": true },
+    "aim": {
+      "kind": "build_count",
+      "structure_id": "temple",
+      "count": 14,
+      "also": ["monastery"],
+      "weights": { "cathedral": 4 }
+    },
+    "reward": {
+      "effects": [{ "verb": "city_happy_timed", "amount": 1, "turns": 9999, "scope": "all" }]
+    }
+  },
+
+  "horse_whispering": {
+    "id": "horse_whispering",
+    "name": "Horse Whispering",
+    "text": "Your riders have a gift with horses. Build stables to nurture the bond.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["animal_husbandry"] },
+    "aim": { "kind": "build_count", "structure_id": "stable", "count": 7 },
+    "reward": {
+      "text": "The herds are yours. Choose your reward:",
+      "choices": [
+        {
+          "id": "horse_archers",
+          "text": "Six Horse Archers rally to your banner.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "unit", "unit_type": "horse_archer", "count": 6 }]
+        },
+        {
+          "id": "mounted_sentry",
+          "text": "All mounted units gain the Sentry promotion.",
+          "effects": [{ "verb": "grant_promotion", "promotion": "sentry", "classification": "mounted" }]
+        },
+        {
+          "id": "stable_food",
+          "text": "+1 food from every stable you own.",
+          "effects": [{ "verb": "structure_yield", "structure_id": "stable", "food": 1, "scope": "all" }]
+        }
+      ]
+    }
+  },
+
+  "harbormaster": {
+    "id": "harbormaster",
+    "name": "Harbormaster",
+    "text": "Master the coasts: build harbors and a fleet of caravels.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["compass"], "min_water_fraction": 40 },
+    "aim": { "kind": "build_count", "structure_id": "harbor", "count": 7 },
+    "reward": {
+      "text": "Your harbors hum with trade. Choose your reward:",
+      "choices": [
+        {
+          "id": "naval_combat",
+          "text": "All naval units gain Combat I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "combat1", "domain": "sea" }]
+        },
+        {
+          "id": "harbor_gold",
+          "text": "+1 gold from every harbor you own.",
+          "effects": [{ "verb": "structure_yield", "structure_id": "harbor", "commerce": 1, "scope": "all" }]
+        },
+        {
+          "id": "naval_navigation",
+          "text": "All naval units gain Navigation I.",
+          "effects": [{ "verb": "grant_promotion", "promotion": "navigation1", "domain": "sea" }]
+        }
+      ]
+    }
+  },
 
   "classic_literature": {
     "id": "classic_literature",
@@ -29,6 +142,344 @@
           "effects": [{ "verb": "specialist", "specialist_type": "scientist", "count": 1, "scope": "capital" }]
         }
       ]
+    }
+  },
+
+  "master_blacksmith": {
+    "id": "master_blacksmith",
+    "name": "Master Blacksmith",
+    "text": "A renowned smith sets up shop. Build forges across your realm — but do not lose the city where he settled.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "building": "forge" },
+    "aim": { "kind": "build_count", "structure_id": "forge", "count": 7 },
+    "constraint": { "kind": "keep_trigger_city" },
+    "reward": {
+      "text": "The smith's craft is unmatched. Choose your reward:",
+      "choices": [
+        {
+          "id": "reveal_copper",
+          "text": "Prospectors reveal Copper in your lands.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "reveal_resource", "resource": "copper" }]
+        },
+        {
+          "id": "swordsmen_shock",
+          "text": "All swordsmen gain the Shock promotion.",
+          "effects": [{ "verb": "grant_promotion", "promotion": "shock", "unit_types": ["swordsman"] }]
+        },
+        {
+          "id": "engineer_specialist",
+          "text": "A master engineer joins your capital (a free Engineer specialist).",
+          "effects": [{ "verb": "specialist", "specialist_type": "engineer", "count": 1, "scope": "capital" }]
+        }
+      ]
+    }
+  },
+
+  "best_defense": {
+    "id": "best_defense",
+    "name": "Best Defense",
+    "text": "Your engineers perfect the art of fortification. Build castles to make your cities impregnable.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["engineering"] },
+    "aim": { "kind": "build_count", "structure_id": "castle", "count": 7 },
+    "reward": {
+      "text": "Your defenses are the envy of the world. Choose your reward:",
+      "choices": [
+        {
+          "id": "melee_garrison",
+          "text": "All melee units gain City Garrison I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "city_garrison1", "classification": "melee" }]
+        },
+        {
+          "id": "attitude_all",
+          "text": "+3 attitude with every civilization you have met.",
+          "effects": [{ "verb": "attitude", "amount": 3, "target": "all_met" }]
+        },
+        {
+          "id": "great_wall_ep",
+          "text": "Your watchtowers gather intelligence (+espionage points).",
+          "effects": [{ "verb": "espionage", "amount": 500 }]
+        }
+      ]
+    }
+  },
+
+  "sports_league": {
+    "id": "sports_league",
+    "name": "Sports League",
+    "text": "The crowds clamour for games. Build colosseums to keep the people roaring.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["construction"] },
+    "aim": { "kind": "build_count", "structure_id": "colosseum", "count": 7 },
+    "reward": {
+      "text": "The games unite your people. Choose your reward:",
+      "choices": [
+        {
+          "id": "colosseum_happy",
+          "text": "+1 happiness from every colosseum you own.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "structure_yield", "structure_id": "colosseum", "happiness": 1, "scope": "all" }]
+        },
+        {
+          "id": "colosseum_culture",
+          "text": "+4 culture from every colosseum you own.",
+          "effects": [{ "verb": "structure_yield", "structure_id": "colosseum", "culture": 4, "scope": "all" }]
+        },
+        {
+          "id": "league_golden_age",
+          "text": "Declare a festival — a Golden Age!",
+          "effects": [{ "verb": "golden_age" }]
+        }
+      ]
+    }
+  },
+
+  "crusade": {
+    "id": "crusade",
+    "name": "Crusade",
+    "text": "The Holy City lies in infidel hands. Take up the cross and conquer it for the faith.",
+    "active": 0,
+    "weight": 100,
+    "prereq": { "state_religion": true },
+    "aim": { "kind": "conquer_holy_city" },
+    "reward": {
+      "text": "The Holy City is liberated! Choose your reward:",
+      "choices": [
+        {
+          "id": "crusaders",
+          "text": "Four conscripts join the holy war.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "unit", "unit_type": "swordsman", "count": 4 }]
+        },
+        {
+          "id": "build_shrine",
+          "text": "Build a shrine in the Holy City.",
+          "effects": [{ "verb": "building", "structure_id": "temple" }]
+        },
+        {
+          "id": "spread_faith",
+          "text": "Spread your religion to seven cities.",
+          "effects": [{ "verb": "spread_religion", "count": 7, "scope": "any" }]
+        }
+      ]
+    }
+  },
+
+  "greed": {
+    "id": "greed",
+    "name": "Greed",
+    "text": "Your smiths crave iron they do not have. Seize a source of it by any means.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["bronze_working"], "resource_absent": "iron" },
+    "aim": { "kind": "conquer_resource", "resources": ["iron"] },
+    "reward": {
+      "effects": [{ "verb": "unit", "unit_type": "swordsman", "count": 4 }]
+    }
+  },
+
+  "war_chariots": {
+    "id": "war_chariots",
+    "name": "War Chariots",
+    "text": "Thunder across the plains. Build a host of war chariots.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["the_wheel"], "state_religion": true },
+    "aim": { "kind": "build_units", "unit_types": ["chariot"], "count": 8 },
+    "reward": {
+      "text": "Your chariots are feared across the land. Choose your reward:",
+      "choices": [
+        {
+          "id": "chariot_combat",
+          "text": "All chariots gain Combat I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "combat1", "unit_types": ["chariot"] }]
+        },
+        {
+          "id": "chariot_spread",
+          "text": "Spread your religion to five cities.",
+          "effects": [{ "verb": "spread_religion", "count": 5, "scope": "any" }]
+        }
+      ]
+    }
+  },
+
+  "elite_swords": {
+    "id": "elite_swords",
+    "name": "Elite Swords",
+    "text": "Forge a legion of master swordsmen.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["iron_working"], "state_religion": true },
+    "aim": { "kind": "build_units", "unit_types": ["swordsman"], "count": 8 },
+    "reward": {
+      "text": "Your swordsmen are peerless. Choose your reward:",
+      "choices": [
+        {
+          "id": "swords_raider",
+          "text": "All swordsmen gain City Raider I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "city_raider1", "unit_types": ["swordsman"] }]
+        },
+        {
+          "id": "melee_drill",
+          "text": "All melee units gain Drill I.",
+          "effects": [{ "verb": "grant_promotion", "promotion": "drill1", "classification": "melee" }]
+        }
+      ]
+    }
+  },
+
+  "warships": {
+    "id": "warships",
+    "name": "Warships",
+    "text": "Rule the seas. Build a fleet of triremes.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["sailing", "metal_casting"], "min_water_fraction": 55 },
+    "aim": { "kind": "build_units", "unit_types": ["trireme"], "count": 7 },
+    "reward": {
+      "text": "Your fleet commands the waves. Choose your reward:",
+      "choices": [
+        {
+          "id": "trireme_combat",
+          "text": "All triremes gain Combat I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "combat1", "unit_types": ["trireme"] }]
+        },
+        {
+          "id": "lighthouse_harbors",
+          "text": "+2 commerce from every harbor you own.",
+          "effects": [{ "verb": "structure_yield", "structure_id": "harbor", "commerce": 2, "scope": "all" }]
+        }
+      ]
+    }
+  },
+
+  "guns_butter": {
+    "id": "guns_butter",
+    "name": "Guns and Butter",
+    "text": "Modernise your armies. Build a corps of musketmen.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["gunpowder"] },
+    "aim": { "kind": "build_units", "unit_types": ["musketman"], "count": 8 },
+    "reward": {
+      "text": "Your musketeers are battle-ready. Choose your reward:",
+      "choices": [
+        {
+          "id": "musket_pinch",
+          "text": "All musketmen gain the Pinch promotion.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "pinch", "unit_types": ["musketman"] }]
+        },
+        {
+          "id": "war_chest",
+          "text": "The treasury swells by 400 gold.",
+          "effects": [{ "verb": "gold", "amount": 400 }]
+        },
+        {
+          "id": "guns_golden_age",
+          "text": "A Golden Age of industry!",
+          "effects": [{ "verb": "golden_age" }]
+        }
+      ]
+    }
+  },
+
+  "noble_knights": {
+    "id": "noble_knights",
+    "name": "Noble Knights",
+    "text": "Assemble an order of mounted knights.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["guilds", "horseback_riding"] },
+    "aim": { "kind": "build_units", "unit_types": ["knight"], "count": 8 },
+    "reward": {
+      "text": "Your knights are the flower of chivalry. Choose your reward:",
+      "choices": [
+        {
+          "id": "knight_flanking",
+          "text": "All knights gain Flanking I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "flanking1", "unit_types": ["knight"] }]
+        },
+        {
+          "id": "knight_spread",
+          "text": "Spread your religion across your realm.",
+          "effects": [{ "verb": "spread_religion", "count": 5, "scope": "own" }]
+        },
+        {
+          "id": "oracle_priest",
+          "text": "A great priest settles in your capital.",
+          "effects": [{ "verb": "settle_great_person", "gp_type": "prophet" }]
+        }
+      ]
+    }
+  },
+
+  "overwhelm": {
+    "id": "overwhelm",
+    "name": "Overwhelm",
+    "text": "Build an unstoppable modern navy and air force: destroyers, battleships, carriers, and fighters.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["flight", "industrialism"], "min_water_fraction": 55 },
+    "aim": {
+      "kind": "build_fleet",
+      "composition": { "destroyer": 4, "battleship": 2, "carrier": 3, "fighter": 9 }
+    },
+    "reward": {
+      "text": "Your war machine is overwhelming. Choose your reward:",
+      "choices": [
+        {
+          "id": "fleet_combat",
+          "text": "All naval units gain Combat I.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "grant_promotion", "promotion": "combat1", "domain": "sea" }]
+        },
+        {
+          "id": "harbor_commerce",
+          "text": "+5 commerce from every harbor you own.",
+          "effects": [{ "verb": "structure_yield", "structure_id": "harbor", "commerce": 5, "scope": "all" }]
+        },
+        {
+          "id": "nuke_ban_goodwill",
+          "text": "Champion a non-proliferation treaty (+attitude with all met).",
+          "effects": [{ "verb": "attitude", "amount": 3, "target": "all_met" }]
+        }
+      ]
+    }
+  },
+
+  "corporate_expansion": {
+    "id": "corporate_expansion",
+    "name": "Corporate Expansion",
+    "text": "Your corporation eyes new markets. Spread it to eight new cities.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "corp_hq": true },
+    "aim": { "kind": "spread_corp", "count": 8 },
+    "reward": {
+      "effects": [{ "verb": "gold", "amount": 10 }]
+    }
+  },
+
+  "hostile_takeover": {
+    "id": "hostile_takeover",
+    "name": "Hostile Takeover",
+    "text": "Your corporation lacks the inputs it craves. Secure every resource it needs.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "corp_hq": true, "corp_missing_input": true },
+    "aim": { "kind": "own_corp_resources" },
+    "reward": {
+      "effects": [{ "verb": "gold", "amount": 20 }]
     }
   }
 }
