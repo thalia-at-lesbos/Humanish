@@ -174,7 +174,7 @@ green; `ai_full_game_smoke.gd` still reaches a win condition with zero errors.
 
 ---
 
-## Phase 2 — Specialists as a first-class table (§6.5, game-data §14.5/§20) ✅ COMPLETE
+## Phase 2 — Specialists as a first-class table (§6.5, game-data §14.5/§22) ✅ COMPLETE
 **Done.** Specialists are now a first-class data table. Added `data/specialists.json` (14 types:
 7 working `citizen/priest/artist/scientist/merchant/engineer/spy` + 7 great-person counterparts),
 each carrying a per-head `output` vector over six yield channels
@@ -213,7 +213,7 @@ all match the table); `tests/sim/test_great_people.gd` (birth maps through the t
 
 ---
 
-## Phase 3 — Goody huts & map start-fairness (§9, §1, game-data §20) ✅ COMPLETE
+## Phase 3 — Goody huts & map start-fairness (§9, §1, game-data §24/§28) ✅ COMPLETE
 **Done.** Both map-generation parity items landed. `SimFacade.setup` now chooses start positions
 once (right after `MapGen.generate`) and runs two RNG-fixed-order post-passes on those starts —
 `MapGen.normalize_starts` then `MapGen.place_goody_huts` — before creating players/units, so the
@@ -265,7 +265,7 @@ order.
 
 ---
 
-## Phase 4 — Random-events lifecycle (§9, game-data §20) ✅ COMPLETE
+## Phase 4 — Random-events lifecycle (§9, game-data §21) ✅ COMPLETE
 **Done.** The one-shot treasury list is replaced by the reference's **trigger → begin(choice) →
 apply → expire** lifecycle. `src/sim/events.gd` is now a trigger-scan engine: each player step (§9,
 phase `PLAYER_EVENTS`) it first `tick_active_events` (decrements every timed event the player owns
@@ -309,7 +309,7 @@ choice draws no RNG and is identical whenever the human answers.
 
 ---
 
-## Phase 5 — Corporations (full model) (§8, game-data §14.6/§20) ✅ COMPLETE
+## Phase 5 — Corporations (full model) (§8, game-data §14.6/§23) ✅ COMPLETE
 **Done.** `econ_orgs` is extended in place to the reference corporation system (the existing
 `data/econ_orgs.json` is reused rather than a new `corporations.json`). Each corporation now carries
 a **headquarters structure** (`hq_structure`, erected in the founding city by `EconOrgs.found`), an
@@ -361,7 +361,7 @@ produce nothing, owe no maintenance, and cannot be spread into.
 
 ---
 
-## Phase 6 — Espionage missions (§7.1, game-data §20) ✅ COMPLETE
+## Phase 6 — Espionage missions (§7.1, game-data §25) ✅ COMPLETE
 **Done.** The three hard-coded screen missions are promoted to a first-class data table
 (`data/espionage_missions.json`), and `SimFacade` now reads every mission from it. Each record carries
 an `effect` verb, a `cost_multiplier` (percent, × the existing base EP-advantage cost curve), an

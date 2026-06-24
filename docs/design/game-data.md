@@ -56,8 +56,14 @@ sections:
   "§17  Spaceship Parts":        "Space Race component list"
   "§18  Assembly & Resolutions": "World-government assembly mechanics and resolution catalogue (provisional)"
   "§19  Data field reference":   "JSON field schemas (§19.1–§19.4) and serialized entity fields (§19.5) — provisional"
-  "§20  Reference-parity data domains": "Data tables to add for reference parity (specialists, corporations, goody huts, espionage missions, diplomacy, score victory, map normalize)"
   "§21  Random events":          "events.json record schema, selection framework, prereq/effect vocabulary, and the full event (1–174) + quest (1–18) catalogue"
+  "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
+  "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
+  "§24  Goody huts":             "goodies.json: weighted discovery-site reward table and map placement (incomplete — 7 of 12 reference rewards)"
+  "§25  Espionage missions":     "espionage_missions.json: alliance-scope intel mission catalogue (incomplete — 5 of 18 reference missions)"
+  "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
+  "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
+  "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1736,29 +1742,6 @@ and related combat code (§5.3):
 
 ---
 
-## 20. Reference-parity data domains (to add)
-
-The reference data set defines several **first-class data domains** this project currently
-models implicitly, partially, or not at all. Promoting them to explicit data tables is a
-parity goal; the development sequencing is in
-`docs/planning/full-feature-from-reference-plan.md`.
-
-| Domain | Reference shape | Current state in this project | Target table |
-|--------|-----------------|-------------------------------|--------------|
-| **Specialists** | 14 types (`citizen, priest, artist, scientist, merchant, engineer, spy` + 7 great-person counterparts); each with output vector, GP-point type, slots | Implicit via unit `generated_by` tags + per-structure slot counts (§14.5) | `data/specialists.json` |
-| **Corporations** | 7 corporations, each with HQ building, executive unit, input-resource set, per-city maintenance, resource-count-scaled output | `econ_orgs` (9), lighter model — no HQ-gold share, executive unit, or maintenance (§14.6) | `data/corporations.json` |
-| **Goody huts** | Map-placed huts (`GOODY_HUT` improvement) with a weighted reward table consumed by the first land unit | "Discovery sites" on Terra maps only; no general placement or reward table | `data/goodies.json` + map placement stage |
-| **Espionage missions** | ~18 mission records (steal tech, sabotage, incite, …) with costs, target gates, interception | Alliance-scope EP accrual + 3 hard-coded screen missions; spy-unit missions deferred (§7.1) | `data/espionage_missions.json` |
-| **Diplomacy: deals, attitude, memory** | Persistent deal objects (one-off + per-turn), AI attitude (5 levels) from weighted factors, decaying memory of acts, denial reasons | Trades = expiring dicts; no attitude/memory layer (§7) | `data/diplomacy.json` (attitude factors, memory kinds/decay, denial reasons) |
-| **Score victory** | 7th victory condition (`SCORE`) | Folded into Time (6 conditions, §16) | `data/win_conditions.json` (add `score`) |
-| **Map start-fairness (`normalize*`)** | 9-step post-placement pass: add river/lake, remove peaks/bad features/terrain, add food bonuses/good terrain/extras; plus resource (`BonusBalancer`) equalisation near starts | `find_start_positions` maximises spacing only; no rebalancing, no resource balancing | `MapGen` algorithm + `data/map_types.json` tunables |
-
-> These rows are the data-side companion to the rules updates in `game-rules.md`
-> (§4.2/§4.3/§5.4/§6.3/§6.5/§7/§8/§9/§10) and supersede the prior, lighter models where they
-> conflict.
-
----
-
 ## 21. Random events
 
 The random-event system (`data/events.json`, rules in `game-rules.md` §9) is a
@@ -2051,3 +2034,285 @@ standard-size; the reference scales them by world size's default player count.
 |16|Overwhelm|flight + industrialism + ≥55% water|build 4 destroyers/2 battleships/3 carriers/9 fighters|fleet +Combat I / harbors +5 commerce / Nuke Ban|
 |17|Corporate Expansion|own a corp HQ|spread corp to ~8 new cities|+10 gold for the HQ|
 |18|Hostile Takeover|own corp HQ lacking a corp resource|own all the corp's resources|+20 gold for the HQ|
+
+---
+
+## 22. Specialists
+
+`data/specialists.json`. **14 first-class specialist types** — 7 working specialists a
+city may assign citizens to, plus their 7 great-person counterparts (settled
+super-specialists). Each carries a per-head `output` vector over the six yield channels
+(food / production / commerce / science / culture / espionage), the great-person points
+it banks per turn (`gp_points`) and of which type (`gp_type`), the great-person unit a
+dominant pool births (`great_person_unit`), and slot rules. This is the data-side
+companion to §14.5 (specialist slots and sources).
+
+### 22.1 Working specialists
+
+| Type | Output | GP type | GPP/turn | Births | Default slots |
+|------|--------|---------|:--------:|--------|:-------------:|
+| `citizen` | — | — | 0 | — | unlimited (`-1`) |
+| `priest` | +1 production, +1 commerce | priest | 1 | `great_prophet` | 1 |
+| `artist` | +3 culture | artist | 1 | `great_artist` | 1 |
+| `scientist` | +3 science | scientist | 1 | `great_scientist` | 1 |
+| `merchant` | +3 commerce | merchant | 1 | `great_merchant` | 1 |
+| `engineer` | +2 production | engineer | 1 | `great_engineer` | 1 |
+| `spy` | +3 espionage | spy | 1 | `great_spy` | 1 |
+
+### 22.2 Settled Great People (super-specialists)
+
+`is_great: true`; `default_slots: 0` and `gp_points: 0` (they occupy no city slot and
+bank no further GPP — they are the settled reward form).
+
+| Type | Output | GP type |
+|------|--------|---------|
+| `great_priest` (Settled Great Prophet) | +2 culture | priest |
+| `great_artist` | +3 culture | artist |
+| `great_scientist` | +3 science | scientist |
+| `great_merchant` | +3 commerce | merchant |
+| `great_engineer` | +2 production | engineer |
+| `great_general` | +2 production | engineer |
+| `great_spy` | +3 espionage | spy |
+
+> The engine currently collapses settled Great People into their working specialist type;
+> the `great_*` records are kept for parity/validation and city-screen display.
+
+**Slots** = `default_slots` (available without buildings; `-1` = unlimited, for `citizen`)
++ per-structure `specialist_slots` + the Caste System civic's `unlimited_specialists`.
+
+**Reference parity:** the reference's `GameSpecialistInfos.xml` lists exactly these 14
+types (`CITIZEN … GREAT_SPY`). ✅ **Complete.**
+
+---
+
+## 23. Corporations
+
+`data/econ_orgs.json`. Player-foundable economic organisations that spread between cities
+via an executive unit, consuming input resources for a per-city yield. This is the
+data-side companion to §14.6. The project ships **10** corporations (the reference defines
+7); each carries the full reference model — HQ building, executive spreader, input set,
+per-city maintenance, and an HQ gold share.
+
+| Corp | Input resources | Per-city output | HQ structure |
+|------|-----------------|-----------------|--------------|
+| `merchant_guild` | gold | +4 commerce | `merchant_guild_hq` |
+| `cereal_mills` | wheat, rice, corn | +1 food per distinct input present | `cereal_mills_hq` |
+| `creative_constructions` | marble, stone | +2 production | `creative_constructions_hq` |
+| `aluminum_co` | aluminum | +3 production | `aluminum_co_hq` |
+| `mining_inc` | iron, copper, coal | +2 production per distinct input present | `mining_inc_hq` |
+| `sids_sushi` | crab, clam, fish | +2 food | `sids_sushi_hq` |
+| `civilized_jewelers` | gems, gold, silver | +4 commerce | `civilized_jewelers_hq` |
+| `standard_ethanol` | sugar, corn, wheat | +1 food, +1 commerce | `standard_ethanol_hq` |
+| `overseas_trading_co` | silk, dye, spices | +4 commerce | `overseas_trading_co_hq` |
+| `nationalist_mutual` | oil, coal | +3 commerce | `nationalist_mutual_hq` |
+
+Output is either a flat `output_delta` per city, or an `output_per_input_resource` scaled
+by the count of distinct input resources reachable by that city (`cereal_mills`,
+`mining_inc`). Shared fields on every corporation:
+
+| Field | Value | Meaning |
+|-------|:-----:|---------|
+| `executive_unit` | `executive` | The spreader unit that establishes the corp in a new city. |
+| `maintenance` | 3 | Gold/turn per city the corp operates in. |
+| `hq_gold_per_input` | 2 | Gold to the HQ city per input resource the corp consumes. |
+| `spread_cost` | 200 | Production/gold cost for an executive to spread the corp. |
+| `spread_chance_base` | 15 | Base % chance an AI/auto spread succeeds. |
+
+**Reference parity:** the reference's `GameCorporationInfo.xml` defines 7 corporations,
+each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project ships
+10 with the full HQ/executive/maintenance model. ✅ **Complete** (exceeds the reference
+count).
+
+---
+
+## 24. Goody huts
+
+> **Status: incomplete** — 7 of the reference's 12 goody records are modelled. Placement and
+> consumption are fully wired; the reward catalogue is a slice.
+
+`data/goodies.json` + `MapGen.place_goody_huts`. Map-placed discovery sites; the first land
+unit to enter a hut consumes it and rolls one reward weighted by `weight`.
+
+**Placement:** one hut per `goody_hut_land_per_hut` (28) passable land tiles, kept at least
+`goody_hut_min_distance_from_start` (4) tiles from any start.
+
+**Reward table** (consumed by `Events.exploration_reward`):
+
+| id | type | weight | Magnitude |
+|----|------|:------:|-----------|
+| `gold` | treasury | 30 | 20–80 gold |
+| `map` | map | 18 | reveal radius 4 (signal-only, no sim state) |
+| `experience` | experience | 16 | 5–15 XP to the unit |
+| `heal` | heal | 10 | unit restored to full health |
+| `unit` | unit | 11 | spawn a `warrior` for the discoverer |
+| `tech` | tech | 8 | grant one free researchable tech |
+| `ambush` | ambush | 7 | discoverer takes 50% damage |
+
+A difficulty may override any goody's weight via `difficulties.json` `goody_weights`
+(id → weight).
+
+**Gap to reference:** `GameGoodyInfo.xml` defines **12** goody records; the project ships
+**7** reward archetypes. The reference docs give the count but do not enumerate the
+remaining 5 records' per-field values, so they are flagged here, not specified. (See also
+the reference `normalizeAddExtras` step, §28, which can scatter extra huts near starts.)
+
+---
+
+## 25. Espionage missions
+
+> **Status: incomplete** — 5 of the reference's 18 mission records are modelled, and only
+> the alliance-scope screen missions; spy-unit-on-tile missions are deferred.
+
+`data/espionage_missions.json`. Accrued intel points (EP) against a target alliance are
+spent on a mission from this table.
+
+**Cost** = `intel_mission_cost` (100) × `cost_multiplier`/100 × (1 + EP-advantage/100),
+with the EP-advantage curve capped by `intel_cost_advantage_max` (200).
+**Interception** = `intel_interception_chance` (25%) base ± the mission's
+`interception_modifier`, capped at `intel_interception_max` (90%). Both live in
+`constants.json` and are computed in `SimFacade`.
+
+| id | name | effect | `cost_multiplier` | `interception_modifier` | Magnitude |
+|----|------|--------|:-----------------:|:-----------------------:|-----------|
+| `steal_tech` | Steal Tech | `steal_tech` | 100 | 0 | copy one technology the attacker lacks |
+| `sabotage` | Sabotage | `sabotage` | 80 | 0 | halve a target city's stored production |
+| `incite_unrest` | Incite Unrest | `incite_unrest` | 120 | +10 | largest target city into disorder next turn |
+| `steal_gold` | Steal Treasury | `steal_gold` | 90 | 0 | transfer up to 100 gold from the richest member |
+| `poison_water` | Poison Water | `poison_water` | 150 | +20 | remove 1 population from the largest city (pop ≥ 2) |
+
+Each mission is offered/accepted only when its target gate holds
+(`SimFacade._mission_target_valid`, per effect verb).
+
+**Gap to reference:** `GameEspionageMissionInfo.xml` defines **18** mission records (the
+above plus destroy-building / destroy-production / destroy-improvement, steal maps, spread
+culture/religion, counterespionage, buy-a-city, and others); the project ships **5**. The
+reference docs give the count but not the remaining 13 records' costs/gates, so they are
+flagged here, not specified. **Spy-unit-on-tile** missions (as opposed to alliance-scope
+screen missions) are deferred entirely.
+
+---
+
+## 26. Diplomacy attitude & memory
+
+> **Status: incomplete** — attitude levels, live factors, decaying memory, and deal gates
+> are modelled; the reference's **denial-reason** layer (structured codes for why an AI
+> refuses a deal) is not.
+
+`data/diplomacy.json`. `attitude_base` is the neutral starting score; live factors and the
+running memory total are summed onto it, clamped to 0–100, then mapped to an attitude
+level. All integer math (provisional, not balance-tested).
+
+**Attitude levels** (`attitude_base` = 50; `attitude_thresholds` = [20, 40, 60, 80]):
+
+| Level | Name | Score range |
+|:-----:|------|-------------|
+| 0 | furious | 0–19 |
+| 1 | annoyed | 20–39 |
+| 2 | cautious | 40–59 |
+| 3 | pleased | 60–79 |
+| 4 | friendly | 80–100 |
+
+**Live factors** (recomputed each turn from current relations):
+
+| Factor | Δ |
+|--------|:--:|
+| `at_war` | −45 |
+| `shared_war` | +12 |
+| `shared_religion` | +12 |
+| `different_religion` | −8 |
+| `permanent_ally` | +25 |
+| `active_deal` | +8 |
+
+**Memory kinds** (accrue when a rival acts via `Diplomacy.record`; decay toward zero by
+`decay`/turn via `Diplomacy.decay`; the running total is capped at `memory_cap` = 120):
+
+| Kind | Value | Decay/turn |
+|------|:-----:|:----------:|
+| `declared_war` | −30 | 1 |
+| `broke_deal` | −25 | 1 |
+| `razed_city` | −40 | 1 |
+| `fair_trade` | +8 | 1 |
+| `traded_tech` | +6 | 1 |
+| `made_peace` | +8 | 1 |
+| `gave_gift` | +10 | 1 |
+| `event` | 0 | 1 |
+
+**Gates:** `deal_accept_min_attitude` = 1 (an AI must be at least *annoyed* to accept a
+deal); `war_min_attitude` = 2 (attitude gate on war behaviour).
+
+**Deals:** `gs.deals` holds standing deal objects — one-off deals resolve immediately;
+**recurring** deals carry a `recurring` block whose `give.resources` flow proposer→accepter
+each turn while the deal stands (`Diplomacy.deal_resources_for`).
+
+**Gap to reference:** persistent deal objects (one-off + per-turn) ✅, AI attitude (5 levels)
+✅, decaying memory of acts ✅ — but **denial reasons** (the structured "why we refuse"
+codes the reference surfaces in trade UI and AI logic) are **not** modelled. Cross-ref §7 of
+`game-rules.md`.
+
+---
+
+## 27. Score victory
+
+`data/win_conditions.json` `score`. The reference's **7th victory condition** (`SCORE`):
+the first alliance whose summed score reaches an absolute threshold wins **immediately** —
+distinct from Time, which only awards the highest score at the turn limit.
+
+| Field | Value |
+|-------|:-----:|
+| `score_threshold` | 400 (provisional/tunable) |
+
+**Scoring formula** (`Scoring.compute_all`, per player, then summed per alliance):
+
+| Component | Formula |
+|-----------|---------|
+| Land | `land_tiles × 100 / total_land` (share %) |
+| Population | `population × 100 / total_pop` (share %) |
+| Technology | `techs_researched × 2` |
+| Wonders | `wonders × score_weight_wonder` (5) |
+
+Player score = land + population + technology + wonders; alliance score = sum of members.
+
+**Reference parity:** `GameVictoryInfo.xml` lists 7 conditions including `SCORE`; the project
+now ships all 7 (`last_standing`/Conquest, `dominance`/Domination, `endgame_project`/Space
+Race, `cultural`, `diplomatic`, `score`, `time`). ✅ **Complete.** Cross-ref §16.
+
+---
+
+## 28. Map start-fairness (`normalize*`)
+
+> **Status: incomplete** — 6 of the reference's 9 `normalize*` steps are implemented; start
+> repositioning is spacing-only and `addGoodTerrain` / `addExtras` are unimplemented.
+
+`MapGen.normalize_starts` runs after `find_start_positions` to tidy each capital's
+surroundings so no player is crippled by a hostile spawn. Every random choice draws from the
+shared map RNG in a fixed order, so the result is deterministic for the seed. A per-map
+`normalize` block in `data/map_types.json` may override the constants.
+
+**Step coverage** (mapped to the reference's 9-step `normalize*` sequence + `BonusBalancer`):
+
+| # | Reference step | Code | Behaviour |
+|:-:|----------------|:----:|-----------|
+| 1 | `normalizeStartingPlotLocations` | ⚠️ partial | `find_start_positions` maximises spacing; no post-placement reposition pass |
+| 2 | `normalizeAddRiver` | ✅ | `_normalize_add_fresh_water` carves river borders when no fresh water is near |
+| 3 | `normalizeRemovePeaks` | ✅ | `_normalize_remove_peaks`: peaks on start tile/inner ring → hills |
+| 4 | `normalizeAddLakes` | ✅ | folded into `_normalize_add_fresh_water` (fresh-water guarantee) |
+| 5 | `normalizeRemoveBadFeatures` | ✅ | `_normalize_strip_bad_features`: strip jungle from start tile/ring |
+| 6 | `normalizeRemoveBadTerrain` | ✅ | `_normalize_fix_bad_terrain`: snow/desert city tile → grassland; ring snow→tundra, desert→plains |
+| 7 | `normalizeAddFoodBonuses` | ✅ | `_normalize_add_food_bonuses`: top up to `min_food` food resources in the inner ring |
+| 8 | `normalizeAddGoodTerrain` | ❌ | upgrade poorer terrain in the wider radius — **unimplemented** |
+| 9 | `normalizeAddExtras` | ❌ | final fairness pass (extra resources/huts) — **unimplemented** |
+| — | `BonusBalancer` | ✅ | `_balance_start_resources`: no start sits more than `resource_tolerance` strategic resources below the richest within `balance_radius` |
+
+**Constants** (`data/constants.json`; a per-map `normalize` block may override
+`min_food_bonuses` / `balance_radius` / `resource_tolerance`):
+
+| Constant | Value |
+|----------|:-----:|
+| `start_normalize_min_food_bonuses` | 1 |
+| `start_normalize_balance_radius` | 2 |
+| `start_normalize_resource_tolerance` | 1 |
+| `goody_hut_land_per_hut` | 28 |
+| `goody_hut_min_distance_from_start` | 4 |
+
+**Gap to reference:** steps 8 (`addGoodTerrain`) and 9 (`addExtras`) are unimplemented, and
+step 1 (`normalizeStartingPlotLocations`) is spacing-only with no fairness reposition.
