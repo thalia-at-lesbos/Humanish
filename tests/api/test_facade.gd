@@ -1043,3 +1043,55 @@ func test_strength_unknown_unit_is_empty() -> void:
 	var f = bare_facade(gs)
 	assert_eq(f.unit_effective_strength(999), 0, "Unknown unit effective strength 0")
 	assert_eq(f.unit_strength_text(999), "", "Unknown unit shows no strength line")
+
+# ── Explore mission permitted for all combat units (Issue 6) ──────────────────
+
+# A plain melee combat unit (warrior) can receive the Explore mission, not just
+# recon/scout. The facade gate must agree with the selection panel's button.
+func test_explore_accepted_for_plain_combat_unit() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var pid: int = gs.players[0].id
+	var f = bare_facade(gs)
+	var w = make_warrior(gs, pid, 5, 5)
+	assert_true(w.base_strength > 0, "Warrior is a combat unit (base_strength > 0)")
+	assert_true(f.apply_command(Commands.mission_explore(pid, w.id)),
+		"A plain combat unit (warrior) is allowed to explore")
+	assert_true(w.is_exploring, "Warrior is now exploring")
+
+# A siege unit (catapult) is a player combat unit and may explore too.
+func test_explore_accepted_for_siege_unit() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var pid: int = gs.players[0].id
+	var f = bare_facade(gs)
+	var c = make_unit(gs, "catapult", pid, 6, 6)
+	assert_true(f.apply_command(Commands.mission_explore(pid, c.id)),
+		"A siege combat unit (catapult) is allowed to explore")
+	assert_true(c.is_exploring, "Catapult is now exploring")
+
+# Recon units keep working (the original behaviour).
+func test_explore_accepted_for_recon_unit() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var pid: int = gs.players[0].id
+	var f = bare_facade(gs)
+	var s = make_unit(gs, "scout", pid, 7, 7)
+	assert_true(f.apply_command(Commands.mission_explore(pid, s.id)),
+		"A recon/scout unit is still allowed to explore")
+	assert_true(s.is_exploring, "Scout is now exploring")
+
+# Civilians (base_strength 0) are still rejected — match existing behaviour.
+func test_explore_rejected_for_civilian_units() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = gs.players[0].id
+	var pid: int = gs.players[0].id
+	var f = bare_facade(gs)
+	var settler = make_unit(gs, "settler", pid, 8, 8)
+	var worker = make_unit(gs, "worker", pid, 9, 9)
+	assert_false(f.apply_command(Commands.mission_explore(pid, settler.id)),
+		"A settler (civilian) may not explore")
+	assert_false(settler.is_exploring, "Settler is not exploring")
+	assert_false(f.apply_command(Commands.mission_explore(pid, worker.id)),
+		"A worker (civilian) may not explore")
+	assert_false(worker.is_exploring, "Worker is not exploring")
