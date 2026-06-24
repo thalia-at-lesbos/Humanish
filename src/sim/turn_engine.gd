@@ -64,10 +64,12 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 
 	# 5. Environmental degradation
 	if not hooks.run(IDs.Phase.WORLD_ENVIRONMENTAL, gs):
-		Pollution.accumulate(gs)
-		Pollution.degrade(gs, gs.rng)
-		# Nuclear Plant meltdowns spread fallout around their settlement (§5.7).
+		# Nuclear Plant meltdowns spread fallout around their settlement (§5.7)
+		# and feed the global-warming nuke tally — run before the GW pass so a
+		# fresh meltdown counts this turn.
 		Nuclear.meltdown_tick(gs, gs.rng)
+		# §11 global warming: building unhealthiness + nukes degrade random tiles.
+		GlobalWarming.tick(gs, gs.rng)
 
 	# 6. Assign/reassign special institutional sites (stub)
 	if not hooks.run(IDs.Phase.WORLD_ASSIGN_SITES, gs):

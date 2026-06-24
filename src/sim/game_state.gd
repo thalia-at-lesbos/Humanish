@@ -46,6 +46,11 @@ var wild_aggressive: bool = false
 # game). Off by default.
 var permanent_alliances: bool = false
 
+# §11 Global warming: a running count of every nuclear explosion that has ever
+# occurred (ICBM, tactical nuke, and Nuclear Plant meltdown). Feeds GW_VALUE in
+# GlobalWarming.tick(); incremented by Nuclear.detonate()/meltdown_tick().
+var nukes_exploded: int = 0
+
 # Founded beliefs and econ orgs (globally tracked)
 var founded_beliefs: Dictionary = {}   # belief_id -> founder player_id
 var founded_econ_orgs: Dictionary = {} # org_id -> founder player_id
@@ -326,6 +331,7 @@ func serialize() -> Dictionary:
 		"winning_alliance_id": winning_alliance_id,
 		"wild_aggressive": wild_aggressive,
 		"permanent_alliances": permanent_alliances,
+		"nukes_exploded": nukes_exploded,
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
 		"endgame_project_stages": endgame_project_stages.duplicate(),
@@ -372,6 +378,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.winning_alliance_id = int(d.get("winning_alliance_id", -1))
 	gs.wild_aggressive = bool(d.get("wild_aggressive", false))
 	gs.permanent_alliances = bool(d.get("permanent_alliances", false))
+	gs.nukes_exploded = int(d.get("nukes_exploded", 0))
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
 	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()

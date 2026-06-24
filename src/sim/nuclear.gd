@@ -83,6 +83,8 @@ static func detonate(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> Dictiona
 		"units_hit": [], "settlements_hit": [],
 		"fallout_tiles": [], "victim_alliance_ids": []
 	}
+	# §11 Global warming: every detonation feeds the running nuke tally.
+	gs.nukes_exploded += 1
 
 	var blast: Array = _area_tiles(gs, tx, ty, radius)
 	var dmg_pct: int = db.get_constant("nuke_blast_unit_damage_pct", 60)
@@ -173,6 +175,8 @@ static func meltdown_tick(gs, rng: RNG) -> Array:
 			continue
 		if not rng.rand_bool_percent(chance):
 			continue
+		# §11 Global warming: a meltdown counts as a nuclear explosion.
+		gs.nukes_exploded += 1
 		# Contaminate the plant's tile and the ring around it.
 		for cell in _area_tiles(gs, s.x, s.y, 1):
 			var t: Tile = gs.map.get_tile(cell[0], cell[1])

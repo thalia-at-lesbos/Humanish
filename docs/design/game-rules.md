@@ -39,7 +39,7 @@ sections:
   "§8  Beliefs & orgs":        "Religion founding/spread, state religion (§8.1 provisional), missionary spread (§8.2 provisional)"
   "§9  Wild forces & events":  "Wild spawning (§9.2 provisional), wild-AI behaviour (§9.1 provisional), animals (§9.3 provisional), exploration rewards, scripted events"
   "§10 Win conditions":        "Last standing, dominance, endgame project, cultural, diplomatic, time"
-  "§11 Environmental":         "Pollution accumulation, flooding, tile degradation"
+  "§11 Environmental":         "Global warming — building unhealthiness + nukes degrade random tiles toward desert; radioactive fallout (provisional)"
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
@@ -1419,10 +1419,42 @@ against the map and age.
 
 ## 11. Environmental degradation
 
-Accumulated pollution (from population, polluting structures, and area-effect strikes)
-produces a per-turn chance of randomly degrading a tile — stripping vegetation, shifting
-terrain toward barrenness, or flooding low tiles — scaled by game settings. Area-effect
-strikes also add lingering contamination and pollution.
+### Global warming
+
+Industrial pollution is modelled at the **whole-map** scale as *global warming*, run once
+per world step (`GlobalWarming.tick`). Two global pressures drive it: the unhealthiness
+produced by **buildings** across every city, and the running count of **nuclear explosions**
+ever detonated (ICBM, tactical nuke, or Nuclear Plant meltdown). Each turn that pressure
+yields a number of degradation **strikes**; **forest and jungle cover defends** against them.
+Every landed strike degrades one **random non-city land tile** a single step toward the base
+terrain (`gw_base_terrain`, *desert*) — stripping any vegetation feature first, then eroding the
+terrain one rung along its `degrades_to` chain. **Every** land terrain participates (not just
+flat farmland): the chains converge on the barren base, e.g. `mountain → hills → plains → desert`,
+`grassland → plains → desert`, `tundra → snow → desert`. A terrain with no declared successor
+collapses straight to the base, so the pass always terminates; the base terrain itself is inert.
+City tiles are never chosen. Higher building unhealthiness or more nukes means more strikes; more
+forest cover means fewer land.
+
+The mechanic is specified by the following formulae, where `#LAND`/`#PLOTS` are the land-tile
+and total-tile counts, `#FOREST` is the number of tiles carrying a feature with a positive
+`growth_probability` (Forest and Jungle), `#BAD_HEALTH` is the summed building (structure)
+unhealthiness across all cities (population/feature unhealthiness is **excluded**), and
+`#NUKES_EXPLODED` is the cumulative explosion count:
+
+```
+GW_DEFENSE = #FOREST / #LAND * gw_forest_ratio
+GW_VALUE   = #BAD_HEALTH / #PLOTS * gw_global_unhealth_ratio
+             + #NUKES_EXPLODED * gw_nuclear_ratio / 100
+PROB(≥1 strike) = 1 - ( (100 - gw_chance)/100 + #FOREST/#LAND * gw_forest_ratio/100 ) ^ GW_VALUE
+```
+
+`PROB` above is the probability of at least one strike across `GW_VALUE` independent trials,
+each landing with chance `p = gw_chance - GW_DEFENSE` (integer percent, floored at 0). Because
+the engine is integer-only, `GlobalWarming.tick` runs that **trial process directly** — it
+takes `GW_VALUE` strike attempts (its fractional part resolved by one RNG roll) and rolls `p`
+for each — rather than evaluating the fractional-exponent closed form; the distribution is the
+same. Tunables `gw_base_terrain`, `gw_chance`, `gw_forest_ratio`, `gw_global_unhealth_ratio`,
+and `gw_nuclear_ratio` live in `data/constants.json` (§12).
 
 **Radioactive fallout (provisional).** The strongest form of lingering contamination is the
 **Fallout** feature created by nuclear strikes, heavy area strikes, and (provisionally) Nuclear

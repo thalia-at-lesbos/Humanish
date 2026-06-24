@@ -142,9 +142,10 @@ What remains:
 
 - **Score** (§10) — `Scoring` weights population, land, and techs but omits **wonders**,
   which the spec lists.
-- **Pollution sources** (§11) — accumulation covers population + structures but not
-  area-effect strikes (unimplemented); flooding of low tiles isn't modeled (only
-  feature-strip and terrain→barren chain).
+- **Global warming** (§11) — `GlobalWarming.tick` models map-wide degradation from building
+  unhealthiness + cumulative nukes (`gs.nukes_exploded`), with forest/jungle defence and a
+  degrade-toward-desert chain. Flooding of low tiles is intentionally **not** modelled (strikes
+  march toward `gw_base_terrain`, never to water).
 
 ---
 
