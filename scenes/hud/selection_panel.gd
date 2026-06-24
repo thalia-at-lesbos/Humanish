@@ -181,11 +181,16 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	if db.get_unit(u.unit_type_id).get("can_build", false):
 		_add_worker_buttons(u, gs)
 
-	# Issue 13: Explore button — shown for scout/recon units.
+	# Issue 6/13: Explore button — shown for every combat unit (non-civilian with
+	# positive base strength), plus recon/scout and any explicitly explore-tagged
+	# unit. Mirrors the facade's MISSION_EXPLORE gate so the button never offers an
+	# order the command would reject. Civilians (base_strength 0) and missiles/Great
+	# People (also base_strength 0) get no Explore button.
 	var udata_sel: Dictionary = db.get_unit(u.unit_type_id)
 	var cls_sel: String = str(udata_sel.get("classification", ""))
 	var has_explore_tag: bool = "explore" in udata_sel.get("tags", [])
-	if cls_sel == "recon" or has_explore_tag:
+	var is_combat_sel: bool = cls_sel != "civilian" and u.base_strength > 0
+	if is_combat_sel or cls_sel == "recon" or has_explore_tag:
 		if not u.is_exploring:
 			var explore_btn: Button = _left_button("Explore")
 			explore_btn.connect("pressed", self, "_on_explore_pressed", [u.id])

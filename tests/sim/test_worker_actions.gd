@@ -682,14 +682,26 @@ func test_explore_command_accepted_for_scout() -> void:
 	assert_true(ok, "MISSION_EXPLORE should be accepted for a scout")
 	assert_true(scout.is_exploring, "Scout should have is_exploring set after explore command")
 
-func test_explore_command_rejected_for_warrior() -> void:
+# Issue 6: every combat unit (non-civilian with base_strength > 0) may explore,
+# not just recon/scout. A plain warrior is now accepted.
+func test_explore_command_accepted_for_warrior() -> void:
 	var gs = make_gs(1)
 	var warrior = make_warrior(gs, 1, 5, 5)
 	var facade = bare_facade(gs)
 	gs.current_player_id = 1
 	var ok: bool = facade.apply_command(Commands.mission_explore(1, warrior.id))
-	assert_false(ok, "MISSION_EXPLORE must be rejected for non-recon units")
-	assert_false(warrior.is_exploring, "Warrior should not have is_exploring set")
+	assert_true(ok, "MISSION_EXPLORE is accepted for a plain combat unit (warrior)")
+	assert_true(warrior.is_exploring, "Warrior should have is_exploring set after explore command")
+
+# Civilians (base_strength 0) remain rejected — they are not combat units.
+func test_explore_command_rejected_for_civilian() -> void:
+	var gs = make_gs(1)
+	var worker = make_unit(gs, "worker", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var ok: bool = facade.apply_command(Commands.mission_explore(1, worker.id))
+	assert_false(ok, "MISSION_EXPLORE must be rejected for a civilian unit")
+	assert_false(worker.is_exploring, "Worker should not have is_exploring set")
 
 func test_exploring_scout_skipped_by_idle_cycle() -> void:
 	var gs = make_gs(1)

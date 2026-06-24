@@ -2392,13 +2392,19 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.MISSION_EXPLORE:
-			# Explore mission: only recon/scout units (classification "recon" or
-			# units with the "explore" tag) may use this. Sets is_exploring; the
-			# actual move happens at the start of each turn via _run_explore_missions.
+			# Explore mission (Issue 6): every combat unit may auto-explore, not just
+			# recon/scout. A "combat unit" is non-civilian military with positive base
+			# strength (classification != "civilian" AND base_strength > 0); this admits
+			# melee/ranged/mounted/siege/gunpowder/armor/recon/naval/air while excluding
+			# civilians (settler/worker/work_boat/spy/missionary/executive), Great People
+			# and missiles (all base_strength 0). Recon and explicitly explore-tagged
+			# units stay permitted regardless. Sets is_exploring; the actual move happens
+			# at the start of each turn via _run_explore_missions.
 			var utype_exp: Dictionary = _db.get_unit(u.unit_type_id)
 			var cls_exp: String = str(utype_exp.get("classification", ""))
 			var has_explore_tag: bool = "explore" in utype_exp.get("tags", [])
-			if cls_exp != "recon" and not has_explore_tag:
+			var is_combat_exp: bool = cls_exp != "civilian" and u.base_strength > 0
+			if not is_combat_exp and cls_exp != "recon" and not has_explore_tag:
 				return false
 			u.is_exploring = true
 			u.is_sentry = false
