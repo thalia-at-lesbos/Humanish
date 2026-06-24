@@ -87,6 +87,14 @@ var structure_bonuses: Dictionary = {}
 # save/load (deserialize coerces amount/turns_left to int).
 var timed_happiness: Array = []
 
+# Timed wellbeing (health) modifiers from random events (§9 HEALTH_TIMED): each
+# {amount:int, turns_left:int}. The mirror of timed_happiness on the wellbeing
+# channel — a positive amount is a temporary +health face (added to
+# wellbeing_positive), a negative one adds to wellbeing_negative. Ticked down one per
+# turn in TurnEngine._tick_states, folded into _update_wellbeing. Serialized so a
+# running modifier survives save/load (deserialize coerces amount/turns_left to int).
+var timed_health: Array = []
+
 # Entrenchment for garrison (number of turns garrisoned)
 var garrison_turns: int = 0
 
@@ -179,6 +187,7 @@ func serialize() -> Dictionary:
 		"special_persons_produced": special_persons_produced,
 		"rush_anger_turns": rush_anger_turns,
 		"timed_happiness": timed_happiness.duplicate(true),
+		"timed_health": timed_health.duplicate(true),
 		"garrison_turns": garrison_turns,
 		"defence_value": defence_value,
 		"health": health, "peak_population": peak_population,
@@ -234,6 +243,12 @@ static func deserialize(d: Dictionary):
 		s.timed_happiness.append({
 			"amount": int(tm.get("amount", 0)),
 			"turns_left": int(tm.get("turns_left", 0))
+		})
+	s.timed_health = []
+	for th in d.get("timed_health", []):
+		s.timed_health.append({
+			"amount": int(th.get("amount", 0)),
+			"turns_left": int(th.get("turns_left", 0))
 		})
 	s.garrison_turns = int(d.get("garrison_turns", 0))
 	s.defence_value = int(d.get("defence_value", 0))

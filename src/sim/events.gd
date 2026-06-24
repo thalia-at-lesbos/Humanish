@@ -209,6 +209,78 @@ static func prereq_holds(pr: Dictionary, player: Player, game_state) -> bool:
 			return false
 	if pr.has("tile") and _find_owned_tile(player.id, game_state, pr["tile"]) == null:
 		return false
+	# CIV_ID (§9): the player belongs to one of the named societies. `society` is a
+	# single id or an array of ids; matched against Player.society_id.
+	if pr.has("society") and not _player_is_society(player, pr["society"]):
+		return false
+	# HAPPY_RES_COUNT (§9): the player controls AT MOST `max_happy_resources` distinct
+	# happiness (luxury) resources — the reference's "4 or fewer happy resources" gate.
+	if pr.has("max_happy_resources") \
+			and _player_happy_resource_count(player.id, game_state) > int(pr["max_happy_resources"]):
+		return false
+	# CAN_HAVE_RES (§9): an owned tile (matching the optional `tile` sub-spec) is
+	# eligible to receive `resource` — its terrain is in the resource's allowed_terrains
+	# and it holds no resource yet. Gates the reveal/cultivate tile events (72/73/74).
+	if pr.has("can_have_resource") \
+			and _find_resource_eligible_tile(player.id, game_state, pr["can_have_resource"]) == null:
+		return false
+	return true
+
+# Whether the player's society_id matches `spec` (a single id String or an Array of
+# ids). The CIV_ID prereq (§9) — Aztec/Egyptian/Russian/French/American etc.
+static func _player_is_society(player: Player, spec) -> bool:
+	if typeof(spec) == TYPE_ARRAY:
+		return player.society_id in spec
+	return player.society_id == str(spec)
+
+# Count the distinct happiness (luxury, happiness>0) resources the player controls on
+# owned tiles (§9 HAPPY_RES_COUNT).
+static func _player_happy_resource_count(player_id: int, game_state) -> int:
+	var db: DataDB = game_state.db
+	var seen: Dictionary = {}
+	for t in game_state.map.all_tiles():
+		if t.owner_player_id != player_id or t.resource_id == "":
+			continue
+		var rd: Dictionary = db.get_resource(t.resource_id)
+		if int(rd.get("happiness", 0)) > 0:
+			seen[t.resource_id] = true
+	return seen.size()
+
+# The first owned bare tile eligible to receive `resource` (§9 CAN_HAVE_RES / REVEAL):
+# it carries no resource, its terrain is in the resource's allowed_terrains, and (if
+# given) it matches the `tile` sub-predicate. Deterministic first-match scan.
+static func _find_resource_eligible_tile(player_id: int, game_state, spec: Dictionary) -> Tile:
+	var db: DataDB = game_state.db
+	var resource_id: String = str(spec.get("resource", ""))
+	if resource_id == "":
+		return null
+	var allowed: Array = db.get_resource(resource_id).get("allowed_terrains", [])
+	var tile_spec: Dictionary = spec.get("tile", {})
+	for t in game_state.map.all_tiles():
+		if t.owner_player_id != player_id or t.resource_id != "":
+			continue
+		if not allowed.empty() and not (t.terrain_id in allowed):
+			continue
+		if not _tile_matches(t, tile_spec, player_id, game_state, db):
+			continue
+		return t
+	return null
+
+# Whether a tile satisfies a tile predicate (the keys _find_owned_tile uses), without
+# the ownership check (the caller has already scoped ownership).
+static func _tile_matches(t: Tile, spec: Dictionary, player_id: int, game_state, db: DataDB) -> bool:
+	if spec.has("terrain") and t.terrain_id != str(spec["terrain"]):
+		return false
+	if spec.has("feature") and t.feature_id != str(spec["feature"]):
+		return false
+	if spec.has("improvement") and t.improvement_id != str(spec["improvement"]):
+		return false
+	if spec.has("resource") and t.resource_id != str(spec["resource"]):
+		return false
+	if bool(spec.get("route", false)) and not _tile_has_route(t):
+		return false
+	if bool(spec.get("in_city_radius", false)) and not _tile_in_city_radius(player_id, t, game_state, db):
+		return false
 	return true
 
 # Whether a timed event instance for `event_id` is already running for the player.
@@ -475,6 +547,32 @@ static func _apply_effect(eff: Dictionary, player: Player, game_state) -> void:
 			_apply_declare_war(eff, player, game_state)
 		"espionage":
 			_apply_espionage(eff, player, game_state)
+		"unit_state":
+			_apply_unit_state(eff, player, game_state)
+		"city_health_timed":
+			_apply_city_health_timed(eff, player, game_state)
+		"reveal_resource":
+			_apply_reveal_resource(eff, player, game_state)
+		"place_improvement":
+			_apply_place_improvement(eff, player, game_state)
+		"add_feature":
+			_apply_add_feature(eff, player, game_state)
+		"destroy_unit":
+			_apply_destroy_unit(eff, player, game_state)
+		"draft":
+			_apply_draft(eff, player, game_state)
+		"unit_support":
+			_apply_unit_support(eff, player, game_state)
+		"inflation":
+			player.inflation_pct += int(eff.get("percent", 0))
+		"route_speed":
+			player.route_speed_bonus += int(eff.get("amount", 1))
+		"movie_bonus":
+			player.movie_bonus += int(eff.get("amount", 1))
+		"spaceship_bonus":
+			player.spaceship_bonus += int(eff.get("amount", 0))
+		"resource_gift":
+			_apply_resource_gift(eff, player, game_state)
 
 # DESTROY_BLDG (§9): remove up to `count` standing structures from the scoped city
 # (default the capital), filtered by hammer cost — `cost` is "cheap" (<=
@@ -626,6 +724,144 @@ static func _apply_espionage(eff: Dictionary, player: Player, game_state) -> voi
 	var aid: int = rival.alliance_id
 	var v: int = int(player.intel_points.get(aid, 0)) + amount
 	player.intel_points[aid] = v if v > 0 else 0
+
+# UNIT_STATE (§9): apply a timed state to the first owned unit matching `match`
+# (default: any owned unit; supports {classification,domain,unit_types,damaged}).
+# `immobile`/`no_attack` set the timed counters; `xp` adds experience. One unit only.
+static func _apply_unit_state(eff: Dictionary, player: Player, game_state) -> void:
+	var u: Unit = _find_owned_unit(player.id, game_state, eff.get("match", {}))
+	if u == null:
+		return
+	var imm: int = int(eff.get("immobile", 0))
+	if imm > 0:
+		u.event_immobile_turns = imm
+		u.movement_left = 0
+	var noatk: int = int(eff.get("no_attack", 0))
+	if noatk > 0:
+		u.event_no_attack_turns = noatk
+	u.experience += int(eff.get("xp", 0))
+
+# The first owned unit matching a unit predicate (deterministic id-order scan), or
+# null. Keys: classification, domain, unit_types (array), damaged(bool, health<100).
+static func _find_owned_unit(player_id: int, game_state, spec: Dictionary) -> Unit:
+	var db: DataDB = game_state.db
+	var want_class: String = str(spec.get("classification", ""))
+	var want_domain: String = str(spec.get("domain", ""))
+	var want_types: Array = spec.get("unit_types", [])
+	var want_damaged: bool = bool(spec.get("damaged", false))
+	for u in game_state.units:
+		if u.owner_player_id != player_id:
+			continue
+		if want_damaged and u.health >= 100:
+			continue
+		if not want_types.empty() and not (u.unit_type_id in want_types):
+			continue
+		var ud: Dictionary = db.get_unit(u.unit_type_id)
+		if want_class != "" and str(ud.get("classification", "")) != want_class:
+			continue
+		if want_domain != "" and str(ud.get("domain", "")) != want_domain:
+			continue
+		return u
+	return null
+
+# HEALTH_TIMED (§9): append a timed wellbeing modifier to the scoped cities — the
+# mirror of city_happy_timed on the health channel.
+static func _apply_city_health_timed(eff: Dictionary, player: Player, game_state) -> void:
+	var amount: int = int(eff.get("amount", 0))
+	var turns: int = int(eff.get("turns", 0))
+	if turns <= 0:
+		return
+	for s in _scoped_settlements(str(eff.get("scope", "capital")), player, game_state):
+		s.timed_health.append({"amount": amount, "turns_left": turns})
+
+# REVEAL (§9): reveal `resource` on the first eligible owned tile — terrain in the
+# resource's allowed_terrains, no resource yet, matching the optional `match` tile
+# sub-spec. Optionally lays an improvement / route (the "reveal + mine/camp" branches).
+static func _apply_reveal_resource(eff: Dictionary, player: Player, game_state) -> void:
+	var resource_id: String = str(eff.get("resource", ""))
+	var spec: Dictionary = {"resource": resource_id, "tile": eff.get("match", {})}
+	var t: Tile = _find_resource_eligible_tile(player.id, game_state, spec)
+	if t == null:
+		return
+	t.resource_id = resource_id
+	if eff.has("add_improvement"):
+		t.improvement_id = str(eff["add_improvement"])
+		t.improvement_age = 0
+	if eff.has("add_route"):
+		t.transport_id = str(eff["add_route"])
+
+# place-improvement (§9): lay `improvement` (and optional route) on the first owned
+# tile matching `match` (e.g. building a pasture on a bare cow tile).
+static func _apply_place_improvement(eff: Dictionary, player: Player, game_state) -> void:
+	var t: Tile = _find_owned_tile(player.id, game_state, eff.get("match", {}))
+	if t == null:
+		return
+	t.improvement_id = str(eff.get("improvement", ""))
+	t.improvement_age = 0
+	if eff.has("add_route"):
+		t.transport_id = str(eff["add_route"])
+
+# add-feature (§9): add `feature` to the first owned tile matching `match` (e.g. the
+# Appleseed event seeding a forest); optionally bake in a yield delta.
+static func _apply_add_feature(eff: Dictionary, player: Player, game_state) -> void:
+	var t: Tile = _find_owned_tile(player.id, game_state, eff.get("match", {}))
+	if t == null:
+		return
+	t.feature_id = str(eff.get("feature", ""))
+	t.event_food += int(eff.get("food", 0))
+	t.event_production += int(eff.get("production", 0))
+	t.event_commerce += int(eff.get("commerce", 0))
+
+# destroy-unit (§9): remove the first owned unit matching `match` from play (e.g. the
+# Bermuda Triangle event swallowing a naval ship). Deterministic id-order scan.
+static func _apply_destroy_unit(eff: Dictionary, player: Player, game_state) -> void:
+	var count: int = int(eff.get("count", 1))
+	if count <= 0:
+		return
+	var removed: int = 0
+	# Re-scan after each removal so multiple matches are consumed deterministically.
+	while removed < count:
+		var u: Unit = _find_owned_unit(player.id, game_state, eff.get("match", {}))
+		if u == null:
+			break
+		game_state.units.erase(u)
+		removed += 1
+
+# DRAFT (§9): conscript `count` units of `unit_type` at the capital, the number raised
+# by the capital's culture level (one extra per `per_culture_level` culture rings),
+# and stoke draft anger (a timed angry face). Mirrors the reference's culture-scaled
+# conscription. No-op without a capital.
+static func _apply_draft(eff: Dictionary, player: Player, game_state) -> void:
+	var cap: Settlement = capital_of(player.id, game_state)
+	if cap == null:
+		return
+	var db: DataDB = game_state.db
+	var count: int = int(eff.get("count", 1))
+	# Culture scaling: the city's border ring is its culture level; raise one more
+	# conscript per `per_culture_level` rings (an integer, data-driven, default 1).
+	var per: int = int(eff.get("per_culture_level", 1))
+	if per > 0:
+		count += cap.culture_ring / per
+	var unit_type: String = str(eff.get("unit_type", "warrior"))
+	for _i in range(count):
+		_spawn_unit_at(unit_type, player.id, cap.x, cap.y, game_state, db)
+	# Draft anger: a timed angry face per the reference's conscription discontent.
+	var anger_turns: int = int(eff.get("anger_turns", 0))
+	if anger_turns > 0:
+		cap.timed_happiness.append({"amount": -int(eff.get("anger", 1)), "turns_left": anger_turns})
+
+# UNIT_SUPPORT (§9): grant `count` units' worth of free upkeep relief empire-wide.
+static func _apply_unit_support(eff: Dictionary, player: Player, game_state) -> void:
+	player.unit_support_relief += int(eff.get("count", 0))
+
+# resource-gift (§9): the player gifts a spare strategic resource to a needy ally/
+# rival, earning goodwill. There is no spare-resource trade-gift model yet, so this is
+# simplified to a diplomatic-memory bump toward the lowest-id rival (the catalogue's
+# "Brothers in Need" gift). The amount comes from `attitude` (default 1).
+static func _apply_resource_gift(eff: Dictionary, player: Player, game_state) -> void:
+	var rid: int = _pick_rival(player, game_state)
+	if rid >= 0:
+		_adjust_memory(player, rid, int(eff.get("attitude", 1)), game_state)
 
 # Bank percent% of the current research's remaining cost (gain=true) or shave
 # percent% of its full cost off the store (gain=false). No-op without a current tech.

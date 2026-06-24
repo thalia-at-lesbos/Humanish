@@ -196,6 +196,9 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 		u.movement_left = u.movement_total
 		u.has_moved = false
 		u.has_attacked = false
+		# Timed event states (§9 UNIT_STATE): tick the immobile / no-attack counters
+		# down one per owner turn. While immobile the unit has no movement this turn.
+		_tick_unit_event_states(u)
 
 	# Era advancement (§1): recompute the player's era after every tech gained this
 	# step (research in phase 4, a Great Scientist's instant tech in phase 6). Queues
@@ -493,6 +496,17 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 		var feat: Dictionary = db.get_feature(tile.feature_id)
 		pos += int(feat.get("health_bonus", 0))
 		neg += int(feat.get("health_penalty", 0))
+	# Timed event wellbeing modifiers (§9 HEALTH_TIMED): a positive amount is a
+	# temporary +health face (folded into pos), a negative one extra unhealthiness.
+	for th in s.timed_health:
+		var ha: int = int(th.get("amount", 0))
+		if ha >= 0:
+			pos += ha
+		else:
+			neg += -ha
+	# Persistent per-structure event health bonuses (§9 STRUCT_YIELD, e.g. +1 health
+	# for the drydock) — a flat wellbeing face while the structure stands.
+	pos += s.structure_yield("health")
 	s.wellbeing_positive = pos
 	s.wellbeing_negative = neg
 	s.wellbeing_deficit = max(0, neg - pos)
@@ -1276,6 +1290,8 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		if s.owner_player_id == player.id:
 			city_count += 1
 	var free_units: int = city_count * PolicyEffects.sum_int(player, db, "free_units_per_city")
+	# Event unit-support relief (§9 UNIT_SUPPORT) waives upkeep on this many more units.
+	free_units += player.unit_support_relief
 
 	# Upkeep for units (the first `free_units`, in id order, are free).
 	var upkeep: int = 0
@@ -1314,6 +1330,10 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		policy_mod += int(pol.get("upkeep_modifier", 0))
 	if policy_mod != 0:
 		upkeep += Fixed.scale(upkeep, policy_mod)
+	# Inflation modifier (§9 INFLATION): a signed percent on gross maintenance (e.g.
+	# the Federal Reserve event trims it with a negative value).
+	if player.inflation_pct != 0:
+		upkeep += Fixed.scale(upkeep, player.inflation_pct)
 	if upkeep < 0:
 		upkeep = 0
 	return upkeep
@@ -1545,6 +1565,15 @@ static func _settlement_espionage_output(s: Settlement, db: DataDB) -> int:
 		pct += int(db.get_structure(struct_id).get("effects", {}).get("espionage_output", 0))
 	return pct
 
+# Tick a unit's timed event states (§9 UNIT_STATE) down one turn. While immobile the
+# unit has no movement this turn (movement was already reset; zero it again here).
+static func _tick_unit_event_states(u: Unit) -> void:
+	if u.event_immobile_turns > 0:
+		u.event_immobile_turns -= 1
+		u.movement_left = 0
+	if u.event_no_attack_turns > 0:
+		u.event_no_attack_turns -= 1
+
 static func _tick_states(gs: GameState, player: Player) -> void:
 	if player.transition_turns > 0:
 		player.transition_turns -= 1
@@ -1566,6 +1595,15 @@ static func _tick_states(gs: GameState, player: Player) -> void:
 					tm["turns_left"] = left
 					kept.append(tm)
 			s.timed_happiness = kept
+		# Count down timed event wellbeing modifiers; drop the expired ones (§9).
+		if not s.timed_health.empty():
+			var kept_h: Array = []
+			for th in s.timed_health:
+				var hleft: int = int(th.get("turns_left", 0)) - 1
+				if hleft > 0:
+					th["turns_left"] = hleft
+					kept_h.append(th)
+			s.timed_health = kept_h
 
 static func _validate_policies(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db

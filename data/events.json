@@ -1156,5 +1156,510 @@
       { "id": "shore_up", "text": "Shore up the dam (pay 100 gold; save the plant)",
         "effects": [ { "verb": "gold", "amount": -100 } ] }
     ]
+  },
+
+  "happy_hunting": {
+    "id": "happy_hunting", "name": "Happy Hunting",
+    "text": "A great herd is driven into your tundra forests, and the larders fill.",
+    "active": 90, "weight": 500,
+    "prereq": { "tech_all": [ "archery" ], "tile": { "terrain": "tundra", "feature": "forest" } },
+    "obsolete": [ "steam_power", "steel", "scientific_method", "artillery" ],
+    "effects": [ { "verb": "food_store", "amount": 8 } ]
+  },
+
+  "at_the_sword": {
+    "id": "at_the_sword", "name": "At the Sword",
+    "text": "A wounded swordsman recovers and returns to your ranks battle-hardened.",
+    "active": 100, "weight": 500,
+    "prereq": { "tech_all": [ "iron_working" ] },
+    "obsolete": [ "machinery", "feudalism", "music", "philosophy", "civil_service", "theology" ],
+    "effects": [ { "verb": "unit_state", "match": { "unit_types": [ "swordsman" ], "damaged": true }, "xp": 3 } ]
+  },
+
+  "man_named_jed": {
+    "id": "man_named_jed", "name": "A Man Named Jed",
+    "text": "One of your scouts stumbles on bubbling black crude beneath his feet.",
+    "active": 75, "weight": 5000,
+    "prereq": { "can_have_resource": { "resource": "oil" } },
+    "choices": [
+      { "id": "ignore", "text": "Pay it no mind (nothing comes of it)",
+        "effects": [] },
+      { "id": "drill", "text": "Stake the claim (pay 10 gold; reveal Oil)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "reveal_resource", "resource": "oil" } ] }
+    ]
+  },
+
+  "farm_bandits": {
+    "id": "farm_bandits", "name": "Farm Bandits",
+    "text": "Bandits raid the grain wagons leaving one of your farms.",
+    "active": 85, "weight": 200,
+    "prereq": { "tile": { "improvement": "farm", "route": true } },
+    "choices": [
+      { "id": "pay_off", "text": "Pay them off (lose 10 gold)",
+        "effects": [ { "verb": "gold", "amount": -10 } ] },
+      { "id": "send_militia", "text": "Send the militia (lose 5 food; your escort cannot attack a while)",
+        "effects": [ { "verb": "food_store", "amount": -5 },
+          { "verb": "unit_state", "match": {}, "no_attack": 2 } ] }
+    ]
+  },
+
+  "horticulture": {
+    "id": "horticulture", "name": "Horticulture",
+    "text": "Your gardeners cultivate a prized strain among the trees.",
+    "active": 80, "weight": 200,
+    "prereq": { "tech_all": [ "calendar" ], "tile": { "feature": "forest", "in_city_radius": true } },
+    "choices": [
+      { "id": "harvest", "text": "Sell the harvest (+1 commerce on the tile)",
+        "effects": [ { "verb": "tile_yield", "commerce": 1, "match": { "feature": "forest", "in_city_radius": true } } ] },
+      { "id": "physic_garden", "text": "Endow a physic garden (pay 10 gold; +1 health for 20 turns)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "city_health_timed", "amount": 1, "turns": 20, "scope": "capital" } ] }
+    ]
+  },
+
+  "joyous_wedding": {
+    "id": "joyous_wedding", "name": "Joyous Wedding",
+    "text": "A royal wedding to a like-minded neighbour delights both realms.",
+    "active": 90, "weight": 200,
+    "prereq": { "state_religion": true },
+    "choices": [
+      { "id": "celebrate", "text": "Celebrate together (relations with a neighbour improve)",
+        "effects": [ { "verb": "attitude", "amount": 2 } ] },
+      { "id": "feast", "text": "Host a grand feast (pay 20 gold; relations warm further)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "attitude", "amount": 3 } ] }
+    ]
+  },
+
+  "left_at_the_altar": {
+    "id": "left_at_the_altar", "name": "Left at the Altar",
+    "text": "A betrothal to a neighbour's house collapses in scandal.",
+    "active": 80, "weight": 100,
+    "effects": [ { "verb": "attitude", "amount": -1 } ]
+  },
+
+  "baby_boom": {
+    "id": "baby_boom", "name": "Baby Boom",
+    "text": "Peace brings a joyful surge of newborns across your realm.",
+    "active": 100, "weight": 500,
+    "prereq": { "at_peace": true },
+    "effects": [ { "verb": "food_store", "amount": 10 } ]
+  },
+
+  "brothers_in_need": {
+    "id": "brothers_in_need", "name": "Brothers in Need",
+    "text": "A co-religionist realm at war begs you for a spare strategic resource.",
+    "active": 100, "weight": 1000,
+    "prereq": { "state_religion": true },
+    "effects": [ { "verb": "resource_gift", "attitude": 3 } ]
+  },
+
+  "appleseed": {
+    "id": "appleseed", "name": "Appleseed",
+    "text": "A wandering planter sows an orchard-forest on your plains.",
+    "active": 75, "weight": 50,
+    "prereq": { "tech_all": [ "civil_service" ], "tile": { "terrain": "plains" } },
+    "effects": [ { "verb": "add_feature", "feature": "forest", "food": 1, "match": { "terrain": "plains" } } ]
+  },
+
+  "running_bulls": {
+    "id": "running_bulls", "name": "Running of the Bulls",
+    "text": "A festival of running bulls thunders through your pastures.",
+    "active": 70, "weight": 200,
+    "prereq": { "tech_all": [ "animal_husbandry", "feudalism" ],
+      "tile": { "resource": "cow", "improvement": "pasture", "route": true } },
+    "choices": [
+      { "id": "festival", "text": "Hold the festival (+100 culture)",
+        "effects": [ { "verb": "culture", "amount": 100 } ] },
+      { "id": "grand", "text": "Make it a grand spectacle (pay nothing; +300 culture)",
+        "effects": [ { "verb": "culture", "amount": 300 } ] }
+    ]
+  },
+
+  "great_depression": {
+    "id": "great_depression", "name": "The Great Depression",
+    "text": "Markets collapse worldwide and every treasury bleeds.",
+    "active": 40, "weight": 100,
+    "prereq": { "tech_all": [ "economics" ] },
+    "effects": [ { "verb": "gold", "amount": -100 } ]
+  },
+
+  "bermuda_triangle": {
+    "id": "bermuda_triangle", "name": "Bermuda Triangle",
+    "text": "One of your ships vanishes without trace in strange waters.",
+    "active": 50, "weight": 100,
+    "prereq": { "tech_all": [ "flight" ], "coastal": true },
+    "effects": [ { "verb": "destroy_unit", "match": { "domain": "sea" }, "count": 1 } ]
+  },
+
+  "motor_oil": {
+    "id": "motor_oil", "name": "Motor Oil",
+    "text": "Refiners at your wells perfect a fine motor oil.",
+    "active": 90, "weight": 200,
+    "prereq": { "tile": { "resource": "oil", "improvement": "well" } },
+    "choices": [
+      { "id": "sell", "text": "Sell the surplus (+50 gold)",
+        "effects": [ { "verb": "gold", "amount": 50 } ] },
+      { "id": "fleet", "text": "Oil your war machine (pay 15 gold; free support for 4 units)",
+        "effects": [ { "verb": "gold", "amount": -15 },
+          { "verb": "unit_support", "count": 4 } ] }
+    ]
+  },
+
+  "federal_reserve": {
+    "id": "federal_reserve", "name": "Federal Reserve",
+    "text": "A central bank is founded to steady your currency.",
+    "active": 90, "weight": 200,
+    "prereq": { "civic": "free_market", "tech_all": [ "economics" ] },
+    "choices": [
+      { "id": "modest", "text": "A modest tightening (-10% inflation)",
+        "effects": [ { "verb": "inflation", "percent": -10 } ] },
+      { "id": "aggressive", "text": "Aggressive policy (pay 50 gold; -25% inflation)",
+        "effects": [ { "verb": "gold", "amount": -50 },
+          { "verb": "inflation", "percent": -25 } ] }
+    ]
+  },
+
+  "electric_company": {
+    "id": "electric_company", "name": "Electric Company",
+    "text": "Electrification brings light and cheer to all your cities.",
+    "active": 90, "weight": 200,
+    "prereq": { "civic": "emancipation", "tech_all": [ "electricity" ] },
+    "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 20, "scope": "all" } ]
+  },
+
+  "hindenburg": {
+    "id": "hindenburg", "name": "The Hindenburg",
+    "text": "A great airship disaster shocks the world — or passes you by.",
+    "active": 85, "weight": 500,
+    "prereq": { "tech_all": [ "radio", "flight" ] },
+    "choices": [
+      { "id": "spared", "text": "Yours is spared (nothing happens)",
+        "effects": [] },
+      { "id": "memorial", "text": "Raise a memorial (pay 10 gold; +1 happy 10 turns)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "capital" } ] }
+    ]
+  },
+
+  "comet_fragment": {
+    "id": "comet_fragment", "name": "Comet Fragment",
+    "text": "A comet fragment falls in your tundra forests — rich in rare metals.",
+    "active": 80, "weight": 100,
+    "prereq": { "tech_all": [ "rocketry" ], "tile": { "terrain": "tundra", "feature": "forest" } },
+    "effects": [ { "verb": "remove_feature", "match": { "terrain": "tundra", "feature": "forest" } },
+      { "verb": "spaceship_bonus", "amount": 5 },
+      { "verb": "structure_yield", "structure_id": "laboratory", "research": 2, "scope": "all" } ]
+  },
+
+  "influenza": {
+    "id": "influenza", "name": "Influenza",
+    "text": "A virulent flu sweeps your crowded cities.",
+    "active": 45, "weight": 400,
+    "prereq": { "min_pop": 10, "min_era": 5 },
+    "obsolete": [ "medicine" ],
+    "choices": [
+      { "id": "quarantine", "text": "Pay for quarantine (pay 20 gold; -1 health for 10 turns)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "city_health_timed", "amount": -1, "turns": 10, "scope": "capital" } ] },
+      { "id": "let_spread", "text": "Let it run its course (the sickness lingers and spreads)",
+        "effects": [ { "verb": "city_health_timed", "amount": -2, "turns": 10, "scope": "capital" },
+          { "verb": "nearby_pop", "amount": -1, "radius": 4 } ] }
+    ]
+  },
+
+  "solo_flight": {
+    "id": "solo_flight", "name": "Solo Flight",
+    "text": "A daring aviator completes a record flight, the toast of every nation.",
+    "active": 90, "weight": 100,
+    "prereq": { "tech_all": [ "flight" ] },
+    "effects": [ { "verb": "attitude", "target": "all_met", "amount": 1 } ]
+  },
+
+  "antelope": {
+    "id": "antelope", "name": "Antelope",
+    "text": "A herd of swift deer settles in your tundra woods.",
+    "active": 55, "weight": 200,
+    "prereq": { "tech_all": [ "hunting" ], "max_happy_resources": 4,
+      "can_have_resource": { "resource": "deer", "tile": { "feature": "forest" } } },
+    "choices": [
+      { "id": "leave", "text": "Leave them be (the deer settle in)",
+        "effects": [ { "verb": "reveal_resource", "resource": "deer", "match": { "feature": "forest" } } ] },
+      { "id": "hunt_camp", "text": "Build a hunting camp (pay 10 gold; deer + camp + road)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "reveal_resource", "resource": "deer", "match": { "feature": "forest" },
+            "add_improvement": "camp", "add_route": "road" } ] }
+    ]
+  },
+
+  "whale_of_a_thing": {
+    "id": "whale_of_a_thing", "name": "A Whale of a Thing",
+    "text": "A pod of whales is sighted off your coast.",
+    "active": 50, "weight": 100,
+    "prereq": { "tech_all": [ "sailing" ], "coastal": true, "max_happy_resources": 4,
+      "can_have_resource": { "resource": "whale", "tile": { "terrain": "coast" } } },
+    "effects": [ { "verb": "reveal_resource", "resource": "whale", "match": { "terrain": "coast" } } ]
+  },
+
+  "hi_yo_silver": {
+    "id": "hi_yo_silver", "name": "Hi Yo Silver",
+    "text": "Prospectors strike a seam of silver in your hills.",
+    "active": 35, "weight": 200,
+    "prereq": { "tech_all": [ "mining" ], "max_happy_resources": 4,
+      "can_have_resource": { "resource": "silver", "tile": { "terrain": "hills" } } },
+    "choices": [
+      { "id": "stake", "text": "Stake the claim (the hill gains Silver)",
+        "effects": [ { "verb": "reveal_resource", "resource": "silver", "match": { "terrain": "hills" } } ] },
+      { "id": "mine_it", "text": "Sink a mine (pay 10 gold; silver + mine + road)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "reveal_resource", "resource": "silver", "match": { "terrain": "hills" },
+            "add_improvement": "mine", "add_route": "road" } ] }
+    ]
+  },
+
+  "wining_monks": {
+    "id": "wining_monks", "name": "Wining Monks",
+    "text": "Your monks perfect a celebrated vintage among the vines.",
+    "active": 65, "weight": 100,
+    "prereq": { "civic": "hereditary_rule", "building": "monastery", "max_happy_resources": 4,
+      "can_have_resource": { "resource": "wine", "tile": { "terrain": "grassland" } } },
+    "choices": [
+      { "id": "vines", "text": "Tend the wild vines (the tile gains Wine)",
+        "effects": [ { "verb": "reveal_resource", "resource": "wine", "match": { "terrain": "grassland" } } ] },
+      { "id": "winery", "text": "Found a winery (pay 10 gold; wine + winery + road)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "reveal_resource", "resource": "wine", "match": { "terrain": "grassland" },
+            "add_improvement": "winery", "add_route": "road" } ] }
+    ]
+  },
+
+  "independent_films": {
+    "id": "independent_films", "name": "Independent Films",
+    "text": "A scrappy independent film scene blossoms in your cities.",
+    "active": 35, "weight": 100,
+    "prereq": { "tech_all": [ "mass_media" ] },
+    "effects": [ { "verb": "movie_bonus", "amount": 1 } ]
+  },
+
+  "ancient_olympics": {
+    "id": "ancient_olympics", "name": "Ancient Olympics",
+    "text": "You host a great athletic games in honour of the old gods.",
+    "active": 75, "weight": 400,
+    "prereq": { "tech_all": [ "polytheism" ], "state_religion": true },
+    "obsolete": [ "machinery", "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "choices": [
+      { "id": "modest", "text": "A modest games (nothing of note)",
+        "effects": [] },
+      { "id": "grand_games", "text": "A grand spectacle (pay 20 gold; relations with all neighbours warm)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "attitude", "target": "all_met", "amount": 1 } ] }
+    ]
+  },
+
+  "modern_olympics": {
+    "id": "modern_olympics", "name": "Modern Olympics",
+    "text": "You revive the Olympic Games to worldwide acclaim.",
+    "active": 100, "weight": 500,
+    "prereq": { "tech_all": [ "scientific_method" ] },
+    "effects": [ { "verb": "attitude", "target": "all_met", "amount": 1 } ]
+  },
+
+  "interstate": {
+    "id": "interstate", "name": "Interstate",
+    "text": "A national highway network knits your realm together.",
+    "active": 100, "weight": 100,
+    "prereq": { "civic": "universal_suffrage", "tech_all": [ "industrialism" ] },
+    "effects": [ { "verb": "route_speed", "amount": 1 } ]
+  },
+
+  "impact_crater": {
+    "id": "impact_crater", "name": "Impact Crater",
+    "text": "A meteor gouges a crater in your jungle, exposing radioactive ore.",
+    "active": 20, "weight": 200,
+    "prereq": { "tech_all": [ "physics" ],
+      "can_have_resource": { "resource": "uranium", "tile": { "terrain": "hills" } } },
+    "choices": [
+      { "id": "leave", "text": "Cordon it off (nothing comes of it)",
+        "effects": [] },
+      { "id": "mine_it", "text": "Mine the crater (pay 10 gold; reveal Uranium + mine)",
+        "effects": [ { "verb": "gold", "amount": -10 },
+          { "verb": "reveal_resource", "resource": "uranium", "match": { "terrain": "hills" },
+            "add_improvement": "mine" } ] }
+    ]
+  },
+
+  "laboratory": {
+    "id": "laboratory", "name": "Laboratory",
+    "text": "A breakthrough in one of your laboratories accelerates research.",
+    "active": 80, "weight": 200,
+    "prereq": { "building": "laboratory", "civic": "free_speech" },
+    "effects": [ { "verb": "research_pct_remaining", "percent": 15 } ]
+  },
+
+  "experienced_captain": {
+    "id": "experienced_captain", "name": "Experienced Captain",
+    "text": "A veteran sea captain offers his services at your drydock.",
+    "active": 95, "weight": 200,
+    "prereq": { "building": "drydock" },
+    "choices": [
+      { "id": "commission", "text": "Commission him (+2 gold from the drydock forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "drydock", "commerce": 2, "scope": "capital" } ] },
+      { "id": "academy", "text": "Found a Military Academy for him (pay 30 gold; build one)",
+        "effects": [ { "verb": "gold", "amount": -30 },
+          { "verb": "building", "structure_id": "military_academy" } ] }
+    ]
+  },
+
+  "crisis_in_senate": {
+    "id": "crisis_in_senate", "name": "Crisis in the Senate",
+    "text": "A scandal grips your senate, and the factions vie for advantage.",
+    "active": 55, "weight": 100,
+    "prereq": { "civic": "representation" },
+    "choices": [
+      { "id": "spies", "text": "Plant your agents (+2 espionage from your barracks)",
+        "effects": [ { "verb": "espionage", "amount": 200 } ] },
+      { "id": "bribes", "text": "Take the bribes (gain gold)",
+        "effects": [ { "verb": "gold", "range": [400, 600] } ] },
+      { "id": "reconcile", "text": "Reconcile the factions (+1 happy in every city)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] }
+    ]
+  },
+
+  "charismatic": {
+    "id": "charismatic", "name": "Charismatic Leader",
+    "text": "A charismatic figure rallies your war machine and your people.",
+    "active": 65, "weight": 100,
+    "prereq": { "civic": "police_state" },
+    "choices": [
+      { "id": "drill", "text": "Drill the army (your gunpowder units gain March)",
+        "effects": [ { "verb": "grant_promotion", "promotion": "march", "classification": "gunpowder" } ] },
+      { "id": "rally", "text": "Rally the people (+1 happy for 10 turns in every city)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] }
+    ]
+  },
+
+  "friendly_locals": {
+    "id": "friendly_locals", "name": "Friendly Locals",
+    "text": "Friendly locals nurse one of your wounded units back to fighting form.",
+    "active": 90, "weight": 50,
+    "effects": [ { "verb": "unit_state", "match": { "damaged": true }, "xp": 1 } ]
+  },
+
+  "immigrants": {
+    "id": "immigrants", "name": "Immigrants",
+    "text": "Your prosperous, contented city draws a wave of newcomers.",
+    "active": 80, "weight": 200,
+    "prereq": { "tech_all": [ "printing_press" ] },
+    "effects": [ { "verb": "capital_pop", "amount": 1 } ]
+  },
+
+  "healing_plant": {
+    "id": "healing_plant", "name": "Healing Plant",
+    "text": "Your herbalists discover a potent healing plant.",
+    "active": 70, "weight": 100,
+    "obsolete": [ "feudalism", "machinery", "philosophy" ],
+    "choices": [
+      { "id": "tonic", "text": "Brew a tonic for the people (+1 happy for 10 turns)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "capital" } ] },
+      { "id": "clinic", "text": "Open a healing clinic (+1 health for 20 turns)",
+        "effects": [ { "verb": "city_health_timed", "amount": 1, "turns": 20, "scope": "capital" } ] }
+    ]
+  },
+
+  "better_coal": {
+    "id": "better_coal", "name": "Better Coal",
+    "text": "A cleaner-burning grade of coal arrives at your works.",
+    "active": 75, "weight": 100,
+    "prereq": { "tile": { "resource": "coal", "improvement": "mine" } },
+    "choices": [
+      { "id": "power", "text": "Fire the power plants (+4 production from your coal plants)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "coal_plant", "production": 4, "scope": "all" } ] },
+      { "id": "drydocks", "text": "Supply the shipyards (+2 production and cleaner air at your drydocks)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "drydock", "production": 2, "scope": "all" },
+          { "verb": "city_health_timed", "amount": 1, "turns": 20, "scope": "all" } ] }
+    ]
+  },
+
+  "toxcatl": {
+    "id": "toxcatl", "name": "Toxcatl",
+    "text": "The festival of Toxcatl demands a sacrifice at your altar.",
+    "active": 90, "weight": 100,
+    "obsolete": [ "education" ],
+    "prereq": { "society": "aztec", "building": "sacrificial_altar" },
+    "choices": [
+      { "id": "refuse", "text": "Refuse the rite (the priests seethe; +2 angry)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -2, "turns": 10, "scope": "capital" } ] },
+      { "id": "sacrifice", "text": "Offer a captive (a unit is bound to the altar, immobile 3 turns)",
+        "effects": [ { "verb": "unit_state", "match": {}, "immobile": 3 } ] }
+    ]
+  },
+
+  "dissident_priest": {
+    "id": "dissident_priest", "name": "Dissident Priest",
+    "text": "A dissident priest stirs unrest in one of your provincial cities.",
+    "active": 90, "weight": 100,
+    "obsolete": [ "printing_press" ],
+    "prereq": { "society": "egyptian" },
+    "choices": [
+      { "id": "exile", "text": "Exile him (a brief revolt and anger in the city)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" },
+          { "verb": "revolt", "turns": 1, "scope": "capital" } ] },
+      { "id": "appease", "text": "Appease the faithful (pay 20 gold; +1 research from your libraries)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "structure_yield", "structure_id": "library", "research": 1, "scope": "all" } ] }
+    ]
+  },
+
+  "pasture_built": {
+    "id": "pasture_built", "name": "Pasture Built",
+    "text": "Herders settle a fine grazing tract and raise a pasture.",
+    "active": 80, "weight": 100,
+    "obsolete": [ "calendar" ],
+    "prereq": { "tech_all": [ "animal_husbandry" ], "tile": { "resource": "cow" } },
+    "effects": [ { "verb": "place_improvement", "improvement": "pasture", "add_route": "road",
+      "match": { "resource": "cow" } } ]
+  },
+
+  "rogue_station": {
+    "id": "rogue_station", "name": "Rogue Station",
+    "text": "A rogue broadcast tower spreads dissident propaganda.",
+    "active": 90, "weight": 100,
+    "prereq": { "society": "russian", "building": "broadcast_tower", "civic": "state_property" },
+    "choices": [
+      { "id": "shut_down", "text": "Shut it down (-100 espionage; lose the tower)",
+        "effects": [ { "verb": "espionage", "amount": -100 },
+          { "verb": "destroy_building", "count": 1, "cost": "any", "scope": "capital" } ] },
+      { "id": "let_run", "text": "Let it run (the city seethes for 10 turns)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" } ] }
+    ]
+  },
+
+  "anti_monarchists": {
+    "id": "anti_monarchists", "name": "Anti-Monarchists",
+    "text": "Republican agitators challenge the crown in the streets.",
+    "active": 90, "weight": 100,
+    "prereq": { "society": "french", "civic": "hereditary_rule" },
+    "choices": [
+      { "id": "court", "text": "Win the court's loyalty (+3 happy from your palace forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "palace", "happiness": 3, "scope": "capital" } ] },
+      { "id": "clergy", "text": "Court the clergy (+2 gold from your cathedrals forever)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "cathedral", "commerce": 2, "scope": "all" } ] }
+    ]
+  },
+
+  "impeachment": {
+    "id": "impeachment", "name": "Impeachment",
+    "text": "A bitter impeachment crisis convulses your republic.",
+    "active": 90, "weight": 100,
+    "prereq": { "society": "american", "civic": "free_speech" },
+    "choices": [
+      { "id": "convict", "text": "Convict and move on (anger now, relief soon)",
+        "effects": [ { "verb": "city_happy_timed", "amount": -6, "turns": 1, "scope": "all" },
+          { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] },
+      { "id": "acquit", "text": "Acquit amid uproar (+2 production from a courthouse; brief revolt)",
+        "effects": [ { "verb": "structure_yield", "structure_id": "courthouse", "production": 2, "scope": "capital" },
+          { "verb": "revolt", "turns": 1, "scope": "capital" } ] }
+    ]
   }
 }

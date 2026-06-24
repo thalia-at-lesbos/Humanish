@@ -413,6 +413,17 @@ func _validate_event_prereq(eid: String, pr: Dictionary) -> void:
 		_errors.append("Event '%s' prereq civic '%s' not a policy" % [eid, pr["civic"]])
 	if pr.has("resource_absent") and not resources.has(str(pr["resource_absent"])):
 		_errors.append("Event '%s' prereq resource_absent '%s' not a resource" % [eid, pr["resource_absent"]])
+	if pr.has("can_have_resource"):
+		var crr = str(pr["can_have_resource"].get("resource", ""))
+		if not resources.has(crr):
+			_errors.append("Event '%s' prereq can_have_resource '%s' not a resource" % [eid, crr])
+	if pr.has("society"):
+		var socs: Dictionary = leaders_traits.get("societies", {})
+		var sv = pr["society"]
+		var slist: Array = sv if typeof(sv) == TYPE_ARRAY else [sv]
+		for sid in slist:
+			if not socs.has(str(sid)):
+				_errors.append("Event '%s' prereq society '%s' not a society" % [eid, sid])
 
 func _validate_event_effects(eid: String, effects: Array) -> void:
 	var known := ["gold", "research", "research_pct_remaining", "research_pct_loss",
@@ -422,7 +433,9 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance",
 		"structure_yield", "specialist", "settle_great_person", "spread_religion",
 		"destroy_building", "pillage", "revolt", "make_peace", "declare_war",
-		"espionage"]
+		"espionage", "unit_state", "city_health_timed", "reveal_resource",
+		"place_improvement", "add_feature", "destroy_unit", "draft", "unit_support",
+		"inflation", "route_speed", "movie_bonus", "spaceship_bonus", "resource_gift"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):
@@ -460,5 +473,19 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 				var b = str(eff.get("belief", ""))
 				if b != "" and not beliefs.has(b):
 					_errors.append("Event '%s' spread_religion belief '%s' not a belief" % [eid, b])
+			"reveal_resource":
+				if not resources.has(str(eff.get("resource", ""))):
+					_errors.append("Event '%s' reveal_resource '%s' not a resource" % [eid, eff.get("resource", "")])
+				if eff.has("add_improvement") and not improvements.has(str(eff["add_improvement"])):
+					_errors.append("Event '%s' reveal_resource add_improvement '%s' not an improvement" % [eid, eff["add_improvement"]])
+			"place_improvement":
+				if not improvements.has(str(eff.get("improvement", ""))):
+					_errors.append("Event '%s' place_improvement '%s' not an improvement" % [eid, eff.get("improvement", "")])
+			"add_feature":
+				if not features.has(str(eff.get("feature", ""))):
+					_errors.append("Event '%s' add_feature '%s' not a feature" % [eid, eff.get("feature", "")])
+			"draft":
+				if not units.has(str(eff.get("unit_type", ""))):
+					_errors.append("Event '%s' draft unit_type '%s' not in units table" % [eid, eff.get("unit_type", "")])
 			"chance":
 				_validate_event_effects(eid, eff.get("then", []))
