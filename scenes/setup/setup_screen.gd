@@ -27,6 +27,7 @@ var _pace_btn: OptionButton
 var _difficulty_btn: OptionButton
 var _aggressive_wild_check: CheckBox
 var _permanent_alliances_check: CheckBox
+var _events_check: CheckBox
 var _seed_edit: LineEdit
 var _player_count_spin: SpinBox
 var _error_label: Label
@@ -181,6 +182,13 @@ func _build_ui() -> void:
 	_permanent_alliances_check.text = "Permanent alliances"
 	_permanent_alliances_check.pressed = false
 	vbox.add_child(_permanent_alliances_check)
+
+	# Random events (§9): the whole random-event system. On by default; unchecking
+	# switches it off for the game (multi-turn quests are unaffected).
+	_events_check = CheckBox.new()
+	_events_check.text = "Random events"
+	_events_check.pressed = true
+	vbox.add_child(_events_check)
 
 	# Seed
 	var seed_row: HBoxContainer = HBoxContainer.new()
@@ -348,7 +356,8 @@ func _on_start_pressed() -> void:
 	_facade.setup(_db, seed_val, world_size_id, pace_id, difficulty_id,
 		player_configs, ["last_standing", "dominance", "cultural", "score", "time"], map_type_id,
 		_aggressive_wild_check.pressed,
-		_permanent_alliances_check.pressed)
+		_permanent_alliances_check.pressed,
+		_events_check.pressed)
 
 	if _on_start_callback != null:
 		_on_start_callback.call_func(_facade, _db)

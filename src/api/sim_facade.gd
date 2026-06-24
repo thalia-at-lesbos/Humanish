@@ -45,6 +45,9 @@ var _selection: SelectionState
 var _interface_mode: int = 0    # IDs.InterfaceMode.SELECTION
 var _popup_queue: Array = []
 var _notifications: Array = []
+# Transient (not serialized): informational popups for quests freshly armed for a
+# human, surfaced once at the owner's next turn start by TurnPrompts (§4).
+var _quest_info_popups: Array = []
 
 # Remote-multiplayer client seam (not part of simulation; not serialized).
 # When a NetClient installs a submit handler, this facade is a remote client:
@@ -61,7 +64,8 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 		difficulty_id: String, player_configs: Array,
 		enabled_win_conditions: Array, map_type_id: String = "continents",
 		aggressive_wild: bool = false,
-		permanent_alliances: bool = false) -> void:
+		permanent_alliances: bool = false,
+		events_enabled: bool = true) -> void:
 	_db = db
 	_hooks = Hooks.new()
 	_dirty = load("res://src/api/dirty_flags.gd").new()
@@ -69,6 +73,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	_interface_mode = IDs.InterfaceMode.SELECTION
 	_popup_queue = []
 	_notifications = []
+	_quest_info_popups = []
 
 	_gs = GameState.new()
 	_gs.db = db
@@ -80,6 +85,7 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	_gs.enabled_win_conditions = enabled_win_conditions.duplicate()
 	_gs.wild_aggressive = aggressive_wild
 	_gs.permanent_alliances = permanent_alliances
+	_gs.events_enabled = events_enabled
 
 	var ws: Dictionary = db.get_world_size(world_size_id)
 	_gs.max_turns = int(db.get_pace(pace_id).get("max_turns", 500))
@@ -158,7 +164,9 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# Roll this game's random-event roster (§9): each event's `active` inclusion
 	# percent is drawn once from gs.rng in fixed event-id order, so the roster is
 	# deterministic for the seed and is captured by save/load (active_event_ids).
-	Events.roll_active_events(_gs)
+	# Skipped entirely when the random-event system is switched off (new-game menu).
+	if _gs.events_enabled:
+		Events.roll_active_events(_gs)
 	# Roll this game's quest roster (§4) the same way, immediately after the events
 	# roll so the RNG draw order stays fixed for the seed.
 	Quests.roll_active_quests(_gs)
@@ -3393,6 +3401,7 @@ func _drain_quest_events() -> void:
 				if obj != "":
 					line += "  Objective: " + obj
 				_add_notification(line, "major")
+				_enqueue_quest_info(q)
 			"quest_completed":
 				_add_notification("Quest complete: " + nm + ".", "major")
 			"quest_reward_pending":
@@ -3403,6 +3412,55 @@ func _drain_quest_events() -> void:
 	_gs.pending_quest_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Queue an informational popup for a quest freshly armed for a HUMAN player (§4),
+# carrying its description, objective and reward summary. AI players never queue one.
+# Transient (not serialized); surfaced once by TurnPrompts at the owner's turn start.
+func _enqueue_quest_info(q: Dictionary) -> void:
+	var pid: int = int(q.get("player_id", -1))
+	var pl: Player = _gs.get_player(pid)
+	if pl == null or pl.is_ai:
+		return
+	var quest: Dictionary = _db.get_quest(str(q.get("quest_id", "")))
+	_quest_info_popups.append({
+		"player_id": pid,
+		"quest_id": str(q.get("quest_id", "")),
+		"name": str(q.get("name", "")),
+		"text": str(q.get("text", "")),
+		"objective": str(q.get("objective", "")),
+		"reward_lines": _quest_reward_lines(quest)
+	})
+
+# Human-readable reward summary lines for a quest's reward block (§4): the choice
+# texts for a multi-choice reward, else the reward's own flavour text.
+func _quest_reward_lines(quest: Dictionary) -> Array:
+	var reward: Dictionary = quest.get("reward", {})
+	var lines: Array = []
+	var choices: Array = reward.get("choices", [])
+	if not choices.empty():
+		lines.append(str(reward.get("text", "On completion, choose a reward:")))
+		for ch in choices:
+			lines.append("• " + str(ch.get("text", "")))
+	else:
+		var t: String = str(reward.get("text", ""))
+		lines.append(t if t != "" else "Completing this quest grants a reward.")
+	return lines
+
+# The first unacknowledged armed-quest info popup owed to a player (§4), or {}.
+func get_pending_quest_info(player_id: int) -> Dictionary:
+	for info in _quest_info_popups:
+		if int(info.get("player_id", -1)) == player_id:
+			return info
+	return {}
+
+# Drop the armed-quest info popup for (player, quest) once it has been shown (§4).
+func ack_quest_info(player_id: int, quest_id: String) -> void:
+	for i in range(_quest_info_popups.size()):
+		var info: Dictionary = _quest_info_popups[i]
+		if int(info.get("player_id", -1)) == player_id \
+				and str(info.get("quest_id", "")) == quest_id:
+			_quest_info_popups.remove(i)
+			return
 
 # Push a CHOOSE_EVENT popup for a human player who has an unresolved event choice
 # (§9). AI choices are auto-resolved inside the event step, so they never queue.

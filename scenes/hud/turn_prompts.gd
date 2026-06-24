@@ -103,6 +103,15 @@ func _advance(player_id: int) -> void:
 		if not descriptor.empty():
 			_event_screen.show_event(descriptor)
 			return
+	# 0.5 A freshly-armed quest's information popup (§4) — purely informational, so it
+	# is acknowledged on show (removed from the queue) to appear exactly once.
+	if _event_screen != null and _event_screen.has_method("show_info") \
+			and _facade.has_method("get_pending_quest_info"):
+		var info: Dictionary = _facade.get_pending_quest_info(player_id)
+		if not info.empty():
+			_facade.ack_quest_info(player_id, str(info.get("quest_id", "")))
+			_event_screen.show_info(info)
+			return
 	# 1. Research.
 	if not _research_offered and p.current_research_id == "" and _has_researchable(p):
 		_research_offered = true

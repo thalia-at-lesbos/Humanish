@@ -133,6 +133,7 @@
   "event_nearby_radius": 4,
   "event_grace_turns": 20,
   "event_era_chance": [1, 2, 4, 4, 6, 8, 10],
+  "quest_grace_turns": 20,
   "event_whip_anger_turns": 10,
   "event_city_radius": 2,
   "event_building_cheap_max": 100,

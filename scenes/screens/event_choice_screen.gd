@@ -39,7 +39,48 @@ func show_event(descriptor: Dictionary) -> void:
 	visible = true
 	_rebuild(descriptor)
 
-func _rebuild(descriptor: Dictionary) -> void:
+# Informational popup (no decision): a freshly-armed quest's name, objective,
+# description and reward summary, dismissed with a single Continue button. Used for
+# quest arming (§4) — descriptor: { name, text, objective, reward_lines: [String] }.
+func show_info(descriptor: Dictionary) -> void:
+	_event_id = ""
+	visible = true
+	_rebuild_info(descriptor)
+
+func _rebuild_info(descriptor: Dictionary) -> void:
+	var vbox: VBoxContainer = _new_card(str(descriptor.get("name", "New Quest")))
+	var obj: String = str(descriptor.get("objective", ""))
+	if obj != "":
+		var obj_lbl: Label = Label.new()
+		obj_lbl.text = "Objective: " + obj
+		obj_lbl.autowrap = true
+		obj_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(obj_lbl)
+	var body_lbl: Label = Label.new()
+	body_lbl.text = str(descriptor.get("text", ""))
+	body_lbl.autowrap = true
+	body_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(body_lbl)
+	for line in descriptor.get("reward_lines", []):
+		var rl: Label = Label.new()
+		rl.text = str(line)
+		rl.autowrap = true
+		rl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(rl)
+	vbox.add_child(HSeparator.new())
+	var btn: Button = Button.new()
+	btn.text = "Continue"
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.connect("pressed", self, "_on_dismiss")
+	vbox.add_child(btn)
+
+func _on_dismiss() -> void:
+	visible = false
+	emit_signal("closed")
+
+# Clear the screen and build the shared modal card (opaque backdrop, centred panel,
+# title + separator). Returns the content VBox for the caller to fill.
+func _new_card(title: String) -> VBoxContainer:
 	for child in get_children():
 		child.queue_free()
 	# Opaque backdrop that swallows clicks to the board beneath.
@@ -60,10 +101,14 @@ func _rebuild(descriptor: Dictionary) -> void:
 	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.add_child(vbox)
 	var title_lbl: Label = Label.new()
-	title_lbl.text = str(descriptor.get("name", "Event"))
+	title_lbl.text = title
 	title_lbl.align = Label.ALIGN_CENTER
 	vbox.add_child(title_lbl)
 	vbox.add_child(HSeparator.new())
+	return vbox
+
+func _rebuild(descriptor: Dictionary) -> void:
+	var vbox: VBoxContainer = _new_card(str(descriptor.get("name", "Event")))
 	var body_lbl: Label = Label.new()
 	body_lbl.text = str(descriptor.get("text", ""))
 	body_lbl.autowrap = true

@@ -1277,3 +1277,24 @@ func test_interstate_sets_route_speed() -> void:
 	make_settlement(gs, 1, 5, 5)
 	Events.fire_event("interstate", p, gs)
 	assert_eq(p.route_speed_bonus, 1, "Interstate grants the route-speed bonus")
+
+# ── Disabling the random-event system (new-game menu) ────────────────────────────
+
+func test_events_can_be_disabled_for_the_game() -> void:
+	var f = load("res://src/api/sim_facade.gd").new()
+	f.setup(make_db(), 42, "tiny", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["last_standing", "time"], "continents", false, false, false)
+	var gs = f.get_state()
+	assert_false(gs.events_enabled, "the disabled flag is recorded on the game state")
+	assert_eq(gs.active_event_ids.size(), 0, "no event roster is rolled when events are off")
+	# Survives a save/load roundtrip.
+	var f2 = load("res://src/api/sim_facade.gd").new()
+	f2.init_for_load(make_db())
+	f2.load_save(f.save())
+	assert_false(f2.get_state().events_enabled, "events_enabled survives save/load")
+
+func test_events_enabled_by_default() -> void:
+	var f = setup_facade()
+	assert_true(f.get_state().events_enabled, "the random-event system is on by default")

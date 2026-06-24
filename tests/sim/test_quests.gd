@@ -120,6 +120,32 @@ func test_quest_not_re_armed_when_already_active_or_completed() -> void:
 	assert_false(Quests.quest_eligible("classic_literature", p, gs),
 		"an already-completed quest is not eligible to re-arm")
 
+# ── Arming: grace period + one-at-a-time ─────────────────────────────────────────
+
+func test_no_quest_arms_during_grace_period() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")  # classic_literature is eligible
+	gs.turn_number = 5             # within the 20-turn grace
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 0, "no quest arms within the grace period")
+	gs.turn_number = 25            # past the grace
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 1, "a quest arms once past the grace period")
+
+func test_only_one_quest_arms_at_a_time() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	_grant_tech(gs, 1, "animal_husbandry")  # horse_whispering also eligible
+	gs.turn_number = 25
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 1, "the first eligible quest arms")
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 1, "no second quest arms while one is in progress")
+
 # ── Progress + completion + the 3-choice reward ──────────────────────────────────
 
 func test_build_count_progress_advances() -> void:
@@ -424,3 +450,36 @@ func test_min_water_fraction_prereq_gates_naval_quests() -> void:
 			gs.map.get_tile(x, y).terrain_id = "ocean"
 	assert_true(Quests.quest_eligible("harbormaster", p, gs),
 		"a ≥40%-water map satisfies the min_water_fraction gate")
+
+# ── Quest-armed info popup (facade transient queue) ──────────────────────────────
+
+func test_armed_quest_enqueues_info_popup_for_human() -> void:
+	var gs = make_gs(2, 42)
+	var f = bare_facade(gs)
+	gs.pending_quest_events = [{
+		"kind": "quest_armed", "player_id": 1, "quest_id": "classic_literature",
+		"name": "Classic Literature", "text": "Build libraries.",
+		"objective": "Build 7 libraries."
+	}]
+	f._drain_quest_events()
+	var info = f.get_pending_quest_info(1)
+	assert_false(info.empty(), "a human's armed quest enqueues an info popup")
+	assert_eq(str(info.get("objective", "")), "Build 7 libraries.",
+		"the info popup carries the objective")
+	assert_true(info.get("reward_lines", []).size() > 0,
+		"the info popup carries reward summary lines")
+	f.ack_quest_info(1, "classic_literature")
+	assert_true(f.get_pending_quest_info(1).empty(), "ack clears the info popup")
+
+func test_ai_armed_quest_does_not_enqueue_info_popup() -> void:
+	var gs = make_gs(2, 42)
+	gs.get_player(1).is_ai = true
+	var f = bare_facade(gs)
+	gs.pending_quest_events = [{
+		"kind": "quest_armed", "player_id": 1, "quest_id": "classic_literature",
+		"name": "Classic Literature", "text": "Build libraries.",
+		"objective": "Build 7 libraries."
+	}]
+	f._drain_quest_events()
+	assert_true(f.get_pending_quest_info(1).empty(),
+		"an AI's armed quest queues no info popup")

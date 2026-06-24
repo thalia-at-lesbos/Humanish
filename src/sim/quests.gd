@@ -131,12 +131,20 @@ static func _evaluate_active(player: Player, game_state) -> Array:
 	game_state.active_quests = kept
 	return produced
 
-# Arm at most one eligible quest for the player this turn. Eligible = in the per-game
-# roster (active roll succeeds), prereq holds, and not already active or completed for
-# this player. Among the eligible quests, one is drawn weighted by `weight` (gs.rng,
-# fixed sorted-id order) — exactly the Events weighted pick. Returns a descriptor.
+# Arm at most one eligible quest for the player this turn. Two non-random gates keep
+# arming sane: a flat grace period (quest_grace_turns, like the event grace) means no
+# quest arms early game, and a player holds only ONE active quest at a time — so a new
+# quest arms only once the previous is resolved (not a random per-turn chance, by
+# design). Eligible = in the per-game roster, prereq holds, not already active/completed.
+# WHICH quest arms is still drawn weighted by `weight` from gs.rng (fixed sorted-id
+# order) so the choice varies game to game — exactly the Events weighted pick.
 static func _arm_one(player: Player, game_state, rng: RNG) -> Dictionary:
 	var db: DataDB = game_state.db
+	var grace: int = int(db.get_constant("quest_grace_turns", 20))
+	if int(game_state.turn_number) <= grace:
+		return {}
+	if _player_has_active_quest(player.id, game_state):
+		return {}
 	var eligible: Array = []
 	var weights: Array = []
 	for qid in _quest_ids(db):
@@ -572,5 +580,12 @@ static func _quest_ids(db: DataDB) -> Array:
 static func _quest_active_for(quest_id: String, player_id: int, game_state) -> bool:
 	for q in game_state.active_quests:
 		if str(q.get("quest_id", "")) == quest_id and int(q.get("player_id", -1)) == player_id:
+			return true
+	return false
+
+# True if the player already has any quest in progress (the one-at-a-time gate).
+static func _player_has_active_quest(player_id: int, game_state) -> bool:
+	for q in game_state.active_quests:
+		if int(q.get("player_id", -1)) == player_id:
 			return true
 	return false

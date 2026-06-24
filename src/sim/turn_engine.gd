@@ -148,8 +148,9 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.PLAYER_VALIDATE_POLICIES, gs, {"player_id": player_id}):
 		_validate_policies(gs, player)
 
-	# 9. Process scripted/random events
-	if not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
+	# 9. Process scripted/random events (skipped when the random-event system is
+	# switched off for this game via the new-game menu, §9).
+	if gs.events_enabled and not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
 		Events.process_player_events(player, gs, gs.rng)
 
 	# 9b. Multi-turn quest tracking (§4): re-evaluate the player's active quests

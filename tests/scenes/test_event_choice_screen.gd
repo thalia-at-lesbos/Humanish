@@ -64,3 +64,14 @@ func _collect_buttons(node, out) -> void:
 			out.append(child)
 		if child.get_child_count() > 0:
 			_collect_buttons(child, out)
+
+func test_show_info_builds_a_single_continue_button() -> void:
+	var screen = load(SCREEN).new()
+	add_child_autofree(screen)
+	screen.init(null)
+	screen.show_info({"name": "New Quest", "text": "Do the thing.",
+		"objective": "Build 7 libraries.", "reward_lines": ["Choose:", "• A", "• B"]})
+	assert_true(screen.visible, "info popup is visible after show_info")
+	var buttons := []
+	_collect_buttons(screen, buttons)
+	assert_eq(buttons.size(), 1, "an informational popup has a single Continue button")

@@ -46,6 +46,11 @@ var wild_aggressive: bool = false
 # game). Off by default.
 var permanent_alliances: bool = false
 
+# §9 setting (new-game menu): when false, the random-event system is switched off
+# entirely — no per-game roster is rolled and the player-event phase is skipped.
+# Multi-turn quests (§4) are independent of this flag. On by default.
+var events_enabled: bool = true
+
 # §11 Global warming: a running count of every nuclear explosion that has ever
 # occurred (ICBM, tactical nuke, and Nuclear Plant meltdown). Feeds GW_VALUE in
 # GlobalWarming.tick(); incremented by Nuclear.detonate()/meltdown_tick().
@@ -359,6 +364,7 @@ func serialize() -> Dictionary:
 		"winning_alliance_id": winning_alliance_id,
 		"wild_aggressive": wild_aggressive,
 		"permanent_alliances": permanent_alliances,
+		"events_enabled": events_enabled,
 		"nukes_exploded": nukes_exploded,
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
@@ -409,6 +415,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.winning_alliance_id = int(d.get("winning_alliance_id", -1))
 	gs.wild_aggressive = bool(d.get("wild_aggressive", false))
 	gs.permanent_alliances = bool(d.get("permanent_alliances", false))
+	gs.events_enabled = bool(d.get("events_enabled", true))
 	gs.nukes_exploded = int(d.get("nukes_exploded", 0))
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
