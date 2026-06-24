@@ -980,3 +980,66 @@ func test_gold_rate_matches_applied_treasury_delta() -> void:
 func test_gold_rate_unknown_player_is_zero() -> void:
 	var f = setup_facade(4244)
 	assert_eq(f.get_player_gold_rate(999), 0, "Unknown player has a 0 gold rate")
+
+# ── Unit strength display (Issue 4) ─────────────────────────────────────────────
+
+# Net effective strength delegates to Unit.effective_strength (defender role) on
+# the unit's current tile, so terrain/fortify/health modifiers are honest.
+
+func test_strength_flat_open_ground_effective_equals_base() -> void:
+	# A warrior standing on plain grassland (no defence bonus, full health, no
+	# entrenchment) has effective == base.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var u = make_warrior(gs, 1, 5, 5)  # base_strength 10 on grassland
+	assert_eq(f.unit_effective_strength(u.id), u.base_strength,
+		"Flat open ground: effective == base")
+	assert_eq(f.unit_strength_text(u.id), "Strength: 10 (10 effective)",
+		"Display string for open-ground warrior")
+
+func test_strength_defensive_tile_raises_effective() -> void:
+	# Hills grant +25% defence; a defender's effective strength exceeds its base.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var u = make_warrior(gs, 1, 5, 5)  # base 10 → 10 * 125 / 100 = 12
+	assert_true(f.unit_effective_strength(u.id) > u.base_strength,
+		"Defensive tile gives effective > base")
+	assert_eq(f.unit_effective_strength(u.id), 12, "10 base on hills (+25%) == 12")
+	assert_eq(f.unit_strength_text(u.id), "Strength: 10 (12 effective)",
+		"Display string for warrior on hills")
+
+func test_strength_fortify_entrenchment_raises_effective() -> void:
+	# Entrenchment (fortify) adds to a defender's effective strength even on flat
+	# ground.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var u = make_warrior(gs, 1, 5, 5)  # base 10 on grassland
+	u.entrenchment = 20  # +20%
+	assert_eq(f.unit_effective_strength(u.id), 12, "Entrenched warrior 10 → 12")
+
+func test_strength_injured_unit_reduces_effective() -> void:
+	# Health scales effective strength down (mirrors Combat's health fraction).
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var u = make_warrior(gs, 1, 5, 5)  # base 10
+	u.health = 50
+	assert_eq(f.unit_effective_strength(u.id), 5,
+		"Half-health warrior 10 → 5 effective")
+	assert_eq(f.unit_strength_text(u.id), "Strength: 10 (5 effective)",
+		"Display string reflects health scaling")
+
+func test_strength_civilian_has_no_strength_line() -> void:
+	# A settler (base_strength 0) yields an empty string so the panel omits the line.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var u = make_unit(gs, "settler", 1, 5, 5)
+	assert_eq(u.base_strength, 0, "Settler has base_strength 0")
+	assert_eq(f.unit_effective_strength(u.id), 0, "Civilian effective strength is 0")
+	assert_eq(f.unit_strength_text(u.id), "", "Civilian shows no strength line")
+
+func test_strength_unknown_unit_is_empty() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	assert_eq(f.unit_effective_strength(999), 0, "Unknown unit effective strength 0")
+	assert_eq(f.unit_strength_text(999), "", "Unknown unit shows no strength line")
