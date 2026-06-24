@@ -195,6 +195,87 @@ describe the old poll and need updating as part of that rework.
 
 ---
 
+## 5. Reference-parity data domains — the last gaps
+
+The seven reference-parity domains formerly tracked in `game-data.md` §20 have all
+been **promoted to first-class data tables and wired into the engine** (now
+`game-data.md` §22–§28). Three are at full reference parity (Specialists §22,
+Corporations §23, Score victory §27) and need nothing further. The remaining four
+ship a working slice but fall short of the reference's full record set. They are
+catalogued here with implementation plans; close each entry as it lands.
+
+Measured against `humanish-full-docs/generic/` (the reference data set), the
+shortfalls are catalogue depth, not missing machinery.
+
+### 5.1 Espionage missions — 5 of 18 (`game-data.md` §25)
+
+The mission framework (cost curve, interception, per-effect target gates, the
+espionage screen) is complete; the catalogue is a slice.
+
+- **Add the remaining ~13 `EspionageMissionInfo` records** to
+  `data/espionage_missions.json`: destroy-building, destroy-production,
+  destroy-improvement, steal-maps, spread-culture, spread-religion,
+  counterespionage, buy-a-city, and the other reference verbs. The generic
+  reference docs give only the count (18), not per-record costs/gates — pull exact
+  values from the upstream `GameEspionageMissionInfo.xml` when promoting each.
+- **New effect verbs** each need a `case` in `SimFacade._espionage_apply` and a
+  target gate in `SimFacade._mission_target_valid`.
+- **Spy-unit-on-tile missions** (vs. the current alliance-scope screen missions)
+  are a larger lift: they require the spy unit's infiltration/discovery state and a
+  per-tile target model. Treat as a follow-on phase after the screen catalogue is
+  filled.
+- Extend `tests/api/test_*espionage*` (or the facade suite) with one case per new
+  verb.
+
+### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
+
+`MapGen.normalize_starts` implements steps 2–7 plus `BonusBalancer`. Three remain:
+
+- **Step 8 `normalizeAddGoodTerrain`** — upgrade poorer terrain in the wider start
+  radius (beyond the inner ring `_normalize_fix_bad_terrain` already handles), so a
+  capital ringed by tundra/desert is brought toward grass/plains. Add
+  `_normalize_add_good_terrain(map, db, sx, sy, radius)` and a `radius`/quota
+  constant.
+- **Step 9 `normalizeAddExtras`** — a final fairness pass placing extra resources
+  (and optionally goody huts) for starts still below par after the earlier steps.
+- **Step 1 `normalizeStartingPlotLocations`** is currently spacing-only
+  (`find_start_positions`). A true reposition pass would score each candidate plot
+  on surrounding yield/fresh-water/resource access and shift weak starts before the
+  per-start tidy runs.
+- All three must draw from the shared map RNG in fixed order to preserve
+  determinism; extend `tests/world/test_map_gen.gd` with a same-seed reproducibility
+  assertion per step.
+
+### 5.3 Goody huts — 7 of 12 rewards (`game-data.md` §24)
+
+Placement and consumption are complete; the reward catalogue is short.
+
+- **Add the remaining ~5 `GoodyInfo` records** to `data/goodies.json` (e.g. split
+  gold tiers, separate map/experience variants, the barbarian-spawn ambush variant).
+  Exact weights/magnitudes come from the upstream `GameGoodyInfo.xml`; the generic
+  docs give only the count (12).
+- A reward whose `type` is a verb `Events.exploration_reward` does not yet handle
+  needs a new branch there.
+- Coordinate with §5.2 step 9 (`normalizeAddExtras`) if extra near-start huts are
+  wanted.
+
+### 5.4 Diplomacy — no denial-reason layer (`game-data.md` §26)
+
+Attitude levels, live factors, decaying memory, and one-off/recurring deals are all
+modelled. The missing piece is the reference's **denial-reason** system.
+
+- **Add a denial-reason table** to `data/diplomacy.json` (reason id → text/weight
+  gates), and have the AI deal-evaluation path return a structured reason code when
+  it refuses (too-advanced, worst-enemy, no-trade-with-warring-party, etc.) rather
+  than a bare boolean.
+- Surface the reason in the trade/diplomacy screen so a human sees *why* a proposal
+  is rejected.
+- This is additive over the existing `deal_accept_min_attitude` gate; the gate
+  becomes one reason among several. Extend `tests/sim/test_diplomacy.gd` with a
+  refusal-reason assertion.
+
+---
+
 ## Recently reconciled
 
 - **2026-06-07** — Conscription / draft implemented (`026dc9d`): `DRAFT` command
