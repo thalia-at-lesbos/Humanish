@@ -148,9 +148,17 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.PLAYER_VALIDATE_POLICIES, gs, {"player_id": player_id}):
 		_validate_policies(gs, player)
 
-	# 9. Process scripted/random events
-	if not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
+	# 9. Process scripted/random events (skipped when the random-event system is
+	# switched off for this game via the new-game menu, §9).
+	if gs.events_enabled and not hooks.run(IDs.Phase.PLAYER_EVENTS, gs, {"player_id": player_id}):
 		Events.process_player_events(player, gs, gs.rng)
+
+	# 9b. Multi-turn quest tracking (§4): re-evaluate the player's active quests
+	# (complete → queue reward; constraint violated → drop) and arm one new eligible
+	# quest. Runs right after the random-event phase; rewards reuse the event verbs and
+	# a 3-choice reward reuses the event pending-choice machinery.
+	if gs.events_enabled and not hooks.run(IDs.Phase.PLAYER_QUESTS, gs, {"player_id": player_id}):
+		Quests.process_player_quests(player, gs, gs.rng)
 
 	# Found a belief if this player has newly become eligible for one (§8). No-op
 	# (and no RNG draw) once every eligible belief is founded.
@@ -196,6 +204,9 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 		u.movement_left = u.movement_total
 		u.has_moved = false
 		u.has_attacked = false
+		# Timed event states (§9 UNIT_STATE): tick the immobile / no-attack counters
+		# down one per owner turn. While immobile the unit has no movement this turn.
+		_tick_unit_event_states(u)
 
 	# Era advancement (§1): recompute the player's era after every tech gained this
 	# step (research in phase 4, a Great Scientist's instant tech in phase 6). Queues
@@ -346,6 +357,12 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	total_food     += int(spec_out["food"])
 	total_prod     += int(spec_out["production"])
 	total_commerce += int(spec_out["commerce"])
+
+	# Persistent per-structure event yield bonuses (§9 STRUCT_YIELD): each applies
+	# only while its structure is present (Settlement.structure_yield filters on that).
+	total_food     += s.structure_yield("food")
+	total_prod     += s.structure_yield("production")
+	total_commerce += s.structure_yield("commerce")
 	# Mercantilism grants a free, population-free specialist per city; it is not an
 	# assigned type, so it yields the generic specialist commerce directly (§8).
 	total_commerce += PolicyEffects.sum_int(player, db, "free_specialist_per_city") \
@@ -487,6 +504,17 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 		var feat: Dictionary = db.get_feature(tile.feature_id)
 		pos += int(feat.get("health_bonus", 0))
 		neg += int(feat.get("health_penalty", 0))
+	# Timed event wellbeing modifiers (§9 HEALTH_TIMED): a positive amount is a
+	# temporary +health face (folded into pos), a negative one extra unhealthiness.
+	for th in s.timed_health:
+		var ha: int = int(th.get("amount", 0))
+		if ha >= 0:
+			pos += ha
+		else:
+			neg += -ha
+	# Persistent per-structure event health bonuses (§9 STRUCT_YIELD, e.g. +1 health
+	# for the drydock) — a flat wellbeing face while the structure stands.
+	pos += s.structure_yield("health")
 	s.wellbeing_positive = pos
 	s.wellbeing_negative = neg
 	s.wellbeing_deficit = max(0, neg - pos)
@@ -603,6 +631,10 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 			pos += a
 		else:
 			timed_neg += -a
+
+	# Persistent per-structure event happiness bonuses (§9 STRUCT_YIELD, e.g. +1 happy
+	# for the hospital) — a flat comfort face while the structure stands.
+	pos += s.structure_yield("happiness")
 
 	# Convert anger percentage to negative sentiment citizens
 	var anger_div: int = db.get_constant("anger_divisor", 100)
@@ -1125,6 +1157,9 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 	# Artist/priest specialists add culture directly (§6.5), outside the commerce
 	# split (it is yield, not taxed commerce).
 	culture_out += Specialists.settlement_channel(db, s, "culture")
+	# Persistent per-structure event culture bonuses (§9 STRUCT_YIELD, e.g. +2 culture
+	# for the colosseum) — direct yield, applied only while the structure stands.
+	culture_out += s.structure_yield("culture")
 	s.culture_total += culture_out
 
 	# Ring expansion
@@ -1263,6 +1298,8 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		if s.owner_player_id == player.id:
 			city_count += 1
 	var free_units: int = city_count * PolicyEffects.sum_int(player, db, "free_units_per_city")
+	# Event unit-support relief (§9 UNIT_SUPPORT) waives upkeep on this many more units.
+	free_units += player.unit_support_relief
 
 	# Upkeep for units (the first `free_units`, in id order, are free).
 	var upkeep: int = 0
@@ -1301,6 +1338,10 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		policy_mod += int(pol.get("upkeep_modifier", 0))
 	if policy_mod != 0:
 		upkeep += Fixed.scale(upkeep, policy_mod)
+	# Inflation modifier (§9 INFLATION): a signed percent on gross maintenance (e.g.
+	# the Federal Reserve event trims it with a negative value).
+	if player.inflation_pct != 0:
+		upkeep += Fixed.scale(upkeep, player.inflation_pct)
 	if upkeep < 0:
 		upkeep = 0
 	return upkeep
@@ -1419,6 +1460,9 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		# Scientist specialists yield science directly (§6.5), outside the commerce
 		# split (it is yield, not taxed commerce).
 		research_income += Specialists.settlement_channel(db, s, "science")
+		# Persistent per-structure event research bonuses (§9 STRUCT_YIELD, e.g. +1
+		# research for the library) — direct science yield while the structure stands.
+		research_income += s.structure_yield("research")
 		scientists += int(s.specialists.get("scientist", 0))
 
 	# Representation: scientist specialists yield extra science directly (§8).
@@ -1529,6 +1573,15 @@ static func _settlement_espionage_output(s: Settlement, db: DataDB) -> int:
 		pct += int(db.get_structure(struct_id).get("effects", {}).get("espionage_output", 0))
 	return pct
 
+# Tick a unit's timed event states (§9 UNIT_STATE) down one turn. While immobile the
+# unit has no movement this turn (movement was already reset; zero it again here).
+static func _tick_unit_event_states(u: Unit) -> void:
+	if u.event_immobile_turns > 0:
+		u.event_immobile_turns -= 1
+		u.movement_left = 0
+	if u.event_no_attack_turns > 0:
+		u.event_no_attack_turns -= 1
+
 static func _tick_states(gs: GameState, player: Player) -> void:
 	if player.transition_turns > 0:
 		player.transition_turns -= 1
@@ -1550,6 +1603,15 @@ static func _tick_states(gs: GameState, player: Player) -> void:
 					tm["turns_left"] = left
 					kept.append(tm)
 			s.timed_happiness = kept
+		# Count down timed event wellbeing modifiers; drop the expired ones (§9).
+		if not s.timed_health.empty():
+			var kept_h: Array = []
+			for th in s.timed_health:
+				var hleft: int = int(th.get("turns_left", 0)) - 1
+				if hleft > 0:
+					th["turns_left"] = hleft
+					kept_h.append(th)
+			s.timed_health = kept_h
 
 static func _validate_policies(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db

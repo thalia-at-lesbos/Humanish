@@ -37,6 +37,8 @@ var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
 var events: Dictionary = {}
+# Multi-turn quest catalogue (§4); read by the Quests module.
+var quests: Dictionary = {}
 # Goody-hut / discovery-site reward table (§9).
 var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
@@ -73,6 +75,7 @@ func load_all() -> bool:
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
 	events       = _load_json("res://data/events.json")
+	quests       = _load_json("res://data/quests.json")
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	espionage_missions = _load_json("res://data/espionage_missions.json")
@@ -129,6 +132,14 @@ func get_event(id: String) -> Dictionary:
 # All event definitions (callers iterating must skip the leading "_comment" key).
 func get_events() -> Dictionary:
 	return events
+
+# A single multi-turn quest definition (data/quests.json); empty for unknown ids.
+func get_quest(id: String) -> Dictionary:
+	return quests.get(id, {})
+
+# All quest definitions (callers iterating must skip the leading "_comment" key).
+func get_quests() -> Dictionary:
+	return quests
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -257,6 +268,7 @@ func _validate() -> void:
 	_validate_specialist_refs()
 	_validate_goody_refs()
 	_validate_event_refs()
+	_validate_quest_refs()
 	_validate_econ_org_refs()
 	_validate_espionage_mission_refs()
 	_validate_diplomacy_refs()
@@ -413,13 +425,29 @@ func _validate_event_prereq(eid: String, pr: Dictionary) -> void:
 		_errors.append("Event '%s' prereq civic '%s' not a policy" % [eid, pr["civic"]])
 	if pr.has("resource_absent") and not resources.has(str(pr["resource_absent"])):
 		_errors.append("Event '%s' prereq resource_absent '%s' not a resource" % [eid, pr["resource_absent"]])
+	if pr.has("can_have_resource"):
+		var crr = str(pr["can_have_resource"].get("resource", ""))
+		if not resources.has(crr):
+			_errors.append("Event '%s' prereq can_have_resource '%s' not a resource" % [eid, crr])
+	if pr.has("society"):
+		var socs: Dictionary = leaders_traits.get("societies", {})
+		var sv = pr["society"]
+		var slist: Array = sv if typeof(sv) == TYPE_ARRAY else [sv]
+		for sid in slist:
+			if not socs.has(str(sid)):
+				_errors.append("Event '%s' prereq society '%s' not a society" % [eid, sid])
 
 func _validate_event_effects(eid: String, effects: Array) -> void:
 	var known := ["gold", "research", "research_pct_remaining", "research_pct_loss",
 		"culture", "tech", "unit", "building", "capital_health", "capital_pop",
 		"nearby_pop", "heal_units", "food_store", "golden_age", "attitude",
 		"grant_promotion", "city_happy_timed", "place_resource", "tile_yield",
-		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance"]
+		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance",
+		"structure_yield", "specialist", "settle_great_person", "spread_religion",
+		"destroy_building", "pillage", "revolt", "make_peace", "declare_war",
+		"espionage", "unit_state", "city_health_timed", "reveal_resource",
+		"place_improvement", "add_feature", "destroy_unit", "draft", "unit_support",
+		"inflation", "route_speed", "movie_bonus", "spaceship_bonus", "resource_gift"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):
@@ -443,5 +471,95 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 					_errors.append("Event '%s' place_resource '%s' not a resource" % [eid, eff.get("resource", "")])
 				if eff.has("add_improvement") and not improvements.has(str(eff["add_improvement"])):
 					_errors.append("Event '%s' place_resource add_improvement '%s' not an improvement" % [eid, eff["add_improvement"]])
+			"structure_yield":
+				if not structures.has(str(eff.get("structure_id", ""))):
+					_errors.append("Event '%s' structure_yield '%s' not in structures table" % [eid, eff.get("structure_id", "")])
+			"specialist":
+				if not specialists.has(str(eff.get("specialist_type", ""))):
+					_errors.append("Event '%s' specialist effect type '%s' not a specialist" % [eid, eff.get("specialist_type", "")])
+			"settle_great_person":
+				var gp_known := ["general", "prophet", "priest", "artist", "scientist", "merchant", "spy", "engineer"]
+				if not (str(eff.get("gp_type", "")) in gp_known):
+					_errors.append("Event '%s' settle_great_person gp_type '%s' unknown" % [eid, eff.get("gp_type", "")])
+			"spread_religion":
+				var b = str(eff.get("belief", ""))
+				if b != "" and not beliefs.has(b):
+					_errors.append("Event '%s' spread_religion belief '%s' not a belief" % [eid, b])
+			"reveal_resource":
+				if not resources.has(str(eff.get("resource", ""))):
+					_errors.append("Event '%s' reveal_resource '%s' not a resource" % [eid, eff.get("resource", "")])
+				if eff.has("add_improvement") and not improvements.has(str(eff["add_improvement"])):
+					_errors.append("Event '%s' reveal_resource add_improvement '%s' not an improvement" % [eid, eff["add_improvement"]])
+			"place_improvement":
+				if not improvements.has(str(eff.get("improvement", ""))):
+					_errors.append("Event '%s' place_improvement '%s' not an improvement" % [eid, eff.get("improvement", "")])
+			"add_feature":
+				if not features.has(str(eff.get("feature", ""))):
+					_errors.append("Event '%s' add_feature '%s' not a feature" % [eid, eff.get("feature", "")])
+			"draft":
+				if not units.has(str(eff.get("unit_type", ""))):
+					_errors.append("Event '%s' draft unit_type '%s' not in units table" % [eid, eff.get("unit_type", "")])
 			"chance":
 				_validate_event_effects(eid, eff.get("then", []))
+
+# Every quest (§4) must carry an id, validate its prereq via the SAME path as events
+# (the shared prereq vocabulary), declare an aim whose `kind` is a known aim kind, an
+# optional constraint whose `kind` is a known constraint kind, and a reward whose begin
+# `effects[]` / per-choice `effects[]` use known event-effect verbs (validated via the
+# event-effect validator). Structure refs inside a build_count aim are checked too.
+func _validate_quest_refs() -> void:
+	var aim_kinds := ["build_count", "build_units", "build_fleet",
+		"cities_on_landmasses", "control_named_tile", "conquer_resource",
+		"conquer_holy_city", "spread_corp", "own_corp_resources"]
+	var constraint_kinds := ["never_switch_state_religion", "keep_trigger_city"]
+	for qid in quests:
+		if qid == "_comment":
+			continue
+		var q: Dictionary = quests[qid]
+		# Reuse the event prereq validator (same vocabulary).
+		_validate_event_prereq(qid, q.get("prereq", {}))
+		var aim: Dictionary = q.get("aim", {})
+		var ak = str(aim.get("kind", ""))
+		if not (ak in aim_kinds):
+			_errors.append("Quest '%s' has unknown aim kind '%s'" % [qid, ak])
+		if ak == "build_count":
+			var bs = str(aim.get("structure_id", ""))
+			if bs != "" and not structures.has(bs):
+				_errors.append("Quest '%s' aim structure_id '%s' not in structures" % [qid, bs])
+			for also_id in aim.get("also", []):
+				if not structures.has(str(also_id)):
+					_errors.append("Quest '%s' aim also '%s' not in structures" % [qid, also_id])
+			for w_id in aim.get("weights", {}):
+				if not structures.has(str(w_id)):
+					_errors.append("Quest '%s' aim weights '%s' not in structures" % [qid, w_id])
+		if ak == "build_units":
+			var ut := []
+			if aim.has("unit_types"):
+				ut = aim["unit_types"]
+			elif str(aim.get("unit_type", "")) != "":
+				ut = [str(aim["unit_type"])]
+			for uid in ut:
+				if not units.has(str(uid)):
+					_errors.append("Quest '%s' aim unit_type '%s' not in units" % [qid, uid])
+		if ak == "build_fleet":
+			for uid in aim.get("composition", {}):
+				if not units.has(str(uid)):
+					_errors.append("Quest '%s' aim composition '%s' not in units" % [qid, uid])
+		if ak == "conquer_resource":
+			var rl := []
+			if aim.has("resources"):
+				rl = aim["resources"]
+			elif str(aim.get("resource", "")) != "":
+				rl = [str(aim["resource"])]
+			for rid in rl:
+				if not resources.has(str(rid)):
+					_errors.append("Quest '%s' aim resource '%s' not a resource" % [qid, rid])
+		if q.has("constraint"):
+			var ck = str(q["constraint"].get("kind", ""))
+			if not (ck in constraint_kinds):
+				_errors.append("Quest '%s' has unknown constraint kind '%s'" % [qid, ck])
+		# Reward effects (begin or per-choice) reuse the event-effect validator.
+		var reward: Dictionary = q.get("reward", {})
+		_validate_event_effects(qid, reward.get("effects", []))
+		for ch in reward.get("choices", []):
+			_validate_event_effects(qid, ch.get("effects", []))

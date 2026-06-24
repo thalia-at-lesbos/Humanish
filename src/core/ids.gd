@@ -227,5 +227,8 @@ enum Phase {
     SETTLEMENT_MAINTENANCE = 25,
     # Cultural revolt / city flipping (§4.9), evaluated after the owner's
     # settlements run their per-turn step.
-    PLAYER_CULTURE_REVOLT = 26
+    PLAYER_CULTURE_REVOLT = 26,
+    # Multi-turn quest tracking (§4): arm eligible quests and re-evaluate active ones,
+    # run right after the random-event phase in the player step.
+    PLAYER_QUESTS = 27
 }

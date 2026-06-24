@@ -98,6 +98,13 @@ var is_exploring: bool = false
 var explore_dx: int = 0
 var explore_dy: int = 0
 
+# Timed per-unit event states (§9 UNIT_STATE): a unit may be temporarily immobile
+# (cannot spend movement) or barred from attacking for a number of turns after an
+# event. Both count down one per owner turn in TurnEngine._tick_states. Serialized
+# so a running state survives save/load (deserialize coerces both to int).
+var event_immobile_turns: int = 0
+var event_no_attack_turns: int = 0
+
 func has_promotion(promo_id: String) -> bool:
 	return promo_id in promotions
 
@@ -166,6 +173,9 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 func can_attack(db: DataDB) -> bool:
 	if base_strength <= 0:
 		return false
+	# A unit barred by a recent event (§9 UNIT_STATE) cannot initiate combat.
+	if event_no_attack_turns > 0:
+		return false
 	var data: Dictionary = db.get_unit(unit_type_id)
 	return str(data.get("classification", "")) != "civilian"
 
@@ -202,7 +212,9 @@ func serialize() -> Dictionary:
 		"is_sleep_until_healed": is_sleep_until_healed,
 		"is_fortify_until_healed": is_fortify_until_healed,
 		"is_exploring": is_exploring,
-		"explore_dx": explore_dx, "explore_dy": explore_dy
+		"explore_dx": explore_dx, "explore_dy": explore_dy,
+		"event_immobile_turns": event_immobile_turns,
+		"event_no_attack_turns": event_no_attack_turns
 	}
 
 static func deserialize(d: Dictionary):
@@ -241,4 +253,6 @@ static func deserialize(d: Dictionary):
 	u.is_exploring = bool(d.get("is_exploring", false))
 	u.explore_dx = int(d.get("explore_dx", 0))
 	u.explore_dy = int(d.get("explore_dy", 0))
+	u.event_immobile_turns = int(d.get("event_immobile_turns", 0))
+	u.event_no_attack_turns = int(d.get("event_no_attack_turns", 0))
 	return u

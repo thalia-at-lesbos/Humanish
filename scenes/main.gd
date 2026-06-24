@@ -102,12 +102,20 @@ func _ready() -> void:
 		# Start-of-turn prompts (ask what to research / what to produce). Solo and
 		# hotseat only — remote turns are server-driven, not via player_turn_started.
 		if _net_client == null:
+			# Modal popup for mandatory random-event / quest-reward choices (§9, §4).
+			# Added after the Screens node so it overlays everything; TurnPrompts
+			# raises it as the first start-of-turn prompt.
+			var event_choice_screen = load("res://scenes/screens/event_choice_screen.gd").new()
+			event_choice_screen.name = "EventChoiceScreen"
+			add_child(event_choice_screen)
+			event_choice_screen.init(_facade)
 			_turn_prompts = load("res://scenes/hud/turn_prompts.gd").new()
 			_turn_prompts.name = "TurnPrompts"
 			add_child(_turn_prompts)
 			_turn_prompts.init(_facade,
 				screens.get_node_or_null("TechChooser"),
-				screens.get_node_or_null("CityScreen"))
+				screens.get_node_or_null("CityScreen"),
+				event_choice_screen)
 
 	# Wire input router
 	var input_router = get_node_or_null("InputRouter")

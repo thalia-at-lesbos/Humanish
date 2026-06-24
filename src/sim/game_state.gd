@@ -46,6 +46,11 @@ var wild_aggressive: bool = false
 # game). Off by default.
 var permanent_alliances: bool = false
 
+# §9/§4 setting (new-game menu): when false, the whole random-event AND multi-turn
+# quest system is switched off — no rosters are rolled and both the player-event and
+# quest phases are skipped. On by default.
+var events_enabled: bool = true
+
 # §11 Global warming: a running count of every nuclear explosion that has ever
 # occurred (ICBM, tactical nuke, and Nuclear Plant meltdown). Feeds GW_VALUE in
 # GlobalWarming.tick(); incremented by Nuclear.detonate()/meltdown_tick().
@@ -92,6 +97,27 @@ var active_event_ids: Array = []
 # CHOOSE_EVENT popup at the player's turn start and clears the entry on resolve.
 # Serialized so a pending choice survives save/load (deserialize coerces player_id).
 var pending_event_choices: Array = []
+
+# Multi-turn quests in progress (§4): each {quest_id, player_id, start_turn, progress,
+# snapshot}. `progress` is a cached aim count; `snapshot` captures a baseline the aim/
+# constraint diffs against (e.g. settlement ids that already held a structure at arming,
+# or the state religion held at arming). Managed by the Quests module in a player-step
+# phase. Serialized so a quest in progress survives save/load and stays on the
+# determinism gate; deserialize coerces player_id/start_turn/progress and the int keys/
+# values inside snapshot back to int (the JSON float/string-key gotcha).
+var active_quests: Array = []
+
+# Per-game quest roster (§4): the quest ids whose `active` inclusion roll succeeded at
+# game setup, so they may be armed this game. Rolled once from gs.rng in fixed quest-id
+# order (Quests.roll_active_quests) and serialized, so the roster is stable across
+# save/load. An empty roster means "not rolled yet" — Quests treats every quest as in.
+var active_quest_ids: Array = []
+
+# Transient quest-lifecycle descriptors (armed / completed / reward-pending / failed)
+# produced by the §4 quest step, drained by SimFacade into notifications + the
+# quest_event signal. Not serialized: it never survives past the turn that produced it
+# (active_quests / quests_completed carry the persistent state).
+var pending_quest_events: Array = []  # [{kind, player_id, quest_id, ...}]
 
 # Active persistent diplomatic deals (§7). A deal is an accepted agreement between
 # two alliances bundling one-off items (delivered once on acceptance) and recurring
@@ -338,6 +364,7 @@ func serialize() -> Dictionary:
 		"winning_alliance_id": winning_alliance_id,
 		"wild_aggressive": wild_aggressive,
 		"permanent_alliances": permanent_alliances,
+		"events_enabled": events_enabled,
 		"nukes_exploded": nukes_exploded,
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
@@ -349,6 +376,8 @@ func serialize() -> Dictionary:
 		"active_events": active_events.duplicate(true),
 		"active_event_ids": active_event_ids.duplicate(),
 		"pending_event_choices": pending_event_choices.duplicate(true),
+		"active_quests": active_quests.duplicate(true),
+		"active_quest_ids": active_quest_ids.duplicate(),
 		"_next_unit_id": _next_unit_id,
 		"_next_settlement_id": _next_settlement_id,
 		"_next_alliance_id": _next_alliance_id,
@@ -386,6 +415,7 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.winning_alliance_id = int(d.get("winning_alliance_id", -1))
 	gs.wild_aggressive = bool(d.get("wild_aggressive", false))
 	gs.permanent_alliances = bool(d.get("permanent_alliances", false))
+	gs.events_enabled = bool(d.get("events_enabled", true))
 	gs.nukes_exploded = int(d.get("nukes_exploded", 0))
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
@@ -441,6 +471,30 @@ static func deserialize(d: Dictionary, db_ref):
 			# is harmless here.
 			"resolved_choices": pc.get("resolved_choices", []).duplicate(true)
 		})
+	# Multi-turn quests in progress (§4): coerce the numeric envelope fields back to int,
+	# and coerce every key AND value inside `snapshot` back to int — JSON.parse makes the
+	# int settlement-id keys strings and the int values floats, so a post-load aim/
+	# constraint diff (e.g. "this city already held the structure") would silently miss
+	# without coercion (the JSON float/string-key gotcha; would break the determinism
+	# gate). The STATE_RELIGION_KEY sentinel snapshot value is a string and survives the
+	# roundtrip; only positive settlement-id entries hold int values.
+	gs.active_quests = []
+	for q in d.get("active_quests", []):
+		var snap_in: Dictionary = q.get("snapshot", {})
+		var snap_out: Dictionary = {}
+		for k in snap_in:
+			var v = snap_in[k]
+			snap_out[int(k)] = (str(v) if typeof(v) == TYPE_STRING else int(v))
+		gs.active_quests.append({
+			"quest_id": str(q.get("quest_id", "")),
+			"player_id": int(q.get("player_id", -1)),
+			"start_turn": int(q.get("start_turn", 0)),
+			"progress": int(q.get("progress", 0)),
+			"snapshot": snap_out
+		})
+	gs.active_quest_ids = []
+	for qid in d.get("active_quest_ids", []):
+		gs.active_quest_ids.append(str(qid))
 	gs._next_unit_id = int(d.get("_next_unit_id", 1))
 	gs._next_settlement_id = int(d.get("_next_settlement_id", 1))
 	gs._next_alliance_id = int(d.get("_next_alliance_id", 1))

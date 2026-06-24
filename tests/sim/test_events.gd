@@ -523,3 +523,779 @@ func test_exploration_reward_is_rng_deterministic() -> void:
 	var ub = make_unit(b, "warrior", 1, 5, 5)
 	var rb = Events.exploration_reward(ub, b, b.rng)
 	assert_eq(ra["type"], rb["type"], "the same seed rolls the same goody type")
+
+# ── Phase 2 catalogue events ─────────────────────────────────────────────────────
+
+func test_phase2_events_load_cleanly() -> void:
+	# The ported pure-verb catalogue must pass DataDB validation (every prereq,
+	# obsolete, unit, structure, tech, promotion and resource ref resolves).
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 2 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["jade", "saltpeter", "sour_crude", "tin", "axe_haft", "the_vandals",
+			"holy_ritual", "banana_split", "ancient_texts"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 2 event '%s' is in the catalogue" % eid)
+
+func test_tile_yield_negative_lowers_production() -> void:
+	# Sour Crude bakes a -1 production delta onto a sour oil well.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"resource_id": "oil", "improvement_id": "well"})
+	Events.fire_event("sour_crude", p, gs)
+	assert_eq(t.event_production, -1, "Sour Crude subtracts 1 production from the well tile")
+
+func test_tile_yield_multi_key_match() -> void:
+	# Tin requires a hill mine: the match must hit a tile satisfying BOTH terrain and
+	# improvement (and skip a hill that has no mine).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.technologies.append("bronze_working")
+	make_settlement(gs, 1, 5, 5)
+	_own_tile(gs, 1, 6, 6, {"terrain_id": "hills"})  # hill, but no mine — must be skipped
+	var mined = _own_tile(gs, 1, 8, 8, {"terrain_id": "hills", "improvement_id": "mine"})
+	assert_true(Events.prereq_holds(gs.db.get_event("tin").get("prereq", {}), p, gs),
+		"Tin's prereq holds with a teched hill mine owned")
+	Events.fire_event("tin", p, gs)
+	assert_eq(mined.event_production, 2, "Tin adds +2 production to the hill mine")
+	assert_eq(gs.map.get_tile(6, 6).event_production, 0, "the bare hill is untouched")
+
+func test_grant_promotion_by_unit_types() -> void:
+	# Axe Haft grants Shock to axemen only, by unit_types filter (not classification).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.technologies.append("bronze_working")
+	make_settlement(gs, 1, 5, 5)
+	var axe = make_unit(gs, "axeman", 1, 5, 5)        # melee axeman — targeted
+	var sword = make_unit(gs, "swordsman", 1, 5, 5)   # also melee, NOT an axeman
+	Events.fire_event("axe_haft", p, gs)
+	assert_true(axe.has_promotion("shock"), "the axeman gains Shock")
+	assert_false(sword.has_promotion("shock"), "a non-axeman melee unit is unaffected")
+
+func test_horseshoe_grants_flanking_to_mounted() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var rider = make_unit(gs, "horse_archer", 1, 5, 5)  # mounted
+	var foot = make_unit(gs, "axeman", 1, 5, 5)         # melee
+	Events.fire_event("horseshoe", p, gs)
+	assert_true(rider.has_promotion("flanking1"), "the mounted unit gains Flanking I")
+	assert_false(foot.has_promotion("flanking1"), "a non-mounted unit is unaffected")
+
+func test_wild_spawn_event_drops_typed_raiders() -> void:
+	# The Vandals spawn four wild swordsmen near the capital.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	Events.fire_event("the_vandals", p, gs)
+	var swords = 0
+	for u in gs.units:
+		if u.owner_player_id == -2 and u.unit_type_id == "swordsman":
+			swords += 1
+	assert_eq(swords, 4, "The Vandals spawns four wild swordsmen")
+
+func test_vandals_prereq_uses_players_tech() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	p.technologies.append("metal_casting")
+	var pr = gs.db.get_event("the_vandals").get("prereq", {})
+	assert_false(Events.prereq_holds(pr, p, gs), "The Vandals needs a player to hold Iron Working")
+	gs.get_player(2).technologies.append("iron_working")
+	assert_true(Events.prereq_holds(pr, p, gs), "The Vandals fires once any player knows Iron Working")
+
+func test_ancient_texts_share_branch_lifts_all_met() -> void:
+	# The 'share' branch applies +20 attitude to every met rival (all_met target).
+	var gs = make_gs(3, 5)
+	var p = gs.get_player(1)
+	p.is_ai = false
+	make_settlement(gs, 1, 5, 5)
+	p.technologies.append("scientific_method")
+	_own_tile(gs, 1, 7, 7, {"terrain_id": "desert"})
+	Events.fire_event("ancient_texts", p, gs)
+	assert_true(Events.apply_choice("ancient_texts", "share", p, gs), "the share branch resolves")
+	assert_eq(Diplomacy.memory_total(p, 2), 20, "player 2's attitude improves")
+	assert_eq(Diplomacy.memory_total(p, 3), 20, "player 3's attitude improves too (all_met)")
+
+func test_gold_event_with_building_prereq_pays_in_range() -> void:
+	# Stained Glass needs a cathedral and pays 40..70 gold.
+	var gs = make_gs(2, 314)
+	var p = gs.get_player(1)
+	p.treasury = 0
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("cathedral")
+	assert_true(Events.prereq_holds(gs.db.get_event("stained_glass").get("prereq", {}), p, gs),
+		"the cathedral satisfies Stained Glass")
+	Events.fire_event("stained_glass", p, gs)
+	assert_true(p.treasury >= 40 and p.treasury <= 70,
+		"Stained Glass pays within 40..70 (got %d)" % p.treasury)
+
+func test_holy_ritual_cost_is_paid() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 100
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("temple")
+	_own_tile(gs, 1, 6, 6, {"resource_id": "incense", "improvement_id": "plantation", "transport_id": "road"})
+	Events.fire_event("holy_ritual", p, gs)
+	assert_eq(p.treasury, 120, "Holy Ritual banks 20 gold from the pilgrims' offerings")
+
+# ── Phase 3 cluster events load ──────────────────────────────────────────────────
+
+func test_phase3_events_load_cleanly() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 3 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["hymns_and_sculptures", "master_smith", "money_changers", "literacy",
+			"miracle", "new_dynasty", "civ_game", "freedom_concert", "inspired_mission",
+			"rabbi", "golden_buddha", "preaching_researcher"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 3 event '%s' is in the catalogue" % eid)
+
+# ── STRUCT_YIELD verb + folding ──────────────────────────────────────────────────
+
+func test_structure_yield_verb_records_a_persistent_bonus() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	Events.apply_effects([{"verb": "structure_yield", "structure_id": "forge",
+		"production": 1, "scope": "capital"}], p, gs)
+	assert_eq(s.structure_yield("production"), 1, "the forge production bonus is recorded")
+	assert_eq(s.structure_yield("commerce"), 0, "unrelated channels stay zero")
+
+func test_structure_yield_only_counts_while_structure_present() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	s.add_structure_bonus("forge", "production", 2)
+	assert_eq(s.structure_yield("production"), 2, "present structure contributes its bonus")
+	s.structures.erase("forge")
+	assert_eq(s.structure_yield("production"), 0, "a lost structure's bonus is dormant")
+
+func test_structure_yield_accumulates() -> void:
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("market")
+	s.add_structure_bonus("market", "commerce", 1)
+	s.add_structure_bonus("market", "commerce", 1)
+	assert_eq(s.structure_yield("commerce"), 2, "two Money Changers stack on one market")
+
+func test_master_smith_event_boosts_forge_production() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("forge")
+	Events.fire_event("master_smith", p, gs)
+	assert_eq(s.structure_yield("production"), 1, "Master Smith grants +1 forge production")
+
+# ── SPEC verb ────────────────────────────────────────────────────────────────────
+
+func test_specialist_verb_grants_free_specialist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "specialist", "specialist_type": "artist",
+		"count": 1, "scope": "capital"}], p, gs)
+	assert_eq(int(s.specialists.get("artist", 0)), 1, "a free Artist specialist is added")
+
+func test_hymns_event_grants_artist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("cathedral")
+	Events.fire_event("hymns_and_sculptures", p, gs)
+	assert_eq(int(s.specialists.get("artist", 0)), 1, "Hymns and Sculptures yields an Artist")
+
+# ── SGP verb ─────────────────────────────────────────────────────────────────────
+
+func test_settle_great_person_general_settles_as_engineer() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	var add = int(gs.db.get_constant("gp_super_specialist_count", 1))
+	Events.apply_effects([{"verb": "settle_great_person", "gp_type": "general"}], p, gs)
+	assert_eq(int(s.specialists.get("engineer", 0)), add, "a settled General works as an engineer")
+
+func test_settle_great_person_scientist() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.fire_event("literacy", p, gs)
+	assert_true(int(s.specialists.get("scientist", 0)) >= 1,
+		"Literacy settles a Great Scientist in the city")
+
+# ── SPREAD verb ──────────────────────────────────────────────────────────────────
+
+func test_spread_religion_converts_n_cities() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "buddhism"
+	var a = make_settlement(gs, 1, 5, 5)
+	var b = make_settlement(gs, 1, 9, 9)
+	var c = make_settlement(gs, 1, 12, 12)
+	Events.apply_effects([{"verb": "spread_religion", "count": 2, "scope": "own"}], p, gs)
+	var converted = 0
+	for s in [a, b, c]:
+		if s.belief_id == "buddhism":
+			converted += 1
+	assert_eq(converted, 2, "exactly two own cities convert (count cap)")
+
+func test_spread_religion_skips_other_religion_when_filtered() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "christianity"
+	var a = make_settlement(gs, 1, 5, 5)
+	var b = make_settlement(gs, 1, 9, 9)
+	b.belief_id = "buddhism"  # already holds another religion
+	Events.apply_effects([{"verb": "spread_religion", "count": 5, "scope": "own",
+		"max_other_religions": 0}], p, gs)
+	assert_eq(a.belief_id, "christianity", "an empty city converts")
+	assert_eq(b.belief_id, "buddhism", "a city holding another religion is skipped under the filter")
+
+func test_spread_religion_foreign_scope() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "judaism"
+	make_settlement(gs, 1, 5, 5)
+	var foreign = make_settlement(gs, 2, 9, 9)
+	Events.apply_effects([{"verb": "spread_religion", "count": 3, "scope": "foreign"}], p, gs)
+	assert_eq(foreign.belief_id, "judaism", "the foreign scope converts a rival's city")
+
+# ── STRUCT_YIELD folds into the output/contentment/culture/research sites ─────────
+
+func test_structure_yield_folds_into_production_output() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.structures.append("forge")
+	s.food_store = 1000  # keep the city from shrinking during the growth step
+	TurnEngine._settlement_growth(gs, s, p)
+	var base_prod = s.output_production
+	s.add_structure_bonus("forge", "production", 2)
+	TurnEngine._settlement_growth(gs, s, p)
+	assert_eq(s.output_production, base_prod + 2, "a forge production bonus folds into output")
+
+func test_structure_yield_happiness_folds_into_contentment() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 4)
+	s.structures.append("hospital")
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var base_pos = s.positive_sentiment
+	s.add_structure_bonus("hospital", "happiness", 1)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, base_pos + 1, "a hospital happy bonus folds into contentment")
+
+func test_structure_yield_culture_folds_into_culture() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("colosseum")
+	s.output_commerce = 0
+	s.culture_total = 0
+	TurnEngine._settlement_culture(gs, s, p)
+	var base_culture = s.culture_total
+	s.add_structure_bonus("colosseum", "culture", 2)
+	TurnEngine._settlement_culture(gs, s, p)
+	assert_eq(s.culture_total, base_culture + 2, "a colosseum culture bonus folds into culture")
+
+func test_structure_yield_research_folds_into_research() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.current_research_id = "writing"
+	p.research_store = 0
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("library")
+	s.output_commerce = 0
+	s.add_structure_bonus("library", "research", 5)
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 5, "a library research bonus folds into research income")
+
+# ── Save / load of structure_bonuses ─────────────────────────────────────────────
+
+func test_structure_bonuses_survive_save_load() -> void:
+	var gs = make_gs()
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.structures.append("forge")
+	cap.add_structure_bonus("forge", "production", 2)
+	cap.add_structure_bonus("forge", "culture", 3)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var cap2 = gs2.get_settlement(cap.id)
+	assert_eq(cap2.structure_yield("production"), 2, "the forge production bonus roundtrips")
+	assert_eq(cap2.structure_yield("culture"), 3, "the forge culture bonus roundtrips")
+	# Confirm the deserialized values are true ints (the JSON float-key gotcha).
+	assert_eq(typeof(cap2.structure_bonuses["forge"]["production"]), TYPE_INT,
+		"the bonus value is coerced back to int on load")
+
+# ── Phase 4: DESTROY_BLDG / PILLAGE / REVOLT / PEACE / WAR / ESP ──────────────────
+
+func test_phase4_events_load_cleanly() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 4 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["airliner_crash", "fugitive", "wedding_feud", "looters", "hurricane",
+			"cyclone", "tsunami", "monsoon", "blizzard", "volcano", "mining_accident",
+			"cigarette_smoker", "heroic_gesture", "great_mediator", "industrial_fire",
+			"heresy", "defecting_agent", "jail", "broken_dam"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 4 event '%s' is in the catalogue" % eid)
+
+func test_destroy_building_cheap_filter_removes_only_cheap() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # cost 60 (cheap)
+	s.structures.append("market")   # cost 150 (expensive)
+	Events.apply_effects([{"verb": "destroy_building", "count": 9, "cost": "cheap",
+		"scope": "capital"}], p, gs)
+	assert_false(s.has_structure("granary"), "the cheap building is destroyed")
+	assert_true(s.has_structure("market"), "the expensive building survives a cheap-filter")
+
+func test_destroy_building_expensive_filter() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # cost 60 (cheap)
+	s.structures.append("market")   # cost 150 (expensive)
+	Events.apply_effects([{"verb": "destroy_building", "count": 1, "cost": "expensive",
+		"scope": "capital"}], p, gs)
+	assert_true(s.has_structure("granary"), "the cheap building survives an expensive-filter")
+	assert_false(s.has_structure("market"), "the expensive building is destroyed")
+
+func test_destroy_building_never_removes_palace_or_wonders() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("palace")
+	s.structures.append("pyramids")  # a wonder
+	Events.apply_effects([{"verb": "destroy_building", "count": 9, "cost": "any",
+		"scope": "capital"}], p, gs)
+	assert_true(s.has_structure("palace"), "the palace is never destroyed")
+	assert_true(s.has_structure("pyramids"), "wonders are never destroyed")
+
+func test_destroy_building_count_caps_removals() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("granary")  # 60
+	s.structures.append("forge")    # 120
+	s.structures.append("market")   # 150
+	Events.apply_effects([{"verb": "destroy_building", "count": 2, "cost": "any",
+		"scope": "capital"}], p, gs)
+	# Cheapest-first: granary (60) and forge (120) go; market (150) survives.
+	assert_eq(s.structures.size(), 1, "exactly count buildings are removed")
+	assert_true(s.has_structure("market"), "the dearest building survives a count-2 destroy")
+
+func test_pillage_clears_own_improvement() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"improvement_id": "mine", "improvement_age": 4})
+	Events.apply_effects([{"verb": "pillage", "count": 1}], p, gs)
+	assert_eq(t.improvement_id, "", "the pillaged tile's improvement is cleared")
+	assert_eq(t.improvement_age, 0, "the improvement age resets")
+
+func test_pillage_rival_targets_neighbour_near_a_city() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# A rival improvement next to our city (in radius), and our own improvement.
+	var rival_t = _own_tile(gs, 2, 6, 5, {"improvement_id": "farm"})
+	var own_t = _own_tile(gs, 1, 7, 7, {"improvement_id": "mine"})
+	Events.apply_effects([{"verb": "pillage", "count": 1, "match": {"owner": "rival"}}], p, gs)
+	assert_eq(rival_t.improvement_id, "", "the rival's nearby improvement is pillaged")
+	assert_eq(own_t.improvement_id, "mine", "our own improvement is untouched")
+
+func test_revolt_sets_disorder_turns() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "revolt", "turns": 3, "scope": "capital"}], p, gs)
+	assert_eq(s.revolt_turns, 3, "the city is thrown into 3 turns of revolt")
+	assert_true(s.in_disorder, "the city is in disorder")
+
+func test_make_peace_ends_war_and_warms_attitude() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	assert_true(gs.are_at_war(1, 2), "the players start at war")
+	Events.apply_effects([{"verb": "make_peace", "attitude": 2}], p, gs)
+	assert_false(gs.are_at_war(1, 2), "make_peace ends the war on both sides")
+	assert_eq(Diplomacy.memory_total(p, 2), 2, "make_peace warms the attitude toward the rival")
+
+func test_declare_war_starts_war_on_both_sides() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	assert_false(gs.are_at_war(1, 2), "the players start at peace")
+	Events.apply_effects([{"verb": "declare_war", "attitude": -1}], p, gs)
+	assert_true(gs.are_at_war(1, 2), "declare_war puts both alliances at war")
+	assert_eq(Diplomacy.memory_total(p, 2), -1, "declare_war sours the attitude toward the rival")
+
+func test_espionage_grants_and_drains_floored_at_zero() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# Rival player 2 sits in alliance 2; EP is ledgered per target alliance.
+	Events.apply_effects([{"verb": "espionage", "amount": 1000}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 1000, "espionage grants points against the rival alliance")
+	Events.apply_effects([{"verb": "espionage", "amount": -300}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 700, "espionage drains points")
+	Events.apply_effects([{"verb": "espionage", "amount": -5000}], p, gs)
+	assert_eq(int(p.intel_points.get(2, 0)), 0, "the espionage ledger is floored at zero")
+
+func test_intel_points_survive_save_load_as_int_keys() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "espionage", "amount": 800}], p, gs)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var p2 = gs2.get_player(1)
+	assert_eq(int(p2.intel_points.get(2, 0)), 800, "the intel ledger roundtrips through save/load")
+	# The dict key must be a true int (the JSON float/string-key gotcha).
+	assert_true(p2.intel_points.has(2), "the intel ledger key is coerced back to int on load")
+
+func test_revolt_state_survives_save_load() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	Events.apply_effects([{"verb": "revolt", "turns": 4, "scope": "capital"}], p, gs)
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var s2 = gs2.get_settlement(s.id)
+	assert_eq(s2.revolt_turns, 4, "the revolt counter roundtrips")
+	assert_eq(typeof(s2.revolt_turns), TYPE_INT, "revolt_turns is a true int on load")
+	assert_true(s2.in_disorder, "the disorder flag roundtrips")
+
+func test_heroic_gesture_press_on_keeps_the_war() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	# The AI auto-resolves the first branch (press_on) which carries no effects.
+	p.is_ai = true
+	Events.fire_event("heroic_gesture", p, gs)
+	assert_true(gs.are_at_war(1, 2), "pressing on leaves the war running")
+
+func test_great_mediator_accept_makes_peace() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	gs.get_alliance(1).at_war_with.append(2)
+	gs.get_alliance(2).at_war_with.append(1)
+	# Human path: firing parks the pre-rolled choices; applying the named branch resolves.
+	Events.fire_event("great_mediator", p, gs)
+	assert_true(Events.apply_choice("great_mediator", "accept", p, gs),
+		"the accept branch is applied")
+	assert_false(gs.are_at_war(1, 2), "accepting the mediation ends the war")
+	assert_eq(Diplomacy.memory_total(p, 2), 2, "the mediated peace warms the attitude")
+
+# ── Phase 5: niche systems (UNIT_STATE / HEALTH_TIMED / REVEAL / CIV_ID / DRAFT / …) ─
+
+func test_phase5_events_load_cleanly() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_errors().empty(),
+		"DataDB loads cleanly with the Phase 5 events (errors: %s)" % str(gs.db.get_errors()))
+	for eid in ["at_the_sword", "man_named_jed", "farm_bandits", "horticulture",
+			"motor_oil", "federal_reserve", "interstate", "independent_films",
+			"comet_fragment", "antelope", "whale_of_a_thing", "hi_yo_silver",
+			"toxcatl", "dissident_priest", "pasture_built", "rogue_station",
+			"anti_monarchists", "impeachment", "bermuda_triangle", "influenza",
+			"better_coal", "healing_plant", "friendly_locals", "great_depression"]:
+		assert_false(gs.db.get_event(eid).empty(), "Phase 5 event '%s' is in the catalogue" % eid)
+
+# UNIT_STATE verb ----------------------------------------------------------------
+
+func test_unit_state_immobilizes_and_adds_xp() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var u = make_warrior(gs, 1, 5, 5)
+	u.movement_left = 120
+	u.experience = 0
+	Events.apply_effects([{"verb": "unit_state", "match": {}, "immobile": 3, "xp": 2}], p, gs)
+	assert_eq(u.event_immobile_turns, 3, "the unit is marked immobile for 3 turns")
+	assert_eq(u.movement_left, 0, "an immobilised unit loses its movement at once")
+	assert_eq(u.experience, 2, "the unit gains the granted XP")
+
+func test_unit_state_no_attack_blocks_can_attack() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var u = make_warrior(gs, 1, 5, 5)
+	assert_true(u.can_attack(gs.db), "the unit can attack before the event")
+	Events.apply_effects([{"verb": "unit_state", "match": {}, "no_attack": 2}], p, gs)
+	assert_false(u.can_attack(gs.db), "a no-attack state bars the unit from attacking")
+
+func test_unit_state_ticks_down_in_tick_states() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var u = make_warrior(gs, 1, 5, 5)
+	u.event_immobile_turns = 2
+	u.event_no_attack_turns = 1
+	TurnEngine._tick_unit_event_states(u)
+	assert_eq(u.event_immobile_turns, 1, "the immobile counter ticks down")
+	assert_eq(u.event_no_attack_turns, 0, "the no-attack counter ticks down")
+
+func test_unit_state_targets_damaged_unit() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var whole = make_unit(gs, "swordsman", 1, 5, 5); whole.health = 100; whole.experience = 0
+	var hurt = make_unit(gs, "swordsman", 1, 5, 5); hurt.health = 40; hurt.experience = 0
+	Events.fire_event("at_the_sword", p, gs)
+	assert_eq(hurt.experience, 3, "the damaged swordsman gains the XP")
+	assert_eq(whole.experience, 0, "the undamaged swordsman is skipped")
+
+func test_unit_states_survive_save_load_as_ints() -> void:
+	var gs = make_gs()
+	make_settlement(gs, 1, 5, 5)
+	var u = make_warrior(gs, 1, 5, 5)
+	u.event_immobile_turns = 3
+	u.event_no_attack_turns = 2
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var u2 = gs2.get_unit(u.id)
+	assert_eq(u2.event_immobile_turns, 3, "immobile counter roundtrips")
+	assert_eq(typeof(u2.event_immobile_turns), TYPE_INT, "immobile counter is a true int on load")
+	assert_eq(u2.event_no_attack_turns, 2, "no-attack counter roundtrips")
+	assert_eq(typeof(u2.event_no_attack_turns), TYPE_INT, "no-attack counter is a true int on load")
+
+# HEALTH_TIMED verb --------------------------------------------------------------
+
+func test_city_health_timed_folds_into_wellbeing() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 4)
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var base_pos = s.wellbeing_positive
+	var base_neg = s.wellbeing_negative
+	s.timed_health.append({"amount": 2, "turns_left": 5})
+	s.timed_health.append({"amount": -1, "turns_left": 5})
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	assert_eq(s.wellbeing_positive, base_pos + 2, "a positive health modifier raises wellbeing_positive")
+	assert_eq(s.wellbeing_negative, base_neg + 1, "a negative health modifier raises wellbeing_negative")
+
+func test_timed_health_ticks_down_and_expires() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.timed_health.append({"amount": 1, "turns_left": 2})
+	TurnEngine._tick_states(gs, p)
+	assert_eq(int(s.timed_health[0].get("turns_left", 0)), 1, "the modifier counts down")
+	TurnEngine._tick_states(gs, p)
+	assert_true(s.timed_health.empty(), "the modifier expires and is dropped")
+
+func test_timed_health_survives_save_load_as_int() -> void:
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.timed_health.append({"amount": -2, "turns_left": 8})
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var s2 = gs2.get_settlement(s.id)
+	assert_eq(s2.timed_health.size(), 1, "a timed health modifier roundtrips")
+	assert_eq(int(s2.timed_health[0]["turns_left"]), 8, "its turns_left roundtrips")
+	assert_eq(typeof(s2.timed_health[0]["turns_left"]), TYPE_INT, "turns_left is a true int on load")
+
+# REVEAL / CAN_HAVE_RES / HAPPY_RES_COUNT ----------------------------------------
+
+func test_reveal_resource_seeds_eligible_tile() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# Silver is allowed on hills/tundra; place a bare hill tile.
+	var t = _own_tile(gs, 1, 7, 7, {"terrain_id": "hills"})
+	Events.apply_effects([{"verb": "reveal_resource", "resource": "silver",
+		"match": {"terrain": "hills"}, "add_improvement": "mine", "add_route": "road"}], p, gs)
+	assert_eq(t.resource_id, "silver", "silver is revealed on the eligible hill")
+	assert_eq(t.improvement_id, "mine", "the mine is laid")
+	assert_eq(t.transport_id, "road", "the road is laid")
+
+func test_reveal_resource_skips_ineligible_terrain() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# Whale is only allowed on ocean/coast; a grassland tile must be skipped.
+	var t = _own_tile(gs, 1, 7, 7, {"terrain_id": "grassland"})
+	Events.apply_effects([{"verb": "reveal_resource", "resource": "whale"}], p, gs)
+	assert_eq(t.resource_id, "", "whale is not seeded on an ineligible grassland tile")
+
+func test_can_have_resource_prereq_gates_on_eligibility() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var spec = {"can_have_resource": {"resource": "silver", "tile": {"terrain": "hills"}}}
+	assert_false(Events.prereq_holds(spec, p, gs), "no eligible hill yet")
+	_own_tile(gs, 1, 7, 7, {"terrain_id": "hills"})
+	assert_true(Events.prereq_holds(spec, p, gs), "an eligible bare hill satisfies can_have_resource")
+	# A hill that already carries a resource is no longer eligible.
+	_own_tile(gs, 1, 7, 7, {"resource_id": "iron"})
+	assert_false(Events.prereq_holds(spec, p, gs), "a hill with a resource is not eligible")
+
+func test_max_happy_resources_prereq_counts_luxuries() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	assert_true(Events.prereq_holds({"max_happy_resources": 4}, p, gs), "zero happy resources passes the ≤4 gate")
+	_own_tile(gs, 1, 6, 6, {"resource_id": "gems"})   # luxury
+	_own_tile(gs, 1, 7, 7, {"resource_id": "wine"})   # luxury
+	_own_tile(gs, 1, 8, 8, {"resource_id": "iron"})   # strategic, not counted
+	assert_true(Events.prereq_holds({"max_happy_resources": 4}, p, gs), "two happy resources is within ≤4")
+	assert_false(Events.prereq_holds({"max_happy_resources": 1}, p, gs), "two happy resources fails the ≤1 gate")
+
+# CIV_ID prereq ------------------------------------------------------------------
+
+func test_society_prereq_matches_player_society() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	assert_false(Events.prereq_holds({"society": "aztec"}, p, gs), "no society set fails the gate")
+	p.society_id = "aztec"
+	assert_true(Events.prereq_holds({"society": "aztec"}, p, gs), "the Aztec gate holds for an Aztec player")
+	assert_false(Events.prereq_holds({"society": "egyptian"}, p, gs), "an Egyptian gate fails for an Aztec player")
+	assert_true(Events.prereq_holds({"society": ["egyptian", "aztec"]}, p, gs), "a society list matches by membership")
+
+# DRAFT verb ---------------------------------------------------------------------
+
+func test_draft_conscripts_culture_scaled_units() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.culture_ring = 3
+	var before = gs.units.size()
+	Events.apply_effects([{"verb": "draft", "unit_type": "warrior", "count": 1,
+		"per_culture_level": 1, "anger_turns": 5, "anger": 1}], p, gs)
+	# 1 base + (culture_ring 3 / 1) = 4 conscripts.
+	assert_eq(gs.units.size(), before + 4, "draft raises count + culture-scaled extras")
+	assert_eq(cap.timed_happiness.size(), 1, "draft stokes a timed anger face")
+	assert_eq(int(cap.timed_happiness[0].get("amount", 0)), -1, "the draft anger is negative")
+
+# UNIT_SUPPORT / INFLATION economic fields ---------------------------------------
+
+func test_unit_support_waives_upkeep() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# Three units that each cost upkeep.
+	make_warrior(gs, 1, 5, 5); make_warrior(gs, 1, 5, 5); make_warrior(gs, 1, 5, 5)
+	var base_upkeep = TurnEngine.gold_upkeep(gs, p)
+	Events.apply_effects([{"verb": "unit_support", "count": 3}], p, gs)
+	assert_eq(p.unit_support_relief, 3, "the relief count is recorded")
+	assert_true(TurnEngine.gold_upkeep(gs, p) <= base_upkeep,
+		"unit support relief lowers (or holds) gross upkeep")
+
+func test_inflation_modifies_upkeep() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	for _i in range(6):
+		make_warrior(gs, 1, 5, 5)
+	var base_upkeep = TurnEngine.gold_upkeep(gs, p)
+	Events.apply_effects([{"verb": "inflation", "percent": 50}], p, gs)
+	assert_eq(p.inflation_pct, 50, "the inflation modifier is recorded")
+	assert_true(TurnEngine.gold_upkeep(gs, p) >= base_upkeep,
+		"positive inflation raises gross upkeep")
+	Events.apply_effects([{"verb": "inflation", "percent": -80}], p, gs)
+	assert_eq(p.inflation_pct, -30, "inflation modifiers accumulate")
+
+func test_economic_event_fields_survive_save_load_as_ints() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	p.inflation_pct = -25
+	p.route_speed_bonus = 1
+	p.movie_bonus = 2
+	p.spaceship_bonus = 5
+	p.unit_support_relief = 4
+	var gs2 = GameState.deserialize(gs.serialize(), gs.db)
+	var p2 = gs2.get_player(1)
+	assert_eq(p2.inflation_pct, -25, "inflation roundtrips")
+	assert_eq(typeof(p2.inflation_pct), TYPE_INT, "inflation is a true int on load")
+	assert_eq(p2.route_speed_bonus, 1, "route speed roundtrips")
+	assert_eq(typeof(p2.route_speed_bonus), TYPE_INT, "route speed is a true int on load")
+	assert_eq(p2.movie_bonus, 2, "movie counter roundtrips")
+	assert_eq(typeof(p2.movie_bonus), TYPE_INT, "movie counter is a true int on load")
+	assert_eq(p2.spaceship_bonus, 5, "spaceship counter roundtrips")
+	assert_eq(typeof(p2.spaceship_bonus), TYPE_INT, "spaceship counter is a true int on load")
+	assert_eq(p2.unit_support_relief, 4, "support relief roundtrips")
+	assert_eq(typeof(p2.unit_support_relief), TYPE_INT, "support relief is a true int on load")
+
+# destroy-unit / place-improvement / add-feature ---------------------------------
+
+func test_destroy_unit_removes_matching_unit() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var land = make_warrior(gs, 1, 5, 5)
+	var ship = make_unit(gs, "trireme", 1, 6, 5)
+	Events.apply_effects([{"verb": "destroy_unit", "match": {"domain": "sea"}, "count": 1}], p, gs)
+	assert_null(gs.get_unit(ship.id), "the naval unit is destroyed")
+	assert_not_null(gs.get_unit(land.id), "the land unit is untouched")
+
+func test_place_improvement_lays_pasture() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"resource_id": "cow"})
+	Events.apply_effects([{"verb": "place_improvement", "improvement": "pasture",
+		"add_route": "road", "match": {"resource": "cow"}}], p, gs)
+	assert_eq(t.improvement_id, "pasture", "the pasture is laid on the cow tile")
+	assert_eq(t.transport_id, "road", "the road is laid too")
+
+func test_add_feature_seeds_forest() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	var t = _own_tile(gs, 1, 7, 7, {"terrain_id": "plains"})
+	Events.apply_effects([{"verb": "add_feature", "feature": "forest", "food": 1,
+		"match": {"terrain": "plains"}}], p, gs)
+	assert_eq(t.feature_id, "forest", "a forest feature is added")
+	assert_eq(t.event_food, 1, "the baked food delta is applied")
+
+# resource-gift / niche counters via fired events --------------------------------
+
+func test_brothers_in_need_gifts_goodwill() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.state_religion = "buddhism"
+	make_settlement(gs, 1, 5, 5)
+	Events.fire_event("brothers_in_need", p, gs)
+	assert_eq(Diplomacy.memory_total(p, 2), 3, "the resource gift warms a rival's attitude")
+
+func test_independent_films_raises_movie_counter() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	p.technologies.append("mass_media")
+	Events.fire_event("independent_films", p, gs)
+	assert_eq(p.movie_bonus, 1, "Independent Films grants a movie bonus")
+
+func test_interstate_sets_route_speed() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	Events.fire_event("interstate", p, gs)
+	assert_eq(p.route_speed_bonus, 1, "Interstate grants the route-speed bonus")
+
+# ── Disabling the random-event system (new-game menu) ────────────────────────────
+
+func test_events_can_be_disabled_for_the_game() -> void:
+	var f = load("res://src/api/sim_facade.gd").new()
+	f.setup(make_db(), 42, "tiny", "normal", "warlord",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		 {"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}],
+		["last_standing", "time"], "continents", false, false, false)
+	var gs = f.get_state()
+	assert_false(gs.events_enabled, "the disabled flag is recorded on the game state")
+	assert_eq(gs.active_event_ids.size(), 0, "no event roster is rolled when events are off")
+	assert_eq(gs.active_quest_ids.size(), 0, "no quest roster is rolled when the system is off")
+	# Survives a save/load roundtrip.
+	var f2 = load("res://src/api/sim_facade.gd").new()
+	f2.init_for_load(make_db())
+	f2.load_save(f.save())
+	assert_false(f2.get_state().events_enabled, "events_enabled survives save/load")
+
+func test_events_enabled_by_default() -> void:
+	var f = setup_facade()
+	assert_true(f.get_state().events_enabled, "the random-event system is on by default")

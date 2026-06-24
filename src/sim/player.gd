@@ -70,6 +70,25 @@ var free_early_wins: int = 0
 # as is any switch for a Spiritual leader.
 var transition_turns: int = 0
 
+# Inflation modifier (§9 INFLATION): a signed percentage applied to this player's
+# gross gold upkeep (a positive value swells maintenance, a negative one — e.g. the
+# Federal Reserve event — trims it). Folded into TurnEngine.gold_upkeep alongside the
+# policy upkeep modifier. Serialized (deserialize coerces to int).
+var inflation_pct: int = 0
+
+# Misc niche event counters (§9), all serialized (deserialize coerces to int):
+# route_speed_bonus — a flag (>0) granting faster route movement (the Interstate
+#   event); read by movement at route tiles.
+# movie_bonus — accumulated culture-from-media boost (Independent Films).
+# spaceship_bonus — accumulated spaceship-production percent (Comet Fragment).
+var route_speed_bonus: int = 0
+var movie_bonus: int = 0
+var spaceship_bonus: int = 0
+# unit_support_relief — a count of units whose gold upkeep is waived empire-wide (§9
+# UNIT_SUPPORT, e.g. the Motor Oil event). Folded into TurnEngine.gold_upkeep as extra
+# free units on top of the policy free-units-per-city allowance. Serialized.
+var unit_support_relief: int = 0
+
 # Score cache (updated each turn)
 var score: int = 0
 
@@ -95,6 +114,10 @@ var used_city_names: Array = []
 # IDs of scripted events already fired for this player (so once-only events
 # do not repeat).
 var events_fired: Array = []
+
+# IDs of multi-turn quests this player has completed (§4), so a completed quest is
+# never re-armed. Serialized; the entries are quest-id strings (no int coercion needed).
+var quests_completed: Array = []
 
 # Consecutive turns the player has been insolvent; selling/disbanding only kicks
 # in once this passes the grace period (§6.1).
@@ -146,11 +169,17 @@ func serialize() -> Dictionary:
 		"free_early_wins": free_early_wins,
 		"transition_turns": transition_turns,
 		"state_religion": state_religion,
+		"inflation_pct": inflation_pct,
+		"route_speed_bonus": route_speed_bonus,
+		"movie_bonus": movie_bonus,
+		"spaceship_bonus": spaceship_bonus,
+		"unit_support_relief": unit_support_relief,
 		"score": score,
 		"is_eliminated": is_eliminated,
 		"is_ai": is_ai,
 		"celebration_turns": celebration_turns,
 		"events_fired": events_fired.duplicate(),
+		"quests_completed": quests_completed.duplicate(),
 		"insolvent_turns": insolvent_turns,
 		"golden_age_turns": golden_age_turns,
 		"golden_age_count": golden_age_count,
@@ -199,11 +228,17 @@ static func deserialize(d: Dictionary):
 	p.free_early_wins = int(d.get("free_early_wins", 0))
 	p.transition_turns = int(d.get("transition_turns", 0))
 	p.state_religion = str(d.get("state_religion", ""))
+	p.inflation_pct = int(d.get("inflation_pct", 0))
+	p.route_speed_bonus = int(d.get("route_speed_bonus", 0))
+	p.movie_bonus = int(d.get("movie_bonus", 0))
+	p.spaceship_bonus = int(d.get("spaceship_bonus", 0))
+	p.unit_support_relief = int(d.get("unit_support_relief", 0))
 	p.score = int(d.get("score", 0))
 	p.is_eliminated = bool(d.get("is_eliminated", false))
 	p.is_ai = bool(d.get("is_ai", false))
 	p.celebration_turns = int(d.get("celebration_turns", 0))
 	p.events_fired = d.get("events_fired", []).duplicate()
+	p.quests_completed = d.get("quests_completed", []).duplicate()
 	p.insolvent_turns = int(d.get("insolvent_turns", 0))
 	p.golden_age_turns = int(d.get("golden_age_turns", 0))
 	p.golden_age_count = int(d.get("golden_age_count", 0))
