@@ -148,9 +148,14 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 		list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(list_vbox)
 		for su in stack:
-			var row: Button = Button.new()
+			# Left-justified/natural-width like the sibling action buttons (Issue 5):
+			# route through _left_button (which clears the FILL/EXPAND size flags) so
+			# the ▸-marked rows shrink to content and anchor left instead of stretching
+			# the full list width. The list_vbox stays EXPAND_FILL so it spans the
+			# ScrollContainer's width (preserving horizontal scroll), while the buttons
+			# inside it left-align.
 			var mark: String = "▸ " if su.id in sel.selected_unit_ids else "  "
-			row.text = mark + su.unit_type_id.capitalize() + "  (HP " + str(su.health) + ")"
+			var row: Button = _left_button(mark + su.unit_type_id.capitalize() + "  (HP " + str(su.health) + ")")
 			row.connect("pressed", self, "_on_select_stack_member", [su.id])
 			list_vbox.add_child(row)
 		add_child(scroll)
@@ -233,9 +238,8 @@ func _build_city_panel(city_id: int, gs) -> void:
 		revolt_lbl.text = "In revolt: " + str(s.revolt_turns) + " turn(s)"
 		add_child(revolt_lbl)
 
-	# Open city screen button
-	var city_btn: Button = Button.new()
-	city_btn.text = "Open City"
+	# Open city screen button (Issue 5: left-justified like the unit-panel buttons).
+	var city_btn: Button = _left_button("Open City")
 	city_btn.connect("pressed", self, "_on_open_city", [city_id])
 	add_child(city_btn)
 
@@ -244,8 +248,7 @@ func _build_city_panel(city_id: int, gs) -> void:
 	# be disbanded, so it shows no Disband button at all (the command is also
 	# rejected facade-side; this keeps the UI honest about what is allowed).
 	if not s.has_structure("palace"):
-		var disband_btn: Button = Button.new()
-		disband_btn.text = "Disband City"
+		var disband_btn: Button = _left_button("Disband City")
 		disband_btn.connect("pressed", self, "_on_disband_city", [city_id])
 		add_child(disband_btn)
 
