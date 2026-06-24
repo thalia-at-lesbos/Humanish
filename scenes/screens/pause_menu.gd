@@ -131,8 +131,15 @@ func _on_load() -> void:
 
 # Tear down the current game and return to the title screen, where a new game is
 # configured (New Game / Load Game). change_scene frees this scene tree for us.
+#
+# get_tree().paused is a SceneTree property, not a per-scene one, so it survives
+# change_scene: if the game was paused when we left (e.g. the hotseat PassDevice
+# overlay had set it) the freshly loaded StartMenu would inherit a paused tree and
+# its buttons would never process — the title screen would look hung. Clear the
+# pause before swapping scenes so the menu comes up live.
 func _on_new_game() -> void:
 	visible = false
+	get_tree().paused = false
 	get_tree().change_scene("res://scenes/menus/start_menu.tscn")
 
 func _on_quit() -> void:
