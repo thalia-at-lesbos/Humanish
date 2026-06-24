@@ -162,6 +162,13 @@ static func _golden_age_cost(gs: GameState, player: Player) -> int:
 	return db.get_constant("golden_age_gp_base_cost", 2) \
 		+ player.golden_age_count * db.get_constant("golden_age_gp_cost_increment", 1)
 
+# Grant a free Golden Age outright (§9 events, e.g. Marathon): start or extend one
+# of the standard duration without consuming any Great Person, and count it toward
+# the player's Golden Age tally (so the next GP-bought age costs more).
+static func start_free_golden_age(gs: GameState, player: Player) -> void:
+	player.golden_age_turns += _golden_age_duration(gs, player)
+	player.golden_age_count += 1
+
 # Sacrifice one Great Person toward a Golden Age. Returns true once the Golden
 # Age actually starts/extends (i.e. enough GP have now been contributed).
 static func contribute_to_golden_age(gs: GameState, player: Player) -> bool:

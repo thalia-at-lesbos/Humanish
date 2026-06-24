@@ -80,6 +80,13 @@ var pending_assembly_events: Array = []  # [{kind, ...payload}]
 # and stays on the determinism gate (deserialize coerces player_id/turns_left).
 var active_events: Array = []
 
+# Per-game random-event roster (§9): the event ids whose `active` inclusion roll
+# succeeded at game setup, so they may occur this game. Rolled once from gs.rng in
+# fixed event-id order (Events.roll_active_events) and serialized, so the roster is
+# stable across save/load and on the determinism gate. An empty roster means "not
+# rolled yet" — Events treats it as "all events eligible" only before setup runs.
+var active_event_ids: Array = []
+
 # Random-event choices a human still owes (§9): each {event_id, player_id,
 # trigger_id}. The event fired but its branch is unresolved; the facade raises a
 # CHOOSE_EVENT popup at the player's turn start and clears the entry on resolve.
@@ -340,6 +347,7 @@ func serialize() -> Dictionary:
 		"open_borders": open_borders.duplicate(true),
 		"seen_memory": SeenMemory.serialize(seen_memory),
 		"active_events": active_events.duplicate(true),
+		"active_event_ids": active_event_ids.duplicate(),
 		"pending_event_choices": pending_event_choices.duplicate(true),
 		"_next_unit_id": _next_unit_id,
 		"_next_settlement_id": _next_settlement_id,
@@ -418,12 +426,20 @@ static func deserialize(d: Dictionary, db_ref):
 			"player_id": int(inst.get("player_id", -1)),
 			"turns_left": int(inst.get("turns_left", 0))
 		})
+	gs.active_event_ids = []
+	for eid in d.get("active_event_ids", []):
+		gs.active_event_ids.append(str(eid))
 	gs.pending_event_choices = []
 	for pc in d.get("pending_event_choices", []):
 		gs.pending_event_choices.append({
 			"event_id": str(pc.get("event_id", "")),
 			"player_id": int(pc.get("player_id", -1)),
-			"trigger_id": str(pc.get("trigger_id", ""))
+			"trigger_id": str(pc.get("trigger_id", "")),
+			# Pre-rolled concrete branch effects baked at fire time (§9): each
+			# {id, text, effects:[...]}. Carried verbatim — effect amounts are coerced
+			# to int at apply time in Events._apply_effect, so the JSON float roundtrip
+			# is harmless here.
+			"resolved_choices": pc.get("resolved_choices", []).duplicate(true)
 		})
 	gs._next_unit_id = int(d.get("_next_unit_id", 1))
 	gs._next_settlement_id = int(d.get("_next_settlement_id", 1))

@@ -593,9 +593,20 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 			war_anger -= Fixed.scale(war_anger, war_reduction)
 		neg_anger += war_anger
 
+	# Timed event happiness modifiers (§9): a positive amount is a temporary happy
+	# face (folded into pos), a negative one a temporary angry face contributing
+	# |amount| flat discontented citizens (added after the percentage conversion).
+	var timed_neg: int = 0
+	for tm in s.timed_happiness:
+		var a: int = int(tm.get("amount", 0))
+		if a >= 0:
+			pos += a
+		else:
+			timed_neg += -a
+
 	# Convert anger percentage to negative sentiment citizens
 	var anger_div: int = db.get_constant("anger_divisor", 100)
-	var neg_citizens: int = Fixed.scale(s.population, neg_anger)
+	var neg_citizens: int = Fixed.scale(s.population, neg_anger) + timed_neg
 
 	s.positive_sentiment = pos
 	s.negative_sentiment = neg_citizens
@@ -1530,6 +1541,15 @@ static func _tick_states(gs: GameState, player: Player) -> void:
 			continue
 		if s.rush_anger_turns > 0:
 			s.rush_anger_turns -= 1
+		# Count down timed event happiness modifiers; drop the expired ones (§9).
+		if not s.timed_happiness.empty():
+			var kept: Array = []
+			for tm in s.timed_happiness:
+				var left: int = int(tm.get("turns_left", 0)) - 1
+				if left > 0:
+					tm["turns_left"] = left
+					kept.append(tm)
+			s.timed_happiness = kept
 
 static func _validate_policies(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db

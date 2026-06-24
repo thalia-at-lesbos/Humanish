@@ -1,60 +1,179 @@
 {
-  "_comment": "Random-event definitions (§9). Each event has display text, an optional choices array (a begin-phase popup; absent = auto-apply the begin `effects`), an optional integer `duration` (turns the event persists before its `expire_effects` apply), and effect lists. Trigger predicates that decide WHEN an event fires live in data/event_triggers.json. Effect verbs (read by Events._apply_effect): gold/research/culture (player or capital deltas), tech (free cheapest researchable, or `tech_id`), unit (spawn `count` of `unit_type` at the capital), building (free `structure_id` in the capital), capital_health (delta on the capital's health; generic, used by timed events), capital_pop (delta on the capital's population, floored at 1), nearby_pop (delta on every OTHER owned city within `radius` tiles of the capital — default `event_nearby_radius` — each floored at 1), heal_units (restore every owned unit to full). Magnitudes are fixed integers so applying a choice is deterministic regardless of when the human resolves the popup; only trigger selection draws gs.rng.",
-  "ancient_windfall": {
-    "id": "ancient_windfall",
-    "name": "Ancient Windfall",
-    "text": "Prospectors uncover an ancient cache of gold.",
-    "effects": [ { "verb": "gold", "amount": 50 } ]
-  },
-  "founders_monument": {
-    "id": "founders_monument",
-    "name": "A Gift of Stone",
-    "text": "Grateful settlers raise a monument to your founding.",
-    "effects": [ { "verb": "building", "structure_id": "monument" } ]
-  },
-  "bountiful_harvest": {
-    "id": "bountiful_harvest",
-    "name": "Bountiful Harvest",
-    "text": "A record harvest swells your granaries and your people's pride.",
-    "effects": [ { "verb": "culture", "amount": 40 } ]
-  },
-  "wandering_nomads": {
-    "id": "wandering_nomads",
-    "name": "Wandering Nomads",
-    "text": "A band of nomads asks to settle among your people.",
+  "_comment": "Random-event catalogue (§9, reworked). Selection model: a 20-turn grace period (event_grace_turns, NOT pace-scaled) suppresses all events at game start; thereafter ONE roll per player per turn at event_era_chance[player_era] decides whether ANY event fires; if it does, one eligible event is drawn weighted by `weight`. At game setup each event rolls its `active` percent (0-100) once to decide whether it is in this game at all (GameState.active_event_ids). An event is eligible for a player when it is in the roster, every `prereq` predicate holds, no `obsolete` tech is held, it is not a still-running timed instance, and (if `one_shot`) it has not already fired. PREREQ predicates (all ANDed): min_era/max_era (era index 0..6), at_war/at_peace, tech_all/tech_any (arrays), building (owned structure), civic (active policy id), state_religion (bool), resource_absent (own no tile with it), min_pop/max_pop (some owned city), coastal (some owned coastal city), players_tech {tech,count} (>=count players hold it), tile {terrain,feature,improvement,resource,route(bool),in_city_radius(bool)} (an owned tile matches all keys given). EFFECTS: an event either auto-applies begin `effects`, or presents non-skippable `choices` (each {id,text,effects}). Effect verbs (Events._apply_effect): gold (amount; negative=pay), research, research_pct_remaining {percent} (banks percent% of the current tech's remaining cost), research_pct_loss {percent} (loses percent% of the current tech's cost), culture (capital), tech ({tech_id} or cheapest), unit {unit_type,count}, building {structure_id}, capital_health, capital_pop, nearby_pop {amount,radius}, heal_units, golden_age, attitude {target:'rival'|'all_met',amount} (diplo_memory points), grant_promotion {promotion, classification?/domain?/unit_types?}, place_resource {resource, match, remove_feature?, add_improvement?, add_route?}, tile_yield {food?,production?,commerce?, match}, remove_feature {match}, remove_route {match}, remove_improvement {match}, city_happy_timed {amount,turns,scope:'capital'|'all'|'all_state_religion'}, food_store {amount? or pct?}, spawn_wild {unit_type,count,near:'capital'}. Roller-only templates expanded at FIRE time drawing gs.rng (so applying a resolved choice is RNG-free and deterministic regardless of when a human answers): an effect with `range`:[min,max] instead of `amount` rolls a value; `{verb:'chance',percent,then:[...]}` rolls once and, on success, splices in `then`. Tile-targeted verbs resolve their `match` predicate deterministically at apply time (first matching owned tile). All magnitudes are standard/normal; map-size and game-speed scaling is deferred (see docs/planning/event-subsystem-planning.md).",
+
+  "forest_fire": {
+    "id": "forest_fire", "name": "Forest Fire",
+    "text": "Fire races through a forest near one of your cities.",
+    "active": 70, "weight": 100,
+    "prereq": { "tile": { "feature": "forest", "in_city_radius": true } },
     "choices": [
-      { "id": "welcome", "text": "Welcome them (gain a Worker)",
-        "effects": [ { "verb": "unit", "unit_type": "worker", "count": 1 } ] },
-      { "id": "tax", "text": "Tax them for passage (gain 30 gold)",
-        "effects": [ { "verb": "gold", "amount": 30 } ] }
+      { "id": "douse", "text": "Pay the fire brigades (lose 10 gold)",
+        "effects": [ { "verb": "gold", "amount": -10 } ] },
+      { "id": "contain", "text": "Contain it cheaply (lose 4 gold and a forest)",
+        "effects": [ { "verb": "gold", "amount": -4 },
+          { "verb": "remove_feature", "match": { "feature": "forest", "in_city_radius": true } } ] },
+      { "id": "let_burn", "text": "Let it burn out (lose a forest; the people seethe)",
+        "effects": [ { "verb": "remove_feature", "match": { "feature": "forest", "in_city_radius": true } },
+          { "verb": "city_happy_timed", "amount": -1, "turns": 10, "scope": "capital" } ] }
     ]
   },
-  "scholarly_visitor": {
-    "id": "scholarly_visitor",
-    "name": "A Visiting Scholar",
-    "text": "A renowned scholar offers to share their learning - for a price.",
+
+  "motherload": {
+    "id": "motherload", "name": "Motherload",
+    "text": "Miners strike an unexpectedly rich seam in your gold mine.",
+    "active": 90, "weight": 200,
+    "prereq": {
+      "tile": { "improvement": "mine", "resource": "gold" },
+      "tech_any": [ "writing", "monotheism", "priesthood", "iron_working" ]
+    },
+    "effects": [ { "verb": "gold", "range": [20, 40] } ]
+  },
+
+  "washed_out": {
+    "id": "washed_out", "name": "Washed Out",
+    "text": "Heavy rains have washed out one of your roads.",
+    "active": 80, "weight": 100,
+    "prereq": { "tile": { "route": true } },
     "choices": [
-      { "id": "fund", "text": "Fund the academy (gain 120 research)",
-        "effects": [ { "verb": "research", "amount": 120 } ] },
-      { "id": "decline", "text": "Send them on with a stipend (gain 20 gold)",
-        "effects": [ { "verb": "gold", "amount": 20 } ] }
+      { "id": "abandon", "text": "Leave it impassable (lose a road)",
+        "effects": [ { "verb": "remove_route", "match": { "route": true } } ] },
+      { "id": "rebuild", "text": "Rebuild at once (pay 20 gold)",
+        "effects": [ { "verb": "gold", "amount": -20 } ] }
     ]
   },
-  "veteran_recruits": {
-    "id": "veteran_recruits",
-    "name": "Veteran Recruits",
-    "text": "Hardened volunteers, eager to fight, muster at your capital.",
-    "effects": [ { "verb": "unit", "unit_type": "warrior", "count": 2 } ]
+
+  "breakthrough": {
+    "id": "breakthrough", "name": "Breakthrough",
+    "text": "Your scholars report a sudden insight.",
+    "active": 80, "weight": 50,
+    "effects": [ { "verb": "research_pct_remaining", "percent": 10 } ]
   },
-  "influenza": {
-    "id": "influenza",
-    "name": "Influenza Outbreak",
-    "text": "A virulent influenza sweeps through your capital and the sick are dying.",
+
+  "setback": {
+    "id": "setback", "name": "Setback",
+    "text": "A line of inquiry proves to be a dead end.",
+    "active": 65, "weight": 30,
+    "effects": [ { "verb": "research_pct_loss", "percent": 8 } ]
+  },
+
+  "faux_pas": {
+    "id": "faux_pas", "name": "Faux Pas",
+    "text": "An envoy commits an embarrassing breach of etiquette abroad.",
+    "active": 70, "weight": 100,
+    "effects": [ { "verb": "attitude", "target": "rival", "amount": -30 } ]
+  },
+
+  "bowyer": {
+    "id": "bowyer", "name": "Bowyer",
+    "text": "A master bowyer trains your archers in disciplined volley fire.",
+    "active": 35, "weight": 50,
+    "prereq": { "tech_all": [ "archery" ] },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "grant_promotion", "promotion": "combat1", "classification": "ranged" } ]
+  },
+
+  "spicy": {
+    "id": "spicy", "name": "Spicy",
+    "text": "Foragers find aromatic spices growing wild in a nearby forest.",
+    "active": 50, "weight": 100,
+    "prereq": {
+      "tech_all": [ "calendar" ],
+      "tile": { "feature": "forest", "in_city_radius": true },
+      "resource_absent": "spices"
+    },
     "choices": [
-      { "id": "quarantine", "text": "Impose a costly quarantine (pay 100 gold, lose 3 population)",
-        "effects": [ { "verb": "gold", "amount": -100 }, { "verb": "capital_pop", "amount": -3 } ] },
-      { "id": "endure", "text": "Let it run its course (lose 3 population; nearby cities lose 2)",
-        "effects": [ { "verb": "capital_pop", "amount": -3 }, { "verb": "nearby_pop", "amount": -2, "radius": 4 } ] }
+      { "id": "gather", "text": "Gather them as they grow (the forest gains Spices)",
+        "effects": [ { "verb": "place_resource", "resource": "spices",
+          "match": { "feature": "forest", "in_city_radius": true } } ] },
+      { "id": "cultivate", "text": "Clear and cultivate (pay 20 gold; plantation + road)",
+        "effects": [ { "verb": "gold", "amount": -20 },
+          { "verb": "place_resource", "resource": "spices",
+            "match": { "feature": "forest", "in_city_radius": true },
+            "remove_feature": true, "add_improvement": "plantation", "add_route": "road" } ] }
+    ]
+  },
+
+  "truffles": {
+    "id": "truffles", "name": "Truffles",
+    "text": "Truffles are discovered under the grass of one of your tiles.",
+    "active": 70, "weight": 20,
+    "prereq": { "tile": { "terrain": "grassland" } },
+    "effects": [ { "verb": "tile_yield", "food": 1, "commerce": 1,
+      "match": { "terrain": "grassland" } } ]
+  },
+
+  "marathon": {
+    "id": "marathon", "name": "Marathon",
+    "text": "Your soldiers' heroic endurance in the field inspires the whole nation.",
+    "active": 100, "weight": 800,
+    "prereq": { "at_war": true },
+    "effects": [ { "verb": "golden_age" } ]
+  },
+
+  "earth_day": {
+    "id": "earth_day", "name": "Earth Day",
+    "text": "A grassroots conservation movement sweeps your cities.",
+    "active": 95, "weight": 100,
+    "prereq": { "civic": "environmentalism" },
+    "choices": [
+      { "id": "observe", "text": "Let the people celebrate (+1 happy in every city, 10 turns)",
+        "effects": [ { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] },
+      { "id": "fund", "text": "Fund a national programme (pay 60 gold; +1 happy, 10 turns)",
+        "effects": [ { "verb": "gold", "amount": -60 },
+          { "verb": "city_happy_timed", "amount": 1, "turns": 10, "scope": "all" } ] }
+    ]
+  },
+
+  "gold_rush": {
+    "id": "gold_rush", "name": "Gold Rush",
+    "text": "Word of a strike at your mine draws a flood of fortune-seekers.",
+    "active": 90, "weight": 500,
+    "prereq": { "tile": { "improvement": "mine" }, "max_pop": 5, "min_era": 4 },
+    "choices": [
+      { "id": "let_settle", "text": "Let them settle (the city grows by 1)",
+        "effects": [ { "verb": "capital_pop", "amount": 1 } ] },
+      { "id": "boomtown", "text": "Throw up a boomtown (pay 20 gold; the city grows by 3)",
+        "effects": [ { "verb": "gold", "amount": -20 }, { "verb": "capital_pop", "amount": 3 } ] }
+    ]
+  },
+
+  "security_tax": {
+    "id": "security_tax", "name": "Security Tax",
+    "text": "Your walled cities levy a toll on the caravans sheltering within.",
+    "active": 70, "weight": 500,
+    "prereq": {
+      "building": "walls",
+      "tech_any": [ "metal_casting", "iron_working", "monarchy", "mathematics" ]
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "gold", "range": [20, 80] } ]
+  },
+
+  "the_huns": {
+    "id": "the_huns", "name": "The Huns",
+    "text": "A horde of mounted raiders sweeps in from the steppe.",
+    "active": 20, "weight": 200,
+    "prereq": {
+      "players_tech": { "tech": "horseback_riding", "count": 1 }
+    },
+    "obsolete": [ "nationalism", "printing_press", "education", "gunpowder", "astronomy" ],
+    "effects": [ { "verb": "spawn_wild", "unit_type": "horse_archer", "count": 4, "near": "capital" } ]
+  },
+
+  "dust_bowl": {
+    "id": "dust_bowl", "name": "Dust Bowl",
+    "text": "A choking dust storm scours the topsoil from your plains farms.",
+    "active": 70, "weight": 100,
+    "prereq": { "tech_all": [ "civil_service" ],
+      "tile": { "terrain": "plains", "improvement": "farm" } },
+    "choices": [
+      { "id": "subsidize", "text": "Subsidise the farmers (pay 40 gold; lose 1 farm)",
+        "effects": [ { "verb": "gold", "amount": -40 },
+          { "verb": "remove_improvement", "match": { "terrain": "plains", "improvement": "farm" } } ] },
+      { "id": "ride_out", "text": "Ride it out (lose 1 farm — and maybe another)",
+        "effects": [ { "verb": "remove_improvement", "match": { "terrain": "plains", "improvement": "farm" } },
+          { "verb": "chance", "percent": 50,
+            "then": [ { "verb": "remove_improvement", "match": { "terrain": "plains", "improvement": "farm" } } ] } ] }
     ]
   }
 }

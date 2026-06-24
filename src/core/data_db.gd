@@ -37,8 +37,6 @@ var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
 var events: Dictionary = {}
-# Trigger predicates that decide when an event fires (§9 lifecycle).
-var event_triggers: Dictionary = {}
 # Goody-hut / discovery-site reward table (§9).
 var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
@@ -75,7 +73,6 @@ func load_all() -> bool:
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
 	events       = _load_json("res://data/events.json")
-	event_triggers = _load_json("res://data/event_triggers.json")
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	espionage_missions = _load_json("res://data/espionage_missions.json")
@@ -132,10 +129,6 @@ func get_event(id: String) -> Dictionary:
 # All event definitions (callers iterating must skip the leading "_comment" key).
 func get_events() -> Dictionary:
 	return events
-
-# All trigger predicates (callers iterating must skip the leading "_comment" key).
-func get_event_triggers() -> Dictionary:
-	return event_triggers
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -386,45 +379,69 @@ func _validate_diplomacy_refs() -> void:
 
 # Every trigger must name an event that exists; every event effect (begin, choice,
 # or expire) must use a known verb and resolve its unit/structure/tech reference.
+# Every event's prereq/obsolete references must resolve, and every effect (begin,
+# choice, expire, or nested `chance.then`) must use a known verb and resolve its
+# unit/structure/tech/resource/promotion references.
 func _validate_event_refs() -> void:
-	for tid in event_triggers:
-		if tid == "_comment":
-			continue
-		var trig: Dictionary = event_triggers[tid]
-		var eid = str(trig.get("event_id", ""))
-		if eid == "" or not events.has(eid):
-			_errors.append("Event trigger '%s' event_id '%s' not in events table" % [tid, eid])
-		var treq = trig.get("tech_required", "")
-		if treq != null and treq != "" and not technologies.has(str(treq)):
-			_errors.append("Event trigger '%s' tech_required '%s' not found" % [tid, treq])
-		var breq = trig.get("building_required", "")
-		if breq != null and breq != "" and not structures.has(str(breq)):
-			_errors.append("Event trigger '%s' building_required '%s' not found" % [tid, breq])
 	for eid in events:
 		if eid == "_comment":
 			continue
 		var ev: Dictionary = events[eid]
+		_validate_event_prereq(eid, ev.get("prereq", {}))
+		for t in ev.get("obsolete", []):
+			if not technologies.has(str(t)):
+				_errors.append("Event '%s' obsolete tech '%s' not found" % [eid, t])
 		_validate_event_effects(eid, ev.get("effects", []))
 		_validate_event_effects(eid, ev.get("expire_effects", []))
 		for ch in ev.get("choices", []):
 			_validate_event_effects(eid, ch.get("effects", []))
 
+func _validate_event_prereq(eid: String, pr: Dictionary) -> void:
+	for t in pr.get("tech_all", []):
+		if not technologies.has(str(t)):
+			_errors.append("Event '%s' prereq tech_all '%s' not found" % [eid, t])
+	for t in pr.get("tech_any", []):
+		if not technologies.has(str(t)):
+			_errors.append("Event '%s' prereq tech_any '%s' not found" % [eid, t])
+	if pr.has("players_tech"):
+		var pt = str(pr["players_tech"].get("tech", ""))
+		if not technologies.has(pt):
+			_errors.append("Event '%s' prereq players_tech '%s' not found" % [eid, pt])
+	if pr.has("building") and not structures.has(str(pr["building"])):
+		_errors.append("Event '%s' prereq building '%s' not in structures" % [eid, pr["building"]])
+	if pr.has("civic") and not policies.get("policies", {}).has(str(pr["civic"])):
+		_errors.append("Event '%s' prereq civic '%s' not a policy" % [eid, pr["civic"]])
+	if pr.has("resource_absent") and not resources.has(str(pr["resource_absent"])):
+		_errors.append("Event '%s' prereq resource_absent '%s' not a resource" % [eid, pr["resource_absent"]])
+
 func _validate_event_effects(eid: String, effects: Array) -> void:
-	var known := ["gold", "research", "culture", "tech", "unit", "building",
-		"capital_health", "capital_pop", "nearby_pop", "heal_units"]
+	var known := ["gold", "research", "research_pct_remaining", "research_pct_loss",
+		"culture", "tech", "unit", "building", "capital_health", "capital_pop",
+		"nearby_pop", "heal_units", "food_store", "golden_age", "attitude",
+		"grant_promotion", "city_happy_timed", "place_resource", "tile_yield",
+		"remove_feature", "remove_improvement", "remove_route", "spawn_wild", "chance"]
 	for eff in effects:
 		var verb = str(eff.get("verb", ""))
 		if not (verb in known):
 			_errors.append("Event '%s' uses unknown effect verb '%s'" % [eid, verb])
-		if verb == "unit":
-			var ut = str(eff.get("unit_type", ""))
-			if not units.has(ut):
-				_errors.append("Event '%s' unit effect type '%s' not in units table" % [eid, ut])
-		elif verb == "building":
-			var st = str(eff.get("structure_id", ""))
-			if not structures.has(st):
-				_errors.append("Event '%s' building effect '%s' not in structures table" % [eid, st])
-		elif verb == "tech":
-			var tid = str(eff.get("tech_id", ""))
-			if tid != "" and not technologies.has(tid):
-				_errors.append("Event '%s' tech effect '%s' not found" % [eid, tid])
+		match verb:
+			"unit", "spawn_wild":
+				if not units.has(str(eff.get("unit_type", ""))):
+					_errors.append("Event '%s' unit effect type '%s' not in units table" % [eid, eff.get("unit_type", "")])
+			"building":
+				if not structures.has(str(eff.get("structure_id", ""))):
+					_errors.append("Event '%s' building effect '%s' not in structures table" % [eid, eff.get("structure_id", "")])
+			"tech":
+				var tid = str(eff.get("tech_id", ""))
+				if tid != "" and not technologies.has(tid):
+					_errors.append("Event '%s' tech effect '%s' not found" % [eid, tid])
+			"grant_promotion":
+				if not promotions.has(str(eff.get("promotion", ""))):
+					_errors.append("Event '%s' grant_promotion '%s' not in promotions" % [eid, eff.get("promotion", "")])
+			"place_resource":
+				if not resources.has(str(eff.get("resource", ""))):
+					_errors.append("Event '%s' place_resource '%s' not a resource" % [eid, eff.get("resource", "")])
+				if eff.has("add_improvement") and not improvements.has(str(eff["add_improvement"])):
+					_errors.append("Event '%s' place_resource add_improvement '%s' not an improvement" % [eid, eff["add_improvement"]])
+			"chance":
+				_validate_event_effects(eid, eff.get("then", []))

@@ -1217,16 +1217,27 @@ Beyond the passive turn-by-turn spread (§8), a player may spread a religion del
   a heal, or a hostile ambush. *(The engine currently places "discovery sites" only on
   Terra-style maps; generalise goody-hut placement to all map scripts and make the reward
   table data-driven with per-difficulty weights.)*
-* **Events — the trigger/apply/expire lifecycle**: the reference's random-event system is far
-  richer than a one-shot table. Each event has a **trigger predicate** (gated on turn, tech,
-  buildings, terrain, war state, probability and game-speed-scaled timers), a **begin** phase
-  that may present the player a **choice popup**, an **apply** phase that commits the chosen
-  outcome (gold, units, buildings, tech, terrain/feature changes, happiness/health, a quest),
-  and an optional **expire** phase for timed events that persist and later end. Events are
-  weighted, can chain, and are almost entirely defined in external content data
-  (`data/events.json` + a triggers table). *(The engine currently runs a flat one-shot list
-  with a single treasury delta and no triggers/choices/expiry; build out the lifecycle and
-  grow the event/trigger catalogue toward the reference's large set.)*
+* **Events — selection, choice, apply, expire**: the random-event system is data-driven and
+  far richer than a one-shot table. Every event is a single record in `data/events.json`
+  carrying its own **prereq** predicate, **obsolete** techs, an **active** inclusion percent, a
+  selection **weight**, and either begin `effects` or a set of **non-skippable choices** (and an
+  optional `duration`/`expire_effects` for timed events). **Selection** runs once per player per
+  turn: a flat **grace period** (`event_grace_turns`, *not* pace-scaled) suppresses events at
+  game start; thereafter a single roll at **`event_era_chance[era]`** (1/2/4/4/6/8/10% by era,
+  Ancient→Future) decides whether *any* event fires, and if so one **eligible** event is drawn
+  **weighted** by `weight`. An event is eligible when it is in this game's **roster** (each
+  event's `active`% is rolled once at setup into `GameState.active_event_ids`), every prereq
+  holds, it holds no obsolete tech, it is not a still-running timed instance, and (if one_shot)
+  has not already fired. **Choices** are mandatory: a human cannot end their turn while an event
+  decision is unresolved. **Determinism**: any random magnitudes (`range`) and probabilistic
+  branches (`chance`) are rolled **once at fire time** in fixed order and baked into the begin
+  effects / the parked choice's branches, so applying a resolved choice draws no RNG and a human
+  may answer the popup at any point in their turn without perturbing the shared stream. The
+  prereq vocabulary, the full effect-verb list, and the catalogue roadmap (porting the
+  reference's ~174 events + 18 quests, and the subsystems each needs) live in
+  `docs/planning/event-subsystem-planning.md`. *(The shipped catalogue is a representative
+  vertical slice; map-size / game-speed scaling of magnitudes and the multi-turn Quest subsystem
+  are deferred — see the planning doc.)*
 
 ### 9.1 Wild-forces behaviour (provisional)
 > **⚠️ Provisional — preliminary, not verified.** This subsection is a first-pass model of how
