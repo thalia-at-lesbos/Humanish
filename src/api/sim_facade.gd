@@ -1178,6 +1178,22 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 	var p: Player = _gs.get_player(int(cmd["player_id"]))
 	var imp: Dictionary = _db.get_improvement(imp_id)
 	u.building_improvement = imp_id
+	# Single-use builders (work boats, data flag `consumed_on_use`, §5) finish their
+	# improvement INSTANTLY — the sea improvement is placed and the boat removed
+	# within this same command, so the player never sees a multi-turn progress bar
+	# or a leftover boat. Land workers fall through to the multi-turn path below.
+	if "consumed_on_use" in _db.get_unit(u.unit_type_id).get("tags", []):
+		var consumed: bool = TurnEngine.complete_worker_build(_gs, u)
+		if consumed and _selection != null:
+			_selection.selected_unit_ids.erase(u.id)
+		# Surface the completion (notification + world repaint) immediately rather
+		# than waiting for the end-of-turn drain, and repaint panes so the now-gone
+		# boat clears from the selection panel.
+		_drain_improvement_completions()
+		_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+		_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+		_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+		return true
 	# Serfdom speeds improvement construction (§8): fewer build turns.
 	var bt: int = int(imp.get("build_turns", 5))
 	var worker_speed: int = PolicyEffects.sum_int(p, _db, "worker_speed_bonus")
