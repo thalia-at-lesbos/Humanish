@@ -46,9 +46,9 @@ var wild_aggressive: bool = false
 # game). Off by default.
 var permanent_alliances: bool = false
 
-# §9 setting (new-game menu): when false, the random-event system is switched off
-# entirely — no per-game roster is rolled and the player-event phase is skipped.
-# Multi-turn quests (§4) are independent of this flag. On by default.
+# §9/§4 setting (new-game menu): when false, the whole random-event AND multi-turn
+# quest system is switched off — no rosters are rolled and both the player-event and
+# quest phases are skipped. On by default.
 var events_enabled: bool = true
 
 # §11 Global warming: a running count of every nuclear explosion that has ever

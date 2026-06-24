@@ -183,10 +183,10 @@ func _build_ui() -> void:
 	_permanent_alliances_check.pressed = false
 	vbox.add_child(_permanent_alliances_check)
 
-	# Random events (§9): the whole random-event system. On by default; unchecking
-	# switches it off for the game (multi-turn quests are unaffected).
+	# Random events & quests (§9/§4): the whole random-event and multi-turn quest
+	# system. On by default; unchecking switches both off for the game.
 	_events_check = CheckBox.new()
-	_events_check.text = "Random events"
+	_events_check.text = "Random events & quests"
 	_events_check.pressed = true
 	vbox.add_child(_events_check)
 

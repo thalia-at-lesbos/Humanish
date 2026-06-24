@@ -164,12 +164,13 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# Roll this game's random-event roster (§9): each event's `active` inclusion
 	# percent is drawn once from gs.rng in fixed event-id order, so the roster is
 	# deterministic for the seed and is captured by save/load (active_event_ids).
-	# Skipped entirely when the random-event system is switched off (new-game menu).
+	# Skipped entirely when the random-event/quest system is switched off (new-game
+	# menu) — the same toggle governs both events and multi-turn quests.
 	if _gs.events_enabled:
 		Events.roll_active_events(_gs)
-	# Roll this game's quest roster (§4) the same way, immediately after the events
-	# roll so the RNG draw order stays fixed for the seed.
-	Quests.roll_active_quests(_gs)
+		# Roll this game's quest roster (§4) the same way, immediately after the events
+		# roll so the RNG draw order stays fixed for the seed.
+		Quests.roll_active_quests(_gs)
 
 # Initialize only the non-serialized scaffolding (db, hooks, UI state) so a save
 # can be loaded into a fresh facade without running setup(). load_save() then

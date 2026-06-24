@@ -1289,6 +1289,7 @@ func test_events_can_be_disabled_for_the_game() -> void:
 	var gs = f.get_state()
 	assert_false(gs.events_enabled, "the disabled flag is recorded on the game state")
 	assert_eq(gs.active_event_ids.size(), 0, "no event roster is rolled when events are off")
+	assert_eq(gs.active_quest_ids.size(), 0, "no quest roster is rolled when the system is off")
 	# Survives a save/load roundtrip.
 	var f2 = load("res://src/api/sim_facade.gd").new()
 	f2.init_for_load(make_db())

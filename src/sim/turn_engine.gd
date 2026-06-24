@@ -157,7 +157,7 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	# (complete → queue reward; constraint violated → drop) and arm one new eligible
 	# quest. Runs right after the random-event phase; rewards reuse the event verbs and
 	# a 3-choice reward reuses the event pending-choice machinery.
-	if not hooks.run(IDs.Phase.PLAYER_QUESTS, gs, {"player_id": player_id}):
+	if gs.events_enabled and not hooks.run(IDs.Phase.PLAYER_QUESTS, gs, {"player_id": player_id}):
 		Quests.process_player_quests(player, gs, gs.rng)
 
 	# Found a belief if this player has newly become eligible for one (§8). No-op

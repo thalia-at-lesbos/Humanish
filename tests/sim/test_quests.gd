@@ -120,31 +120,45 @@ func test_quest_not_re_armed_when_already_active_or_completed() -> void:
 	assert_false(Quests.quest_eligible("classic_literature", p, gs),
 		"an already-completed quest is not eligible to re-arm")
 
-# ── Arming: grace period + one-at-a-time ─────────────────────────────────────────
+# ── Arming: grace period + random era-chance trigger ─────────────────────────────
 
 func test_no_quest_arms_during_grace_period() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	make_settlement(gs, 1, 5, 5)
 	_grant_tech(gs, 1, "writing")  # classic_literature is eligible
+	gs.db.constants["quest_era_chance"] = [100, 100, 100, 100, 100, 100, 100]  # force the roll
 	gs.turn_number = 5             # within the 20-turn grace
 	Quests.process_player_quests(p, gs, gs.rng)
 	assert_eq(gs.active_quests.size(), 0, "no quest arms within the grace period")
 	gs.turn_number = 25            # past the grace
 	Quests.process_player_quests(p, gs, gs.rng)
-	assert_eq(gs.active_quests.size(), 1, "a quest arms once past the grace period")
+	assert_eq(gs.active_quests.size(), 1, "a quest can arm once past the grace period")
 
-func test_only_one_quest_arms_at_a_time() -> void:
+func test_arming_is_gated_by_the_era_chance() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	make_settlement(gs, 1, 5, 5)
 	_grant_tech(gs, 1, "writing")
-	_grant_tech(gs, 1, "animal_husbandry")  # horse_whispering also eligible
+	gs.turn_number = 30
+	gs.db.constants["quest_era_chance"] = [0, 0, 0, 0, 0, 0, 0]
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 0, "a zero era chance never arms a quest (random trigger)")
+	gs.db.constants["quest_era_chance"] = [100, 100, 100, 100, 100, 100, 100]
+	Quests.process_player_quests(p, gs, gs.rng)
+	assert_eq(gs.active_quests.size(), 1, "a full era chance arms a quest past the grace")
+
+func test_multiple_quests_can_be_active_at_once() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	_grant_tech(gs, 1, "animal_husbandry")  # classic_literature + horse_whispering eligible
 	gs.turn_number = 25
+	gs.db.constants["quest_era_chance"] = [100, 100, 100, 100, 100, 100, 100]
 	Quests.process_player_quests(p, gs, gs.rng)
-	assert_eq(gs.active_quests.size(), 1, "the first eligible quest arms")
 	Quests.process_player_quests(p, gs, gs.rng)
-	assert_eq(gs.active_quests.size(), 1, "no second quest arms while one is in progress")
+	assert_eq(gs.active_quests.size(), 2, "a player may run multiple quests at once")
 
 # ── Progress + completion + the 3-choice reward ──────────────────────────────────
 

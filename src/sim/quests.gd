@@ -131,19 +131,22 @@ static func _evaluate_active(player: Player, game_state) -> Array:
 	game_state.active_quests = kept
 	return produced
 
-# Arm at most one eligible quest for the player this turn. Two non-random gates keep
-# arming sane: a flat grace period (quest_grace_turns, like the event grace) means no
-# quest arms early game, and a player holds only ONE active quest at a time — so a new
-# quest arms only once the previous is resolved (not a random per-turn chance, by
-# design). Eligible = in the per-game roster, prereq holds, not already active/completed.
-# WHICH quest arms is still drawn weighted by `weight` from gs.rng (fixed sorted-id
-# order) so the choice varies game to game — exactly the Events weighted pick.
+# Try to arm one quest for the player this turn, using the SAME random trigger as the
+# event system (so quests stay occasional and a player may run several at once). First
+# a flat grace period (quest_grace_turns, not pace-scaled) suppresses all arming early
+# game; then ONE roll at the player's era chance (quest_era_chance) decides whether a
+# quest arms at all. Only if that succeeds is the eligible list built (roster + prereq
+# + not already active/completed) and one quest drawn weighted by `weight` from gs.rng.
 static func _arm_one(player: Player, game_state, rng: RNG) -> Dictionary:
 	var db: DataDB = game_state.db
-	var grace: int = int(db.get_constant("quest_grace_turns", 20))
-	if int(game_state.turn_number) <= grace:
+	# Grace period — no quests arm in the opening turns.
+	if int(game_state.turn_number) < int(db.get_constant("quest_grace_turns", 20)):
 		return {}
-	if _player_has_active_quest(player.id, game_state):
+	# One roll: does a quest arm this turn, at the player's era chance?
+	var chance: int = _arm_chance(player, db)
+	if chance <= 0:
+		return {}
+	if rng.randi_range(1, 100) > chance:
 		return {}
 	var eligible: Array = []
 	var weights: Array = []
@@ -159,6 +162,19 @@ static func _arm_one(player: Player, game_state, rng: RNG) -> Dictionary:
 	if idx < 0 or idx >= eligible.size():
 		idx = 0
 	return arm_quest(eligible[idx], player, game_state)
+
+# The percent chance that a quest arms this turn for the player, by their era — the
+# quest analogue of Events._era_chance (reads quest_era_chance from constants).
+static func _arm_chance(player: Player, db: DataDB) -> int:
+	var era: int = Eras.player_era(player, db)
+	var table: Array = db.constants.get("quest_era_chance", [])
+	if table.empty():
+		return 0
+	if era < 0:
+		era = 0
+	if era >= table.size():
+		era = table.size() - 1
+	return int(table[era])
 
 # Whether a quest may be armed for this player right now: it is in the per-game roster
 # (or the roster is empty — "not rolled yet", so direct unit tests still arm), its
@@ -580,12 +596,5 @@ static func _quest_ids(db: DataDB) -> Array:
 static func _quest_active_for(quest_id: String, player_id: int, game_state) -> bool:
 	for q in game_state.active_quests:
 		if str(q.get("quest_id", "")) == quest_id and int(q.get("player_id", -1)) == player_id:
-			return true
-	return false
-
-# True if the player already has any quest in progress (the one-at-a-time gate).
-static func _player_has_active_quest(player_id: int, game_state) -> bool:
-	for q in game_state.active_quests:
-		if int(q.get("player_id", -1)) == player_id:
 			return true
 	return false
