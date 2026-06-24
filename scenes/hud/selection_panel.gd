@@ -206,9 +206,9 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 		sleep_btn.connect("pressed", self, "_on_sleep_until_healed", [u.id])
 		add_child(sleep_btn)
 
-		# Fortify Until Healed: only for non-civilian units.
-		var cls: String = str(db.get_unit(u.unit_type_id).get("classification", ""))
-		if cls != "civilian":
+		# Fortify Until Healed: only for land combat units (Issue 3), matching the
+		# facade's can_fortify gate so the button never offers a rejected order.
+		if u.can_fortify(db):
 			var fort_btn: Button = _left_button("Fortify Until Healed")
 			fort_btn.connect("pressed", self, "_on_fortify_until_healed", [u.id])
 			add_child(fort_btn)

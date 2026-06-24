@@ -226,3 +226,107 @@ func test_sleeping_unit_skipped_by_idle_cycle() -> void:
 	facade.cycle_idle_units(false)
 	assert_true(facade.get_selection().head_unit() < 0,
 		"A sleeping unit must not be cycled as idle")
+
+# ── Fortify restricted to land combat units (Issue 3) ────────────────────────────
+# Only land combat units (domain "land", non-civilian classification, base_strength
+# > 0) may fortify — both the direct UNIT_FORTIFY command and the
+# MISSION_FORTIFY_UNTIL_HEALED mission are gated. Mounted units may fortify but gain
+# no defensive bonus from it.
+
+func test_fortify_accepted_for_land_melee() -> void:
+	var gs = make_gs(1)
+	var u = make_warrior(gs, 1, 5, 5)  # land melee
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.unit_fortify(1, u.id)),
+		"A land melee unit (warrior) may fortify")
+	assert_true(u.is_fortified, "The warrior is fortified after the accepted command")
+
+func test_fortify_rejected_for_civilian() -> void:
+	var gs = make_gs(1)
+	var u = make_unit(gs, "settler", 1, 5, 5)  # civilian
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.unit_fortify(1, u.id)),
+		"A civilian (settler) may not fortify")
+	assert_false(u.is_fortified, "Rejected fortify leaves the settler unfortified")
+	# A worker (also civilian) is likewise rejected.
+	var w = make_unit(gs, "worker", 1, 6, 6)
+	assert_false(facade.apply_command(Commands.unit_fortify(1, w.id)),
+		"A worker (civilian) may not fortify")
+
+func test_fortify_rejected_for_sea_combat_unit() -> void:
+	# A galley is a naval COMBAT unit (domain sea, base_strength > 0) — still barred
+	# from fortifying because fortify is land-combat-only.
+	var gs = make_gs(1)
+	var u = make_unit(gs, "galley", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.unit_fortify(1, u.id)),
+		"A naval combat unit (galley) may not fortify")
+	assert_false(u.is_fortified, "Rejected fortify leaves the galley unfortified")
+
+func test_fortify_rejected_for_air_unit() -> void:
+	# A fighter is an air unit (domain air, base_strength > 0) — barred from fortify.
+	var gs = make_gs(1)
+	var u = make_unit(gs, "fighter", 1, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.unit_fortify(1, u.id)),
+		"An air unit (fighter) may not fortify")
+	assert_false(u.is_fortified, "Rejected fortify leaves the fighter unfortified")
+
+func test_fortify_until_healed_rejected_for_naval_and_air() -> void:
+	# The MISSION_FORTIFY_UNTIL_HEALED path is gated identically (land combat only).
+	var gs = make_gs(1)
+	var galley = make_unit(gs, "galley", 1, 5, 5); galley.health = 50
+	var fighter = make_unit(gs, "fighter", 1, 6, 6); fighter.health = 50
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(facade.apply_command(Commands.mission_fortify_until_healed(1, galley.id)),
+		"A naval unit may not Fortify Until Healed")
+	assert_false(facade.apply_command(Commands.mission_fortify_until_healed(1, fighter.id)),
+		"An air unit may not Fortify Until Healed")
+
+func test_fortified_land_unit_gains_defensive_bonus() -> void:
+	# A fortified (entrenched) land melee unit defends with MORE than its base.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var u = make_warrior(gs, 1, 5, 5)  # base 10 on grassland (no terrain bonus)
+	var unfortified: int = f.unit_effective_strength(u.id)
+	u.entrenchment = 20  # +20%
+	var fortified: int = f.unit_effective_strength(u.id)
+	assert_true(fortified > unfortified,
+		"A fortified land melee unit defends with more than its unfortified strength")
+
+func test_mounted_fortify_confers_no_defensive_bonus() -> void:
+	# A mounted unit may fortify, but the entrenchment contributes ZERO to its
+	# effective strength — equal fortified and unfortified — while a melee unit with
+	# the same entrenchment on the same tile DOES get the bonus.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var knight = make_unit(gs, "knight", 1, 5, 5)  # mounted
+	var unmounted_base: int = f.unit_effective_strength(knight.id)
+	knight.entrenchment = 20
+	var mounted_fortified: int = f.unit_effective_strength(knight.id)
+	assert_eq(mounted_fortified, unmounted_base,
+		"A fortified mounted unit gains no defensive bonus (entrenchment contributes 0)")
+
+	# Control: a melee unit (axeman, same base strength 10 region) on flat ground
+	# with the same entrenchment DOES benefit, proving the zeroing is mounted-only.
+	var axeman = make_unit(gs, "axeman", 1, 6, 6)  # melee
+	var axe_base: int = f.unit_effective_strength(axeman.id)
+	axeman.entrenchment = 20
+	var axe_fortified: int = f.unit_effective_strength(axeman.id)
+	assert_true(axe_fortified > axe_base,
+		"A melee unit with the same entrenchment does gain the fortify bonus")
+
+func test_unit_can_fortify_predicate() -> void:
+	# Direct check of the sim-side land-combat predicate.
+	var gs = make_gs(1)
+	var db = gs.db
+	assert_true(make_unit(gs, "warrior", 1, 1, 1).can_fortify(db), "warrior (land melee) can fortify")
+	assert_true(make_unit(gs, "knight", 1, 2, 2).can_fortify(db), "knight (land mounted) can fortify")
+	assert_false(make_unit(gs, "settler", 1, 3, 3).can_fortify(db), "settler (civilian) cannot fortify")
+	assert_false(make_unit(gs, "galley", 1, 4, 4).can_fortify(db), "galley (naval) cannot fortify")
+	assert_false(make_unit(gs, "fighter", 1, 5, 5).can_fortify(db), "fighter (air) cannot fortify")

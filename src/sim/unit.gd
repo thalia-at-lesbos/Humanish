@@ -155,9 +155,14 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 		# (§5.3). Computed by the caller from the city's structures.
 		bonus_sum += settlement_def_bonus
 
-	# Entrenchment (defender only)
+	# Entrenchment (defender only). Mounted units may fortify (the status still
+	# suppresses idle prompting) but gain NO defensive bonus from it (Issue 3), so
+	# their entrenchment never contributes to combat strength — keep the readout
+	# honest by zeroing the *contribution* here rather than the stored counter.
 	if not is_attacker:
-		bonus_sum += entrenchment
+		var cls_self: String = str(db.get_unit(unit_type_id).get("classification", ""))
+		if cls_self != "mounted":
+			bonus_sum += entrenchment
 
 	var effective: int = Fixed.apply_stacked_bonus(base_strength, bonus_sum)
 	# Scale by health fraction
@@ -177,6 +182,19 @@ func can_attack(db: DataDB) -> bool:
 	if event_no_attack_turns > 0:
 		return false
 	var data: Dictionary = db.get_unit(unit_type_id)
+	return str(data.get("classification", "")) != "civilian"
+
+# Whether this unit may fortify / entrench (Issue 3). Only *land combat units* may
+# fortify: domain "land", a non-civilian classification, and a positive base
+# strength. This excludes civilians, naval and air units, and any strengthless
+# unit (missiles/Great People). The single sim-side gate, consulted by both
+# fortify command paths in SimFacade and the matching UI button gates.
+func can_fortify(db: DataDB) -> bool:
+	if base_strength <= 0:
+		return false
+	var data: Dictionary = db.get_unit(unit_type_id)
+	if str(data.get("domain", "")) != "land":
+		return false
 	return str(data.get("classification", "")) != "civilian"
 
 # Firepower feeds the §5.4 per-hit damage model, distinct from combat strength.

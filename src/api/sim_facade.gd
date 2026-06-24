@@ -2191,6 +2191,10 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.UNIT_FORTIFY:
+			# Only land combat units may fortify (Issue 3): no civilians, no naval/air,
+			# no strengthless units. Single sim-side gate via Unit.can_fortify.
+			if not u.can_fortify(_db):
+				return false
 			u.is_fortified = true
 			u.has_moved = true
 			u.movement_left = 0
@@ -2379,10 +2383,9 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			u.movement_left = 0
 		IDs.CommandType.MISSION_FORTIFY_UNTIL_HEALED:
 			# Fortify (gaining the defence bonus) until full health, then wake idle.
-			# Only available to units that can normally fortify — civilians are
-			# excluded (classification == "civilian" or base_strength == 0).
-			var utype_fuh: Dictionary = _db.get_unit(u.unit_type_id)
-			if str(utype_fuh.get("classification", "")) == "civilian":
+			# Only available to units that can normally fortify — land combat units
+			# only (Issue 3): civilians, naval/air, and strengthless units excluded.
+			if not u.can_fortify(_db):
 				return false
 			u.is_fortify_until_healed = true
 			u.is_sleep_until_healed = false
@@ -3202,7 +3205,9 @@ func get_unit_actions(unit_id: int) -> Array:
 			"label": "Skip Turn",
 			"target_x": u.x, "target_y": u.y
 		})
-	if not u.is_fortified:
+	# Fortify: only offered to land combat units (Issue 3), matching the sim gate
+	# so the menu never lists an order the command would reject.
+	if not u.is_fortified and u.can_fortify(_db):
 		items.append({
 			"kind": "cmd", "action_id": IDs.UnitCmd.FORTIFY,
 			"label": "Fortify",
