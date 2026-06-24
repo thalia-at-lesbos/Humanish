@@ -1,0 +1,34 @@
+{
+  "_comment": "Multi-turn quest catalogue (§4 of the event-subsystem plan). A quest is a multi-turn goal: a per-player step ARMS an eligible quest, the player works toward an AIM over many turns without violating a CONSTRAINT, and completing it grants a REWARD. Read by the Quests module (src/sim/quests.gd). QUEST RECORD SHAPE: { id (String), name (display), text (flavour), active (0-100 per-game inclusion percent rolled once at setup, like events), weight (relative arming weight among the currently-eligible quests), prereq {…} (REUSES the event prereq vocabulary verbatim — Events.prereq_holds: tech_all/tech_any, building, civic, state_religion, resource_absent, min_pop/max_pop, min_era/max_era, at_war/at_peace, coastal, players_tech, tile, society, max_happy_resources, can_have_resource), aim {kind, …}, optional constraint {kind, …}, reward {effects:[…] OR choices:[{id,text,effects:[…],ai_prefer?}]} }. AIM kinds (Quests._aim_progress/_aim_complete): build_count {structure_id, count, weight_self? (the structure's own multiplier, default 1), also? (more structure ids each counting 1), weights? (structure_id->multiplier, e.g. cathedral:4), since_arm? (only count copies built after arming, diffed against the snapshot baseline)} [IMPLEMENTED]; cities_on_landmasses, control_named_tile, conquer_resource, conquer_holy_city, spread_corp, own_corp_resources, build_fleet [STUBBED — the next subagent implements these for quests 1-4,6-18]. CONSTRAINT kinds (Quests._constraint_violated): never_switch_state_religion [IMPLEMENTED]; keep_trigger_city [STUBBED]. REWARD effects REUSE the event effect verbs (Events._apply_effect): gold, culture, tech, unit, building, structure_yield, specialist, settle_great_person, spread_religion, golden_age, grant_promotion, reveal_resource, etc. A choices[] reward parks a non-skippable 3-choice popup reusing the event pending-choice machinery (AI auto-picks ai_prefer/first). Magnitudes are normal/standard; map-size & game-speed scaling is deferred (§5). Only the Classic Literature vertical slice ships here; the other 17 quests are added by a later subagent.",
+
+  "classic_literature": {
+    "id": "classic_literature",
+    "name": "Classic Literature",
+    "text": "Your scholars yearn to fill great halls with the written word. Build libraries across your cities to nurture a golden age of literature.",
+    "active": 100,
+    "weight": 100,
+    "prereq": { "tech_all": ["writing"] },
+    "aim": { "kind": "build_count", "structure_id": "library", "count": 7 },
+    "reward": {
+      "text": "Your literary tradition is renowned. Choose its lasting legacy:",
+      "choices": [
+        {
+          "id": "research_libraries",
+          "text": "+2 research from every library you own.",
+          "ai_prefer": true,
+          "effects": [{ "verb": "structure_yield", "structure_id": "library", "research": 2, "scope": "all" }]
+        },
+        {
+          "id": "ancient_tech",
+          "text": "Recover the wisdom of the ancients (a free technology).",
+          "effects": [{ "verb": "tech" }]
+        },
+        {
+          "id": "great_library_scientist",
+          "text": "A great scholar settles in your capital (a free Scientist specialist).",
+          "effects": [{ "verb": "specialist", "specialist_type": "scientist", "count": 1, "scope": "capital" }]
+        }
+      ]
+    }
+  }
+}

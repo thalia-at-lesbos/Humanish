@@ -115,6 +115,10 @@ var used_city_names: Array = []
 # do not repeat).
 var events_fired: Array = []
 
+# IDs of multi-turn quests this player has completed (§4), so a completed quest is
+# never re-armed. Serialized; the entries are quest-id strings (no int coercion needed).
+var quests_completed: Array = []
+
 # Consecutive turns the player has been insolvent; selling/disbanding only kicks
 # in once this passes the grace period (§6.1).
 var insolvent_turns: int = 0
@@ -175,6 +179,7 @@ func serialize() -> Dictionary:
 		"is_ai": is_ai,
 		"celebration_turns": celebration_turns,
 		"events_fired": events_fired.duplicate(),
+		"quests_completed": quests_completed.duplicate(),
 		"insolvent_turns": insolvent_turns,
 		"golden_age_turns": golden_age_turns,
 		"golden_age_count": golden_age_count,
@@ -233,6 +238,7 @@ static func deserialize(d: Dictionary):
 	p.is_ai = bool(d.get("is_ai", false))
 	p.celebration_turns = int(d.get("celebration_turns", 0))
 	p.events_fired = d.get("events_fired", []).duplicate()
+	p.quests_completed = d.get("quests_completed", []).duplicate()
 	p.insolvent_turns = int(d.get("insolvent_turns", 0))
 	p.golden_age_turns = int(d.get("golden_age_turns", 0))
 	p.golden_age_count = int(d.get("golden_age_count", 0))

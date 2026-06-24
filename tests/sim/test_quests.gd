@@ -1,0 +1,211 @@
+# Humanish — a turn-based 4X strategy game.
+# Copyright (C) 2026 thalia-at-lesbos
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option)
+# any later version. See the LICENSE file for the full text and warranty
+# disclaimer.
+
+extends "res://tests/support/sim_fixture.gd"
+
+# Multi-turn quest tracking subsystem (§4). The catalogue loads & validates, eligible
+# quests arm deterministically, an aim completes over turns and queues its reward, a
+# 3-choice reward parks a pending choice reusing the event machinery, a violated
+# constraint drops the quest, and a quest record survives save/load with int typing.
+
+# Give a player a tech directly (refreshing the era cache like Events does).
+func _grant_tech(gs, pid, tech_id):
+	var p = gs.get_player(pid)
+	if not p.has_tech(tech_id):
+		p.technologies.append(tech_id)
+		Eras.refresh(p, gs.db)
+
+# A settlement for `pid` that holds a library (the build_count aim counts one per city).
+func _city_with_library(gs, pid, x, y):
+	var s = make_settlement(gs, pid, x, y, 3)
+	s.structures.append("library")
+	return s
+
+# ── Canary (per the GUT script-load gotcha) ──────────────────────────────────────
+
+func test_quests_script_can_instance() -> void:
+	var script = load("res://src/sim/quests.gd")
+	assert_true(script.can_instance(), "quests.gd compiles (guards the GUT green-on-load-error gotcha)")
+
+# ── Catalogue loads & validates ──────────────────────────────────────────────────
+
+func test_quests_table_loads_and_validates() -> void:
+	var gs = make_gs()
+	assert_true(gs.db.get_quests().has("classic_literature"), "quests.json loads into DataDB")
+	assert_true(gs.db.get_errors().empty(), "DataDB validates the quest catalogue cleanly")
+
+func test_roll_active_quests_includes_active_100_quest() -> void:
+	var gs = make_gs()
+	Quests.roll_active_quests(gs)
+	assert_true("classic_literature" in gs.active_quest_ids, "an active=100 quest is always rostered")
+
+func test_roll_active_quests_is_deterministic() -> void:
+	var a = make_gs(2, 555)
+	Quests.roll_active_quests(a)
+	var b = make_gs(2, 555)
+	Quests.roll_active_quests(b)
+	assert_eq(a.active_quest_ids, b.active_quest_ids, "the same seed rolls the same quest roster")
+
+# ── Arming: prereq gating ────────────────────────────────────────────────────────
+
+func test_quest_arms_when_prereq_met() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	assert_true(Quests.quest_eligible("classic_literature", p, gs),
+		"a quest whose prereq holds is eligible to arm")
+	var armed = Quests.arm_quest("classic_literature", p, gs)
+	assert_eq(str(armed.get("kind", "")), "quest_armed", "arm_quest reports an armed descriptor")
+	assert_eq(gs.active_quests.size(), 1, "the armed quest is tracked on active_quests")
+
+func test_quest_not_eligible_without_prereq() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	# No writing tech → prereq fails.
+	assert_false(Quests.quest_eligible("classic_literature", p, gs),
+		"a quest whose prereq fails is not eligible")
+
+func test_quest_not_re_armed_when_already_active_or_completed() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	Quests.arm_quest("classic_literature", p, gs)
+	assert_false(Quests.quest_eligible("classic_literature", p, gs),
+		"an already-active quest is not eligible to re-arm")
+	gs.active_quests = []
+	p.quests_completed.append("classic_literature")
+	assert_false(Quests.quest_eligible("classic_literature", p, gs),
+		"an already-completed quest is not eligible to re-arm")
+
+# ── Progress + completion + the 3-choice reward ──────────────────────────────────
+
+func test_build_count_progress_advances() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = _city_with_library(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	Quests.arm_quest("classic_literature", p, gs)
+	var rec = gs.active_quests[0]
+	assert_eq(int(rec.get("progress", 0)), 1, "progress reflects the one library at arming")
+	# A second library in another city advances progress on re-evaluation.
+	var s2 = _city_with_library(gs, 1, 8, 8)
+	Quests._evaluate_active(p, gs)
+	assert_eq(int(gs.active_quests[0].get("progress", 0)), 2, "progress advances as libraries are built")
+
+func test_quest_completes_and_parks_pending_choice_for_human() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	# Seven libraries spread across cities (the aim count is 7).
+	for i in range(7):
+		_city_with_library(gs, 1, 2 + i, 2)
+	_grant_tech(gs, 1, "writing")
+	Quests.arm_quest("classic_literature", p, gs)
+	var produced = Quests._evaluate_active(p, gs)
+	assert_eq(gs.active_quests.size(), 0, "the completed quest is removed from active tracking")
+	assert_true("classic_literature" in p.quests_completed, "completion is recorded on the player")
+	assert_eq(produced.size(), 1, "one completion descriptor is produced")
+	assert_eq(str(produced[0].get("kind", "")), "quest_reward_pending",
+		"a 3-choice reward parks a pending choice (not auto-applied) for a human")
+	# The choice is parked into the SAME pending_event_choices machinery (quest:<id>).
+	var pending = gs.pending_event_choices
+	assert_eq(pending.size(), 1, "the reward choice is parked into pending_event_choices")
+	assert_eq(str(pending[0].get("event_id", "")), "quest:classic_literature",
+		"the parked choice carries a synthetic quest event_id")
+	assert_eq((pending[0].get("resolved_choices", [])).size(), 3, "all three reward branches are parked")
+
+func test_human_resolves_reward_choice_via_event_path() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.is_ai = false
+	for i in range(7):
+		_city_with_library(gs, 1, 2 + i, 2)
+	_grant_tech(gs, 1, "writing")
+	Quests.arm_quest("classic_literature", p, gs)
+	Quests._evaluate_active(p, gs)
+	# Resolve the "ancient tech" branch through the shared Events.apply_choice path.
+	var before = p.technologies.size()
+	var ok = Events.apply_choice("quest:classic_literature", "ancient_tech", p, gs)
+	assert_true(ok, "the parked quest reward branch resolves through Events.apply_choice")
+	assert_true(p.technologies.size() > before, "the ancient-tech reward granted a free technology")
+
+func test_ai_auto_resolves_reward() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.is_ai = true
+	for i in range(7):
+		_city_with_library(gs, 1, 2 + i, 2)
+	_grant_tech(gs, 1, "writing")
+	Quests.arm_quest("classic_literature", p, gs)
+	var produced = Quests._evaluate_active(p, gs)
+	assert_eq(str(produced[0].get("kind", "")), "quest_completed",
+		"an AI auto-resolves the reward (no pending choice parked)")
+	assert_true(gs.pending_event_choices.empty(), "no choice is parked for an AI")
+	# ai_prefer branch is research_libraries → every library gains +2 research.
+	var lib_bonus = 0
+	for s in gs.settlements:
+		if s.has_structure("library"):
+			lib_bonus = s.structure_yield("research")
+			break
+	assert_eq(lib_bonus, 2, "the AI took the preferred +2-research-per-library branch")
+
+# ── Constraint violation drops the quest ─────────────────────────────────────────
+
+func test_constraint_violation_drops_quest() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	make_settlement(gs, 1, 5, 5)
+	_grant_tech(gs, 1, "writing")
+	p.state_religion = "judaism"
+	# Inject a constraint onto the catalogue copy this state owns (each make_gs has its
+	# own DataDB), so the snapshot stamps the religion-at-arming baseline.
+	gs.db.quests["classic_literature"]["constraint"] = {"kind": "never_switch_state_religion"}
+	Quests.arm_quest("classic_literature", p, gs)
+	assert_eq(gs.active_quests.size(), 1, "the quest armed with a constraint snapshot")
+	# Switch state religion → constraint violated → dropped on re-evaluation.
+	p.state_religion = "christianity"
+	var produced = Quests._evaluate_active(p, gs)
+	assert_eq(gs.active_quests.size(), 0, "switching state religion drops the constrained quest")
+	assert_eq(str(produced[0].get("kind", "")), "quest_failed", "a failure descriptor is produced")
+
+# ── Save/load roundtrip + determinism (the JSON int-key gotcha) ──────────────────
+
+func test_active_quests_survive_save_load_with_int_typing() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	# Hand-build a record whose snapshot carries int settlement-id keys/values plus the
+	# state-religion sentinel, so the deserialize int-coercion path is exercised.
+	gs.active_quests.append({
+		"quest_id": "classic_literature",
+		"player_id": 1,
+		"start_turn": 12,
+		"progress": 3,
+		"snapshot": {7: 1, 9: 1, Quests.STATE_RELIGION_KEY: "judaism"}
+	})
+	gs.active_quest_ids = ["classic_literature"]
+	var json = JSON.print(gs.serialize())
+	var parsed = JSON.parse(json).result
+	var gs2 = GameState.deserialize(parsed, gs.db)
+	assert_eq(gs2.active_quests.size(), 1, "the quest record survives the roundtrip")
+	var rec = gs2.active_quests[0]
+	assert_eq(typeof(rec["player_id"]), TYPE_INT, "player_id is int after load")
+	assert_eq(typeof(rec["start_turn"]), TYPE_INT, "start_turn is int after load")
+	assert_eq(typeof(rec["progress"]), TYPE_INT, "progress is int after load")
+	var snap = rec["snapshot"]
+	# The int settlement-id keys must be int (not the JSON "7" string) and their values int.
+	assert_true(snap.has(7), "snapshot int settlement-id key 7 survives as an int key")
+	assert_eq(typeof(snap.keys()[0]), TYPE_INT, "snapshot keys are int after load")
+	assert_eq(typeof(snap[7]), TYPE_INT, "snapshot int values survive as int")
+	assert_eq(str(snap[Quests.STATE_RELIGION_KEY]), "judaism",
+		"the state-religion sentinel snapshot value survives as a string")
+	assert_eq(gs2.active_quest_ids, ["classic_literature"], "the quest roster survives the roundtrip")

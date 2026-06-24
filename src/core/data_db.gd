@@ -37,6 +37,8 @@ var leaders_traits: Dictionary = {}
 var projects: Dictionary = {}
 var win_conditions: Dictionary = {}
 var events: Dictionary = {}
+# Multi-turn quest catalogue (§4); read by the Quests module.
+var quests: Dictionary = {}
 # Goody-hut / discovery-site reward table (§9).
 var goodies: Dictionary = {}
 # Diplomatic-assembly elections & resolutions (§18, provisional).
@@ -73,6 +75,7 @@ func load_all() -> bool:
 	projects     = _load_json("res://data/projects.json")
 	win_conditions = _load_json("res://data/win_conditions.json")
 	events       = _load_json("res://data/events.json")
+	quests       = _load_json("res://data/quests.json")
 	goodies      = _load_json("res://data/goodies.json")
 	resolutions  = _load_json("res://data/resolutions.json")
 	espionage_missions = _load_json("res://data/espionage_missions.json")
@@ -129,6 +132,14 @@ func get_event(id: String) -> Dictionary:
 # All event definitions (callers iterating must skip the leading "_comment" key).
 func get_events() -> Dictionary:
 	return events
+
+# A single multi-turn quest definition (data/quests.json); empty for unknown ids.
+func get_quest(id: String) -> Dictionary:
+	return quests.get(id, {})
+
+# All quest definitions (callers iterating must skip the leading "_comment" key).
+func get_quests() -> Dictionary:
+	return quests
 
 func get_resolution(id: String) -> Dictionary:
 	# Skip the leading "_comment" documentation key (not a resolution).
@@ -257,6 +268,7 @@ func _validate() -> void:
 	_validate_specialist_refs()
 	_validate_goody_refs()
 	_validate_event_refs()
+	_validate_quest_refs()
 	_validate_econ_org_refs()
 	_validate_espionage_mission_refs()
 	_validate_diplomacy_refs()
@@ -489,3 +501,40 @@ func _validate_event_effects(eid: String, effects: Array) -> void:
 					_errors.append("Event '%s' draft unit_type '%s' not in units table" % [eid, eff.get("unit_type", "")])
 			"chance":
 				_validate_event_effects(eid, eff.get("then", []))
+
+# Every quest (§4) must carry an id, validate its prereq via the SAME path as events
+# (the shared prereq vocabulary), declare an aim whose `kind` is a known aim kind, an
+# optional constraint whose `kind` is a known constraint kind, and a reward whose begin
+# `effects[]` / per-choice `effects[]` use known event-effect verbs (validated via the
+# event-effect validator). Structure refs inside a build_count aim are checked too.
+func _validate_quest_refs() -> void:
+	var aim_kinds := ["build_count", "cities_on_landmasses", "control_named_tile",
+		"conquer_resource", "conquer_holy_city", "spread_corp", "own_corp_resources",
+		"build_fleet"]
+	var constraint_kinds := ["never_switch_state_religion", "keep_trigger_city"]
+	for qid in quests:
+		if qid == "_comment":
+			continue
+		var q: Dictionary = quests[qid]
+		# Reuse the event prereq validator (same vocabulary).
+		_validate_event_prereq(qid, q.get("prereq", {}))
+		var aim: Dictionary = q.get("aim", {})
+		var ak = str(aim.get("kind", ""))
+		if not (ak in aim_kinds):
+			_errors.append("Quest '%s' has unknown aim kind '%s'" % [qid, ak])
+		if ak == "build_count":
+			var bs = str(aim.get("structure_id", ""))
+			if bs != "" and not structures.has(bs):
+				_errors.append("Quest '%s' aim structure_id '%s' not in structures" % [qid, bs])
+			for also_id in aim.get("also", []):
+				if not structures.has(str(also_id)):
+					_errors.append("Quest '%s' aim also '%s' not in structures" % [qid, also_id])
+		if q.has("constraint"):
+			var ck = str(q["constraint"].get("kind", ""))
+			if not (ck in constraint_kinds):
+				_errors.append("Quest '%s' has unknown constraint kind '%s'" % [qid, ck])
+		# Reward effects (begin or per-choice) reuse the event-effect validator.
+		var reward: Dictionary = q.get("reward", {})
+		_validate_event_effects(qid, reward.get("effects", []))
+		for ch in reward.get("choices", []):
+			_validate_event_effects(qid, ch.get("effects", []))

@@ -16,6 +16,7 @@ extends Reference
 # Events are emitted as signals so UI can observe without polling.
 
 signal event_emitted(event_dict)
+signal quest_event(quest_dict)   # §4 multi-turn quest armed / completed / reward-pending / failed
 signal turn_advanced(turn_number)
 signal game_won(alliance_id)
 signal unit_created(unit_id)
@@ -158,6 +159,9 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 	# percent is drawn once from gs.rng in fixed event-id order, so the roster is
 	# deterministic for the seed and is captured by save/load (active_event_ids).
 	Events.roll_active_events(_gs)
+	# Roll this game's quest roster (§4) the same way, immediately after the events
+	# roll so the RNG draw order stays fixed for the seed.
+	Quests.roll_active_quests(_gs)
 
 # Initialize only the non-serialized scaffolding (db, hooks, UI state) so a save
 # can be loaded into a fresh facade without running setup(). load_save() then
@@ -463,6 +467,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 	_drain_growth_events()
 	_drain_improvement_completions()
 	_drain_events()
+	_drain_quest_events()
 
 	# Trigger world step when the last player ends their turn (next wraps to index 0)
 	var next_idx: int = _get_next_player_index(player_id)
@@ -3364,6 +3369,29 @@ func _drain_events() -> void:
 				_add_notification("Event ended: " + nm + ".", "info")
 		emit_signal("event_emitted", e)
 	_gs.pending_events = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
+# Surface quest-lifecycle records produced during the quest player-step (§4): one
+# notification + a quest_event signal each, then clear the queue. A reward-pending quest
+# parked a non-skippable choice into pending_event_choices under a "quest:<id>" event_id;
+# the existing _maybe_raise_event_popup path raises it at the player's next turn start.
+func _drain_quest_events() -> void:
+	if _gs.pending_quest_events.empty():
+		return
+	for q in _gs.pending_quest_events:
+		var nm: String = str(q.get("name", q.get("quest_id", "")))
+		match str(q.get("kind", "")):
+			"quest_armed":
+				_add_notification("New quest: " + nm + ".", "major")
+			"quest_completed":
+				_add_notification("Quest complete: " + nm + ".", "major")
+			"quest_reward_pending":
+				_add_notification("Quest complete — choose your reward: " + nm + ".", "major")
+			"quest_failed":
+				_add_notification("Quest failed: " + nm + ".", "info")
+		emit_signal("quest_event", q)
+	_gs.pending_quest_events = []
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 
