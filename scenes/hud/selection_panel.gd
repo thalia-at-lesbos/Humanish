@@ -38,11 +38,22 @@ func init(facade, world_view) -> void:
 # does not participate in layout and never blocks input. When the panel is empty
 # (no selection) get_children() is empty and the VBox collapses to zero size, so
 # nothing is drawn — the background only appears when there is content.
+#
+# The fill HUGS the content (left-justified): its width is the widest child's
+# content width — the largest field/button — not the full panel width, so the
+# charcoal matches the left-aligned labels and action buttons instead of stretching
+# a wide band across the empty right of the panel. Child minimum sizes give the
+# content width without relying on post-layout rect sizes (a FILL-flagged Label's
+# rect_size.x is the whole panel; its minimum size is just the text).
 func _draw() -> void:
 	if get_child_count() == 0:
 		return
+	var content_w: float = 0.0
+	for child in get_children():
+		if child is Control and child.visible:
+			content_w = max(content_w, child.get_combined_minimum_size().x)
 	var pad: Vector2 = Vector2(BG_PADDING, BG_PADDING)
-	draw_rect(Rect2(-pad, rect_size + pad * 2.0), BG_COLOR)
+	draw_rect(Rect2(-pad, Vector2(content_w, rect_size.y) + pad * 2.0), BG_COLOR)
 
 # The VBox resizes as content is added/removed; repaint the background to match.
 func _notification(what: int) -> void:
@@ -142,8 +153,11 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 		stack_lbl.text = "Stack on tile (" + str(stack.size()) + "):"
 		add_child(stack_lbl)
 		var scroll: ScrollContainer = ScrollContainer.new()
-		scroll.rect_min_size = Vector2(0, STACK_LIST_MAX_HEIGHT)
 		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Rows are short and left-justified, so never scroll horizontally; this also
+		# lets the ScrollContainer report the rows' width as its minimum so the
+		# charcoal background hugs them too.
+		scroll.scroll_horizontal_enabled = false
 		var list_vbox: VBoxContainer = VBoxContainer.new()
 		list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(list_vbox)
@@ -152,12 +166,17 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 			# route through _left_button (which clears the FILL/EXPAND size flags) so
 			# the ▸-marked rows shrink to content and anchor left instead of stretching
 			# the full list width. The list_vbox stays EXPAND_FILL so it spans the
-			# ScrollContainer's width (preserving horizontal scroll), while the buttons
-			# inside it left-align.
+			# ScrollContainer's width, while the buttons inside it left-align.
 			var mark: String = "▸ " if su.id in sel.selected_unit_ids else "  "
 			var row: Button = _left_button(mark + su.unit_type_id.capitalize() + "  (HP " + str(su.health) + ")")
 			row.connect("pressed", self, "_on_select_stack_member", [su.id])
 			list_vbox.add_child(row)
+		# Size the scroll area to the rows' natural height, capped at the max — so a
+		# small stack reserves no blank space before the action buttons below, while a
+		# large stack still scrolls instead of overflowing off-screen.
+		var natural_h: float = list_vbox.get_combined_minimum_size().y
+		var capped_h: float = min(natural_h, float(STACK_LIST_MAX_HEIGHT))
+		scroll.rect_min_size = Vector2(0, capped_h)
 		add_child(scroll)
 		var all_btn: Button = _left_button("Select all (" + str(stack.size()) + ")")
 		all_btn.connect("pressed", self, "_on_select_all", [u.x, u.y])
