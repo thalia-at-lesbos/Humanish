@@ -2928,6 +2928,50 @@ func tile_info_text(tx: int, ty: int) -> String:
 
 	return PoolStringArray(lines).join("\n")
 
+# Net effective combat strength of a unit as it currently stands on its tile
+# (§5.3): its base strength adjusted by the defensive modifiers that apply right
+# now — terrain/feature defence bonus, entrenchment (fortify), defensive
+# promotions, and the health-fraction scaling. Delegates to the same
+# `Unit.effective_strength` the combat resolver uses (defender role), so the
+# displayed number is honest. Returns an integer (this engine's strength scale is
+# plain integer, not the Fixed 100-scale). Returns 0 for a non-combat / civilian
+# unit (base_strength 0), so the UI can suppress the line.
+func unit_effective_strength(unit_id: int) -> int:
+	if _gs == null:
+		return 0
+	var u = _gs.get_unit(unit_id)
+	if u == null or u.base_strength <= 0:
+		return 0
+	var tile: Tile = _gs.map.get_tile(u.x, u.y)
+	if tile == null:
+		return 0
+	var ter: Dictionary = _db.get_terrain(tile.terrain_id)
+	var feat: Dictionary = _db.get_feature(tile.feature_id) if tile.feature_id != "" else {}
+	# Stationary defender: include the city's structure + cultural defence when the
+	# unit garrisons one of its own settlements, mirroring the combat resolver.
+	var settle: Settlement = _gs.get_settlement_at(u.x, u.y)
+	var at_settlement: bool = settle != null
+	var settle_def: int = 0
+	if at_settlement:
+		for sid in settle.structures:
+			var st: Dictionary = _db.get_structure(sid)
+			settle_def += int(st.get("defence_bonus", 0))
+			settle_def += int(st.get("cultural_defence_bonus", 0))
+	return u.effective_strength(_db, false, ter, feat, "",
+		at_settlement, settle_def, false)
+
+# Display string for a combat unit's strength line (§5.3 / Issue 4):
+# "Strength: <base> (<effective> effective)". Returns "" for a non-combat unit so
+# the selection panel can omit the line for civilians.
+func unit_strength_text(unit_id: int) -> String:
+	if _gs == null:
+		return ""
+	var u = _gs.get_unit(unit_id)
+	if u == null or u.base_strength <= 0:
+		return ""
+	var eff: int = unit_effective_strength(unit_id)
+	return "Strength: " + str(u.base_strength) + " (" + str(eff) + " effective)"
+
 func cycle_idle_units(workers_only: bool = false) -> void:
 	var idle: Array = []
 	for u in _gs.units:

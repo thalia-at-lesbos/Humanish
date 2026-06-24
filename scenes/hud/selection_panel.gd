@@ -95,6 +95,17 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	name_lbl.text = u.unit_type_id.capitalize()
 	add_child(name_lbl)
 
+	# Strength line (Issue 4): combat units only — base strength with the net
+	# effective (current-tile-modifier-adjusted) value in parentheses. The math
+	# lives in the sim layer (SimFacade.unit_strength_text → Unit.effective_strength)
+	# so terrain/fortify/promotion/health modifiers stay authoritative; civilians
+	# (base_strength 0) get an empty string and no line is shown.
+	var strength_text: String = _facade.unit_strength_text(u.id)
+	if strength_text != "":
+		var strength_lbl: Label = Label.new()
+		strength_lbl.text = strength_text
+		add_child(strength_lbl)
+
 	var health_lbl: Label = Label.new()
 	health_lbl.text = "HP: " + str(u.health) + "/100"
 	add_child(health_lbl)
