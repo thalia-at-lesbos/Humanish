@@ -1021,6 +1021,18 @@ static func _advance_worker_build(gs: GameState, u: Unit) -> void:
 		u.build_turns_left -= 1
 	if u.build_turns_left > 0:
 		return
+	complete_worker_build(gs, u)
+
+# Finalize an in-progress improvement build: place the improvement on the worker's
+# tile (applying any feature clearing), clear the build state, queue a completion
+# record for SimFacade to surface, and — for a single-use builder (work boat,
+# data flag `consumed_on_use`, §5) — remove the unit. Shared by the multi-turn
+# worker path (_advance_worker_build, on completion) and the instant work-boat
+# path (SimFacade._cmd_build_improvement, fired the moment the command is issued).
+# Returns true when the build was consumed (a single-use builder removed itself),
+# so the caller can clear any UI selection of that unit.
+static func complete_worker_build(gs: GameState, u: Unit) -> bool:
+	var consumed: bool = false
 	var tile: Tile = gs.map.get_tile(u.x, u.y)
 	if tile != null:
 		var imp_id: String = u.building_improvement
@@ -1045,6 +1057,8 @@ static func _advance_worker_build(gs: GameState, u: Unit) -> void:
 	# actually completed on a tile (tile != null), so it happens exactly once.
 	if tile != null and "consumed_on_use" in gs.db.get_unit(u.unit_type_id).get("tags", []):
 		Stack.remove_unit(gs.units, u.id)
+		consumed = true
+	return consumed
 
 # When an improvement completes on a tile carrying a removable feature (forest,
 # jungle), the feature is cleared unless the improvement preserves it — camps,

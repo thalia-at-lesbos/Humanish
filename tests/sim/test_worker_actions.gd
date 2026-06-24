@@ -498,12 +498,17 @@ func test_work_boat_builds_fishing_boats_on_sea_resource() -> void:
 	t.resource_id = "fish"
 	var facade = bare_facade(gs)
 	gs.current_player_id = 1
+	var wid: int = w.id
 	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "fishing_boats")),
 		"Work boat must build Fishing Boats on a coastal fish tile")
-	assert_eq(w.building_improvement, "fishing_boats",
-		"building_improvement should be fishing_boats (the sea improvement, not a farm)")
+	# Issue 2: a work boat finishes its improvement INSTANTLY — the boat is consumed
+	# the same turn, so building_improvement is never left mid-build on it.
+	assert_eq(t.improvement_id, "fishing_boats",
+		"Fishing Boats is placed on the tile the same turn the command is issued")
+	assert_null(gs.get_unit(wid),
+		"The work boat is consumed instantly (no lingering mid-build unit)")
 
-func test_fishing_boats_completes_in_a_single_turn() -> void:
+func test_fishing_boats_completes_instantly() -> void:
 	var gs = make_gs(1)
 	gs.get_player(1).technologies = ["fishing"]
 	var w = make_unit(gs, "work_boat", 1, 5, 5)
@@ -512,18 +517,14 @@ func test_fishing_boats_completes_in_a_single_turn() -> void:
 	t.resource_id = "fish"
 	var facade = bare_facade(gs)
 	gs.current_player_id = 1
+	# Issue 2: no end-turn needed — the improvement appears and the boat is gone
+	# the moment the build command is processed.
 	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "fishing_boats")),
-		"Work boat starts the Fishing Boats build")
-	assert_eq(w.build_turns_left, 1,
-		"Fishing Boats is a single-turn build (build_turns 1)")
-	# The issuing turn makes no progress (the build command spends the worker's
-	# move); the very next turn of held work completes it — one turn of building.
-	facade.apply_command(Commands.end_turn(1))   # queuing turn ends, no progress
-	facade.apply_command(Commands.end_turn(1))   # one turn of work → complete
+		"Work boat builds Fishing Boats")
 	assert_eq(t.improvement_id, "fishing_boats",
-		"Fishing Boats must complete after a single turn of work")
-	assert_eq(w.building_improvement, "",
-		"Build state clears once Fishing Boats completes")
+		"Fishing Boats must be on the tile immediately (no end-turn)")
+	assert_eq(gs.units.size(), 0,
+		"The single-use work boat is removed the same turn it builds")
 
 # ── Fix 1: a work boat is consumed when its improvement completes ────────────
 #
@@ -899,3 +900,76 @@ func test_explore_serializes_and_deserializes() -> void:
 	var u2 = load("res://src/sim/unit.gd").deserialize(d)
 	assert_true(u2.is_exploring,
 		"deserialize() must restore is_exploring from the save dict")
+
+# ── Issue 2: Instantaneous work-boat improvements ────────────────────────────
+#
+# A work boat (domain sea, tag consumed_on_use) places its sea improvement the
+# moment the build command is issued — in the SAME turn, no end-turn — and the
+# boat is removed from state immediately, never lingering. Land workers keep
+# their multi-turn build (guarded below).
+
+func _sea_resource_tile(gs, x, y) -> void:
+	# A coastal tile carrying a fish resource: fishing_boats is buildable (water
+	# landform, fishing tech, the resource the improvement requires).
+	var t = gs.map.get_tile(x, y)
+	t.terrain_id = "coast"
+	t.resource_id = "fish"
+
+func test_work_boat_build_is_instant_and_consumes_boat() -> void:
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var wb = make_unit(gs, "work_boat", 1, 5, 5)
+	var wb_id: int = wb.id
+	_sea_resource_tile(gs, 5, 5)
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var ok: bool = facade.apply_command(Commands.build_improvement(1, wb_id, "fishing_boats"))
+	assert_true(ok, "Work boat should be able to build fishing boats on a fish tile")
+	# (1) Improvement is on the tile IMMEDIATELY — no end-turn was issued.
+	assert_eq(gs.map.get_tile(5, 5).improvement_id, "fishing_boats",
+		"Fishing boats must be placed instantly in the same turn the command is issued")
+	# (2) The work boat is gone from gs.units immediately (consumed_on_use).
+	assert_null(gs.get_unit(wb_id),
+		"The work boat must be removed from gs.units the same turn it builds")
+
+func test_work_boat_clears_selection_on_consume() -> void:
+	# The consumed boat must not linger as a ghost selection in the UI.
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var wb = make_unit(gs, "work_boat", 1, 5, 5)
+	_sea_resource_tile(gs, 5, 5)
+	var facade = bare_facade(gs)
+	# bare_facade omits the selection state; install one so the consume path can
+	# clear the boat from the active selection.
+	facade._selection = load("res://src/api/selection_state.gd").new()
+	gs.current_player_id = 1
+	# Select the work boat first, then build.
+	facade.select_unit(wb.id)
+	assert_eq(facade.get_selection().selected_unit_ids.size(), 1, "Work boat should be selected before build")
+	assert_true(facade.apply_command(Commands.build_improvement(1, wb.id, "fishing_boats")),
+		"Work boat build should succeed")
+	assert_eq(facade.get_selection().selected_unit_ids.size(), 0,
+		"The consumed work boat must be dropped from the selection")
+
+func test_land_worker_build_still_takes_multiple_turns() -> void:
+	# Guard against over-generalizing: a land worker (no consumed_on_use) keeps its
+	# multi-turn build — the improvement is NOT placed instantly and the worker
+	# survives the command.
+	var gs = make_gs(1)
+	gs.get_player(1).treasury = 10000
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	gs.map.get_tile(5, 5).terrain_id = "grassland"  # flat
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "farm")),
+		"Worker should start building a farm")
+	assert_true(w.build_turns_left > 0,
+		"Land worker keeps a positive multi-turn build (not instant)")
+	assert_eq(gs.map.get_tile(5, 5).improvement_id, "",
+		"Farm must NOT be on the tile yet — the land worker build is multi-turn")
+	assert_eq(w.building_improvement, "farm",
+		"Land worker is still mid-build, not consumed")
+	assert_not_null(gs.get_unit(w.id), "Land worker must survive the build command")
