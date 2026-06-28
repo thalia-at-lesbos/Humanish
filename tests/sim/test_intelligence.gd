@@ -353,3 +353,140 @@ func test_counter_espionage_ticks_down_and_roundtrips() -> void:
 		"The cover ledger key is coerced back to int on load")
 	assert_eq(int(gs2.get_player(1).counter_espionage.get(2, 0)), 1,
 		"The cover value roundtrips through save/load")
+
+# ── Spies cannot be attacked (§7.1) ───────────────────────────────────────────
+
+func test_spy_is_not_a_combat_defender() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_unit(gs, "spy", 2, 5, 5)   # a lone enemy spy
+	assert_null(Stack.get_defender(gs.units, 5, 5, 1, gs),
+		"A tile holding only a spy has no defender — spies cannot be attacked")
+	assert_false(f.is_hostile_tile(5, 5),
+		"A lone enemy spy's tile is not a hostile (attackable) target")
+
+func test_spy_shares_tile_with_garrison_safely() -> void:
+	# A spy stacked under a real defender does not become the target, and the real
+	# defender is still found.
+	var gs = make_gs(2)
+	make_unit(gs, "spy", 2, 5, 5)
+	var warrior = make_warrior(gs, 2, 5, 5)
+	assert_eq(Stack.get_defender(gs.units, 5, 5, 1, gs).id, warrior.id,
+		"The military unit defends; the stacked spy is never chosen")
+
+# ── Spy infiltration movement (§7.1) ──────────────────────────────────────────
+
+func test_spy_infiltrates_peaceful_foreign_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var city = make_settlement(gs, 2, 8, 8, 5)
+	gs.map.get_tile(8, 8).owner_player_id = 2   # the city sits in foreign territory
+	var spy = make_unit(gs, "spy", 1, 7, 8)
+	assert_true(f.can_stack_move(7, 8, 8, 8, [spy.id]),
+		"A spy may move onto a foreign city tile, crossing the border")
+	assert_true(f._cmd_move_stack(Commands.move_stack(1, 7, 8, 8, 8, [spy.id])),
+		"The infiltration move succeeds")
+	assert_eq([spy.x, spy.y], [8, 8], "The spy now stands on the foreign city tile")
+	assert_eq(city.owner_player_id, 2, "Infiltration does not capture the city")
+
+func test_spy_infiltrates_garrisoned_enemy_city_without_combat() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	# At war, with a garrison sitting in the enemy city.
+	gs.alliances[0].at_war_with = [2]
+	gs.alliances[1].at_war_with = [1]
+	var city = make_settlement(gs, 2, 8, 8, 5)
+	var garrison = make_warrior(gs, 2, 8, 8)
+	var spy = make_unit(gs, "spy", 1, 7, 8)
+	assert_true(f.can_stack_move(7, 8, 8, 8, [spy.id]),
+		"A spy may infiltrate even a garrisoned enemy city")
+	assert_true(f._cmd_move_stack(Commands.move_stack(1, 7, 8, 8, 8, [spy.id])),
+		"The infiltration move succeeds with no combat")
+	assert_eq([spy.x, spy.y], [8, 8], "The spy walks onto the garrisoned tile")
+	assert_not_null(gs.get_unit(garrison.id), "The garrison is untouched (no battle)")
+	assert_not_null(gs.get_unit(spy.id), "The spy survives — it was never in combat")
+	assert_eq(city.owner_player_id, 2, "The enemy city is not captured")
+
+func test_non_spy_civilian_still_cannot_enter_foreign_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.map.get_tile(8, 8).owner_player_id = 2   # foreign territory blocks non-spies
+	var worker = make_unit(gs, "worker", 1, 7, 8)
+	assert_false(f.can_stack_move(7, 8, 8, 8, [worker.id]),
+		"Only spies infiltrate — an ordinary civilian cannot enter a foreign city")
+
+# ── Spy-on-tile missions (§7.1) ───────────────────────────────────────────────
+
+func test_spy_mission_runs_and_spends_movement() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).treasury = 500
+	gs.get_player(1).intel_points = {2: 100000}
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	assert_eq(spy.movement_left, spy.movement_total, "A fresh spy has full movement")
+	assert_true(f._cmd_spy_mission({"player_id": 1, "unit_id": spy.id, "mission": "steal_gold"}),
+		"A spy on a foreign city with full movement and EP runs the mission")
+	assert_eq(spy.movement_left, 0, "Running a mission spends the spy's whole turn")
+
+func test_spy_mission_requires_full_movement() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).treasury = 500
+	gs.get_player(1).intel_points = {2: 100000}
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	spy.movement_left = spy.movement_total - 1   # spent even one point
+	assert_false(f._cmd_spy_mission({"player_id": 1, "unit_id": spy.id, "mission": "steal_gold"}),
+		"A spy without full movement cannot perform a mission")
+	assert_true(f.spy_mission_options(spy.id).empty(),
+		"No spy actions are offered without full movement")
+
+func test_spy_mission_only_on_foreign_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.get_player(2).treasury = 500
+	gs.get_player(1).intel_points = {2: 100000}
+	# On the spy's own city: no offensive actions.
+	make_settlement(gs, 1, 5, 5, 4)
+	var own_spy = make_unit(gs, "spy", 1, 5, 5)
+	assert_false(f._cmd_spy_mission({"player_id": 1, "unit_id": own_spy.id, "mission": "steal_gold"}),
+		"A spy on its own city has no offensive missions")
+	assert_true(f.spy_mission_options(own_spy.id).empty(), "...and no actions are offered")
+	# On open ground (no city): cannot act.
+	var field_spy = make_unit(gs, "spy", 1, 12, 12)
+	assert_false(f._cmd_spy_mission({"player_id": 1, "unit_id": field_spy.id, "mission": "steal_gold"}),
+		"A spy not standing on a city tile cannot act")
+
+func test_spy_mission_targets_the_spys_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var small = make_settlement(gs, 2, 8, 8, 3)    # the city the spy stands on
+	var big = make_settlement(gs, 2, 10, 10, 8)    # a larger city elsewhere
+	# Poison water aimed at the specific (smaller) city, not the alliance's largest.
+	f._espionage_poison_water(gs.alliances[1], small)
+	assert_eq(small.population, 2, "The spy's own city loses the population")
+	assert_eq(big.population, 8, "The alliance's largest city is untouched")
+
+func test_spy_mission_options_only_valid_and_usable() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	# A size-1 city: poison_water (needs pop >= 2) is invalid; steal_tech is valid.
+	make_settlement(gs, 2, 8, 8, 1)
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	var ids := []
+	for o in f.spy_mission_options(spy.id):
+		ids.append(o["id"])
+	assert_true("steal_tech" in ids, "A valid, affordable mission is offered")
+	assert_false("poison_water" in ids, "An invalid mission (pop 1) is not offered")
+	# With no espionage points, nothing is usable.
+	gs.get_player(1).intel_points = {2: 0}
+	assert_true(f.spy_mission_options(spy.id).empty(),
+		"With no EP, no usable spy actions are shown")

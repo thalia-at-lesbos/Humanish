@@ -151,9 +151,10 @@ subsystem this build does not have:
   persistence, an admin/host channel, and a full map editor respectively.
 - **Session `retire`, `all-chat`, `team-chat`, `free-colony`** — multiplayer chat
   and colony-split subsystems (this build is single-machine hotseat).
-- **Espionage verbs `sabotage` / `destroy` / `steal plans` as *unit missions*** —
-  the mechanic exists at alliance scope via `ESPIONAGE_MISSION`; a spy-unit-on-tile
-  mission model is unbuilt.
+- (Espionage verbs `sabotage` / `destroy` / `steal plans` as *unit missions* are now
+  built: a spy on a foreign city tile runs any catalogue mission via `SPY_MISSION` /
+  `Commands.spy_mission` — see §5.1 and `game-data.md` §25.5 — alongside the
+  alliance-scope `ESPIONAGE_MISSION` screen path.)
 - (`SPREAD_BELIEF` is now built: a missionary unit on a city tile spreads the
   player's religion via the `SPREAD_BELIEF` command — see the missionary
   subsystem.)
@@ -217,6 +218,16 @@ espionage screen) and the **thirteen active, state-changing missions** are compl
 `counterespionage` — each with a `case` in `SimFacade._espionage_apply`, a target
 gate in `_mission_target_valid`, and a case in `tests/sim/test_intelligence.gd`.
 
+**Spy-unit-on-tile missions are now built** (`game-data.md` §25.5). A spy (the
+`espionage`-tagged unit) infiltrates city tiles — `Pathfinding.find_path` waives
+borders for it and `_cmd_move_stack`/`can_stack_move` relocate an all-spy stack onto a
+city tile peacefully (no combat, even into a garrisoned/at-war city); spies cannot be
+attacked (`Stack.get_defender` skips them). From a foreign city tile, at full movement,
+a spy runs any of the thirteen missions against **that specific city** via
+`Commands.spy_mission` → `_cmd_spy_mission`, sharing the validate→pay→intercept→apply
+pipeline with the screen path; `spy_mission_options(unit_id)` feeds the HUD only the
+valid+usable rows. The per-effect handlers/gates take an optional target city for this.
+
 **Deferred: the five passive, information-gathering missions.** These do not mutate
 shared game state — they lift *information fog* by revealing a rival's hidden data to
 the spying player only. The engine has **no per-player information-fog subsystem**:
@@ -245,10 +256,6 @@ expiry/refresh rules for time-limited reveals (e.g. city visibility lasting N tu
 Until that exists, these five stay out of `data/espionage_missions.json`. The
 reference catalogue is therefore **18 mission types: 13 active (built) + 5 passive
 (blocked on the knowledge layer)**.
-
-- **Spy-unit-on-tile missions** (vs. the current alliance-scope screen missions)
-  remain a separate larger lift: they require the spy unit's infiltration/discovery
-  state and a per-tile target model. Treat as a follow-on phase.
 
 ### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
 

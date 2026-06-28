@@ -60,7 +60,7 @@ sections:
   "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
   "§24  Goody huts":             "goodies.json: weighted discovery-site reward table and map placement (incomplete — 7 of 12 reference rewards)"
-  "§25  Espionage missions":     "espionage_missions.json: alliance-scope intel mission catalogue (13 active missions complete; 5 passive intelligence missions deferred)"
+  "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue, run from the alliance screen and by spy units on city tiles (13 active missions complete; 5 passive intelligence missions deferred)"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
@@ -2160,12 +2160,13 @@ the reference `normalizeAddExtras` step, §28, which can scatter extra huts near
 
 ## 25. Espionage missions
 
-> **Status: active operations complete; passive intelligence deferred** — the thirteen
-> active, state-changing alliance-scope missions are modelled in full. The five passive,
-> information-gathering missions (revealing demographics, city/research visibility,
-> investigating a city, detecting active missions) are deferred pending an
-> information-fog subsystem — see `docs/planning/designgaps.md`. **Spy-unit-on-tile**
-> missions (as opposed to alliance-scope screen missions) are deferred entirely.
+> **Status: active operations complete (alliance-scope screen *and* spy-unit-on-tile);
+> passive intelligence deferred** — the thirteen active, state-changing missions run
+> from two paths: the alliance-scope espionage screen and a spy unit standing on a
+> foreign city tile (§25.5). The five passive, information-gathering missions (revealing
+> demographics, city/research visibility, investigating a city, detecting active
+> missions) are deferred pending an information-fog subsystem — see
+> `docs/planning/designgaps.md`.
 
 ### 25.1 How a mission runs
 
@@ -2248,6 +2249,39 @@ engine rather than carrying bespoke state:
   (rival alliance id → turns), ticked down each turn in `TurnEngine._tick_states` and
   read back by the interception calculation. Both this ledger and `intel_points` are
   int-keyed and coerced back to int on load (the recurring JSON key-type discipline).
+
+### 25.5 Spy units on tiles
+
+Besides the alliance-scope espionage screen, the same thirteen missions can be run by a
+**spy unit** physically standing in a target city — a unit carrying the `espionage` tag
+in `data/units.json` (the Spy). Three rules govern a spy's behaviour, all enforced in
+`SimFacade` so the UI never offers an order the rules would reject:
+
+- **Spies can stand on any city tile, friendly or foreign.** A spy *infiltrates*: in
+  `Pathfinding.find_path` an espionage unit ignores civilian borders (it may cross and
+  traverse foreign territory), and `_cmd_move_stack` / `can_stack_move` route an all-spy
+  stack onto a city tile as a **peaceful relocation** — never combat — even into a
+  garrisoned city or one its owner is at war with. (A spy still cannot tunnel *through* an
+  enemy field stack; it just needs a path to the city.) Non-spy civilians are unaffected
+  and still cannot enter foreign territory at peace.
+- **Spies cannot be attacked.** `Stack.get_defender` skips espionage units, so a tile
+  holding only spies has no defender and is not a hostile/attackable target. A spy stacked
+  under a real defender is never chosen as the victim; the military unit takes the blow.
+- **A spy acts only from a foreign city tile, and only at full movement.** The action gate
+  (`_spy_target_city`) requires the unit to be an espionage unit with its **whole movement
+  allowance unspent**, standing on a settlement owned by a *different alliance*. The
+  mission then strikes **that specific city** (and its owner), not the alliance's largest —
+  the per-effect handlers and gates take an optional target city for exactly this. Running
+  a mission consumes the spy's entire turn (`movement_left → 0`). A spy on its own/allied
+  city, on open ground, or with spent movement is offered nothing.
+
+The command is `Commands.spy_mission(player, unit, mission_id)` →
+`SimFacade._cmd_spy_mission`, which derives the target alliance from the city's owner and
+shares the validate → pay → interception → apply pipeline (`_run_espionage_mission`) with
+the screen path. The HUD lists a spy's available missions via
+`SimFacade.spy_mission_options(unit_id)`, which returns **only valid (gate holds) and
+usable (affordable)** rows — empty whenever the spy cannot act, which is the signal for the
+selection panel to show no espionage buttons.
 
 ---
 

@@ -407,6 +407,17 @@ static func espionage_mission(player_id: int, target_alliance_id: int,
 		"mission": mission
 	}
 
+# Spy-unit-on-tile espionage mission (§7.1): the spy `unit_id` must be standing on a
+# foreign city tile with full movement; the mission strikes that city directly. The
+# target alliance is derived from the city's owner, so no alliance id is passed.
+static func spy_mission(player_id: int, unit_id: int, mission: String) -> Dictionary:
+	return {
+		"type": IDs.CommandType.SPY_MISSION,
+		"player_id": player_id,
+		"unit_id": unit_id,
+		"mission": mission
+	}
+
 # Cast a vote on the open diplomatic-assembly proposal (§7.2). choice is one of
 # "yea", "nay", or "abstain".
 static func cast_vote(player_id: int, choice: String) -> Dictionary:

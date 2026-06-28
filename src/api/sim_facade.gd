@@ -385,6 +385,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_move_production_item(cmd)
 		IDs.CommandType.ESPIONAGE_MISSION:
 			return _cmd_espionage_mission(cmd)
+		IDs.CommandType.SPY_MISSION:
+			return _cmd_spy_mission(cmd)
 		IDs.CommandType.LOAD_UNIT:
 			return _cmd_load_unit(cmd)
 		IDs.CommandType.UNLOAD_UNIT:
@@ -521,6 +523,12 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 	if path.empty() and not (fx == tx and fy == ty):
 		return false
 
+	# Spy infiltration (§7.1): an all-spy stack moving onto a city tile (own or foreign)
+	# relocates peacefully — it bypasses the combatant requirement below and never
+	# resolves combat / captures the city in the step loop, even into a garrisoned or
+	# at-war city. Spies cannot be attacked, so this is a one-way, non-violent entry.
+	var infiltrating: bool = _is_spy_infiltration(moving_units, tx, ty)
+
 	# Attacks must be led by a combatant. The destination tile is hostile when it
 	# holds an enemy unit or a city we are at war with (pathfinding only routes onto
 	# an enemy tile as the final, attacked tile). If so:
@@ -530,8 +538,8 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 	#     selected a no-op (can_stack_move mirrors this gate so the UI and rules agree);
 	#   • otherwise make sure a combat-capable mover leads, so a civilian at the head
 	#     of a mixed stack never fights the battle in place of an escorting warrior (§5.3).
-	if _enemy_settlement_at(tx, ty, player_id) != null \
-			or Stack.get_defender(_gs.units, tx, ty, player_id, _gs) != null:
+	if not infiltrating and (_enemy_settlement_at(tx, ty, player_id) != null \
+			or Stack.get_defender(_gs.units, tx, ty, player_id, _gs) != null):
 		var attacker: Unit = null
 		for mu in moving_units:
 			if mu.can_attack(_db):
@@ -558,9 +566,10 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 		# If the next tile holds an enemy, attack INTO it rather than moving on
 		# first. Combat is resolved here; the attacker only advances onto the
 		# tile if it wins (handled in _apply_combat_result). Attacking ends the
-		# stack's movement for the turn.
-		var enemy_city: Settlement = _enemy_settlement_at(sx, sy, player_id)
-		var enemy: Unit = Stack.get_defender(
+		# stack's movement for the turn. Spy infiltration skips combat/capture
+		# entirely — the spy just walks onto the (possibly garrisoned/enemy) tile.
+		var enemy_city: Settlement = null if infiltrating else _enemy_settlement_at(sx, sy, player_id)
+		var enemy: Unit = null if infiltrating else Stack.get_defender(
 			_gs.units, sx, sy, player_id, _gs)
 		if enemy != null:
 			# A defender on a city tile must be beaten before the city can be
@@ -1618,15 +1627,51 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	var mission: Dictionary = _db.get_espionage_mission(str(cmd.get("mission", "")))
 	if mission.empty():
 		return false
+	# Alliance-scope screen mission: no fixed city, the effect picks its own victim.
+	return _run_espionage_mission(p, target_alliance, mission, null)
+
+# Spy-unit-on-tile espionage mission (§7.1): the spy `unit_id` must be an espionage
+# unit standing on a foreign city tile with FULL movement. The mission strikes that
+# specific city and, on success, consumes the spy's action for the turn.
+func _cmd_spy_mission(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var u: Unit = _gs.get_unit(int(cmd.get("unit_id", -1)))
+	if u == null or u.owner_player_id != p.id:
+		return false
+	var city: Settlement = _spy_target_city(u, p)
+	if city == null:
+		return false
+	var owner: Player = _gs.get_player(city.owner_player_id)
+	var target_alliance: Alliance = _gs.get_alliance(owner.alliance_id) if owner != null else null
+	if target_alliance == null:
+		return false
+	var mission: Dictionary = _db.get_espionage_mission(str(cmd.get("mission", "")))
+	if mission.empty():
+		return false
+	if not _run_espionage_mission(p, target_alliance, mission, city):
+		return false
+	u.movement_left = 0
+	u.has_moved = true
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	return true
+
+# Validate, pay for, roll interception against, and apply a mission. `target_city`
+# (null for the alliance-scope screen path) fixes which city/owner the effect strikes.
+# Returns true when the mission ran (even if intercepted — the EP is still spent);
+# false when the gate fails or the attacker cannot afford it (no EP spent).
+func _run_espionage_mission(p: Player, target_alliance: Alliance,
+		mission: Dictionary, target_city) -> bool:
 	# Reject a mission whose target gate does not hold (e.g. stealing a tech the
 	# target cannot offer) before spending any points.
-	if not _mission_target_valid(p, target_alliance, mission):
+	if not _mission_target_valid(p, target_alliance, mission, target_city):
 		return false
-	var have: int = int(p.intel_points.get(target_aid, 0))
+	var have: int = int(p.intel_points.get(target_alliance.id, 0))
 	var cost: int = _mission_cost(p, target_alliance, have, mission)
 	if have < cost:
 		return false
-	p.intel_points[target_aid] = have - cost
+	p.intel_points[target_alliance.id] = have - cost
 	# A defender's espionage_defense structures plus the mission's own
 	# interception_modifier raise the chance; interception spends the points but
 	# fails the mission (§7, §15.5).
@@ -1635,105 +1680,131 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	if _gs.rng.rand_bool_percent(chance):
 		_add_notification("Espionage mission intercepted.", "info")
 		return true
-	_espionage_apply(p, target_alliance, mission)
+	_espionage_apply(p, target_alliance, mission, target_city)
 	return true
 
 # Dispatch a mission's `effect` verb onto game state (§7.1). Each verb is a pure,
 # deterministic application; magnitudes come from the mission record / constants.
-func _espionage_apply(thief: Player, target: Alliance, mission: Dictionary) -> void:
+# `target_city` (or null) fixes the victim city/owner for the spy-on-tile path; when
+# null the effect selects its own deterministic victim (the alliance-screen path).
+func _espionage_apply(thief: Player, target: Alliance, mission: Dictionary,
+		target_city = null) -> void:
 	match str(mission.get("effect", "")):
 		"steal_tech":
-			_espionage_steal_tech(thief, target)
+			_espionage_steal_tech(thief, target, target_city)
 		"sabotage":
-			_espionage_sabotage(target)
+			_espionage_sabotage(target, target_city)
 		"destroy_building":
-			_espionage_destroy_building(target)
+			_espionage_destroy_building(target, target_city)
 		"destroy_project":
-			_espionage_destroy_project(target)
+			_espionage_destroy_project(target, target_city)
 		"destroy_improvement":
-			_espionage_destroy_improvement(target)
+			_espionage_destroy_improvement(target, target_city)
 		"steal_gold":
-			_espionage_steal_gold(thief, target, int(mission.get("amount", 0)))
+			_espionage_steal_gold(thief, target, int(mission.get("amount", 0)), target_city)
 		"poison_water":
-			_espionage_poison_water(target)
+			_espionage_poison_water(target, target_city)
 		"insert_culture":
-			_espionage_insert_culture(thief, target, int(mission.get("amount", 0)))
+			_espionage_insert_culture(thief, target, int(mission.get("amount", 0)), target_city)
 		"incite_unhappiness":
 			_espionage_incite_unhappiness(target, int(mission.get("amount", 1)),
-				int(mission.get("duration", 1)))
+				int(mission.get("duration", 1)), target_city)
 		"incite_revolt":
-			_espionage_incite_revolt(target, int(mission.get("duration", 1)))
+			_espionage_incite_revolt(target, int(mission.get("duration", 1)), target_city)
 		"switch_civic":
-			_espionage_force_anarchy(target, int(mission.get("duration", 1)), false)
+			_espionage_force_anarchy(target, int(mission.get("duration", 1)), false, target_city)
 		"switch_religion":
-			_espionage_force_anarchy(target, int(mission.get("duration", 1)), true)
+			_espionage_force_anarchy(target, int(mission.get("duration", 1)), true, target_city)
 		"counterespionage":
 			_espionage_counterespionage(thief, target, int(mission.get("duration", 1)))
 
-# True when `mission` can produce its effect against `target` right now — the
-# per-verb target gate. A mission with no gate (default) is always valid.
-func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictionary) -> bool:
+# True when `mission` can produce its effect right now — the per-verb target gate.
+# When `target_city` is given (the spy-on-tile path) the gate is tested against that
+# one city and its owner; otherwise it is tested across the whole target alliance.
+func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictionary,
+		target_city = null) -> bool:
+	# Resolve the candidate cities and owners the gate scans.
+	var cities: Array = []
+	var owners: Array = []
+	if target_city != null:
+		cities = [target_city]
+		var o: Player = _gs.get_player(target_city.owner_player_id)
+		if o != null:
+			owners = [o]
+	else:
+		for s in _gs.settlements:
+			if _settlement_in_alliance(s, target):
+				cities.append(s)
+		for pid in target.member_player_ids:
+			var m: Player = _gs.get_player(pid)
+			if m != null:
+				owners.append(m)
 	match str(mission.get("effect", "")):
 		"steal_tech":
-			# There must be a tech a target member knows that the attacker lacks.
-			for pid in target.member_player_ids:
-				var victim: Player = _gs.get_player(pid)
-				if victim == null:
-					continue
+			# There must be a tech an owner knows that the attacker lacks.
+			for victim in owners:
 				for tech in victim.technologies:
 					if not attacker.has_tech(tech):
 						return true
 			return false
 		"sabotage":
-			for s in _gs.settlements:
-				if _settlement_in_alliance(s, target) and s.production_store > 0:
+			for s in cities:
+				if s.production_store > 0:
 					return true
 			return false
 		"destroy_building":
-			# There must be a target city holding a structure we can raze (the Palace
-			# is permanent and never targetable).
-			for s in _gs.settlements:
-				if not _settlement_in_alliance(s, target):
-					continue
+			# There must be a structure we can raze (the Palace is never targetable).
+			for s in cities:
 				for struct_id in s.structures:
 					if struct_id != "palace":
 						return true
 			return false
 		"destroy_project":
-			for s in _gs.settlements:
-				if _settlement_in_alliance(s, target) and _settlement_building_project(s):
+			for s in cities:
+				if _settlement_building_project(s):
 					return true
 			return false
 		"destroy_improvement":
-			return _alliance_improved_tile(target) != null
+			for s in cities:
+				if _city_improved_tile(s) != null:
+					return true
+			return false
 		"switch_religion":
-			for pid in target.member_player_ids:
-				var believer: Player = _gs.get_player(pid)
-				if believer != null and believer.state_religion != "":
+			for victim in owners:
+				if victim.state_religion != "":
 					return true
 			return false
 		"steal_gold":
-			for pid in target.member_player_ids:
-				var member: Player = _gs.get_player(pid)
-				if member != null and member.treasury > 0:
+			for victim in owners:
+				if victim.treasury > 0:
 					return true
 			return false
 		"poison_water":
-			for s in _gs.settlements:
-				if _settlement_in_alliance(s, target) and s.population >= 2:
+			for s in cities:
+				if s.population >= 2:
 					return true
 			return false
 		_:
 			# insert_culture, incite_unhappiness/revolt, switch_civic, counterespionage
 			# and any future gateless verb only need a target city to act on.
-			for s in _gs.settlements:
-				if _settlement_in_alliance(s, target):
-					return true
-			return false
+			return not cities.empty()
 
 func _settlement_in_alliance(s: Settlement, target: Alliance) -> bool:
 	var owner: Player = _gs.get_player(s.owner_player_id)
 	return owner != null and owner.alliance_id == target.id
+
+# The owner players a player-targeting mission may hit: just the target city's owner
+# (spy-on-tile path) or every alliance member (alliance-screen path).
+func _mission_owners(target: Alliance, target_city) -> Array:
+	if target_city != null:
+		var o: Player = _gs.get_player(target_city.owner_player_id)
+		return [o] if o != null else []
+	var owners: Array = []
+	for pid in target.member_player_ids:
+		var m: Player = _gs.get_player(pid)
+		if m != null:
+			owners.append(m)
+	return owners
 
 # The most populous settlement in `target` (lowest id on a tie), or null when the
 # alliance holds none. The deterministic victim for the city-targeting missions.
@@ -1754,17 +1825,59 @@ func _settlement_building_project(s: Settlement) -> bool:
 		return false
 	return str(s.production_queue[0].get("type", "unit")) == "project"
 
-# The first improved tile owned by a member of `target` (scanned in map order), or
-# null — the deterministic victim/gate for destroy_improvement.
+# The first improved tile worked by a member of `target` (scanned in map order), or
+# null — the deterministic victim/gate for destroy_improvement (alliance-screen path).
 func _alliance_improved_tile(target: Alliance):
 	for s in _gs.settlements:
 		if not _settlement_in_alliance(s, target):
 			continue
-		for cell in s.worked_tiles:
-			var tile = _gs.map.get_tile(int(cell[0]), int(cell[1]))
-			if tile != null and tile.improvement_id != "":
-				return tile
+		var tile = _city_improved_tile(s)
+		if tile != null:
+			return tile
 	return null
+
+# The first improved tile worked by settlement `s` (in worked-tile order), or null —
+# the per-city victim/gate for destroy_improvement (spy-on-tile path).
+func _city_improved_tile(s: Settlement):
+	for cell in s.worked_tiles:
+		var tile = _gs.map.get_tile(int(cell[0]), int(cell[1]))
+		if tile != null and tile.improvement_id != "":
+			return tile
+	return null
+
+# True when the unit is an espionage (spy) unit — data-driven via the "espionage" tag
+# in data/units.json, so any future spy-class unit is recognised without code change.
+func _is_espionage_unit(u: Unit) -> bool:
+	if u == null:
+		return false
+	return _db.get_unit(u.unit_type_id).get("tags", []).has("espionage")
+
+# The foreign city a spy may act on, or null. The unit must be an espionage unit with
+# FULL movement (§7.1: a spy spends a whole turn's movement on a mission) standing on
+# a settlement tile owned by a DIFFERENT alliance. A spy on its own/allied city, with
+# spent movement, or not on a city at all, returns null — so no actions are offered.
+func _spy_target_city(u: Unit, p: Player):
+	if not _is_espionage_unit(u):
+		return null
+	if u.movement_total <= 0 or u.movement_left < u.movement_total:
+		return null
+	for s in _gs.settlements:
+		if s.x == u.x and s.y == u.y:
+			var owner: Player = _gs.get_player(s.owner_player_id)
+			if owner != null and owner.alliance_id != p.alliance_id:
+				return s
+			return null  # own/allied city offers no offensive missions
+	return null
+
+# True when `movers` are all espionage units and the destination (tx, ty) holds a city
+# (any owner) — a peaceful spy infiltration rather than an attack or a normal move.
+func _is_spy_infiltration(movers: Array, tx: int, ty: int) -> bool:
+	if movers.empty() or _gs.get_settlement_at(tx, ty) == null:
+		return false
+	for u in movers:
+		if not _is_espionage_unit(u):
+			return false
+	return true
 
 # Public query: EP cost for the current player to run `mission_id` against
 # target_alliance_id. Returns 0 when state is unavailable or the target is
@@ -1821,6 +1934,44 @@ func espionage_mission_options(target_alliance_id: int) -> Array:
 		})
 	return out
 
+# Spy-on-tile mission rows for `unit_id` (§7.1): the catalogue filtered to the
+# missions this spy can actually run from the foreign city it stands on — only those
+# whose target gate holds AND that the attacker can afford (so the UI shows only valid
+# and usable actions). Each row carries id, name, cost, and interception chance.
+# Empty when the spy cannot act here (not a spy, lacking full movement, or not on a
+# foreign city tile), which is the signal to show no spy actions at all.
+func spy_mission_options(unit_id: int) -> Array:
+	var out: Array = []
+	if _gs == null:
+		return out
+	var u: Unit = _gs.get_unit(unit_id)
+	if u == null:
+		return out
+	var p: Player = _gs.get_player(u.owner_player_id)
+	if p == null:
+		return out
+	var city: Settlement = _spy_target_city(u, p)
+	if city == null:
+		return out
+	var owner: Player = _gs.get_player(city.owner_player_id)
+	var target: Alliance = _gs.get_alliance(owner.alliance_id) if owner != null else null
+	if target == null:
+		return out
+	var have: int = int(p.intel_points.get(target.id, 0))
+	for m in _db.get_espionage_missions():
+		var cost: int = _mission_cost(p, target, have, m)
+		# Only valid (gate holds) and usable (affordable) missions are listed.
+		if have < cost or not _mission_target_valid(p, target, m, city):
+			continue
+		out.append({
+			"id": str(m.get("id", "")),
+			"name": str(m.get("name", m.get("id", ""))),
+			"cost": cost,
+			"interception": _espionage_interception_chance(target,
+				int(m.get("interception_modifier", 0)), p.alliance_id),
+		})
+	return out
+
 # Per-mission cost: the base EP-advantage curve scaled by the mission's
 # cost_multiplier percent (§15.5).
 func _mission_cost(attacker: Player, target: Alliance, attacker_ep: int, mission: Dictionary) -> int:
@@ -1873,29 +2024,25 @@ func _espionage_interception_chance(target: Alliance, extra: int = 0,
 	var cap: int = _db.get_constant("intel_interception_max", 90)
 	return cap if chance > cap else chance
 
-func _espionage_steal_tech(thief: Player, target: Alliance) -> void:
-	for pid in target.member_player_ids:
-		var victim: Player = _gs.get_player(pid)
-		if victim == null:
-			continue
+func _espionage_steal_tech(thief: Player, target: Alliance, target_city = null) -> void:
+	var victims: Array = _mission_owners(target, target_city)
+	for victim in victims:
 		for tech in victim.technologies:
 			if not thief.has_tech(tech):
 				thief.technologies.append(tech)
 				_add_notification("Stole technology: " + str(tech), "major")
 				return
 
-func _espionage_sabotage(target: Alliance) -> void:
-	for s in _gs.settlements:
-		var owner: Player = _gs.get_player(s.owner_player_id)
-		if owner != null and owner.alliance_id == target.id:
-			s.production_store = s.production_store / 2
-			_add_notification("Sabotaged production in " + s.name, "major")
-			return
+func _espionage_sabotage(target: Alliance, target_city = null) -> void:
+	var victim: Settlement = target_city if target_city != null else _largest_target_city(target)
+	if victim != null:
+		victim.production_store = victim.production_store / 2
+		_add_notification("Sabotaged production in " + victim.name, "major")
 
-# Destroy building: raze the costliest non-Palace structure in the target's largest
-# city (§7.1). Deterministic — costliest first, lowest id on a cost tie.
-func _espionage_destroy_building(target: Alliance) -> void:
-	var victim: Settlement = _largest_target_city(target)
+# Destroy building: raze the costliest non-Palace structure in the victim city (§7.1).
+# Deterministic — costliest first, lowest id on a cost tie.
+func _espionage_destroy_building(target: Alliance, target_city = null) -> void:
+	var victim: Settlement = target_city if target_city != null else _largest_target_city(target)
 	if victim == null:
 		return
 	var best_id: String = ""
@@ -1913,27 +2060,29 @@ func _espionage_destroy_building(target: Alliance) -> void:
 		var sname: String = str(_db.get_structure(best_id).get("name", best_id))
 		_add_notification("Destroyed %s in %s." % [sname, victim.name], "major")
 
-# Destroy project: cancel the endgame project a target city is building, wiping its
+# Destroy project: cancel the endgame project a victim city is building, wiping its
 # stored production (§7.1). Deterministic — the largest such city, lowest id on a tie.
-func _espionage_destroy_project(target: Alliance) -> void:
-	var victim: Settlement = null
-	for s in _gs.settlements:
-		if not _settlement_in_alliance(s, target) or not _settlement_building_project(s):
-			continue
-		if victim == null or s.population > victim.population \
-				or (s.population == victim.population and s.id < victim.id):
-			victim = s
+func _espionage_destroy_project(target: Alliance, target_city = null) -> void:
+	var victim: Settlement = target_city
 	if victim == null:
+		for s in _gs.settlements:
+			if not _settlement_in_alliance(s, target) or not _settlement_building_project(s):
+				continue
+			if victim == null or s.population > victim.population \
+					or (s.population == victim.population and s.id < victim.id):
+				victim = s
+	if victim == null or not _settlement_building_project(victim):
 		return
 	var pname: String = str(victim.production_queue[0].get("id", "project"))
 	victim.production_queue.remove(0)
 	victim.production_store = 0
 	_add_notification("Sabotaged the %s project in %s." % [pname, victim.name], "major")
 
-# Destroy improvement: clear the first tile improvement worked by a target city
-# (§7.1). Deterministic — first improved worked tile in map order.
-func _espionage_destroy_improvement(target: Alliance) -> void:
-	var tile = _alliance_improved_tile(target)
+# Destroy improvement: clear the first tile improvement worked by the victim city
+# (§7.1). Deterministic — first improved worked tile in order.
+func _espionage_destroy_improvement(target: Alliance, target_city = null) -> void:
+	var tile = _city_improved_tile(target_city) if target_city != null \
+		else _alliance_improved_tile(target)
 	if tile == null:
 		return
 	var imp: String = tile.improvement_id
@@ -1942,10 +2091,10 @@ func _espionage_destroy_improvement(target: Alliance) -> void:
 	tile.improvement_age = 0
 	_add_notification("Destroyed a %s improvement." % imp, "major")
 
-# Spread culture: pour `amount` of the attacker's cultural influence onto the target
-# alliance's largest city tile, feeding §4.9 cultural-revolt pressure (§7.1).
-func _espionage_insert_culture(thief: Player, target: Alliance, amount: int) -> void:
-	var victim: Settlement = _largest_target_city(target)
+# Spread culture: pour `amount` of the attacker's cultural influence onto the victim
+# city's tile, feeding §4.9 cultural-revolt pressure (§7.1).
+func _espionage_insert_culture(thief: Player, target: Alliance, amount: int, target_city = null) -> void:
+	var victim: Settlement = target_city if target_city != null else _largest_target_city(target)
 	if victim == null:
 		return
 	var tile = _gs.map.get_tile(victim.x, victim.y)
@@ -1955,18 +2104,18 @@ func _espionage_insert_culture(thief: Player, target: Alliance, amount: int) -> 
 	_add_notification("Spread culture into " + victim.name, "major")
 
 # Foment unrest: add a timed angry-citizen modifier (`faces` for `turns` turns) to
-# the target alliance's largest city — temporary discontent that decays (§7.1).
-func _espionage_incite_unhappiness(target: Alliance, faces: int, turns: int) -> void:
-	var victim: Settlement = _largest_target_city(target)
+# the victim city — temporary discontent that decays (§7.1).
+func _espionage_incite_unhappiness(target: Alliance, faces: int, turns: int, target_city = null) -> void:
+	var victim: Settlement = target_city if target_city != null else _largest_target_city(target)
 	if victim == null:
 		return
 	victim.timed_happiness.append({"amount": -faces, "turns_left": turns})
 	_add_notification("Fomented unrest in " + victim.name, "major")
 
-# Incite revolt: tip the target alliance's most populous city into disorder and
-# start a `turns`-turn revolt so it produces nothing until order is restored (§7.1).
-func _espionage_incite_revolt(target: Alliance, turns: int) -> void:
-	var worst: Settlement = _largest_target_city(target)
+# Incite revolt: tip the victim city into disorder and start a `turns`-turn revolt so
+# it produces nothing until order is restored (§7.1).
+func _espionage_incite_revolt(target: Alliance, turns: int, target_city = null) -> void:
+	var worst: Settlement = target_city if target_city != null else _largest_target_city(target)
 	if worst != null:
 		worst.in_disorder = true
 		worst.discontented = worst.population
@@ -1974,13 +2123,17 @@ func _espionage_incite_revolt(target: Alliance, turns: int) -> void:
 			worst.revolt_turns = turns
 		_add_notification("Incited revolt in " + worst.name, "major")
 
-# Foment anarchy: force a target member into `turns` turns of governmental anarchy.
-# When `drop_religion` is set (the switch-religion mission) the victim is the largest
-# target city's owner that actually has a state religion, which it loses; otherwise
-# the owner of the largest target city overall is hit (§7.1). Deterministic.
-func _espionage_force_anarchy(target: Alliance, turns: int, drop_religion: bool) -> void:
+# Foment anarchy: force a victim into `turns` turns of governmental anarchy. When
+# `drop_religion` is set (the switch-religion mission) the victim must have a state
+# religion, which it loses. With `target_city` the victim is that city's owner; on the
+# alliance path it is the largest qualifying city's owner. Deterministic (§7.1).
+func _espionage_force_anarchy(target: Alliance, turns: int, drop_religion: bool, target_city = null) -> void:
 	var victim: Player = null
-	if drop_religion:
+	if target_city != null:
+		var o: Player = _gs.get_player(target_city.owner_player_id)
+		if o != null and (not drop_religion or o.state_religion != ""):
+			victim = o
+	elif drop_religion:
 		var best_city: Settlement = null
 		for s in _gs.settlements:
 			if not _settlement_in_alliance(s, target):
@@ -2014,14 +2167,13 @@ func _espionage_counterespionage(thief: Player, target: Alliance, turns: int) ->
 	thief.counter_espionage[target.id] = turns
 	_add_notification("Counterespionage cover established.", "major")
 
-# Steal treasury: transfer up to `amount` gold from the target's richest member
-# to the attacker (§7.1). Deterministic — the richest member (lowest id on a tie)
-# is robbed; nothing happens when the target alliance is broke.
-func _espionage_steal_gold(thief: Player, target: Alliance, amount: int) -> void:
+# Steal treasury: transfer up to `amount` gold from the richest victim to the attacker
+# (§7.1). With `target_city` the victim is that city's owner; on the alliance path it is
+# the richest member (lowest id on a tie). Nothing happens when the victim is broke.
+func _espionage_steal_gold(thief: Player, target: Alliance, amount: int, target_city = null) -> void:
 	var richest: Player = null
-	for pid in target.member_player_ids:
-		var member: Player = _gs.get_player(pid)
-		if member == null or member.treasury <= 0:
+	for member in _mission_owners(target, target_city):
+		if member.treasury <= 0:
 			continue
 		if richest == null or member.treasury > richest.treasury \
 				or (member.treasury == richest.treasury and member.id < richest.id):
@@ -2033,18 +2185,19 @@ func _espionage_steal_gold(thief: Player, target: Alliance, amount: int) -> void
 	thief.treasury += taken
 	_add_notification("Stole %d gold from %s." % [taken, richest.name], "major")
 
-# Poison water supply: starve one population out of the target alliance's largest
-# city (§7.1). Deterministic — the most populous city (lowest id on a tie) of at
-# least population 2 loses a citizen.
-func _espionage_poison_water(target: Alliance) -> void:
-	var biggest: Settlement = null
-	for s in _gs.settlements:
-		if not _settlement_in_alliance(s, target) or s.population < 2:
-			continue
-		if biggest == null or s.population > biggest.population \
-				or (s.population == biggest.population and s.id < biggest.id):
-			biggest = s
-	if biggest != null:
+# Poison water supply: starve one population out of the victim city (§7.1). On the
+# alliance path the most populous city of at least population 2 (lowest id on a tie)
+# loses a citizen.
+func _espionage_poison_water(target: Alliance, target_city = null) -> void:
+	var biggest: Settlement = target_city
+	if biggest == null:
+		for s in _gs.settlements:
+			if not _settlement_in_alliance(s, target) or s.population < 2:
+				continue
+			if biggest == null or s.population > biggest.population \
+					or (s.population == biggest.population and s.id < biggest.id):
+				biggest = s
+	if biggest != null and biggest.population >= 2:
 		biggest.population -= 1
 		_add_notification("Poisoned the water supply of " + biggest.name, "major")
 
@@ -3040,6 +3193,13 @@ func can_stack_move(fx: int, fy: int, tx: int, ty: int, unit_ids: Array = []) ->
 	var movers: Array = _stack_movers(fx, fy, _gs.current_player_id, unit_ids)
 	if movers.empty():
 		return false
+	# Spy infiltration (§7.1): an all-spy stack may move onto any city tile (own or
+	# foreign, even garrisoned/at-war) as a peaceful relocation, so it bypasses the
+	# combatant requirement below — mirroring _cmd_move_stack so UI and rules agree.
+	if _is_spy_infiltration(movers, tx, ty):
+		var spy_path: Array = Pathfinding.find_path(
+			_gs.map, fx, fy, tx, ty, movers[0], _db, _gs.units, _gs.current_player_id, _gs)
+		return not spy_path.empty()
 	# Entering an enemy-held / hostile-city tile is an attack, so it is only a legal
 	# target when at least one mover can actually fight. A civilian-only selection
 	# (worker/settler/spy/…) right-clicking a hostile tile is therefore an illegal

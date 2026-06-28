@@ -337,3 +337,59 @@ func test_single_unit_panel_has_no_stack_list() -> void:
 	panel.rebuild()
 	assert_eq(_count_buttons_named(panel, "Select all (1)"), 0,
 		"A lone unit shows no Select-all button")
+
+func _has_button_containing(node, needle) -> bool:
+	for c in node.get_children():
+		if c is Button and needle in c.text:
+			return true
+	return false
+
+func test_spy_panel_shows_espionage_actions_on_foreign_city() -> void:
+	# A spy standing on a foreign city tile with full movement and espionage points
+	# shows espionage action buttons (only valid + usable missions, §7.1).
+	var facade = setup_facade(77, "small")
+	var gs = facade.get_state()
+	var p1 = gs.players[0].id
+	var p2 = gs.players[1].id
+	gs.current_player_id = p1
+	make_settlement(gs, p2, 12, 12, 5)
+	gs.get_player(p2).treasury = 500
+	gs.get_player(p1).intel_points = {gs.get_player(p2).alliance_id: 100000}
+	var spy = make_unit(gs, "spy", p1, 12, 12)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(spy.id)
+	panel.rebuild()
+	assert_true(_has_label_starting(panel, "Espionage:"),
+		"A spy on a foreign city tile shows the Espionage action header")
+	assert_true(_has_button_containing(panel, "EP"),
+		"...and at least one espionage mission button")
+
+func test_spy_panel_shows_no_espionage_actions_off_city() -> void:
+	# The same spy on open ground (no city) shows no espionage actions.
+	var facade = setup_facade(78, "small")
+	var gs = facade.get_state()
+	var p1 = gs.players[0].id
+	gs.current_player_id = p1
+	gs.get_player(p1).intel_points = {gs.players[1].alliance_id: 100000}
+	# A tile with no settlement.
+	var tx = -1
+	var ty = -1
+	for cy in range(gs.map.height):
+		for cx in range(gs.map.width):
+			if gs.get_settlement_at(cx, cy) == null:
+				tx = cx; ty = cy
+				break
+		if tx >= 0:
+			break
+	var spy = make_unit(gs, "spy", p1, tx, ty)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(spy.id)
+	panel.rebuild()
+	assert_false(_has_label_starting(panel, "Espionage:"),
+		"A spy not on a city tile shows no espionage actions")
