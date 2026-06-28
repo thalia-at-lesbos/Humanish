@@ -98,16 +98,17 @@ func test_espionage_defense_raises_interception() -> void:
 	assert_eq(f._espionage_interception_chance(gs.alliances[1]), base_chance + 50,
 		"A Security Bureau adds its espionage_defense to interception")
 
-# ── Incite unrest tips the largest enemy city into disorder (§7 provisional) ───
+# ── Incite revolt tips the largest enemy city into disorder (§7.1) ─────────────
 
-func test_incite_unrest_puts_largest_city_in_disorder() -> void:
+func test_incite_revolt_puts_largest_city_in_disorder() -> void:
 	var gs = make_gs(2)
 	var f = bare_facade(gs)
 	make_settlement(gs, 2, 8, 8, 2)
 	var big = make_settlement(gs, 2, 10, 10, 6)
-	f._espionage_incite_unrest(gs.alliances[1])
+	f._espionage_incite_revolt(gs.alliances[1], 3)
 	assert_true(big.in_disorder, "The most populous enemy city falls into disorder")
 	assert_eq(big.discontented, big.population, "Its whole population is discontented")
+	assert_eq(big.revolt_turns, 3, "The revolt runs for the mission's duration")
 
 # ── Public query helpers for the espionage menu (§15.5 provisional) ─────────────
 
@@ -225,3 +226,130 @@ func test_espionage_mission_options_lists_catalogue() -> void:
 	assert_not_null(steal, "steal_tech appears in the options")
 	assert_true(bool(steal["available"]) and bool(steal["affordable"]),
 		"With a stealable tech and ample EP, steal_tech is available and affordable")
+
+# ── Expanded mission catalogue (§7.1) ─────────────────────────────────────────
+
+func test_destroy_building_razes_costliest_non_palace() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	# market (150) is costlier than walls (50); the Palace is never targetable.
+	s.structures = ["palace", "walls", "market"]
+	f._espionage_destroy_building(gs.alliances[1])
+	assert_false(s.structures.has("market"), "The costliest non-Palace structure is razed")
+	assert_true(s.structures.has("walls"), "Cheaper structures are left standing")
+	assert_true(s.structures.has("palace"), "The Palace is never targetable")
+
+func test_destroy_building_gate_rejects_palace_only_city() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	s.structures = ["palace"]
+	var m = gs.db.get_espionage_mission("destroy_building")
+	assert_false(f._mission_target_valid(gs.get_player(1), gs.alliances[1], m),
+		"destroy_building is refused when only the un-targetable Palace remains")
+
+func test_destroy_project_wipes_in_progress_project() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	s.production_queue = [{"type": "project", "id": "ss_casing"}]
+	s.production_store = 200
+	f._espionage_destroy_project(gs.alliances[1])
+	assert_true(s.production_queue.empty(), "The project is dequeued")
+	assert_eq(s.production_store, 0, "Its stored production is wiped")
+
+func test_destroy_project_gate_ignores_non_project_builds() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	s.production_queue = [{"type": "structure", "id": "market"}]
+	var m = gs.db.get_espionage_mission("destroy_project")
+	assert_false(f._mission_target_valid(gs.get_player(1), gs.alliances[1], m),
+		"destroy_project does not fire against a city building a mere structure")
+
+func test_destroy_improvement_clears_worked_tile() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	var tile = gs.map.get_tile(9, 8)
+	tile.improvement_id = "farm"
+	s.worked_tiles = [[9, 8]]
+	f._espionage_destroy_improvement(gs.alliances[1])
+	assert_eq(tile.improvement_id, "", "The worked tile's improvement is razed")
+
+func test_insert_culture_adds_attacker_influence() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	var amount = int(gs.db.get_espionage_mission("insert_culture").get("amount", 0))
+	f._espionage_insert_culture(gs.get_player(1), gs.alliances[1], amount)
+	var tile = gs.map.get_tile(s.x, s.y)
+	assert_eq(int(tile.influence.get(1, 0)), amount,
+		"The attacker's cultural influence is added to the target city tile")
+
+func test_incite_unhappiness_adds_timed_anger() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	f._espionage_incite_unhappiness(gs.alliances[1], 3, 5)
+	assert_eq(s.timed_happiness.size(), 1, "A timed unhappiness modifier is queued")
+	assert_eq(int(s.timed_happiness[0]["amount"]), -3, "It adds the mission's angry faces")
+	assert_eq(int(s.timed_happiness[0]["turns_left"]), 5, "...for the mission's duration")
+
+func test_switch_civic_forces_anarchy() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 4)
+	f._espionage_force_anarchy(gs.alliances[1], 2, false)
+	assert_eq(gs.get_player(2).transition_turns, 2,
+		"The victim is thrown into anarchy for the mission's duration")
+
+func test_switch_religion_strips_state_religion_and_anarchy() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 4)
+	gs.get_player(2).state_religion = "the_path"
+	f._espionage_force_anarchy(gs.alliances[1], 2, true)
+	assert_eq(gs.get_player(2).state_religion, "", "The victim loses its state religion")
+	assert_eq(gs.get_player(2).transition_turns, 2, "...and falls into anarchy")
+
+func test_switch_religion_gate_requires_a_believer() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 4)
+	gs.get_player(2).state_religion = ""
+	var m = gs.db.get_espionage_mission("switch_religion")
+	assert_false(f._mission_target_valid(gs.get_player(1), gs.alliances[1], m),
+		"switch_religion is refused when no target member has a state religion")
+
+func test_counterespionage_records_cover_and_raises_interception() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 1, 5, 5, 4)   # the caster needs a city only for the gate
+	# Player 1 (alliance 1) runs counterespionage against player 2's alliance (2).
+	f._espionage_counterespionage(gs.get_player(1), gs.alliances[1], 5)
+	assert_eq(int(gs.get_player(1).counter_espionage.get(2, 0)), 5,
+		"Counterespionage cover is recorded against the target alliance")
+	# Now player 2 (alliance 2) attacks player 1's alliance (1): player 1's cover
+	# against alliance 2 raises the interception protecting alliance 1.
+	var base_chance = gs.db.get_constant("intel_interception_chance", 25)
+	var bonus = gs.db.get_constant("intel_counterespionage_bonus", 25)
+	assert_eq(f._espionage_interception_chance(gs.alliances[0], 0, 2), base_chance + bonus,
+		"Active counterespionage cover raises interception against that attacker")
+	assert_eq(f._espionage_interception_chance(gs.alliances[0], 0, -1), base_chance,
+		"The UI preview (no attacker) ignores the counterespionage term")
+
+func test_counter_espionage_ticks_down_and_roundtrips() -> void:
+	var gs = make_gs(2)
+	gs.get_player(1).counter_espionage = {2: 2}
+	TurnEngine._tick_states(gs, gs.get_player(1))
+	assert_eq(int(gs.get_player(1).counter_espionage.get(2, 0)), 1,
+		"Counterespionage cover ticks down one per turn")
+	# Survives save/load with the key coerced back to int (JSON key-type gotcha).
+	var json = gs.serialize()
+	var gs2 = GameState.deserialize(JSON.parse(JSON.print(json)).result, gs.db)
+	assert_true(gs2.get_player(1).counter_espionage.has(2),
+		"The cover ledger key is coerced back to int on load")
+	assert_eq(int(gs2.get_player(1).counter_espionage.get(2, 0)), 1,
+		"The cover value roundtrips through save/load")

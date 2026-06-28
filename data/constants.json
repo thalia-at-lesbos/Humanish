@@ -46,6 +46,8 @@
   "intel_interception_chance": 25,
   "intel_interception_max": 90,
   "intel_cost_advantage_max": 200,
+  "intel_counterespionage_bonus": 25,
+  "espionage_anarchy_turns": 2,
   "assembly_session_interval": 12,
   "resolution_pass_share": 50,
   "assembly_defiance_anger": 1,

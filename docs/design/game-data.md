@@ -60,7 +60,7 @@ sections:
   "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
   "§24  Goody huts":             "goodies.json: weighted discovery-site reward table and map placement (incomplete — 7 of 12 reference rewards)"
-  "§25  Espionage missions":     "espionage_missions.json: alliance-scope intel mission catalogue (incomplete — 5 of 18 reference missions)"
+  "§25  Espionage missions":     "espionage_missions.json: alliance-scope intel mission catalogue (13 active missions complete; 5 passive intelligence missions deferred)"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
@@ -2160,35 +2160,94 @@ the reference `normalizeAddExtras` step, §28, which can scatter extra huts near
 
 ## 25. Espionage missions
 
-> **Status: incomplete** — 5 of the reference's 18 mission records are modelled, and only
-> the alliance-scope screen missions; spy-unit-on-tile missions are deferred.
+> **Status: active operations complete; passive intelligence deferred** — the thirteen
+> active, state-changing alliance-scope missions are modelled in full. The five passive,
+> information-gathering missions (revealing demographics, city/research visibility,
+> investigating a city, detecting active missions) are deferred pending an
+> information-fog subsystem — see `docs/planning/designgaps.md`. **Spy-unit-on-tile**
+> missions (as opposed to alliance-scope screen missions) are deferred entirely.
 
-`data/espionage_missions.json`. Accrued intel points (EP) against a target alliance are
-spent on a mission from this table.
+### 25.1 How a mission runs
+
+`data/espionage_missions.json` holds the catalogue. Each turn a player's espionage output
+accrues as **intel points (EP)** ledgered *per target alliance* (§7, §15.5). EP is the
+currency these missions spend. The flow in `SimFacade._cmd_espionage_mission` is:
+
+1. **Resolve** the named mission record (rejected if absent from the table).
+2. **Gate** — the mission's per-verb *target gate* must hold *before any EP is spent*
+   (`_mission_target_valid`): e.g. `steal_tech` needs a tech the target knows and the
+   attacker lacks; `destroy_building` needs a target city holding a razeable structure.
+   A gate-failed mission spends nothing.
+3. **Pay** — the attacker must hold at least the mission's cost in EP against that
+   alliance; the cost is deducted whether or not the mission then succeeds.
+4. **Interception** — a `gs.rng` roll against the mission's interception chance. On a hit
+   the EP is still spent but the effect is suppressed ("mission intercepted").
+5. **Apply** — `_espionage_apply` dispatches the `effect` verb, mutating game state
+   deterministically. Every city-targeting verb acts on the **most populous valid target
+   city** (lowest settlement id breaking a tie), so outcomes are reproducible.
+
+### 25.2 Cost and interception
 
 **Cost** = `intel_mission_cost` (100) × `cost_multiplier`/100 × (1 + EP-advantage/100),
-with the EP-advantage curve capped by `intel_cost_advantage_max` (200).
-**Interception** = `intel_interception_chance` (25%) base ± the mission's
-`interception_modifier`, capped at `intel_interception_max` (90%). Both live in
-`constants.json` and are computed in `SimFacade`.
+where the EP-advantage is how much more EP the *target* holds against the attacker than the
+attacker holds against the target (a well-defended rival costs more to strike), capped by
+`intel_cost_advantage_max` (200). When the attacker is ahead the surcharge is zero and the
+cost floors at the scaled base.
 
-| id | name | effect | `cost_multiplier` | `interception_modifier` | Magnitude |
-|----|------|--------|:-----------------:|:-----------------------:|-----------|
-| `steal_tech` | Steal Tech | `steal_tech` | 100 | 0 | copy one technology the attacker lacks |
-| `sabotage` | Sabotage | `sabotage` | 80 | 0 | halve a target city's stored production |
-| `incite_unrest` | Incite Unrest | `incite_unrest` | 120 | +10 | largest target city into disorder next turn |
-| `steal_gold` | Steal Treasury | `steal_gold` | 90 | 0 | transfer up to 100 gold from the richest member |
-| `poison_water` | Poison Water | `poison_water` | 150 | +20 | remove 1 population from the largest city (pop ≥ 2) |
+**Interception** = `intel_interception_chance` (25%) base
++ the strongest `espionage_defense` structure across the target's cities
++ the mission's own `interception_modifier`
++ `intel_counterespionage_bonus` (25) if any target member holds **active
+counterespionage cover** against the attacker's alliance,
+capped at `intel_interception_max` (90%).
 
-Each mission is offered/accepted only when its target gate holds
-(`SimFacade._mission_target_valid`, per effect verb).
+All five constants live in `constants.json` and the arithmetic is computed in `SimFacade`.
 
-**Gap to reference:** `GameEspionageMissionInfo.xml` defines **18** mission records (the
-above plus destroy-building / destroy-production / destroy-improvement, steal maps, spread
-culture/religion, counterespionage, buy-a-city, and others); the project ships **5**. The
-reference docs give the count but not the remaining 13 records' costs/gates, so they are
-flagged here, not specified. **Spy-unit-on-tile** missions (as opposed to alliance-scope
-screen missions) are deferred entirely.
+### 25.3 The catalogue
+
+Magnitudes (`amount`, `duration`) live in the mission record — the table is the single
+source of mission tuning. Each `effect` verb has a matching handler in
+`SimFacade._espionage_apply` and a target gate in `_mission_target_valid`.
+
+| id | name | effect | `cost_multiplier` | `intercept` | magnitude fields | What it does |
+|----|------|--------|:-:|:-:|---|---|
+| `steal_tech` | Steal Technology | `steal_tech` | 100 | 0 | — | Copies one technology a target member knows that the attacker lacks. |
+| `sabotage` | Sabotage Production | `sabotage` | 80 | 0 | — | Halves a target city's stored production. |
+| `destroy_building` | Destroy Building | `destroy_building` | 100 | +5 | — | Razes the **costliest non-Palace** structure in the largest target city. |
+| `destroy_project` | Destroy Project | `destroy_project` | 150 | +5 | — | Cancels an in-progress **endgame project** and wipes its stored production. |
+| `destroy_improvement` | Destroy Improvement | `destroy_improvement` | 75 | 0 | — | Clears the improvement on a tile worked by a target city. |
+| `steal_gold` | Steal Treasury | `steal_gold` | 300 | 0 | `amount` 100 | Transfers up to `amount` gold from the richest target member to the attacker. |
+| `poison_water` | Poison Water | `poison_water` | 120 | +20 | — | Removes 1 population from the largest target city (population ≥ 2). |
+| `insert_culture` | Spread Culture | `insert_culture` | 120 | +5 | `amount` 100 | Adds `amount` of the **attacker's** cultural influence to the largest target city's tile, feeding §4.9 revolt pressure. |
+| `incite_unhappiness` | Foment Unrest | `incite_unhappiness` | 120 | +10 | `amount` 3, `duration` 5 | Adds a timed angry-citizen modifier of `amount` faces for `duration` turns to the largest target city. |
+| `incite_revolt` | Incite Revolt | `incite_revolt` | 650 | +20 | `duration` 3 | Tips the largest target city into disorder and starts a `duration`-turn revolt during which it produces nothing. |
+| `switch_civic` | Foment Anarchy | `switch_civic` | 200 | +10 | `duration` 2 | Throws the largest target city's owner into `duration` turns of governmental anarchy. |
+| `switch_religion` | Incite Schism | `switch_religion` | 180 | +10 | `duration` 2 | Strips the state religion from a target member that has one and forces `duration` turns of anarchy. |
+| `counterespionage` | Counterespionage | `counterespionage` | 100 | 0 | `duration` 5 | The attacker holds **+`intel_counterespionage_bonus`% interception** of the target alliance's missions for `duration` turns. |
+
+### 25.4 State touched
+
+Most verbs read and write existing aggregates, so they compose with the rest of the
+engine rather than carrying bespoke state:
+
+- **`destroy_building`** removes from `Settlement.structures` (and clears any matching
+  `structure_bonuses`); the Palace is never targetable.
+- **`destroy_project`** dequeues the project at the head of `production_queue` and zeroes
+  `production_store`.
+- **`destroy_improvement`** clears `Tile.improvement_id` / `improvement_turns_left` /
+  `improvement_age` on a worked tile.
+- **`insert_culture`** adds to `Tile.influence[attacker]`, which the §4.9 cultural-revolt
+  subsystem reads directly when judging whether a city flips.
+- **`incite_unhappiness`** appends a `{amount, turns_left}` entry to
+  `Settlement.timed_happiness` — the same timed-anger channel random events use, which
+  decays one turn at a time.
+- **`incite_revolt`** sets `in_disorder`, fills `discontented`, and raises `revolt_turns`.
+- **`switch_civic` / `switch_religion`** set the victim player's `transition_turns`
+  (anarchy), and the religion variant also clears `state_religion`.
+- **`counterespionage`** writes the attacker's `Player.counter_espionage` ledger
+  (rival alliance id → turns), ticked down each turn in `TurnEngine._tick_states` and
+  read back by the interception calculation. Both this ledger and `intel_points` are
+  int-keyed and coerced back to int on load (the recurring JSON key-type discipline).
 
 ---
 

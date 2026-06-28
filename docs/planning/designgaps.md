@@ -207,25 +207,48 @@ catalogued here with implementation plans; close each entry as it lands.
 Measured against `humanish-full-docs/generic/` (the reference data set), the
 shortfalls are catalogue depth, not missing machinery.
 
-### 5.1 Espionage missions — 5 of 18 (`game-data.md` §25)
+### 5.1 Espionage missions — active operations complete; passive intel deferred (`game-data.md` §25)
 
 The mission framework (cost curve, interception, per-effect target gates, the
-espionage screen) is complete; the catalogue is a slice.
+espionage screen) and the **thirteen active, state-changing missions** are complete:
+`steal_tech`, `sabotage`, `destroy_building`, `destroy_project`,
+`destroy_improvement`, `steal_gold`, `poison_water`, `insert_culture`,
+`incite_unhappiness`, `incite_revolt`, `switch_civic`, `switch_religion`, and
+`counterespionage` — each with a `case` in `SimFacade._espionage_apply`, a target
+gate in `_mission_target_valid`, and a case in `tests/sim/test_intelligence.gd`.
 
-- **Add the remaining ~13 `EspionageMissionInfo` records** to
-  `data/espionage_missions.json`: destroy-building, destroy-production,
-  destroy-improvement, steal-maps, spread-culture, spread-religion,
-  counterespionage, buy-a-city, and the other reference verbs. The generic
-  reference docs give only the count (18), not per-record costs/gates — pull exact
-  values from the upstream `GameEspionageMissionInfo.xml` when promoting each.
-- **New effect verbs** each need a `case` in `SimFacade._espionage_apply` and a
-  target gate in `SimFacade._mission_target_valid`.
+**Deferred: the five passive, information-gathering missions.** These do not mutate
+shared game state — they lift *information fog* by revealing a rival's hidden data to
+the spying player only. The engine has **no per-player information-fog subsystem**:
+`SimFacade.get_state()` already exposes the full `GameState` to every client (the UI,
+`PlayerAI`, the netcode), so there is nothing for these missions to *un*-hide, and
+modelling them would mean either no-op missions or a new subsystem. The five:
+
+- **See demographics** — reveal a rival's empire-wide statistics (score, GNP,
+  production, soldiers, land area) so they show on the demographics/score screens.
+- **City visibility** — grant ongoing line-of-sight onto a target city's tile and its
+  surroundings even outside the spy's own sight range.
+- **Investigate city** — a one-shot detailed dump of a single city's contents
+  (buildings, garrison, production, religion) at the moment of the mission.
+- **See research** — reveal what technology a rival is currently researching and its
+  progress.
+- **Detect active missions** ("no active missions") — reveal which espionage missions
+  rivals currently have running against the spy, and/or suppress new ones.
+
+**Required subsystem (prerequisite for promoting these):** a *per-player knowledge /
+information-fog layer* distinct from map fog-of-war. Concretely it needs (a) a
+serialized per-player store of "what this player has learned about rivals" (revealed
+demographics snapshots, last-investigated-city records, known research targets, an
+intel-visibility tile set), (b) a `SimFacade` read API that filters `get_state()`
+through that store so a client sees only what its player legitimately knows, and (c)
+expiry/refresh rules for time-limited reveals (e.g. city visibility lasting N turns).
+Until that exists, these five stay out of `data/espionage_missions.json`. The
+reference catalogue is therefore **18 mission types: 13 active (built) + 5 passive
+(blocked on the knowledge layer)**.
+
 - **Spy-unit-on-tile missions** (vs. the current alliance-scope screen missions)
-  are a larger lift: they require the spy unit's infiltration/discovery state and a
-  per-tile target model. Treat as a follow-on phase after the screen catalogue is
-  filled.
-- Extend `tests/api/test_*espionage*` (or the facade suite) with one case per new
-  verb.
+  remain a separate larger lift: they require the spy unit's infiltration/discovery
+  state and a per-tile target model. Treat as a follow-on phase.
 
 ### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
 

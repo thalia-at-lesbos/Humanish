@@ -1631,7 +1631,7 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	# interception_modifier raise the chance; interception spends the points but
 	# fails the mission (§7, §15.5).
 	var chance: int = _espionage_interception_chance(target_alliance,
-		int(mission.get("interception_modifier", 0)))
+		int(mission.get("interception_modifier", 0)), p.alliance_id)
 	if _gs.rng.rand_bool_percent(chance):
 		_add_notification("Espionage mission intercepted.", "info")
 		return true
@@ -1646,12 +1646,29 @@ func _espionage_apply(thief: Player, target: Alliance, mission: Dictionary) -> v
 			_espionage_steal_tech(thief, target)
 		"sabotage":
 			_espionage_sabotage(target)
-		"incite_unrest":
-			_espionage_incite_unrest(target)
+		"destroy_building":
+			_espionage_destroy_building(target)
+		"destroy_project":
+			_espionage_destroy_project(target)
+		"destroy_improvement":
+			_espionage_destroy_improvement(target)
 		"steal_gold":
 			_espionage_steal_gold(thief, target, int(mission.get("amount", 0)))
 		"poison_water":
 			_espionage_poison_water(target)
+		"insert_culture":
+			_espionage_insert_culture(thief, target, int(mission.get("amount", 0)))
+		"incite_unhappiness":
+			_espionage_incite_unhappiness(target, int(mission.get("amount", 1)),
+				int(mission.get("duration", 1)))
+		"incite_revolt":
+			_espionage_incite_revolt(target, int(mission.get("duration", 1)))
+		"switch_civic":
+			_espionage_force_anarchy(target, int(mission.get("duration", 1)), false)
+		"switch_religion":
+			_espionage_force_anarchy(target, int(mission.get("duration", 1)), true)
+		"counterespionage":
+			_espionage_counterespionage(thief, target, int(mission.get("duration", 1)))
 
 # True when `mission` can produce its effect against `target` right now — the
 # per-verb target gate. A mission with no gate (default) is always valid.
@@ -1672,6 +1689,29 @@ func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictiona
 				if _settlement_in_alliance(s, target) and s.production_store > 0:
 					return true
 			return false
+		"destroy_building":
+			# There must be a target city holding a structure we can raze (the Palace
+			# is permanent and never targetable).
+			for s in _gs.settlements:
+				if not _settlement_in_alliance(s, target):
+					continue
+				for struct_id in s.structures:
+					if struct_id != "palace":
+						return true
+			return false
+		"destroy_project":
+			for s in _gs.settlements:
+				if _settlement_in_alliance(s, target) and _settlement_building_project(s):
+					return true
+			return false
+		"destroy_improvement":
+			return _alliance_improved_tile(target) != null
+		"switch_religion":
+			for pid in target.member_player_ids:
+				var believer: Player = _gs.get_player(pid)
+				if believer != null and believer.state_religion != "":
+					return true
+			return false
 		"steal_gold":
 			for pid in target.member_player_ids:
 				var member: Player = _gs.get_player(pid)
@@ -1684,7 +1724,8 @@ func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictiona
 					return true
 			return false
 		_:
-			# incite_unrest and any future gateless verb only need a target city.
+			# insert_culture, incite_unhappiness/revolt, switch_civic, counterespionage
+			# and any future gateless verb only need a target city to act on.
 			for s in _gs.settlements:
 				if _settlement_in_alliance(s, target):
 					return true
@@ -1693,6 +1734,37 @@ func _mission_target_valid(attacker: Player, target: Alliance, mission: Dictiona
 func _settlement_in_alliance(s: Settlement, target: Alliance) -> bool:
 	var owner: Player = _gs.get_player(s.owner_player_id)
 	return owner != null and owner.alliance_id == target.id
+
+# The most populous settlement in `target` (lowest id on a tie), or null when the
+# alliance holds none. The deterministic victim for the city-targeting missions.
+func _largest_target_city(target: Alliance) -> Settlement:
+	var biggest: Settlement = null
+	for s in _gs.settlements:
+		if not _settlement_in_alliance(s, target):
+			continue
+		if biggest == null or s.population > biggest.population \
+				or (s.population == biggest.population and s.id < biggest.id):
+			biggest = s
+	return biggest
+
+# True when `s` is currently building an endgame project (its queue head is a
+# project) — the gate/target for destroy_project.
+func _settlement_building_project(s: Settlement) -> bool:
+	if s.production_queue.empty():
+		return false
+	return str(s.production_queue[0].get("type", "unit")) == "project"
+
+# The first improved tile owned by a member of `target` (scanned in map order), or
+# null — the deterministic victim/gate for destroy_improvement.
+func _alliance_improved_tile(target: Alliance):
+	for s in _gs.settlements:
+		if not _settlement_in_alliance(s, target):
+			continue
+		for cell in s.worked_tiles:
+			var tile = _gs.map.get_tile(int(cell[0]), int(cell[1]))
+			if tile != null and tile.improvement_id != "":
+				return tile
+	return null
 
 # Public query: EP cost for the current player to run `mission_id` against
 # target_alliance_id. Returns 0 when state is unavailable or the target is
@@ -1776,9 +1848,14 @@ func _espionage_mission_cost(attacker: Player, target: Alliance, attacker_ep: in
 
 # Interception chance against missions targeting this alliance: the base chance
 # plus the strongest espionage_defense structure across the target's cities, plus
-# the mission's own `extra` modifier, capped (§15.5, provisional).
-func _espionage_interception_chance(target: Alliance, extra: int = 0) -> int:
+# the mission's own `extra` modifier, plus a counterespionage bonus when a target
+# member holds active cover against the attacker's alliance, capped (§15.5).
+# `attacker_alliance_id` < 0 (the default, used by the read-only UI preview queries)
+# skips the counterespionage term since no specific attacker is known.
+func _espionage_interception_chance(target: Alliance, extra: int = 0,
+		attacker_alliance_id: int = -1) -> int:
 	var defense: int = 0
+	var counter: int = 0
 	for s in _gs.settlements:
 		var owner: Player = _gs.get_player(s.owner_player_id)
 		if owner == null or owner.alliance_id != target.id:
@@ -1787,7 +1864,10 @@ func _espionage_interception_chance(target: Alliance, extra: int = 0) -> int:
 			var d: int = int(_db.get_structure(struct_id).get("effects", {}).get("espionage_defense", 0))
 			if d > defense:
 				defense = d
-	var chance: int = _db.get_constant("intel_interception_chance", 25) + defense + extra
+		if attacker_alliance_id >= 0 \
+				and int(owner.counter_espionage.get(attacker_alliance_id, 0)) > 0:
+			counter = _db.get_constant("intel_counterespionage_bonus", 25)
+	var chance: int = _db.get_constant("intel_interception_chance", 25) + defense + extra + counter
 	if chance < 0:
 		chance = 0
 	var cap: int = _db.get_constant("intel_interception_max", 90)
@@ -1812,21 +1892,127 @@ func _espionage_sabotage(target: Alliance) -> void:
 			_add_notification("Sabotaged production in " + s.name, "major")
 			return
 
-# Incite unrest: tip the target alliance's most populous city into disorder so
-# it produces nothing until its owner restores order (§7, provisional).
-func _espionage_incite_unrest(target: Alliance) -> void:
-	var worst: Settlement = null
-	for s in _gs.settlements:
-		var owner: Player = _gs.get_player(s.owner_player_id)
-		if owner == null or owner.alliance_id != target.id:
+# Destroy building: raze the costliest non-Palace structure in the target's largest
+# city (§7.1). Deterministic — costliest first, lowest id on a cost tie.
+func _espionage_destroy_building(target: Alliance) -> void:
+	var victim: Settlement = _largest_target_city(target)
+	if victim == null:
+		return
+	var best_id: String = ""
+	var best_cost: int = -1
+	for struct_id in victim.structures:
+		if struct_id == "palace":
 			continue
-		if worst == null or s.population > worst.population \
-				or (s.population == worst.population and s.id < worst.id):
-			worst = s
+		var cost: int = int(_db.get_structure(struct_id).get("cost", 0))
+		if cost > best_cost:
+			best_cost = cost
+			best_id = struct_id
+	if best_id != "":
+		victim.structures.erase(best_id)
+		victim.structure_bonuses.erase(best_id)
+		var sname: String = str(_db.get_structure(best_id).get("name", best_id))
+		_add_notification("Destroyed %s in %s." % [sname, victim.name], "major")
+
+# Destroy project: cancel the endgame project a target city is building, wiping its
+# stored production (§7.1). Deterministic — the largest such city, lowest id on a tie.
+func _espionage_destroy_project(target: Alliance) -> void:
+	var victim: Settlement = null
+	for s in _gs.settlements:
+		if not _settlement_in_alliance(s, target) or not _settlement_building_project(s):
+			continue
+		if victim == null or s.population > victim.population \
+				or (s.population == victim.population and s.id < victim.id):
+			victim = s
+	if victim == null:
+		return
+	var pname: String = str(victim.production_queue[0].get("id", "project"))
+	victim.production_queue.remove(0)
+	victim.production_store = 0
+	_add_notification("Sabotaged the %s project in %s." % [pname, victim.name], "major")
+
+# Destroy improvement: clear the first tile improvement worked by a target city
+# (§7.1). Deterministic — first improved worked tile in map order.
+func _espionage_destroy_improvement(target: Alliance) -> void:
+	var tile = _alliance_improved_tile(target)
+	if tile == null:
+		return
+	var imp: String = tile.improvement_id
+	tile.improvement_id = ""
+	tile.improvement_turns_left = 0
+	tile.improvement_age = 0
+	_add_notification("Destroyed a %s improvement." % imp, "major")
+
+# Spread culture: pour `amount` of the attacker's cultural influence onto the target
+# alliance's largest city tile, feeding §4.9 cultural-revolt pressure (§7.1).
+func _espionage_insert_culture(thief: Player, target: Alliance, amount: int) -> void:
+	var victim: Settlement = _largest_target_city(target)
+	if victim == null:
+		return
+	var tile = _gs.map.get_tile(victim.x, victim.y)
+	if tile == null:
+		return
+	tile.influence[thief.id] = int(tile.influence.get(thief.id, 0)) + amount
+	_add_notification("Spread culture into " + victim.name, "major")
+
+# Foment unrest: add a timed angry-citizen modifier (`faces` for `turns` turns) to
+# the target alliance's largest city — temporary discontent that decays (§7.1).
+func _espionage_incite_unhappiness(target: Alliance, faces: int, turns: int) -> void:
+	var victim: Settlement = _largest_target_city(target)
+	if victim == null:
+		return
+	victim.timed_happiness.append({"amount": -faces, "turns_left": turns})
+	_add_notification("Fomented unrest in " + victim.name, "major")
+
+# Incite revolt: tip the target alliance's most populous city into disorder and
+# start a `turns`-turn revolt so it produces nothing until order is restored (§7.1).
+func _espionage_incite_revolt(target: Alliance, turns: int) -> void:
+	var worst: Settlement = _largest_target_city(target)
 	if worst != null:
 		worst.in_disorder = true
 		worst.discontented = worst.population
-		_add_notification("Incited unrest in " + worst.name, "major")
+		if turns > worst.revolt_turns:
+			worst.revolt_turns = turns
+		_add_notification("Incited revolt in " + worst.name, "major")
+
+# Foment anarchy: force a target member into `turns` turns of governmental anarchy.
+# When `drop_religion` is set (the switch-religion mission) the victim is the largest
+# target city's owner that actually has a state religion, which it loses; otherwise
+# the owner of the largest target city overall is hit (§7.1). Deterministic.
+func _espionage_force_anarchy(target: Alliance, turns: int, drop_religion: bool) -> void:
+	var victim: Player = null
+	if drop_religion:
+		var best_city: Settlement = null
+		for s in _gs.settlements:
+			if not _settlement_in_alliance(s, target):
+				continue
+			var owner: Player = _gs.get_player(s.owner_player_id)
+			if owner == null or owner.state_religion == "":
+				continue
+			if best_city == null or s.population > best_city.population \
+					or (s.population == best_city.population and s.id < best_city.id):
+				best_city = s
+		if best_city != null:
+			victim = _gs.get_player(best_city.owner_player_id)
+	else:
+		var victim_city: Settlement = _largest_target_city(target)
+		if victim_city != null:
+			victim = _gs.get_player(victim_city.owner_player_id)
+	if victim == null:
+		return
+	var span: int = turns if turns > 0 else _db.get_constant("espionage_anarchy_turns", 2)
+	if span > victim.transition_turns:
+		victim.transition_turns = span
+	if drop_religion:
+		victim.state_religion = ""
+		_add_notification("Incited a religious schism in " + victim.name, "major")
+	else:
+		_add_notification("Fomented anarchy in " + victim.name, "major")
+
+# Counterespionage: the attacker takes up `turns` turns of heightened interception
+# against the target alliance's missions (recorded on the attacker's ledger) (§7.1).
+func _espionage_counterespionage(thief: Player, target: Alliance, turns: int) -> void:
+	thief.counter_espionage[target.id] = turns
+	_add_notification("Counterespionage cover established.", "major")
 
 # Steal treasury: transfer up to `amount` gold from the target's richest member
 # to the attacker (§7.1). Deterministic — the richest member (lowest id on a tie)

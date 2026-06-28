@@ -302,7 +302,10 @@ func test_espionage_missions_table_is_well_formed() -> void:
 	var db = _db()
 	var missions = db.get_espionage_missions()
 	assert_true(missions.size() > 0, "espionage_missions.json must define some missions")
-	var known := ["steal_tech", "sabotage", "incite_unrest", "steal_gold", "poison_water"]
+	var known := ["steal_tech", "sabotage", "destroy_building", "destroy_project",
+		"destroy_improvement", "steal_gold", "poison_water", "insert_culture",
+		"incite_unhappiness", "incite_revolt", "switch_civic", "switch_religion",
+		"counterespionage"]
 	for m in missions:
 		assert_true(str(m.get("id", "")) != "", "every espionage mission needs an id")
 		assert_true(int(m.get("cost_multiplier", 0)) > 0,

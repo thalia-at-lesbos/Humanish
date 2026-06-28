@@ -351,7 +351,10 @@ func _validate_econ_org_refs() -> void:
 # Every espionage mission (§7.1) must carry an id, a positive cost_multiplier, and
 # an effect verb SimFacade._espionage_apply knows how to dispatch.
 func _validate_espionage_mission_refs() -> void:
-	var known := ["steal_tech", "sabotage", "incite_unrest", "steal_gold", "poison_water"]
+	var known := ["steal_tech", "sabotage", "destroy_building", "destroy_project",
+		"destroy_improvement", "steal_gold", "poison_water", "insert_culture",
+		"incite_unhappiness", "incite_revolt", "switch_civic", "switch_religion",
+		"counterespionage"]
 	for m in get_espionage_missions():
 		var mid = str(m.get("id", ""))
 		if mid == "":

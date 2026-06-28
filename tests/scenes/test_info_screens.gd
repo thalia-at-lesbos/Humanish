@@ -105,7 +105,7 @@ func test_espionage_menu_shows_missions_and_abort() -> void:
 	assert_not_null(_find_button(menu, null) if false else _find_by_text(menu, "Steal Tech"),
 		"Espionage menu must list Steal Tech")
 	assert_not_null(_find_by_text(menu, "Sabotage"),   "Espionage menu must list Sabotage")
-	assert_not_null(_find_by_text(menu, "Incite Unrest"), "Espionage menu must list Incite Unrest")
+	assert_not_null(_find_by_text(menu, "Incite Revolt"), "Espionage menu must list Incite Revolt")
 	assert_not_null(_find_button(menu, "Abort"),        "Espionage menu must have an Abort button")
 
 func test_espionage_menu_shows_cost_and_interception() -> void:
