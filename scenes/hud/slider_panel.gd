@@ -57,13 +57,14 @@ func _build_ui() -> void:
 		_plus_buttons.append(plus)
 		row.add_child(plus)
 
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# No EXPAND flag: the group takes only its minimum width and the HBox
+		# packs it against the left, so all four rate readouts read
+		# left-justified in a row instead of spread across the panel.
 		add_child(row)
 
 	# Read-only remainder: Economy takes whatever the three rates leave.
 	_economy_label = Label.new()
 	_economy_label.text = "Economy: 100%"
-	_economy_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_economy_label)
 
 func rebuild() -> void:
