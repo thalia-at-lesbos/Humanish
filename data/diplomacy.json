@@ -23,5 +23,13 @@
   },
   "deal_accept_min_attitude": 1,
   "war_min_attitude": 2,
-  "memory_cap": 120
+  "memory_cap": 120,
+  "_denial_comment": "§7 denial reasons: why an AI refuses a trade offer (Diplomacy.evaluate_deal returns one id; '' = accepted). The refusal decision itself is unchanged — value >= 0 AND attitude >= deal_accept_min_attitude accepts — the reason names the most specific cause, checked in this order: no_trade_with_warring_party (proposer's alliance at war with ours and the offer carries no peace clause), worst_enemy (proposer is our lowest-scoring met rival at the furious level), attitude_too_low (attitude below deal_accept_min_attitude), tech_refusal (the offer asks techs off us and still values negative), insufficient_value (plain bad bargain). `text` is the display string surfaced by the trade notification and the diplomacy screen.",
+  "denial_reasons": {
+    "no_trade_with_warring_party": {"text": "We do not bargain with a warring party. End this war first."},
+    "worst_enemy": {"text": "We would sooner collapse than deal with our worst enemy."},
+    "attitude_too_low": {"text": "Our relations are too poor to consider this."},
+    "tech_refusal": {"text": "We will not part with our discoveries so cheaply."},
+    "insufficient_value": {"text": "This offer is not worth enough to us."}
+  }
 }

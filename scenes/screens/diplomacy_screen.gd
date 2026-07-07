@@ -196,6 +196,16 @@ func rebuild() -> void:
 
 		vbox.add_child(row)
 
+		# §7 denial reasons: if this rival refused our last offer with a stated
+		# reason, show why (display text from the diplomacy.json denial table).
+		var denial: Dictionary = gs.deal_denials.get(my_p.id, {}).get(p.id, {})
+		if not denial.empty():
+			var deny_lbl: Label = Label.new()
+			deny_lbl.text = "    Refused our offer (turn %d): %s" % [
+				int(denial.get("turn", 0)),
+				Diplomacy.denial_text(gs.db, str(denial.get("reason", "")))]
+			vbox.add_child(deny_lbl)
+
 	if not any_shown:
 		var lbl: Label = Label.new()
 		lbl.text = "(You have not met any other civilizations yet)"

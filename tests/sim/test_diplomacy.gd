@@ -590,3 +590,148 @@ func test_open_borders_survives_save_load_with_int_coercion() -> void:
 	# matches on int equality, so a float key would silently miss.
 	assert_eq(typeof(int(gs2.open_borders[0]["a"])), TYPE_INT, "ids coerced to int")
 	assert_true(gs2.has_open_borders(2, 1), "Lookup is order-independent post-load")
+
+# ── §7 Deal denial reasons ────────────────────────────────────────────────────
+# Diplomacy.evaluate_deal keeps the long-standing accept decision (net value >= 0
+# AND attitude >= deal_accept_min_attitude) but names refusals with a structured
+# reason id, resolved to display text from diplomacy.json denial_reasons.
+
+# A pending-trades record from player 2 (alliance 2) addressed to alliance 1.
+func _offer_from_2(gs, give, receive, peace = false):
+	return {"id": gs.next_trade_id(), "proposer_player_id": 2,
+		"from_alliance": 2, "to_alliance": 1,
+		"give": give, "receive": receive, "peace": peace,
+		"expires_turn": gs.turn_number + 20}
+
+func test_evaluate_deal_accepts_a_fair_offer_with_no_reason() -> void:
+	var gs = make_gs(2)
+	var t = _offer_from_2(gs, {"gold": 50}, {})
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "",
+		"a net-positive offer from a neutral rival is accepted (empty reason)")
+
+func test_attitude_gate_returns_attitude_too_low() -> void:
+	# Three players: the proposer (2) is furious-level but NOT the worst enemy —
+	# player 3 scores even lower — so the plain attitude reason is named.
+	var gs = make_gs(3)
+	gs.get_alliance(1).contacts.append(2)
+	gs.get_alliance(1).contacts.append(3)
+	Diplomacy.record(gs, gs.db, 1, 2, "razed_city")       # score 10 (furious)
+	Diplomacy.record(gs, gs.db, 1, 3, "razed_city")
+	Diplomacy.record(gs, gs.db, 1, 3, "declared_war")     # score 0 (the worst)
+	assert_true(Diplomacy.attitude_level(gs, gs.db, 1, 2) <
+		int(gs.db.get_diplomacy().get("deal_accept_min_attitude", 1)),
+		"precondition: attitude below the deal gate")
+	var t = _offer_from_2(gs, {"gold": 50}, {})
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "attitude_too_low",
+		"the deal_accept_min_attitude gate names its reason")
+
+func test_worst_enemy_refines_the_attitude_reason() -> void:
+	# Two players: the furious-level proposer is necessarily the lowest-scoring met
+	# rival, so the refusal is reported as worst_enemy (decision unchanged).
+	var gs = make_gs(2)
+	gs.get_alliance(1).contacts.append(2)
+	Diplomacy.record(gs, gs.db, 1, 2, "razed_city")
+	assert_eq(Diplomacy.attitude_level(gs, gs.db, 1, 2), Diplomacy.FURIOUS,
+		"precondition: the proposer is loathed")
+	var t = _offer_from_2(gs, {"gold": 50}, {})
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "worst_enemy",
+		"a furious lowest-scoring rival is refused as the worst enemy")
+
+func test_war_without_peace_clause_returns_no_trade_with_warring_party() -> void:
+	var gs = make_gs(2)
+	gs.get_alliance(1).at_war_with = [2]
+	gs.get_alliance(2).at_war_with = [1]
+	var t = _offer_from_2(gs, {"gold": 50}, {})   # good value, but we are at war
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "no_trade_with_warring_party",
+		"a non-peace offer from a warring party names the war as the reason")
+
+func test_peace_clause_offer_is_not_war_blocked() -> void:
+	# A peace-clause offer at war is evaluated on its merits: the peace clause is
+	# worth a tech's weight, so the value gate passes and only attitude refuses it.
+	var gs = make_gs(2)
+	gs.get_alliance(1).at_war_with = [2]
+	gs.get_alliance(2).at_war_with = [1]
+	var t = _offer_from_2(gs, {}, {}, true)
+	var reason: String = Diplomacy.evaluate_deal(gs, gs.db, 1, t)
+	assert_true(reason != "no_trade_with_warring_party",
+		"a peace offer is never refused as trade-with-warring-party (got '%s')" % reason)
+
+func test_tech_ask_returns_tech_refusal() -> void:
+	var gs = make_gs(2)
+	gs.get_player(1).technologies = ["mining"]
+	var t = _offer_from_2(gs, {}, {"techs": ["mining"]})  # pry a tech off us for free
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "tech_refusal",
+		"an uncompensated tech ask is refused as a tech refusal")
+
+func test_bad_bargain_returns_insufficient_value() -> void:
+	var gs = make_gs(2)
+	var t = _offer_from_2(gs, {}, {"gold": 40})   # we pay 40 for nothing
+	assert_eq(Diplomacy.evaluate_deal(gs, gs.db, 1, t), "insufficient_value",
+		"a plain bad bargain is refused for insufficient value")
+
+func test_denial_text_covers_every_reason_id() -> void:
+	var gs = make_gs(2)
+	for rid in ["no_trade_with_warring_party", "worst_enemy", "attitude_too_low",
+			"tech_refusal", "insufficient_value"]:
+		assert_true(Diplomacy.denial_text(gs.db, rid) != "",
+			"denial reason '%s' resolves to display text" % rid)
+	assert_eq(Diplomacy.denial_text(gs.db, "no_such_reason"), "",
+		"an unknown reason id resolves to empty text")
+
+func test_reject_with_reason_records_denial_and_event() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	f._cmd_propose_trade({"player_id": 1, "target_alliance_id": 2,
+		"give": {}, "receive": {"gold": 40}, "peace": false})
+	var tid: int = int(gs.alliances[0].pending_trades[0]["id"])
+	gs.current_player_id = 2
+	assert_true(f.apply_command(Commands.reject_trade(2, tid, "insufficient_value")),
+		"reject with a reason succeeds")
+	var denial: Dictionary = gs.deal_denials.get(1, {}).get(2, {})
+	assert_eq(str(denial.get("reason", "")), "insufficient_value",
+		"the denial is remembered against the proposer/rejector pair")
+	var found: bool = false
+	for e in gs.pending_deal_events:
+		if str(e.get("kind", "")) == "deal_rejected" \
+				and str(e.get("reason", "")) == "insufficient_value":
+			found = true
+	assert_true(found, "a deal_rejected event is queued for surfacing")
+
+func test_reject_without_reason_stays_silent() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	f._cmd_propose_trade({"player_id": 1, "target_alliance_id": 2,
+		"give": {}, "receive": {"gold": 40}, "peace": false})
+	var tid: int = int(gs.alliances[0].pending_trades[0]["id"])
+	gs.current_player_id = 2
+	assert_true(f.apply_command(Commands.reject_trade(2, tid)), "bare reject succeeds")
+	assert_true(gs.deal_denials.empty(), "no denial recorded for a silent rejection")
+	assert_true(gs.pending_deal_events.empty(), "no surfacing event for a silent rejection")
+
+func test_deal_rejected_event_drains_to_a_reasoned_notification() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.pending_deal_events.append({"kind": "deal_rejected", "trade_id": 7,
+		"reason": "attitude_too_low", "rejector_player_id": 2, "proposer_player_id": 1})
+	f._drain_deal_events()
+	var text: String = ""
+	for n in f.get_notification_queue():
+		text += str(n.get("text", "")) + "\n"
+	assert_true(Diplomacy.denial_text(gs.db, "attitude_too_low") in text,
+		"the drained notification carries the denial display text")
+	assert_true(gs.get_player(2).name in text,
+		"the drained notification names the rejector")
+
+func test_deal_denials_survive_save_load_as_ints() -> void:
+	var gs = make_gs(2)
+	gs.deal_denials[1] = {2: {"reason": "worst_enemy", "turn": 3}}
+	var json = load("res://src/api/save_load.gd").save_to_string(gs)
+	var gs2 = load("res://src/api/save_load.gd").load_from_string(json, gs.db)
+	assert_true(gs2.deal_denials.has(1),
+		"the proposer key is coerced back to int after the JSON roundtrip")
+	assert_true(gs2.deal_denials[1].has(2),
+		"the rejector key is coerced back to int after the JSON roundtrip")
+	assert_eq(str(gs2.deal_denials[1][2].get("reason", "")), "worst_enemy",
+		"the reason id survives the roundtrip")
+	assert_eq(int(gs2.deal_denials[1][2].get("turn", -1)), 3,
+		"the turn stamp survives (and is an int)")

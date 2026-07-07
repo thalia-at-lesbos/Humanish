@@ -330,8 +330,11 @@ static func propose_open_borders(player_id: int, target_alliance_id: int) -> Dic
 static func accept_trade(player_id: int, trade_id: int) -> Dictionary:
 	return {"type": IDs.CommandType.ACCEPT_TRADE, "player_id": player_id, "trade_id": trade_id}
 
-static func reject_trade(player_id: int, trade_id: int) -> Dictionary:
-	return {"type": IDs.CommandType.REJECT_TRADE, "player_id": player_id, "trade_id": trade_id}
+# `reason` (optional) is a §7 denial reason id (data/diplomacy.json denial_reasons)
+# naming why the offer was refused; "" rejects silently (a human dismissing an offer).
+static func reject_trade(player_id: int, trade_id: int, reason: String = "") -> Dictionary:
+	return {"type": IDs.CommandType.REJECT_TRADE, "player_id": player_id,
+		"trade_id": trade_id, "reason": reason}
 
 # Cancel an active recurring deal (§7). Only succeeds once the deal's minimum
 # duration has elapsed; either party to the deal may cancel.

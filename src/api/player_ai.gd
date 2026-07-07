@@ -190,10 +190,12 @@ static func manage_diplomacy(facade, player_id: int) -> void:
 
 # Accept a net-positive offer (unless the proposer is loathed); reject every other
 # offer so it does not linger. Offers live on the *proposer's* alliance, addressed
-# to the AI's alliance.
+# to the AI's alliance. The evaluation is Diplomacy.evaluate_deal (§7) — the same
+# value/attitude gates as always, now returning "" to accept or a structured
+# denial reason id; the reason rides the reject command so the proposer learns
+# *why* (notification + diplomacy screen).
 static func _answer_trade_offers(facade, gs, me) -> void:
 	var db = gs.db
-	var min_attitude: int = db.get_diplomacy().get("deal_accept_min_attitude", 1)
 	# Snapshot the offer ids first: accepting/rejecting mutates pending_trades.
 	var offers: Array = []
 	for alliance in gs.alliances:
@@ -201,40 +203,12 @@ static func _answer_trade_offers(facade, gs, me) -> void:
 			if int(t.get("to_alliance", -1)) == me.alliance_id:
 				offers.append(t.duplicate(true))
 	for t in offers:
-		var proposer = gs.get_player(int(t.get("proposer_player_id", -1)))
 		var trade_id: int = int(t.get("id", -1))
-		var accept: bool = false
-		if proposer != null:
-			var attitude: int = Diplomacy.attitude_level(gs, db, me.id, proposer.id)
-			var value: int = _deal_net_value(gs, db, me, t)
-			accept = value >= 0 and attitude >= min_attitude
-		if accept:
+		var reason: String = Diplomacy.evaluate_deal(gs, db, me.id, t)
+		if reason == "":
 			facade.apply_command(Commands.accept_trade(me.id, trade_id))
 		else:
-			facade.apply_command(Commands.reject_trade(me.id, trade_id))
-
-# Net gold-equivalent value of a standing offer to the AI accepter: it receives the
-# proposer's `give` bundle and parts with its own `receive` bundle. Recurring
-# gold-per-turn is valued over a fixed planning horizon; techs the AI lacks carry a
-# flat worth; a peace clause is worth a flat sum when the AI is currently at war.
-static func _deal_net_value(gs, db, me, t) -> int:
-	var horizon: int = db.get_constant("ai_deal_eval_turns", 10)
-	var tech_value: int = db.get_constant("ai_trade_tech_value", 200)
-	var give: Dictionary = t.get("give", {})       # → AI
-	var receive: Dictionary = t.get("receive", {})  # ← AI
-	var value: int = int(give.get("gold", 0)) - int(receive.get("gold", 0))
-	value += (int(give.get("gold_per_turn", 0)) - int(receive.get("gold_per_turn", 0))) * horizon
-	for tech in give.get("techs", []):
-		if not me.has_tech(tech):
-			value += tech_value
-	for tech in receive.get("techs", []):
-		if me.has_tech(tech):
-			value -= tech_value
-	if bool(t.get("peace", false)):
-		var mine = gs.get_player_alliance(me.id)
-		if mine != null and int(t.get("from_alliance", -1)) in mine.at_war_with:
-			value += tech_value  # ending a war is worth a tech's weight of gold
-	return value
+			facade.apply_command(Commands.reject_trade(me.id, trade_id, reason))
 
 # Declare war only on a met rival the AI has come to loathe (attitude Furious) and
 # can clearly overpower (its alliance military exceeds the target's by the margin).

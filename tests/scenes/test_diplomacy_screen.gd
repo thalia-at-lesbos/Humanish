@@ -101,3 +101,23 @@ func test_cancel_button_routes_command() -> void:
 	# Driving the handler directly exercises the apply_command path.
 	screen._on_cancel_deal(1)
 	assert_eq(gs.deals.size(), 0, "cancelling through the screen removes the deal")
+
+func test_screen_shows_last_denial_reason() -> void:
+	# §7 denial reasons: a recorded refusal against the viewing player is surfaced
+	# on the rival's row with the display text from diplomacy.json.
+	var facade = setup_facade(95, "small", [
+		{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50},
+		{"name": "B", "leader_id": "", "traits": [], "starting_gold": 50}
+	], ["time"])
+	var gs = facade.get_state()
+	var p0 = gs.players[0]
+	var p1 = gs.players[1]
+	gs.current_player_id = p0.id
+	gs.get_alliance(p0.alliance_id).contacts.append(p1.alliance_id)
+	gs.deal_denials[p0.id] = {p1.id: {"reason": "attitude_too_low", "turn": 4}}
+	var screen = _screen(facade)
+	screen.show_screen()
+	var text: String = _recurse_text(screen)
+	assert_true(Diplomacy.denial_text(gs.db, "attitude_too_low") in text,
+		"the rival's last denial reason text is shown")
+	assert_true("turn 4" in text, "the denial is stamped with its turn")
