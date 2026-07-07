@@ -1,6 +1,6 @@
 # Humanish
 
-A turn-based, empire-building **4X strategy game** at roughly *Civilization IV* scale —
+A turn-based, empire-building **4X strategy game** at classic 4X scale —
 a tiled world, settlements with growth/production/culture, units with detailed combat,
 research, policies, alliances and diplomacy, beliefs, economic organizations, Great
 People, and multiple victory conditions.

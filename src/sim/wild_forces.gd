@@ -10,21 +10,21 @@
 
 class_name WildForces
 
-# Spawning of wild (raider) forces per §9 — a provisional port of Civilization IV
-# Beyond the Sword's barbarian generation (CvGame::createBarbarianUnits /
-# createBarbarianCities; constants from CIV4HandicapInfo.xml). Adapted to this
+# Spawning of wild (raider) forces per §9 — a provisional port of the original
+# reference's barbarian generation (its barbarian unit/city creation processes;
+# constants from the reference handicap table). Adapted to this
 # engine's structures and difficulty/pace tables.
 #
 # The model has three gates and a per-area density target:
 #
 #   * Turn gate    — nothing spawns until `wild_creation_turns_elapsed` turns have
-#                    passed (scaled by game pace), the BtS iBarbarianCreationTurnsElapsed.
+#                    passed (scaled by game pace), the reference iBarbarianCreationTurnsElapsed.
 #   * Era gate     — organised wild units only appear once the game's current era
-#                    clears the `no_wild_units` flag (BtS bNoBarbUnits / the "quiet
+#                    clears the `no_wild_units` flag (reference bNoBarbUnits / the "quiet
 #                    animal phase"; this engine has no fauna yet, so the early era is
 #                    simply silent — see designgaps).
 #   * City-density — wild units hold off until the world has settled in:
-#                    civ cities >= ratio_num/ratio_den * living civs (BtS 3/2 = 1.5x).
+#                    civ cities >= ratio_num/ratio_den * living civs (reference 3/2 = 1.5x).
 #
 # Once the gates clear, each contiguous land area is topped up toward a target
 # density of one wild unit per `unowned_tiles_per_wild_unit` *unowned* tiles in
@@ -91,7 +91,7 @@ static func spawn_raider_settlement(game_state, rng: RNG) -> void:
 	var db: DataDB = game_state.db
 	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
 
-	# Turn gate (later than the unit gate, as in BtS).
+	# Turn gate (later than the unit gate, as in the reference).
 	var gate: int = _scaled_turns(game_state,
 		int(diff.get("wild_city_creation_turns_elapsed",
 			db.get_constant("wild_city_creation_turns_elapsed", 35))))
@@ -120,11 +120,11 @@ static func spawn_raider_settlement(game_state, rng: RNG) -> void:
 
 # ── Animal spawning (§9.3, provisional) ─────────────────────────────────────────
 
-# Wild animals are the "quiet phase" population (BtS's GameAnimal): they spawn on
+# Wild animals are the "quiet phase" population (the reference's GameAnimal): they spawn on
 # tiles **no player can currently see** (outside every unit/city sight radius) and
 # in **unowned** land, up to a per-difficulty density. Once organised wild units
 # take over (the three gates clear), no new animals appear and the existing ones
-# are thinned out one per world step, mirroring BtS's animal-to-barbarian handoff.
+# are thinned out one per world step, mirroring the reference's animal-to-barbarian handoff.
 static func spawn_animals(game_state, rng: RNG) -> void:
 	var db: DataDB = game_state.db
 	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
@@ -392,7 +392,7 @@ static func _spawn_naval_unit(x: int, y: int, game_state, unit_type_id: String) 
 # ── Area labelling ──────────────────────────────────────────────────────────────
 
 # Flood-fill the map into contiguous passable-land areas (8-connectivity, matching
-# BtS's area grouping). Each returned area is a Dictionary:
+# the reference's area grouping). Each returned area is a Dictionary:
 #   { tiles, unowned, open, wild_units, wild_cities }
 # where `open` is the unowned, unoccupied tiles a wild unit may spawn on (kept a
 # little clear of civ units/cities by `wild_spawn_min_distance`).
@@ -455,7 +455,7 @@ static func _is_passable_land(tile, db: DataDB) -> bool:
 	return ter.get("domain", "land") == "land" and not ter.get("impassable", false)
 
 # A tile a wild unit may spawn on: unowned, no unit, no settlement, and at least
-# `min_clear` tiles from any civ unit or settlement (BtS MIN_BARBARIAN_STARTING_DISTANCE).
+# `min_clear` tiles from any civ unit or settlement (reference MIN_BARBARIAN_STARTING_DISTANCE).
 static func _is_open_spawn_tile(game_state, tile, min_clear: int) -> bool:
 	if tile.owner_player_id >= 0:
 		return false
@@ -504,7 +504,7 @@ static func _pick_city_tile(game_state, area: Dictionary, min_dist: int, rng: RN
 # ── Gate helpers ────────────────────────────────────────────────────────────────
 
 # Turn count scaled by game pace: a 40-turn gate becomes ~60 on Epic, ~120 on
-# Marathon, ~27 on Quick (mirrors BtS's GameSpeed barb-percent scaling).
+# Marathon, ~27 on Quick (mirrors the reference's game-speed barb-percent scaling).
 static func _scaled_turns(game_state, base: int) -> int:
 	var pace: Dictionary = game_state.db.get_pace(game_state.pace_id)
 	var scale: int = int(pace.get("growth_scale", 100))

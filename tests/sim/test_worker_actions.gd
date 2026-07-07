@@ -86,7 +86,7 @@ func test_worker_can_build_mine_on_hills() -> void:
 	assert_true(ok, "Worker can build a mine on hills")
 
 func test_worker_cannot_build_mine_on_flat() -> void:
-	# Mines are hills-only (Civ4 convention). A flat tile (grassland/plains) must
+	# Mines are hills-only (reference convention). A flat tile (grassland/plains) must
 	# reject a mine even with the mining tech.
 	var gs = make_gs(1)
 	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()

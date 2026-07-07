@@ -64,6 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
+  "§29  Reference-parity data":  "Unimplemented reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters, hurry types, labor civic effects, retune globals"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1340,8 +1341,8 @@ intermediate rows are interpolated targets to balance.)*
 ### 15.10 Wild-forces spawn tables (provisional)
 
 > **⚠️ Provisional.** Per-difficulty wild-spawn fields on each `data/difficulties.json` entry,
-> governing the §9.2 spawning model. Values are ported from Civilization IV: Beyond the Sword
-> (`CIV4HandicapInfo.xml`) and **not yet retuned** for this engine. See game-rules §9.2 for the
+> governing the §9.2 spawning model. Values are ported from the original reference's
+> handicap table and **not yet retuned** for this engine. See game-rules §9.2 for the
 > formulas that consume them.
 
 | Field | Settler | Chieftain | Warlord | Noble | Prince | Monarch | Emperor | Immortal | Deity |
@@ -1370,7 +1371,7 @@ civ culture), `wild_spawn_min_distance` (2, min tiles a unit spawns from civ uni
 `wild_land_per_unit` / `raider_land_per_camp` / `wild_creation_turns_elapsed` /
 `wild_city_creation_turns_elapsed` / `wild_city_creation_prob` fallbacks used when a difficulty
 omits its per-level value. The Ancient era's `no_wild_units` flag (`data/ages.json`) gates the
-era check (BtS `bNoBarbUnits`).
+era check (reference `bNoBarbUnits`).
 
 ### 15.11 Global warming (§11)
 
@@ -2545,3 +2546,145 @@ the `score_radius` neighbourhood (food weighted by `score_food_weight`), adds
 `score_resource` per resource in reach and `score_fresh_water` when the plot has fresh
 water. Step 1 is purely score-driven (no RNG draw); steps 8 and 9 draw their tile picks
 from the shared map RNG in fixed start order, keeping generation deterministic.
+
+## 29. Reference-parity data (unimplemented)
+
+> **⚠️ Unimplemented.** Companion data for `game-rules.md` §15: every table in this
+> section carries values read directly from the reference data (layered original reference,
+> highest layer wins) for mechanics/content Humanish does not have yet. Nothing here is loaded
+> by `DataDB` today. The implementation plan is `docs/planning/directreferencegaps.md`;
+> the discrepancy audit for *existing* tables is `docs/planning/reference-parity-audit.md`.
+> When a mechanic lands, move its table into the appropriate numbered section above.
+
+### 29.1 Missing units
+
+| Unit | Str | Moves | Cost | Tech(s) | Resource | Class | Notes | Upgrades to |
+|---|---|---|---|---|---|---|---|---|
+| Machine Gun | 18 | 1 | 125 | Railroad | — | siege | **Defensive only** (cannot attack); 1 first strike; combat limit 100 (can kill) | Mechanized Infantry |
+| War Elephant | 8 | 1 | 60 | Construction + Horseback Riding | Ivory | mounted | Standard mounted rules | Cuirassier |
+| Lion | 2 | 1 | — | — | — | animal | Wild animal (§9.3), between Wolf (ref 1) and Panther (ref 2) | — |
+
+Machine Gun needs one new unit capability: a `defensive_only` flag (unit may never be
+the attacker). War Elephant needs compound prereqs (game-rules §15.12).
+
+### 29.2 Missing projects
+
+| Project | Cost | Tech | Instances | Effect |
+|---|---|---|---|---|
+| SDI | 1000 | Laser | 1 per player; requires Manhattan Project completed by anyone | 75% chance to intercept each nuke targeting the owner |
+| The Internet | 2000 | Computers | 1 per game | Owner auto-acquires any tech known by ≥ 2 other players |
+
+### 29.3 Chance first strikes (reference values)
+
+Units: Navy SEAL 1 + 1 chance; Skirmisher 1 + 1 chance (all other first-strike units
+have 0 chance strikes in the reference; the guaranteed values are in the §5 retune
+list of the audit). Promotions (reference Drill line, replacing the current flat
++1/tier): Drill I — (no combat fields in reference XML; verify before port),
+Drill II — +1 first strike, +20% collateral-damage protection, Drill III — +20%
+collateral protection, Drill IV — +2 first strikes, +20% collateral protection.
+
+### 29.4 Culture levels (border/defence tiers)
+
+| Level | Quick | Normal | Epic | Marathon | City defence % |
+|---|---|---|---|---|---|
+| fledgling | 5 | 10 | 15 | 30 | 20 |
+| developing | 50 | 100 | 150 | 300 | 40 |
+| refined | 250 | 500 | 750 | 1500 | 60 |
+| influential | 2500 | 5000 | 7500 | 15000 | 80 |
+| legendary | 25000 | 50000 | 75000 | 150000 | 100 |
+
+### 29.5 Pace table additions (`paces.json` candidate fields)
+
+| Pace | anarchy % | golden-age % | inflation % | inflation offset | victory-delay % | wild (barb) % | feature-production % | hurry % |
+|---|---|---|---|---|---|---|---|---|
+| quick | 67 | 80 | 45 | −60 | 67 | 67 | 67 | 67 |
+| normal | 100 | 100 | 30 | −90 | 100 | 100 | 100 | 100 |
+| epic | 150 | 125 | 20 | −135 | 150 | 150 | 150 | 150 |
+| marathon | 200 | 200 | 10 | −270 | 300 | 400 | 300 | 300 |
+
+Note `wild %` — the reference scales barbarian timing with its **own** column
+(marathon 400), where Humanish currently reuses the build scale (marathon 300).
+
+### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
+
+All: HQ +4 gold per franchise; spread factor 200; spread base cost 50; maintenance
+100 (= 1 gpt per resource instance per franchise, pre-modifier).
+
+| Reference corp | Humanish org | Inputs (each instance counts) | Output per resource | Produces resource |
+|---|---|---|---|---|
+| Corporation 1 | cereal_mills | wheat, corn, rice | +0.75 food | — |
+| Corporation 2 | sids_sushi | crab, clam, fish, **rice** | +0.5 food, +2 culture | — |
+| Corporation 3 | standard_ethanol | corn, sugar, **rice** | +2 research | **Oil** |
+| Corporation 4 | creative_constructions | iron, copper, marble, stone, aluminum | +0.5 production, +3 culture | — |
+| Corporation 5 | mining_inc | coal, iron, copper, **gold, silver** | +1 production | — |
+| Corporation 6 | aluminum_co | coal (only) | +3 research | **Aluminum** |
+| Corporation 7 | civilized_jewelers | gold, silver, gems | +1 gold, +4 culture | — |
+
+Bold inputs are ones the current `econ_orgs.json` dropped/changed. `merchant_guild`,
+`overseas_trading_co`, `nationalist_mutual` are Humanish inventions with no reference
+row (keep or cut — decision item).
+
+### 29.7 Per-difficulty goody rosters (selection weights)
+
+Reference weights (count of roster slots per handicap; a goody's chance = its slots ÷
+total). Settler/worker huts exist only through Prince/Warlord:
+
+| Goody | Settler | Chieftain | Warlord | Noble | Prince | Monarch | Emperor | Immortal | Deity |
+|---|---|---|---|---|---|---|---|---|---|
+| low_gold | 2 | 2 | 3 | 4 | 4 | 4 | 5 | 5 | 5 |
+| high_gold | 4 | 4 | 3 | 3 | 2 | 1 | 1 | 0 | 0 |
+| map | 1 | 1 | 2 | 2 | 2 | 2 | 2 | 2 | 1 |
+| **settler** | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| warrior | 2 | 2 | 2 | 2 | 2 | 2 | 1 | 1 | 1 |
+| scout | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| **worker** | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| experience | 1 | 1 | 1 | 2 | 2 | 2 | 1 | 1 | 1 |
+| healing | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| tech | 4 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 2 |
+| barbarians_weak | 0 | 1 | 1 | 2 | 3 | 3 | 3 | 3 | 2 |
+| barbarians_strong | 0 | 0 | 1 | 1 | 1 | 2 | 3 | 4 | 6 |
+
+### 29.8 Hurry types
+
+| Type | Gold per hammer | Hammers per pop | Anger | Gate |
+|---|---|---|---|---|
+| gold | 3 | — | — | always |
+| population | — | 30 (× pace hurry %) | +1 for 10 turns per rush | Slavery civic |
+
+Plus `NEW_HURRY_MODIFIER` 50 (+50% cost hurrying an item queued this turn).
+
+### 29.9 Labor civic reference effects (currently effect-less in `policies.json`)
+
+| Civic | Tech | Reference effects |
+|---|---|---|
+| tribalism | — | default; no effects (anarchy length 1 — matches) |
+| slavery | Bronze Working | enables population hurry (§29.8) |
+| serfdom | Feudalism | +50% worker build speed |
+| emancipation | Democracy | +100% cottage-line upgrade rate; +anger in every civ **not** running it (per-adopter pressure, reference weight 400) |
+
+(`caste_system`'s unlimited-specialists and workshop bonus are already wired.)
+
+### 29.10 Per-difficulty AI cost/growth handicaps (candidate `difficulties.json` fields)
+
+Reference columns Humanish currently folds into the single `ai_bonus` yield scaler:
+
+| Difficulty | inflation % | AI train % | AI construct % | AI unit-cost % | AI growth % |
+|---|---|---|---|---|---|
+| settler | 60 | 160 | 160 | 100 | 160 |
+| chieftain | 70 | 130 | 130 | 100 | 130 |
+| warlord | 80 | 110 | 110 | 100 | 110 |
+| noble | 90 | 100 | 100 | 100 | 100 |
+| prince | 95 | 95 | 95 | 95 | 100 |
+| monarch | 100 | 90 | 90 | 90 | 95 |
+| emperor | 100 | 85 | 85 | 85 | 90 |
+| immortal | 100 | 80 | 80 | 80 | 85 |
+| deity | 100 | 60 | 60 | 60 | 80 |
+
+### 29.11 Key reference globals for retunes (for the plan's Phase A)
+
+Growth threshold **20 + 2·pop** (Humanish 12 + 8·pop); min city spacing **2**
+(Humanish 3); heal rates city **20** / friendly **15** / neutral **10** / enemy **5**
+(Humanish 30/20/15/5/0); max XP per combat **10**; barbarian lifetime XP cap **10**;
+animal lifetime XP cap **5** (Humanish uses 10 and mis-cites the reference); max
+withdrawal probability **90**; occupation turns = **50%** of population (base 3);
+conscription minimum city size **5**; nuke magnitudes in `game-rules.md` §15.7.
