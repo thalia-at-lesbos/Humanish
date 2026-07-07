@@ -491,7 +491,7 @@ func test_difficulty_handicaps_skip_ai_players() -> void:
 # ── Leader/society trait wellbeing (§4.6) ────────────────────────────────────
 
 func test_expansive_trait_grants_health() -> void:
-	# Expansive grants +2 health per city (the Beyond the Sword value).
+	# Expansive grants +2 health per city (the original-reference value).
 	var gs = make_gs(1)
 	var s = make_settlement(gs, 1, 2, 2, 3)
 	var p = gs.get_player(1)
@@ -500,7 +500,7 @@ func test_expansive_trait_grants_health() -> void:
 	p.traits = ["expansive"]
 	TurnEngine._update_wellbeing(gs, s, p, gs.db)
 	assert_eq(s.wellbeing_positive, base_pos + 2,
-		"Expansive grants +2 health per city (BtS value)")
+		"Expansive grants +2 health per city (reference value)")
 
 func test_traitless_player_has_no_trait_health() -> void:
 	var gs = make_gs(1)

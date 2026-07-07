@@ -10,7 +10,7 @@
 
 extends "res://tests/support/sim_fixture.gd"
 
-# Wild forces (§9, provisional BtS port). Ambient wild-unit spawning is gated by a
+# Wild forces (§9, provisional reference port). Ambient wild-unit spawning is gated by a
 # pace-scaled turn threshold, the current era, and a city-density check, then tops
 # each contiguous land area up toward a per-difficulty unowned-tile density target.
 # Wild cities (raider camps) have their own later turn gate, a per-area density cap,

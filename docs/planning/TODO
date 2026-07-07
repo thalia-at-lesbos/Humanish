@@ -1,6 +1,6 @@
 User generated TODO list
 
-Achieve base game parity with Civ IV
+Achieve base game parity with the original reference
 
 Minor issues
 -unit stacks should be visible and usable [DONE — on-tile stack badges + click-to-cycle (existing) plus a selection-panel stack list with per-member rows and a Select-all that applies orders to the whole stack; SimFacade.select_stack(x,y).]

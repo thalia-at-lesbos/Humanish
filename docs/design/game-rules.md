@@ -43,6 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
+  "§15 Unimplemented reference mechanics": "Parity targets with reference values — inflation, whipping, pace scaling, culture defence, chance first strikes, siege caps, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters, compound prereqs (all unimplemented)"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -58,9 +59,10 @@ provisional_sections:
   - "§8.1  State religion"
   - "§8.2  Missionary spread"
   - "§9.1  Wild-forces behaviour — all radii and cooldowns placeholder"
-  - "§9.2  Wild-forces spawning — BtS-derived port, per-difficulty tables provisional"
-  - "§9.3  Wild animals — spawning, behaviour, and combat limits (BtS-derived)"
+  - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
+  - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
+  - "§15   Unimplemented reference mechanics — every subsection (15.1–15.12) is a reference-parity target, none implemented; values final (from reference XML), models unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -395,8 +397,8 @@ feature** health (below).
 > **⚠️ Incomplete — needs verification.** This subsection describes a first-pass conquest
 > model. Its specific numbers and formulas (siege-health maximum, regeneration rate, assault
 > damage, revolt duration, the auto-raze conditions) are provisional placeholders and have
-> **not** been checked against the actual Civ IV mechanics this project targets for parity.
-> Before relying on it, verify the rules and constants against Civ IV's real combat/city-
+> **not** been checked against the actual original-reference mechanics this project targets for parity.
+> Before relying on it, verify the rules and constants against the reference's real combat/city-
 > capture calculations (city defence/bombardment, occupation/resistance length, capture
 > population loss, building survival on capture, etc.) and update both this section and the
 > implementation (`SimFacade` conquest helpers, `TurnEngine.city_max_health`, and the
@@ -1292,9 +1294,9 @@ muster far from the sighted player; raiders never upgrade or retreat; and there 
 air wild presence.
 
 ### 9.2 Wild-forces spawning (provisional)
-> **⚠️ Provisional — preliminary, not verified.** This subsection ports Civilization IV: Beyond
-> the Sword's barbarian-generation model (`CvGame::createBarbarianUnits` / `createBarbarianCities`;
-> constants from `CIV4HandicapInfo.xml`) and adapts it to this engine's difficulty/pace tables.
+> **⚠️ Provisional — preliminary, not verified.** This subsection ports the original reference's
+> barbarian-generation model (its barbarian unit/city creation processes; constants from the
+> reference handicap table) and adapts it to this engine's difficulty/pace tables.
 > The per-difficulty tables in `data/difficulties.json` are transcribed from the reference game
 > and **not yet retuned** for this engine's map sizes or unit roster. All math is integer per the
 > engine invariants, and every roll is drawn from the shared `gs.rng` in pipeline order, so
@@ -1307,14 +1309,14 @@ world step (§3 world-step 4, before the wild AI acts):
 1. **Turn gate.** Nothing spawns until `wild_creation_turns_elapsed` turns have passed
    (per-difficulty: Settler 50 → Deity 10). The gate is **scaled by game pace** via the pace's
    `growth_scale` (Quick 67%, Normal 100%, Epic 150%, Marathon 300%), so a 40-turn gate becomes
-   ~120 turns on Marathon — mirroring BtS's GameSpeed barb-percent scaling.
+   ~120 turns on Marathon — mirroring the reference's game-speed barb-percent scaling.
 2. **Era gate.** Organised wild units appear only once the game's **current era** (the most
    advanced any living player has reached) clears the per-era `no_wild_units` flag in
-   `data/ages.json`. The starting (Ancient) era carries the flag — BtS's `bNoBarbUnits`, the
+   `data/ages.json`. The starting (Ancient) era carries the flag — the reference's `bNoBarbUnits`, the
    "quiet animal phase." *This engine has no fauna subsystem yet, so that early window is simply
    silent rather than populated with wildlife (a known gap).*
 3. **City-density gate.** Wild units hold off until the world has settled in:
-   `civ_cities ≥ (wild_city_ratio_num / wild_city_ratio_den) × living_civs` — BtS's
+   `civ_cities ≥ (wild_city_ratio_num / wild_city_ratio_den) × living_civs` — the reference's
    `numCivCities < 1.5 × civsAlive` check (default 3/2).
 
 Once the gates clear, the map is partitioned into **contiguous land areas** (8-connectivity).
@@ -1328,7 +1330,7 @@ needed = ((target − area_existing_wild_units) / 4) + 1      # only when target
 ```
 
 New units are placed on random unowned, unoccupied land tiles kept at least
-`wild_spawn_min_distance` (BtS `MIN_BARBARIAN_STARTING_DISTANCE`) from any civ unit or city, and
+`wild_spawn_min_distance` (reference `MIN_BARBARIAN_STARTING_DISTANCE`) from any civ unit or city, and
 spawn as the **strongest generic land unit** the leading player has unlocked (resources ignored,
 as in §9.1). A global ceiling of `total_unowned / divisor + 1` guards against many small areas
 each contributing their `+1`. (Naval raiders — `unowned_water_tiles_per_wild_unit`, Settler 3000
@@ -1341,16 +1343,16 @@ Wild **cities** (raider camps, §9.1's muster points) spawn on their own, later 
   `area_wild_cities < area_unowned_tiles / unowned_tiles_per_wild_city` (Settler 160 → Deity 80).
 * **Creation roll**: `wild_city_creation_prob` % per eligible area per step (Settler 4 → Deity 8).
 * **Distance rule**: a camp is placed at least `wild_city_min_distance` (default 6) tiles from
-  any civ settlement and any civ cultural tile — BtS's minimum barbarian-city spacing.
+  any civ settlement and any civ cultural tile — the reference's minimum barbarian-city spacing.
 
-**Known gaps / simplifications (to revisit):** the per-difficulty tables are BtS values, untuned
+**Known gaps / simplifications (to revisit):** the per-difficulty tables are reference values, untuned
 here; naval/air wild spawning is covered by §9.4; and the "current era" gate uses the
 most-advanced living player rather than a distinct game-era track.
 
 ### 9.3 Wild animals (provisional)
-> **⚠️ Provisional — preliminary, not verified.** Animals model BtS's *GameAnimal* layer — the
+> **⚠️ Provisional — preliminary, not verified.** Animals model the reference's *GameAnimal* layer — the
 > wildlife that prowls the unexplored early map before organised raiders appear. Magnitudes are
-> BtS-derived and untuned. All math is integer and every roll is from the shared `gs.rng`.
+> reference-derived and untuned. All math is integer and every roll is from the shared `gs.rng`.
 
 Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`, plus
 `is_animal = true`) defined by data — `data/units.json` entries with `"classification": "animal"`
@@ -1362,7 +1364,7 @@ Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`
   every player's sight** (the same `unit_sight` / `city_sight` Manhattan fog model the UI uses —
   i.e. in the dark / unrevealed map), up to one animal per `unowned_tiles_per_animal` unowned land
   tiles (Settler 100 → Deity 20), a few per step. Once the wild-unit gates **do** open, no new
-  animals appear and the existing ones are **thinned one per world step** (BtS's animal→barbarian
+  animals appear and the existing ones are **thinned one per world step** (the reference's animal→barbarian
   handoff). Animals are a **separate population**: they do not count toward the §9.2 raider density
   and are never chosen as raider/wave stock.
 * **Behaviour (`WildAI._act_animal`).** Each animal hunts the **nearest weak prey** within
@@ -1373,7 +1375,7 @@ Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`
   **wanders** one tile (also refusing borders). Animals do not rouse raider camps.
 * **Combat limits.** Animals **earn no promotions** from combat (`CombatApply.award_promotions`
   is a no-op for them), and a player unit's **lifetime XP from killing animals is capped** at
-  `animal_xp_lifetime_cap` (10, per BtS) — tracked on `Unit.xp_from_animals`; beyond it, hunting
+  `animal_xp_lifetime_cap` (10, per the reference) — tracked on `Unit.xp_from_animals`; beyond it, hunting
   animals yields no further experience. (This is in addition to the existing per-fight
   `experience_vs_wild_cap`.)
 
@@ -1385,7 +1387,7 @@ see.
 
 ### 9.4 Naval raiders (provisional)
 > **⚠️ Provisional — preliminary, not verified.** Sea-domain wild forces, the water
-> counterpart of §9.2's land raiders. Magnitudes are BtS-derived and untuned.
+> counterpart of §9.2's land raiders. Magnitudes are reference-derived and untuned.
 
 Naval raiders are wild units (`owner_player_id = -2`, `is_wild = true`) of a **sea-domain** type
 (`data/units.json` `"domain": "sea"`).
@@ -1523,3 +1525,188 @@ supplies the values they read. A faithful implementation must reproduce both.
 10. **Win conditions** and **scoring**; **environmental degradation**.
 11. (Recommended) an **override-hook seam** mirroring the phase-override pattern so content
     can replace any rule.
+
+## 15. Unimplemented reference mechanics (parity targets)
+
+> **⚠️ Provisional — none of §15 is implemented.** Every subsection below specifies a
+> mechanic (or a rule-level correction) that exists in the reference game but has no
+> Humanish model yet. Values are taken directly from the reference XML
+> (layered original reference, highest layer wins) and are recorded here so implementation needs no
+> access to the reference install. The work plan, priorities, and the value-retune
+> lists for *existing* mechanics live in `docs/planning/directreferencegaps.md`
+> (with the raw comparison in `docs/planning/reference-parity-audit.md`). Companion data
+> tables: `game-data.md` §29. Remove each subsection's "unimplemented" marker (and move
+> it into the appropriate numbered section) as it lands.
+
+### 15.1 Inflation *(unimplemented)*
+
+Civilization-wide expenses (unit upkeep, settlement maintenance, civic upkeep) are
+multiplied by an inflation rate that grows linearly with the game turn:
+
+```
+effective_turn   = current_turn + inflation_offset          (clamped at ≥ 0)
+inflation_rate % = effective_turn × inflation_percent / 100 × handicap_percent / 100
+expenses_total   = base_expenses × (100 + inflation_rate) / 100      (integer math)
+```
+
+Per-pace values (reference `iInflationPercent` / `iInflationOffset`): quick 45 / −60,
+normal 30 / −90, epic 20 / −135, marathon 10 / −270 (the negative offset delays onset —
+inflation starts once `current_turn` passes `−offset`). Per-difficulty multiplier
+(reference handicap `iInflationPercent`): settler 60, chieftain 70, warlord 80, noble 90,
+prince 95, monarch–deity 100.
+
+### 15.2 Population rush ("whipping") *(unimplemented)*
+
+The reference has **two** hurry types; Humanish implements only the gold one:
+
+| Hurry type | Conversion | Side effect | Enabled by |
+|---|---|---|---|
+| Gold | 3 gold per hammer of remaining cost | none | always (Humanish: implemented) |
+| Population | 30 hammers per population point sacrificed | +1 anger for 10 turns per rush (stacking) | **Slavery** civic (labor) |
+
+Reference constants: `iProductionPerPopulation` 30, `iGoldPerProduction` 3,
+`HURRY_POP_ANGER` 1, `HURRY_ANGER_DIVISOR` 10 (anger duration in turns),
+`NEW_HURRY_MODIFIER` 50 (+50% cost when the item was queued this turn). Production per
+population scales with pace (`iUnitHurryPercent`: 67/100/150/300). The Slavery policy
+entry in `policies.json` currently has **no effects** — this is its missing headline
+effect. Sacrificed population must respect a minimum city size of 1 and cannot exceed
+what the remaining cost requires.
+
+### 15.3 Pace scaling for anarchy, golden ages, and victory delay *(unimplemented)*
+
+Three per-pace multipliers the reference applies and Humanish ignores:
+
+| Pace | anarchy % | golden-age % | victory-delay % |
+|---|---|---|---|
+| quick | 67 | 80 | 67 |
+| normal | 100 | 100 | 100 |
+| epic | 150 | 125 | 150 |
+| marathon | 200 | 200 | 300 |
+
+Applied to: policy/state-belief transition turns (`iAnarchyPercent`, with reference
+bounds `BASE_CIVIC_ANARCHY_LENGTH` 1, `BASE_RELIGION_ANARCHY_LENGTH` 1,
+`MAX_ANARCHY_TURNS` 100); Golden-Age length (`GOLDEN_AGE_LENGTH` 8 ×
+`iGoldenAgePercent`; Humanish `golden_age_base_turns` 8 is currently pace-blind); and
+turn-count victory checks (cultural/time thresholds stretched by victory-delay %).
+
+### 15.4 Culture-level city defence *(unimplemented)*
+
+A settlement's cultural development grants an intrinsic defence modifier (on top of
+structures), by culture level:
+
+| Level | Culture (quick/normal/epic/marathon) | City defence % |
+|---|---|---|
+| fledgling | 5 / 10 / 15 / 30 | +20 |
+| developing | 50 / 100 / 150 / 300 | +40 |
+| refined | 250 / 500 / 750 / 1500 | +60 |
+| influential | 2500 / 5000 / 7500 / 15000 | +80 |
+| legendary | 25000 / 50000 / 75000 / 150000 | +100 |
+
+Note the reference expansion curve is geometric (10 → 100 → 500 → 5000 → 50000 at
+normal) where Humanish `culture_ring_thresholds` is near-linear (10…550) — reconciling
+border growth is a **decision item** in `directreferencegaps.md`, but the defence
+modifier can be adopted independently, keyed off whatever thresholds are in force.
+Bombardment reduces this modifier before combat (reference
+`CITY_DEFENSE_DAMAGE_HEAL_RATE` 5 %/turn recovery).
+
+### 15.5 Chance first strikes *(unimplemented)*
+
+Reference units have `first_strikes` (guaranteed) **plus** `chance_first_strikes`: an
+extra uniform-random 0…N first strikes rolled per combat (from the shared RNG, pipeline
+order). Humanish models only the guaranteed part. Reference carriers of the chance stat:
+navy seal 1+1, skirmisher 1+1 (Humanish currently 1+0 and 2+0/1+0 — see the unit
+retune list). Drill promotions also grant chance first strikes in the reference
+(see `game-data.md` §29.3). Schema: add `chance_first_strikes` (int, default 0) to
+`units.json`/`promotions.json`; combat resolution rolls it once per battle.
+
+### 15.6 Per-unit siege damage caps *(unimplemented — semantics correction)*
+
+The reference `iCombatLimit` is a **per-unit maximum damage percentage**: a sieging
+attacker cannot reduce the defender below `100 − limit` HP (catapult/trebuchet 75 →
+defender floor 25; cannon 80 → floor 20; artillery/mobile artillery 85 → floor 15;
+machine gun and all non-siege units 100 → can kill). Humanish's single
+`combat_limit: 1` (universal 1-HP floor) makes all siege drastically stronger than the
+reference. Parity: store the floor per unit (25/25/20/15/15) and keep 0 = "no cap".
+
+### 15.7 Nuke interception & the two missing projects *(unimplemented)*
+
+- **SDI** (project; tech Laser; cost 1000; requires the Manhattan Project completed by
+  anyone; one per player): gives its owner **75%** interception chance against each
+  incoming nuclear strike (`iNukeInterception` 75). Intercepted nukes are consumed with
+  no effect.
+- **The Internet** (project; tech Computers; cost 2000; one per game): its owner
+  automatically acquires any technology already known by **2** other players
+  (`iTechShare` 2), checked each turn.
+- Reference nuke magnitudes, for retuning §5.7's placeholders: building destruction
+  40% per structure, population death 30 + rand(20) + rand(20) %, unit damage
+  30 + rand(50) + rand(50) (kill threshold for non-combatants 60), fallout chance 50%
+  per blast tile, global-warming nuke weight 50.
+
+### 15.8 War weariness — reference event weights *(partially implemented)*
+
+Humanish's war fatigue (`war_fatigue_per_loss` 5, anger divisor 4) is a two-constant
+simplification. The reference accumulates weariness per *event kind* and decays it in
+peace; parity values if the model is ever deepened:
+
+| Event (your side) | WW points |
+|---|---|
+| your unit killed while attacking | 3 |
+| your unit killed while defending | 2 |
+| your unit captured | 2 |
+| you kill a unit while attacking | 2 |
+| you kill a unit while defending | 1 |
+| you capture a unit | 1 |
+| your city captured | 6 |
+| hit by nuke | 3 |
+| attacked with a nuke (aggressor penalty) | 12 |
+
+Multiplier `BASE_WAR_WEARINESS_MULTIPLIER` 2; decay in peace: −1/turn and −1% of the
+total per turn (`WW_DECAY_RATE` −1, `WW_DECAY_PEACE_PERCENT` 99); a war you were forced
+into (declared on you) accrues at −50%.
+
+### 15.9 Worker-speed and improvement-upgrade civic effects *(unimplemented)*
+
+Two labor civics in `policies.json` currently carry no effects; their reference
+headline effects require two new effect keys with engine wiring:
+
+- **Serfdom** (tech Feudalism): `worker_speed_modifier: 50` — worker build actions
+  complete 50% faster. Requires build-turn math to honour a percentage modifier
+  (also needed for the Fast Worker retune and golden-age worker effects).
+- **Emancipation** (tech Democracy): `improvement_upgrade_rate_modifier: 100` —
+  cottage-line maturation twice as fast (the existing `faster_cottage_growth` flag
+  should become this percentage), **plus** the emancipation-pressure anger: +anger in
+  the cities of every player *not* running Emancipation once any rival runs it
+  (reference `iCivicPercentAnger` 400, i.e. 4 anger-percent per non-adopter — model as
+  a contentment penalty scaling with the share of civs on Emancipation).
+
+### 15.10 Per-resource corporation outputs *(unimplemented — model correction)*
+
+Reference corporation output scales with the **number of input resource instances
+accessible** to the city (each counted once per copy, all values ×1/100 per resource):
+see `game-data.md` §29.6 for the full seven-corporation table (e.g. Sushi: +0.5 food and
++2 culture per seafood/rice resource; Ethanol and the aluminum corp **produce a
+strategic resource** — Oil / Aluminum — instead of tile yields). Humanish's flat
+per-organization `output_delta` ignores resource counts and cannot produce resources.
+Maintenance likewise scales per resource consumed (reference `iMaintenance` 100 =
+1 gpt per resource instance per franchise, before modifiers) versus Humanish's flat 3.
+
+### 15.11 Settler & worker discovery-site rewards *(disabled)*
+
+The reference grants settlers and workers from goody huts on the four easiest
+difficulties (see the per-difficulty roster in `game-data.md` §29.7). The Humanish
+`goodies.json` records exist but carry `weight: 0` (never selected) at every
+difficulty. Parity: give the settler/worker records the per-difficulty weights from
+§29.7 (they already exist as data; only the weights change — no engine work beyond
+per-difficulty goody weighting, which §24 already supports).
+
+### 15.12 Compound unit prerequisites *(unimplemented — schema)*
+
+Reference units may require **several techs (all)** and **a fixed resource plus a
+list of alternatives (any one)**: knight = Guilds + Horseback Riding, Horse **and**
+Iron; maceman = Civil Service + Machinery, Copper **or** Iron; bomber = Flight **and**
+Radio. Humanish's single `tech_required` / `resource_required` fields cannot express
+this; many units therefore unlock earlier or without their resource gates. Parity:
+`tech_required` → list (AND), `resource_required` → `{ "all": [...], "any": [...] }`
+(or two fields), with `DataDB` validation and per-unit values from the audit's §2
+table. This is the schema half; the per-unit value corrections are Phase-A retunes in
+`directreferencegaps.md`.

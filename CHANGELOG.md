@@ -7,7 +7,7 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ### Added
 - **Reference-parity simulation pass (Phases 0.1–8).** Eight phases align core
-  mechanics with the Civ4 reference: firepower-blended per-hit combat damage
+  mechanics with the original reference: firepower-blended per-hit combat damage
   (Phase 0.1); affine food-box growth with carry cap (Phase 0.2); stacked
   production-yield percent chain (Phase 0.3); canonical tech-cost percent chain
   (Phase 0.4); MOVE_DENOMINATOR=60 with transport route costs (Phase 0.5);
@@ -113,7 +113,7 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ### Added
 - **Wild-forces overhaul.** Barbarians, raider camps, and wildlife now spawn
-  with a Civilization IV: Beyond the Sword–derived model tuned per difficulty
+  with an original-reference–derived model tuned per difficulty
   and game pace, keeping early turns calm and scaling threat with the world.
 - **Wild animals.** Wolves, panthers, and bears roam unexplored land, hunt
   lone or unfortified units, and stay out of cities. They grant limited combat

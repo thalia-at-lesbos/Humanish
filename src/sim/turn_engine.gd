@@ -482,7 +482,7 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 	# Empire-wide civic health (Environmentalism, §8).
 	pos += PolicyEffects.sum_int(player, db, "health_empire")
 	# Leader/society trait wellbeing (§4.6): e.g. Expansive grants +2 health per city
-	# (the Beyond the Sword value). Summed across the player's traits.
+	# (the original-reference value). Summed across the player's traits.
 	if player != null:
 		for trait_id in player.traits:
 			pos += int(db.get_trait(trait_id).get("health_bonus", 0))

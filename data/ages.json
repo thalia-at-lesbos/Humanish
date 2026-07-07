@@ -6,7 +6,7 @@
     "growth_threshold_scale": 100,
     "start_turn": 0,
     "no_wild_units": true,
-    "notes": "Starting era; most factions begin here. no_wild_units mirrors BtS bNoBarbUnits: the quiet/animal phase, no organised wild units yet (§9, provisional)"
+    "notes": "Starting era; most factions begin here. no_wild_units mirrors the reference bNoBarbUnits: the quiet/animal phase, no organised wild units yet (§9, provisional)"
   },
   "classical": {
     "id": "classical",
