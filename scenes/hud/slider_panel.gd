@@ -10,16 +10,21 @@
 
 extends HBoxContainer
 
-# Four HSliders for finance/research/culture/intel. Constrained to sum to 100.
-# On any change emits Commands.set_sliders to the facade.
+# The three adjustable allocation rates — Science (research), Culture, and
+# Espionage (intel) — each shown as "Name: NN%" with −/+ buttons stepping in
+# 10% increments. Economy (finance) is the read-only derived remainder
+# (100 − the three) shown at the end. A step that would push the three over
+# 100, below 0, or Science below the policy research floor is disabled.
+# On any change emits the three-rate Commands.set_sliders to the facade.
 
 var _facade
-var _sliders: Array = []   # [finance, research, culture, intel]
-var _labels: Array = []
-var _updating: bool = false
+var _labels: Array = []        # rate labels, parallel to RATE_NAMES
+var _minus_buttons: Array = []
+var _plus_buttons: Array = []
+var _economy_label: Label = null
 
-const SLIDER_NAMES: Array = ["Finance", "Research", "Culture", "Intel"]
-const SliderMath = preload("res://src/api/slider_math.gd")
+const RATE_NAMES: Array = ["Science", "Culture", "Espionage"]
+const STEP: int = 10
 
 func init(facade) -> void:
 	_facade = facade
@@ -27,70 +32,90 @@ func init(facade) -> void:
 	rebuild()
 
 func _build_ui() -> void:
-	for i in range(4):
-		var vbox: VBoxContainer = VBoxContainer.new()
+	for i in range(3):
+		var row: HBoxContainer = HBoxContainer.new()
+
 		var lbl: Label = Label.new()
-		lbl.text = SLIDER_NAMES[i] + ": 0%"
-		lbl.align = Label.ALIGN_CENTER
+		lbl.text = RATE_NAMES[i] + ": 0%"
 		_labels.append(lbl)
-		vbox.add_child(lbl)
+		row.add_child(lbl)
 
-		var slider: HSlider = HSlider.new()
-		slider.min_value = 0
-		slider.max_value = 100
-		slider.step = 10
-		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# FOCUS_NONE: keep the economy sliders off the keyboard-focus chain. A
-		# focused slider would otherwise (a) steal the arrow keys that pan the map
-		# and nudge its own value, and (b) hop focus between sliders on left/right.
-		# The slider is still fully draggable with the mouse.
-		slider.focus_mode = Control.FOCUS_NONE
-		slider.connect("value_changed", self, "_on_slider_changed", [i])
-		_sliders.append(slider)
-		vbox.add_child(slider)
+		# FOCUS_NONE: keep the economy controls off the keyboard-focus chain. A
+		# focused button would otherwise steal the arrow keys that pan the map
+		# (and hop focus between controls on left/right). Still fully clickable.
+		var minus: Button = Button.new()
+		minus.text = "-"
+		minus.focus_mode = Control.FOCUS_NONE
+		minus.connect("pressed", self, "_on_step", [i, -STEP])
+		_minus_buttons.append(minus)
+		row.add_child(minus)
 
-		add_child(vbox)
+		var plus: Button = Button.new()
+		plus.text = "+"
+		plus.focus_mode = Control.FOCUS_NONE
+		plus.connect("pressed", self, "_on_step", [i, STEP])
+		_plus_buttons.append(plus)
+		row.add_child(plus)
+
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		add_child(row)
+
+	# Read-only remainder: Economy takes whatever the three rates leave.
+	_economy_label = Label.new()
+	_economy_label.text = "Economy: 100%"
+	_economy_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(_economy_label)
 
 func rebuild() -> void:
 	if _facade == null:
 		return
-	var gs = _facade.get_state()
-	var p = gs.get_player(gs.current_player_id)
+	var p = _current_player()
 	if p == null:
 		return
-	_updating = true
-	_sliders[0].value = p.slider_finance
-	_sliders[1].value = p.slider_research
-	_sliders[2].value = p.slider_culture
-	_sliders[3].value = p.slider_intel
-	_update_labels()
-	_updating = false
+	var vals: Array = [p.slider_research, p.slider_culture, p.slider_intel]
+	for i in range(3):
+		_labels[i].text = RATE_NAMES[i] + ": " + str(int(vals[i])) + "%"
+		# + takes from the Economy remainder; − must not dip below the floor
+		# (0, or the policy research minimum for Science).
+		_plus_buttons[i].disabled = p.slider_finance < STEP
+		_minus_buttons[i].disabled = int(vals[i]) - STEP < _floor_for(i)
+	_economy_label.text = "Economy: " + str(int(p.slider_finance)) + "%"
 
-func _on_slider_changed(value: float, changed_idx: int) -> void:
-	if _updating or _facade == null:
+func _on_step(idx: int, delta: int) -> void:
+	if _facade == null:
 		return
-	_updating = true
-
-	var cur: Array = [
-		int(_sliders[0].value),
-		int(_sliders[1].value),
-		int(_sliders[2].value),
-		int(_sliders[3].value)
-	]
-	# Predictably take the difference from the other sliders so the four always
-	# sum to exactly 100 (see slider_math.gd).
-	var vals: Array = SliderMath.rebalance(cur, changed_idx, int(value))
-
-	for i in range(4):
-		_sliders[i].value = vals[i]
-	_update_labels()
-	_updating = false
-
+	var p = _current_player()
+	if p == null:
+		return
+	var vals: Array = [int(p.slider_research), int(p.slider_culture), int(p.slider_intel)]
+	var new_val: int = vals[idx] + delta
+	# A click that would violate a constraint does nothing (buttons are also
+	# disabled in rebuild(); this guards a stale click before the repaint).
+	if new_val < _floor_for(idx):
+		return
+	if vals[0] + vals[1] + vals[2] + delta > 100:
+		return
+	vals[idx] = new_val
 	var gs = _facade.get_state()
 	_facade.apply_command(
-		Commands.set_sliders(gs.current_player_id, vals[0], vals[1], vals[2], vals[3]))
+		Commands.set_sliders(gs.current_player_id, vals[0], vals[1], vals[2]))
+	rebuild()
 
-func _update_labels() -> void:
-	var names: Array = SLIDER_NAMES
-	for i in range(4):
-		_labels[i].text = names[i] + ": " + str(int(_sliders[i].value)) + "%"
+# The lowest a rate may go: the policy-imposed minimum research share for
+# Science (idx 0), zero for the others.
+func _floor_for(idx: int) -> int:
+	if idx != 0:
+		return 0
+	var p = _current_player()
+	if p == null:
+		return 0
+	var min_research: int = 0
+	var policies: Dictionary = _facade.get_state().db.policies.get("policies", {})
+	for cat in p.policies:
+		var pol: Dictionary = policies.get(p.policies[cat], {})
+		min_research = max(min_research, int(pol.get("slider_min_research", 0)))
+	return min_research
+
+func _current_player():
+	var gs = _facade.get_state()
+	return gs.get_player(gs.current_player_id)

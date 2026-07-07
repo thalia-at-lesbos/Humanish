@@ -102,7 +102,9 @@ static func manage_economy(facade, player_id: int) -> void:
 	if player.slider_finance == finance and player.slider_research == research \
 			and player.slider_culture == 0 and player.slider_intel == 0:
 		return
-	facade.apply_command(Commands.set_sliders(player_id, finance, research, 0, 0))
+	# Three-rate command: finance is the derived remainder (100 − research here,
+	# since culture/intel stay 0), so this expresses the same finance/research tilt.
+	facade.apply_command(Commands.set_sliders(player_id, research, 0, 0))
 
 # ── Research: steer toward the cheapest researchable tech ──────────────────────
 

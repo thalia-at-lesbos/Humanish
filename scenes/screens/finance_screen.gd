@@ -24,8 +24,8 @@ func _populate(vbox) -> void:
 		_add_line(vbox, "No active player.")
 		return
 	_add_line(vbox, "Treasury: %d gold" % p.treasury)
-	_add_line(vbox, "Sliders — finance %d%% / research %d%% / culture %d%% / intel %d%%" % [
-		p.slider_finance, p.slider_research, p.slider_culture, p.slider_intel])
+	_add_line(vbox, "Rates — science %d%% / culture %d%% / espionage %d%% / economy %d%% (derived)" % [
+		p.slider_research, p.slider_culture, p.slider_intel, p.slider_finance])
 	var breakdown = TextGen.widget_help(
 		{"type": IDs.WidgetType.HELP_FINANCE, "data1": p.id}, gs, _facade._db)
 	if breakdown != "":

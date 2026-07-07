@@ -58,10 +58,11 @@ func test_playthrough_setup_economy_and_research() -> void:
 	var city = gs.settlements[0]
 	city.population = 3
 
-	# Economic sliders (must sum to 100; default policies impose no increment).
-	assert_true(f.apply_command(Commands.set_sliders(pid, 30, 50, 10, 10)),
-		"economic sliders accepted")
-	assert_eq(gs.get_player(pid).slider_research, 50, "research slider applied")
+	# Economic rates (three adjustable; finance derives as the 100 remainder).
+	assert_true(f.apply_command(Commands.set_sliders(pid, 50, 10, 10)),
+		"economic rates accepted")
+	assert_eq(gs.get_player(pid).slider_research, 50, "research rate applied")
+	assert_eq(gs.get_player(pid).slider_finance, 30, "finance derived as remainder")
 
 	# Pick a research target and run several turns; the target must survive the
 	# pipeline (it completes only if commerce funds it — economy-dependent, so we

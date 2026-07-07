@@ -85,23 +85,52 @@ func test_sliders_unconstrained_without_policy() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
-	assert_true(f.apply_command(Commands.set_sliders(1, 37, 33, 20, 10)),
-		"Without a governing policy any 100-sum split is allowed")
+	assert_true(f.apply_command(Commands.set_sliders(1, 33, 20, 10)),
+		"Without a governing policy any three-rate split summing <= 100 is allowed")
+	assert_eq(gs.get_player(1).slider_finance, 37,
+		"Finance is the derived remainder: 100 - (33 + 20 + 10)")
 
 func test_policy_increment_enforced() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 	gs.get_player(1).policies = {"government": "republic"}  # increment 10
-	assert_false(f.apply_command(Commands.set_sliders(1, 35, 35, 20, 10)),
-		"Off-increment sliders are rejected")
-	assert_true(f.apply_command(Commands.set_sliders(1, 40, 30, 20, 10)),
-		"On-increment sliders are accepted")
+	assert_false(f.apply_command(Commands.set_sliders(1, 35, 20, 10)),
+		"Off-increment rates are rejected")
+	assert_true(f.apply_command(Commands.set_sliders(1, 30, 20, 10)),
+		"On-increment rates are accepted")
 
 func test_policy_min_research_enforced() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 	gs.get_player(1).policies = {"government": "republic"}  # min_research 10
-	assert_false(f.apply_command(Commands.set_sliders(1, 100, 0, 0, 0)),
+	assert_false(f.apply_command(Commands.set_sliders(1, 0, 0, 0)),
 		"Research below the policy minimum is rejected")
+
+func test_sliders_over_100_rejected() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(f.apply_command(Commands.set_sliders(1, 50, 40, 20)),
+		"Three rates summing over 100 are rejected")
+
+func test_negative_slider_rejected() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(f.apply_command(Commands.set_sliders(1, 60, -10, 0)),
+		"A negative rate is rejected")
+
+func test_finance_derived_remainder() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_true(f.apply_command(Commands.set_sliders(1, 100, 0, 0)),
+		"All-research (finance 0) is a legal split")
+	var p = gs.get_player(1)
+	assert_eq(p.slider_finance, 0, "Finance derives to 0 at full research")
+	assert_true(f.apply_command(Commands.set_sliders(1, 40, 30, 20)))
+	assert_eq(p.slider_finance, 10, "Finance derives to the remainder (10)")
+	assert_eq(p.slider_research + p.slider_culture + p.slider_intel \
+		+ p.slider_finance, 100, "The four Player fields still sum to 100")

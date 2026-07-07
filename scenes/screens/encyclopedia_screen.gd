@@ -686,7 +686,7 @@ func _detail_civic(vbox: VBoxContainer, d: Dictionary) -> void:
 		_lbl(vbox, "Anarchy on switch: none")
 	var slider_min = int(d.get("slider_min_research", 0))
 	if slider_min > 0:
-		_lbl(vbox, "Min research slider: %d%%" % [slider_min])
+		_lbl(vbox, "Min science rate: %d%%" % [slider_min])
 	var effects = d.get("effects", {}) as Dictionary
 	if not effects.empty():
 		_sep(vbox)
@@ -874,16 +874,18 @@ func _guide_sections() -> Array:
 			"Civics, Diplomacy, Finance, Military, Domestic Advisor, Espionage,",
 			"Religion, Corporation, Turn Log, Victory Progress, Options.",
 		]],
-		["Economy Sliders", [
-			"Your empire's commerce output is divided four ways. The sliders always total 100.",
+		["Economy Rates", [
+			"Your empire's commerce output is divided four ways. You adjust three rates",
+			"with the +/- buttons on the HUD, in 10% steps; Economy is the read-only",
+			"remainder (100 minus the three).",
 			"",
-			"Finance       — Gold income added to treasury each turn",
-			"Research      — Science progress toward the current technology",
+			"Science       — Research progress toward the current technology",
 			"Culture       — Cultural output; drives city border expansion",
-			"Intelligence  — Espionage points accumulated against rival alliances",
+			"Espionage     — Espionage points accumulated against rival alliances",
+			"Economy       — (derived) Gold income added to treasury each turn",
 			"",
-			"Adjust from the slider panel on the HUD or via the Options screen.",
-			"Changing one slider redistributes the difference across the others.",
+			"A + that would push the three rates over 100, or a - below a rate's",
+			"minimum, is disabled.",
 		]],
 		["Cities", [
 			"Founding",
@@ -1007,7 +1009,7 @@ func _guide_sections() -> Array:
 			"Each other player who already knows it gives a 5% discount (capped at 25%).",
 			"",
 			"Funding",
-			"The Research slider sets the fraction of commerce going to science each turn.",
+			"The Science rate sets the fraction of commerce going to research each turn.",
 			"Progress is shown in the Research bar at the top of the screen.",
 			"",
 			"Eras",

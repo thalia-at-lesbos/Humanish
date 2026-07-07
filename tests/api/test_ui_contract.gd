@@ -37,14 +37,14 @@ func test_dirty_flags_set_by_set_sliders() -> void:
 	var f = setup_facade(2)
 	var gs = f.get_state()
 	gs.current_player_id = gs.players[0].id
-	f.apply_command(Commands.set_sliders(gs.players[0].id, 50, 30, 10, 10))
+	f.apply_command(Commands.set_sliders(gs.players[0].id, 30, 10, 10))
 	assert_true(f.get_dirty().is_dirty(IDs.DirtyRegion.HUD_GROUPS), "set_sliders must dirty HUD_GROUPS")
 
 func test_dirty_flags_clear_after_read() -> void:
 	var f = setup_facade(3)
 	var gs = f.get_state()
 	gs.current_player_id = gs.players[0].id
-	f.apply_command(Commands.set_sliders(gs.players[0].id, 50, 30, 10, 10))
+	f.apply_command(Commands.set_sliders(gs.players[0].id, 30, 10, 10))
 	var dirty = f.get_dirty()
 	assert_true(dirty.is_dirty(IDs.DirtyRegion.HUD_GROUPS), "Flag should be dirty before clearing")
 	dirty.clear(IDs.DirtyRegion.HUD_GROUPS)

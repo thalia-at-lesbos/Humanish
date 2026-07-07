@@ -46,8 +46,8 @@ Saves are stored in your user data folder:
 ┌─────────────────────────────────────────────────┐
 │ Advisor bar (F1–F4 screens + score)             │
 │ Research bar (current tech, progress)           │
-│ Economy sliders (Finance / Research / Culture   │
-│                  / Intelligence — must sum 100) │
+│ Economy rates (Science / Culture / Espionage    │
+│   via +/− buttons; Economy = the remainder)     │
 ├─────────────────────────────────────────────────┤
 │                                                 │
 │               Map (most of screen)              │
@@ -84,7 +84,7 @@ You begin with a **Settler** unit (and usually a **Warrior** escort).
 ### Research
 
 Open the **Tech Tree** (F2) and pick a technology.  
-The **Research** slice of your economy slider funds it each turn; the Research bar at the top shows progress.
+The **Science** rate of your economy funds it each turn; the Research bar at the top shows progress.
 
 ### Cities
 
@@ -95,10 +95,11 @@ Double-click a city (or press **F3** while a city is selected) to open the **Cit
 - Assign specialists (generates Great People over time).
 - Toggle **Automate Citizens** to let the computer optimise tile assignments.
 
-### Economy sliders
+### Economy rates
 
-The four sliders — **Finance**, **Research**, **Culture**, **Intelligence** — must always total 100.  
-Adjust them from the slider panel or the Options screen (**F4**).
+You adjust three rates — **Science**, **Culture**, **Espionage** — with the **+/−** buttons on the HUD, in 10% steps.  
+**Economy** (gold income) is shown next to them and is always the remainder: 100 minus the three.
+A click that would push the total over 100 (or a rate below its minimum) is simply unavailable.
 
 ---
 

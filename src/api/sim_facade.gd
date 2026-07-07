@@ -861,18 +861,21 @@ func _cmd_found_settlement(cmd: Dictionary) -> bool:
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
+# The command carries the three adjustable rates (research/culture/intel);
+# finance (economy) is the derived remainder 100 − (r + c + i), so the four
+# Player fields still always sum to 100 and the save format is unchanged.
 func _cmd_set_sliders(cmd: Dictionary) -> bool:
 	var p: Player = _gs.get_player(int(cmd["player_id"]))
 	if p == null:
 		return false
-	var f: int = int(cmd.get("finance", 0))
 	var r: int = int(cmd.get("research", 0))
 	var c: int = int(cmd.get("culture", 0))
 	var i: int = int(cmd.get("intel", 0))
-	if f + r + c + i != 100:
+	if r < 0 or c < 0 or i < 0:
 		return false
-	if f < 0 or r < 0 or c < 0 or i < 0:
+	if r + c + i > 100:
 		return false
+	var f: int = 100 - (r + c + i)
 	# Governing policies constrain the sliders (§6.2): an allowed increment and a
 	# minimum research share.
 	var increment: int = 0
@@ -881,7 +884,7 @@ func _cmd_set_sliders(cmd: Dictionary) -> bool:
 		var pol: Dictionary = _db.policies.get("policies", {}).get(p.policies[cat], {})
 		increment = max(increment, int(pol.get("slider_increment", 0)))
 		min_research = max(min_research, int(pol.get("slider_min_research", 0)))
-	if increment > 0 and (f % increment != 0 or r % increment != 0 \
+	if increment > 0 and (r % increment != 0 \
 			or c % increment != 0 or i % increment != 0):
 		return false
 	if r < min_research:
