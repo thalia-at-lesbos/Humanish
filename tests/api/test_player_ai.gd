@@ -798,6 +798,10 @@ func test_ai_refuses_a_good_offer_from_a_loathed_rival() -> void:
 	_seed_offer(gs, {"gold": 50}, {})  # objectively great, but from a hated rival
 	PlayerAI.manage_diplomacy(f, 1)
 	assert_eq(gs.get_player(1).treasury, 0, "AI refuses to deal with a loathed rival")
+	# §7 denial reasons: the refusal carries a structured reason back to the
+	# proposer — a lone furious rival is by definition the AI's worst enemy.
+	assert_eq(str(gs.deal_denials.get(2, {}).get(1, {}).get("reason", "")),
+		"worst_enemy", "the AI's refusal records why against the proposer")
 
 func test_ai_declares_war_on_loathed_weaker_rival() -> void:
 	var gs = make_gs(2)

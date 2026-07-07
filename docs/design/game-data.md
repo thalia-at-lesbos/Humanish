@@ -61,7 +61,7 @@ sections:
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
   "§24  Goody huts":             "goodies.json: complete 12-record weighted discovery-site reward catalogue with per-difficulty weight overrides and map placement (complete)"
   "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue — 13 active missions run from the alliance screen and by spy units on city tiles; 5 passive intelligence missions as standing EP thresholds (§25.6) with the information-fog rules they lift"
-  "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
+  "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
 editorial_rule: >
@@ -2393,9 +2393,9 @@ effect verb (`DataDB._validate_espionage_mission_refs`).
 
 ## 26. Diplomacy attitude & memory
 
-> **Status: incomplete** — attitude levels, live factors, decaying memory, and deal gates
-> are modelled; the reference's **denial-reason** layer (structured codes for why an AI
-> refuses a deal) is not.
+> **Status: complete** — attitude levels, live factors, decaying memory, deal gates,
+> and the reference's **denial-reason** layer (structured codes for why an AI refuses
+> a deal, surfaced in the trade UI) are all modelled.
 
 `data/diplomacy.json`. `attitude_base` is the neutral starting score; live factors and the
 running memory total are summed onto it, clamped to 0–100, then mapped to an attitude
@@ -2443,10 +2443,24 @@ deal); `war_min_attitude` = 2 (attitude gate on war behaviour).
 **recurring** deals carry a `recurring` block whose `give.resources` flow proposer→accepter
 each turn while the deal stands (`Diplomacy.deal_resources_for`).
 
+**Denial reasons** (`denial_reasons`): when the AI refuses an offer,
+`Diplomacy.evaluate_deal` returns a structured reason id ("" = accepted) naming the most
+specific cause; the id resolves to display text surfaced to the proposer (notification +
+the rival's row on the diplomacy screen, remembered in `gs.deal_denials`). The refusal
+*decision* is unchanged — net value ≥ 0 AND attitude ≥ `deal_accept_min_attitude` accepts
+— the reasons are reporting over it, checked in order:
+
+| Reason id | Named when |
+|-----------|------------|
+| `no_trade_with_warring_party` | proposer's alliance at war with ours and no peace clause |
+| `worst_enemy` | proposer is our lowest-scoring met rival at the *furious* level |
+| `attitude_too_low` | attitude below `deal_accept_min_attitude` (the long-standing gate) |
+| `tech_refusal` | the offer asks techs off us and still values negative |
+| `insufficient_value` | a plain bad bargain (net value below zero) |
+
 **Gap to reference:** persistent deal objects (one-off + per-turn) ✅, AI attitude (5 levels)
-✅, decaying memory of acts ✅ — but **denial reasons** (the structured "why we refuse"
-codes the reference surfaces in trade UI and AI logic) are **not** modelled. Cross-ref §7 of
-`game-rules.md`.
+✅, decaying memory of acts ✅, **denial reasons** (the structured "why we refuse" codes the
+reference surfaces in trade UI and AI logic) ✅. Cross-ref §7 of `game-rules.md`.
 
 ---
 

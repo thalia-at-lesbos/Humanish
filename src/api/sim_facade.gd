@@ -1310,10 +1310,25 @@ func _cmd_reject_trade(cmd: Dictionary) -> bool:
 	if p == null:
 		return false
 	var trade_id: int = int(cmd.get("trade_id", -1))
+	var reason: String = str(cmd.get("reason", ""))
 	for alliance in _gs.alliances:
 		for i in range(alliance.pending_trades.size()):
 			var t: Dictionary = alliance.pending_trades[i]
 			if int(t.get("id", -1)) == trade_id and int(t.get("to_alliance", -1)) == p.alliance_id:
+				# §7 denial reasons: a structured refusal is remembered per player
+				# pair (read by the diplomacy screen) and queued for surfacing to
+				# the proposer as a notification. A bare rejection ("") stays silent.
+				var proposer_id: int = int(t.get("proposer_player_id", -1))
+				if reason != "" and _gs.get_player(proposer_id) != null:
+					if not _gs.deal_denials.has(proposer_id):
+						_gs.deal_denials[proposer_id] = {}
+					_gs.deal_denials[proposer_id][p.id] = \
+						{"reason": reason, "turn": _gs.turn_number}
+					_gs.pending_deal_events.append({"kind": "deal_rejected",
+						"trade_id": trade_id, "reason": reason,
+						"rejector_player_id": p.id,
+						"proposer_player_id": proposer_id})
+					_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 				alliance.pending_trades.remove(i)
 				return true
 	return false
@@ -4044,6 +4059,15 @@ func _drain_deal_events() -> void:
 			"deal_cancelled":
 				_add_notification("A standing deal was cancelled.", "info")
 				emit_signal("deal_cancelled", e)
+			"deal_rejected":
+				# §7 denial reasons: tell the proposer *why* the offer was refused,
+				# with the display text from the diplomacy.json denial table.
+				var rejector: Player = _gs.get_player(int(e.get("rejector_player_id", -1)))
+				var proposer: Player = _gs.get_player(int(e.get("proposer_player_id", -1)))
+				var rej_nm: String = rejector.name if rejector != null else "A rival"
+				var pro_nm: String = proposer.name if proposer != null else "a rival"
+				_add_notification(rej_nm + " refused " + pro_nm + "'s offer: "
+					+ Diplomacy.denial_text(_db, str(e.get("reason", ""))), "info")
 			"vassal_liberated":
 				# §7 vassalage: a vassal grew strong enough to break free of its
 				# overlord (Vassalage.world_tick), or an overlord released it.

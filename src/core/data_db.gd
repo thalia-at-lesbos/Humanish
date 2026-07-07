@@ -416,6 +416,13 @@ func _validate_diplomacy_refs() -> void:
 			_errors.append("diplomacy.memory_kinds '%s' needs both value and decay" % k)
 		elif int(spec.get("decay", 0)) <= 0:
 			_errors.append("diplomacy.memory_kinds '%s' decay must be positive" % k)
+	# The §7 denial-reason table must cover every reason id Diplomacy.evaluate_deal
+	# can return, each with nonempty display text (surfaced in the trade UI).
+	var denials: Dictionary = diplomacy.get("denial_reasons", {})
+	for rid in ["no_trade_with_warring_party", "worst_enemy", "attitude_too_low",
+			"tech_refusal", "insufficient_value"]:
+		if str(denials.get(rid, {}).get("text", "")) == "":
+			_errors.append("diplomacy.denial_reasons '%s' must define nonempty text" % rid)
 
 # Every trigger must name an event that exists; every event effect (begin, choice,
 # or expire) must use a known verb and resolve its unit/structure/tech reference.

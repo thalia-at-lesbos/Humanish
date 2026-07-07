@@ -135,6 +135,14 @@ var deals: Array = []
 # Not serialized. Each entry is {"kind": String, "deal_id": int, ...}.
 var pending_deal_events: Array = []
 
+# The last §7 denial reason each proposer received from each rejector:
+# proposer_player_id -> {rejector_player_id: {"reason": String, "turn": int}}.
+# Written by REJECT_TRADE when the answer carries a reason id (an AI refusal via
+# Diplomacy.evaluate_deal); read by the diplomacy screen so a human sees why the
+# last offer was turned down. Serialized; both key levels are int player ids and
+# are coerced back on load (the JSON string-key gotcha).
+var deal_denials: Dictionary = {}
+
 # Active bilateral open-borders agreements (§7). Each entry is an unordered pair of
 # player IDs {"a": int, "b": int} (canonicalized a < b) granting each side passage
 # through the other's cultural borders. Recorded on trade acceptance (a proposal
@@ -371,6 +379,7 @@ func serialize() -> Dictionary:
 		"endgame_project_stages": endgame_project_stages.duplicate(),
 		"assembly": assembly.duplicate(true),
 		"deals": deals.duplicate(true),
+		"deal_denials": deal_denials.duplicate(true),
 		"open_borders": open_borders.duplicate(true),
 		"seen_memory": SeenMemory.serialize(seen_memory),
 		"active_events": active_events.duplicate(true),
@@ -438,6 +447,18 @@ static func deserialize(d: Dictionary, db_ref):
 			"start_turn": int(dl.get("start_turn", 0)),
 			"min_duration": int(dl.get("min_duration", 0))
 		})
+	# Last deal denials (§7 denial reasons): both dictionary levels are keyed by int
+	# player ids, which JSON.parse returns as strings; coerce both back so the
+	# diplomacy screen's int-id lookups still match after a load.
+	gs.deal_denials = {}
+	var dd_src: Dictionary = d.get("deal_denials", {})
+	for pk in dd_src:
+		var inner: Dictionary = {}
+		for rk in dd_src[pk]:
+			var rec: Dictionary = dd_src[pk][rk]
+			inner[int(rk)] = {"reason": str(rec.get("reason", "")),
+				"turn": int(rec.get("turn", 0))}
+		gs.deal_denials[int(pk)] = inner
 	# Open-borders agreements (§7): each is a {a,b} player-id pair. JSON.parse yields
 	# floats for the ids; coerce back to int so post-load passage lookups still match.
 	gs.open_borders = []

@@ -138,6 +138,106 @@ static func _have_active_deal(gs, alliance_a: int, alliance_b: int) -> bool:
 			return true
 	return false
 
+# ── Deal evaluation & denial reasons (§7) ──────────────────────────────────────
+#
+# Whether an AI accepts a standing trade offer, and — when it refuses — a
+# structured *reason id* naming why, resolved to display text from the
+# denial_reasons table in data/diplomacy.json. The accept/refuse decision is the
+# long-standing pair of gates (net value >= 0 AND attitude >= the
+# deal_accept_min_attitude level); the reason layer is additive reporting that
+# picks the most specific cause of a refusal. Deterministic, no RNG.
+
+# Evaluate offer `t` (a pending_trades record) from `evaluator_id`'s seat.
+# Returns "" when the offer is acceptable, else the denial reason id, checked
+# most-specific-first:
+#   no_trade_with_warring_party — proposer's alliance is at war with ours and the
+#                                 offer carries no peace clause
+#   worst_enemy                 — the proposer is our worst enemy (lowest attitude
+#                                 score among met rivals, at the furious level)
+#   attitude_too_low            — attitude below deal_accept_min_attitude
+#   tech_refusal                — the offer asks techs off us and still values
+#                                 negative
+#   insufficient_value          — a plain bad bargain (net value below zero)
+static func evaluate_deal(gs, db, evaluator_id: int, t: Dictionary) -> String:
+	var me = gs.get_player(evaluator_id)
+	var proposer = gs.get_player(int(t.get("proposer_player_id", -1)))
+	if me == null or proposer == null:
+		return "insufficient_value"
+	var min_attitude: int = int(db.get_diplomacy().get("deal_accept_min_attitude", 1))
+	var attitude: int = attitude_level(gs, db, me.id, proposer.id)
+	var value: int = deal_net_value(gs, db, me, t)
+	if value >= 0 and attitude >= min_attitude:
+		return ""
+	# Refused — name the most specific cause.
+	var mine = gs.get_player_alliance(me.id)
+	if mine != null and mine.is_at_war_with(int(t.get("from_alliance", -1))) \
+			and not bool(t.get("peace", false)):
+		return "no_trade_with_warring_party"
+	if attitude < min_attitude:
+		if is_worst_enemy(gs, db, me.id, proposer.id):
+			return "worst_enemy"
+		return "attitude_too_low"
+	# value < 0: distinguish "you are prying techs off us" from a plain bad bargain.
+	for tech in t.get("receive", {}).get("techs", []):
+		if me.has_tech(tech):
+			return "tech_refusal"
+	return "insufficient_value"
+
+# Net gold-equivalent value of a standing offer to the evaluating accepter: it
+# receives the proposer's `give` bundle and parts with its own `receive` bundle.
+# Recurring gold-per-turn is valued over a fixed planning horizon; techs the
+# accepter lacks carry a flat worth; a peace clause is worth a flat sum when the
+# accepter is currently at war. (Moved here from PlayerAI so the sim owns the one
+# deal-evaluation path; magnitudes stay in data/constants.json.)
+static func deal_net_value(gs, db, me, t) -> int:
+	var horizon: int = db.get_constant("ai_deal_eval_turns", 10)
+	var tech_value: int = db.get_constant("ai_trade_tech_value", 200)
+	var give: Dictionary = t.get("give", {})       # → accepter
+	var receive: Dictionary = t.get("receive", {})  # ← accepter
+	var value: int = int(give.get("gold", 0)) - int(receive.get("gold", 0))
+	value += (int(give.get("gold_per_turn", 0)) - int(receive.get("gold_per_turn", 0))) * horizon
+	for tech in give.get("techs", []):
+		if not me.has_tech(tech):
+			value += tech_value
+	for tech in receive.get("techs", []):
+		if me.has_tech(tech):
+			value -= tech_value
+	if bool(t.get("peace", false)):
+		var mine = gs.get_player_alliance(me.id)
+		if mine != null and int(t.get("from_alliance", -1)) in mine.at_war_with:
+			value += tech_value  # ending a war is worth a tech's weight of gold
+	return value
+
+# Whether `to_id` is `from_id`'s worst enemy: attitude at the furious level AND no
+# met rival (an alliance in from's contacts) scores lower. Derived entirely from
+# the attitude model — a reporting refinement, not a new relationship field.
+static func is_worst_enemy(gs, db, from_id: int, to_id: int) -> bool:
+	if from_id == to_id:
+		return false
+	if attitude_level(gs, db, from_id, to_id) != FURIOUS:
+		return false
+	var mine = gs.get_player_alliance(from_id)
+	if mine == null:
+		return false
+	var target_score: int = attitude_score(gs, db, from_id, to_id)
+	for p in gs.players:
+		if p.id == from_id or p.id == to_id:
+			continue
+		var pa = gs.get_player_alliance(p.id)
+		if pa == null or pa.id == mine.id:
+			continue
+		if not mine.has_contact_with(pa.id):
+			continue
+		if attitude_score(gs, db, from_id, p.id) < target_score:
+			return false
+	return true
+
+# The display text for a denial reason id (data/diplomacy.json denial_reasons);
+# "" for an unknown id — mirrors level_name for attitude levels.
+static func denial_text(db, reason: String) -> String:
+	var spec: Dictionary = db.get_diplomacy().get("denial_reasons", {}).get(reason, {})
+	return str(spec.get("text", ""))
+
 # ── Recurring deal items: resource access (§7) ─────────────────────────────────
 
 # The set (Dictionary-as-set) of resource ids `player_id` currently receives through

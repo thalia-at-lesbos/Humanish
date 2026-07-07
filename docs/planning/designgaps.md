@@ -202,12 +202,12 @@ The seven reference-parity domains formerly tracked in `game-data.md` §20 have 
 been **promoted to first-class data tables and wired into the engine** (now
 `game-data.md` §22–§28). Three are at full reference parity (Specialists §22,
 Corporations §23, Score victory §27) and need nothing further. Of the four that
-shipped a working slice, espionage (§5.1), goody huts (was §5.3) and map
-start-fairness (§5.2) have since closed; only diplomacy (§5.4) still falls short
-of the reference's full record set.
+shipped a working slice, espionage (§5.1), goody huts (was §5.3), map
+start-fairness (§5.2) and diplomacy denial reasons (§5.4) have all since closed —
+no reference-parity data domain remains open.
 
 Measured against `humanish-full-docs/generic/` (the reference data set), the
-shortfalls are catalogue depth, not missing machinery.
+shortfalls were catalogue depth, not missing machinery.
 
 ### 5.1 Espionage missions — CLOSED (18/18 mission types; `game-data.md` §25)
 
@@ -255,25 +255,45 @@ tops up below-par starts with extra resources and discovery sites. See the
 2026-07-07 entry under "Recently reconciled" and `game-data.md` §28 for the
 constants.
 
-### 5.4 Diplomacy — no denial-reason layer (`game-data.md` §26)
+### 5.4 Diplomacy denial reasons — CLOSED (`game-data.md` §26)
 
-Attitude levels, live factors, decaying memory, and one-off/recurring deals are all
-modelled. The missing piece is the reference's **denial-reason** system.
-
-- **Add a denial-reason table** to `data/diplomacy.json` (reason id → text/weight
-  gates), and have the AI deal-evaluation path return a structured reason code when
-  it refuses (too-advanced, worst-enemy, no-trade-with-warring-party, etc.) rather
-  than a bare boolean.
-- Surface the reason in the trade/diplomacy screen so a human sees *why* a proposal
-  is rejected.
-- This is additive over the existing `deal_accept_min_attitude` gate; the gate
-  becomes one reason among several. Extend `tests/sim/test_diplomacy.gd` with a
-  refusal-reason assertion.
+The denial-reason layer now ships: a `denial_reasons` table in
+`data/diplomacy.json`, `Diplomacy.evaluate_deal` returning a structured reason id
+on refusal (the `deal_accept_min_attitude` gate is now one reason among five), and
+the reason surfaced to the proposer as a notification and on the rival's row of
+the diplomacy screen. See the 2026-07-07 entry under "Recently reconciled" and
+`game-data.md` §26 for the reason table.
 
 ---
 
 ## Recently reconciled
 
+- **2026-07-07** — Diplomacy denial-reason layer completed (§5.4): trade refusals
+  now carry a structured reason. `Diplomacy.evaluate_deal` (sim) owns the one
+  deal-evaluation path — the decision is the unchanged pair of gates (net value
+  ≥ 0 AND attitude ≥ `deal_accept_min_attitude`; `deal_net_value` moved from
+  `PlayerAI` into `Diplomacy`) and returns "" to accept or the most specific of
+  five reason ids: `no_trade_with_warring_party` (proposer's alliance at war with
+  ours, no peace clause), `worst_enemy` (proposer is the lowest-scoring met rival
+  at the furious level — `Diplomacy.is_worst_enemy`, a pure attitude derivation),
+  `attitude_too_low`, `tech_refusal` (the offer pries techs off us and still
+  values negative), `insufficient_value`. Display text lives in the new
+  `denial_reasons` table in `data/diplomacy.json` (validated by
+  `DataDB._validate_diplomacy_refs`; read via `Diplomacy.denial_text`). The
+  reason rides `Commands.reject_trade(…, reason)`; `_cmd_reject_trade` remembers
+  it in the serialized `gs.deal_denials` (proposer → rejector → {reason, turn},
+  int-key coerced on load) and queues a `deal_rejected` event that
+  `_drain_deal_events` surfaces as a notification naming the rejector and the
+  reason text; the diplomacy screen shows each rival's last denial on its row.
+  Gates *not* added (no modelled input / would change decisions the design
+  doesn't call for): "too advanced" (refusing tech trades to the tech leader)
+  and "you are at war with our friend" (no attitude factor models a rival
+  fighting one's ally, so a refusal never stems from it). Tests: evaluation +
+  reason-id assertions per gate, denial-table coverage, reject-command
+  recording, drain notification, and int-key save/load in
+  `tests/sim/test_diplomacy.gd`; AI end-to-end reason in
+  `tests/api/test_player_ai.gd`; screen surfacing in
+  `tests/scenes/test_diplomacy_screen.gd`.
 - **2026-07-07** — Map start-fairness `normalize*` completed (§5.2): all 9
   reference steps now run in `MapGen.normalize_starts`. Step 1
   (`normalizeStartingPlotLocations`): `_normalize_reposition_starts` scores each
