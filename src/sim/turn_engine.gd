@@ -1369,8 +1369,9 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db
 	player.treasury += net_gold(gs, player)
 
-	# Insolvency (§6.1): force research down immediately; only sell/disband as an
-	# extreme measure once the player stays broke past the grace period.
+	# Insolvency (§6.1): force research down immediately; only disband units as an
+	# extreme measure once the player stays broke past the grace period. Structures
+	# are never sold — buildings and their invested costs are always retained.
 	if player.treasury < 0:
 		if player.slider_research > 0:
 			player.slider_research = max(0, player.slider_research - 10)
@@ -1378,7 +1379,7 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		player.insolvent_turns += 1
 		if player.insolvent_turns > db.get_constant("insolvency_grace_turns", 1):
 			var guard: int = 0
-			while player.treasury < 0 and guard < 100 and _sell_or_disband(gs, player):
+			while player.treasury < 0 and guard < 100 and _disband_for_insolvency(gs, player):
 				guard += 1
 		if player.treasury < 0:
 			player.treasury = 0
@@ -1444,15 +1445,11 @@ static func _ensure_capital_palace(gs: GameState, player_id: int) -> void:
 	if fallback != null:
 		fallback.structures.append("palace")
 
-# Sell the newest structure (salvage refund) or, failing that, disband a unit to
-# relieve insolvency. Returns true if something was sold/disbanded.
-static func _sell_or_disband(gs: GameState, player: Player) -> bool:
-	for s in gs.settlements:
-		if s.owner_player_id == player.id and not s.structures.empty():
-			var sid: String = s.structures[s.structures.size() - 1]
-			s.structures.remove(s.structures.size() - 1)
-			player.treasury += int(gs.db.get_structure(sid).get("cost", 0)) / 4
-			return true
+# Disband a unit to relieve insolvency (§6.1). Structures are never sold —
+# buildings and their invested costs are always retained; when no units remain
+# the caller's clamp keeps the treasury at 0. Returns true if a unit was
+# disbanded.
+static func _disband_for_insolvency(gs: GameState, player: Player) -> bool:
 	for u in gs.units:
 		if u.owner_player_id == player.id:
 			Stack.remove_unit(gs.units, u.id)

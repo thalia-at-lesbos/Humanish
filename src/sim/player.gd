@@ -127,8 +127,8 @@ var events_fired: Array = []
 # never re-armed. Serialized; the entries are quest-id strings (no int coercion needed).
 var quests_completed: Array = []
 
-# Consecutive turns the player has been insolvent; selling/disbanding only kicks
-# in once this passes the grace period (§6.1).
+# Consecutive turns the player has been insolvent; unit disbanding only kicks
+# in once this passes the grace period (§6.1). Structures are never sold.
 var insolvent_turns: int = 0
 
 # Golden Age state (§14.4). golden_age_turns counts down each turn while active;

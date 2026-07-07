@@ -268,6 +268,16 @@ the diplomacy screen. See the 2026-07-07 entry under "Recently reconciled" and
 
 ## Recently reconciled
 
+- **2026-07-07** — Insolvency never sells structures (§6.1): decided that all
+  buildings and their invested costs are always retained — prolonged insolvency
+  may only disband units. `TurnEngine._sell_or_disband` (newest-structure sale
+  for a 25% cost refund, then unit disbanding) became
+  `_disband_for_insolvency` (units only); with no units left the research
+  slider is still forced down and the treasury clamps at 0, unchanged.
+  `game-rules.md` §6.1 and `game-data.md` (`insolvent_turns`) reworded to
+  units-only. Tests: `tests/sim/test_economy.gd`
+  (`test_insolvency_never_sells_structures`,
+  `test_insolvency_with_no_units_clamps_treasury_at_zero`).
 - **2026-07-07** — Diplomacy denial-reason layer completed (§5.4): trade refusals
   now carry a structured reason. `Diplomacy.evaluate_deal` (sim) owns the one
   deal-evaluation path — the decision is the unchanged pair of gates (net value
