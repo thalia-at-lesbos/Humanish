@@ -63,7 +63,7 @@ sections:
   "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue — 13 active missions run from the alliance screen and by spy units on city tiles; 5 passive intelligence missions as standing EP thresholds (§25.6) with the information-fog rules they lift"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
-  "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
+  "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -2195,8 +2195,8 @@ The pattern: free `settler`/`worker` rewards exist only at the three easiest lev
 premium gold tier fades out and disappears at the two hardest; weak ambushes are absent at
 the easiest level and strong ambushes at the two easiest, then together they climb to 40%
 of all rolls at the hardest; `heal` and `scout` stay flat at 5 everywhere; `tech` is twice
-as common at the easiest level as at normal-and-above. (§28's start-fairness pass has a
-not-yet-built extras step that can scatter additional discovery sites near starts.)
+as common at the easiest level as at normal-and-above. (§28's start-fairness pass has an
+extras step that can scatter additional discovery sites near below-par starts.)
 
 ---
 
@@ -2479,8 +2479,9 @@ Race, `cultural`, `diplomatic`, `score`, `time`). ✅ **Complete.** Cross-ref §
 
 ## 28. Map start-fairness (`normalize*`)
 
-> **Status: incomplete** — 6 of the reference's 9 `normalize*` steps are implemented; start
-> repositioning is spacing-only and `addGoodTerrain` / `addExtras` are unimplemented.
+> **Status: complete** — all 9 of the reference's `normalize*` steps are implemented
+> (plus `BonusBalancer`): start repositioning is score-driven, and
+> `addGoodTerrain` / `addExtras` run as steps 8 and 9.
 
 `MapGen.normalize_starts` runs after `find_start_positions` to tidy each capital's
 surroundings so no player is crippled by a hostile spawn. Every random choice draws from the
@@ -2491,15 +2492,15 @@ shared map RNG in a fixed order, so the result is deterministic for the seed. A 
 
 | # | Reference step | Code | Behaviour |
 |:-:|----------------|:----:|-----------|
-| 1 | `normalizeStartingPlotLocations` | ⚠️ partial | `find_start_positions` maximises spacing; no post-placement reposition pass |
+| 1 | `normalizeStartingPlotLocations` | ✅ | `find_start_positions` maximises spacing; `_normalize_reposition_starts` then shifts weak starts to a better-scoring nearby plot (yield/fresh-water/resource score), keeping the layout's minimum spacing and any `start_bounds` |
 | 2 | `normalizeAddRiver` | ✅ | `_normalize_add_fresh_water` carves river borders when no fresh water is near |
 | 3 | `normalizeRemovePeaks` | ✅ | `_normalize_remove_peaks`: peaks on start tile/inner ring → hills |
 | 4 | `normalizeAddLakes` | ✅ | folded into `_normalize_add_fresh_water` (fresh-water guarantee) |
 | 5 | `normalizeRemoveBadFeatures` | ✅ | `_normalize_strip_bad_features`: strip jungle from start tile/ring |
 | 6 | `normalizeRemoveBadTerrain` | ✅ | `_normalize_fix_bad_terrain`: snow/desert city tile → grassland; ring snow→tundra, desert→plains |
 | 7 | `normalizeAddFoodBonuses` | ✅ | `_normalize_add_food_bonuses`: top up to `min_food` food resources in the inner ring |
-| 8 | `normalizeAddGoodTerrain` | ❌ | upgrade poorer terrain in the wider radius — **unimplemented** |
-| 9 | `normalizeAddExtras` | ❌ | final fairness pass (extra resources/huts) — **unimplemented** |
+| 8 | `normalizeAddGoodTerrain` | ✅ | `_normalize_add_good_terrain`: upgrade up to a quota of poor tiles in the wider radius one step toward grass/plains (snow→tundra, tundra→grassland, desert→plains) |
+| 9 | `normalizeAddExtras` | ✅ | `_normalize_add_extras`: starts scoring below par get extra food/luxury resources, then extra discovery sites if still short |
 | — | `BonusBalancer` | ✅ | `_balance_start_resources`: no start sits more than `resource_tolerance` strategic resources below the richest within `balance_radius` |
 
 **Constants** (`data/constants.json`; a per-map `normalize` block may override
@@ -2510,8 +2511,23 @@ shared map RNG in a fixed order, so the result is deterministic for the seed. A 
 | `start_normalize_min_food_bonuses` | 1 |
 | `start_normalize_balance_radius` | 2 |
 | `start_normalize_resource_tolerance` | 1 |
+| `start_normalize_reposition_radius` | 3 |
+| `start_normalize_reposition_min_gain` | 4 |
+| `start_normalize_score_radius` | 2 |
+| `start_normalize_score_food_weight` | 2 |
+| `start_normalize_score_resource` | 3 |
+| `start_normalize_score_fresh_water` | 8 |
+| `start_normalize_good_terrain_radius` | 2 |
+| `start_normalize_good_terrain_quota` | 3 |
+| `start_normalize_extras_radius` | 2 |
+| `start_normalize_extras_tolerance` | 6 |
+| `start_normalize_extras_huts` | 1 |
+| `start_normalize_extras_hut_radius` | 6 |
 | `goody_hut_land_per_hut` | 28 |
 | `goody_hut_min_distance_from_start` | 4 |
 
-**Gap to reference:** steps 8 (`addGoodTerrain`) and 9 (`addExtras`) are unimplemented, and
-step 1 (`normalizeStartingPlotLocations`) is spacing-only with no fairness reposition.
+The plot score behind steps 1 and 9 (`_start_plot_score`) sums the terrain base yields in
+the `score_radius` neighbourhood (food weighted by `score_food_weight`), adds
+`score_resource` per resource in reach and `score_fresh_water` when the plot has fresh
+water. Step 1 is purely score-driven (no RNG draw); steps 8 and 9 draw their tile picks
+from the shared map RNG in fixed start order, keeping generation deterministic.

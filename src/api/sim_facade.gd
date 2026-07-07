@@ -114,8 +114,9 @@ func setup(db: DataDB, seed_val: int, world_size_id: String, pace_id: String,
 
 	# Choose start positions once (pure, no RNG draw), then run the map-fairness and
 	# goody-hut passes that depend on them. Order is fixed so the shared RNG stream
-	# stays deterministic: generate → normalize starts → scatter goody huts. The same
-	# starts feed unit placement below, so they are never recomputed.
+	# stays deterministic: generate → normalize starts → scatter goody huts. The
+	# normalize pass may reposition weak starts (step 1) — it mutates `starts` in
+	# place, and the same array feeds unit placement below, so it is never recomputed.
 	var starts: Array = MapGen.find_start_positions(_gs.map, db, player_configs.size(), map_type_id)
 	MapGen.normalize_starts(_gs.map, db, _gs.rng, starts, map_type_id)
 	MapGen.place_goody_huts(_gs.map, db, _gs.rng, starts)
