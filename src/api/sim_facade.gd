@@ -645,6 +645,10 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			var reward: Dictionary = Events.exploration_reward(lead, _gs, _gs.rng)
 			if reward.get("type", "") == "unit" and int(reward.get("unit_id", -1)) >= 0:
 				emit_signal("unit_created", int(reward["unit_id"]))
+			# An ambush reward may have spawned wild raiders (§24); surface each so
+			# presentation paints them like any other new unit.
+			for wid in reward.get("spawned_unit_ids", []):
+				emit_signal("unit_created", int(wid))
 			_add_notification("Discovery: " + str(reward.get("type", "")), "major")
 			emit_signal("event_emitted", reward)
 			emit_signal("goody_received", reward)

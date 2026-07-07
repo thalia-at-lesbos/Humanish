@@ -314,19 +314,31 @@ func _validate_specialist_refs() -> void:
 				_errors.append("Structure '%s' specialist_slots type '%s' not in specialists table" % [
 					struct_id, stype])
 
-# Every goody must carry an id and a positive weight; a "unit" goody must name a
-# unit type that exists in the units table.
+# Every goody must carry an id and a non-negative weight (0 = only rolled where a
+# difficulty overrides it upward, §24); a "unit" goody must name a unit type that
+# exists in the units table, and an ambush's `spawn_unit` must resolve too. Every
+# difficulty `goody_weights` override key must name a real goody.
 func _validate_goody_refs() -> void:
+	var goody_ids: Dictionary = {}
 	for g in get_goodies():
 		var gid = str(g.get("id", ""))
 		if gid == "":
 			_errors.append("Goody entry missing an id")
 			continue
-		if int(g.get("weight", 0)) <= 0:
-			_errors.append("Goody '%s' must have a positive weight" % gid)
+		goody_ids[gid] = true
+		if int(g.get("weight", 0)) < 0:
+			_errors.append("Goody '%s' must have a non-negative weight" % gid)
 		var ut = g.get("unit_type", "")
 		if ut != null and ut != "" and not units.has(str(ut)):
 			_errors.append("Goody '%s' unit_type '%s' not in units table" % [gid, ut])
+		var su = g.get("spawn_unit", "")
+		if su != null and su != "" and not units.has(str(su)):
+			_errors.append("Goody '%s' spawn_unit '%s' not in units table" % [gid, su])
+	for diff_id in difficulties:
+		var gw: Dictionary = difficulties[diff_id].get("goody_weights", {})
+		for k in gw:
+			if not goody_ids.has(str(k)):
+				_errors.append("Difficulty '%s' goody_weights key '%s' not in goodies table" % [diff_id, k])
 
 # Every corporation (§14.6) must resolve its HQ structure, executive unit, and
 # input resources, and the HQ must be flagged so it is not offered as a normal build.

@@ -477,7 +477,7 @@ func test_event_state_survives_save_load() -> void:
 	assert_eq(gs2.pending_event_choices[0].get("resolved_choices", []).size(), 1,
 		"its pre-rolled branches roundtrip")
 
-# ── Exploration / goody-hut reward table (§9, unchanged) ─────────────────────────
+# ── Exploration / goody-hut reward table (§9, game-data.md §24) ──────────────────
 
 func test_entering_discovery_site_yields_reward() -> void:
 	var gs = make_gs()
@@ -523,6 +523,176 @@ func test_exploration_reward_is_rng_deterministic() -> void:
 	var ub = make_unit(b, "warrior", 1, 5, 5)
 	var rb = Events.exploration_reward(ub, b, b.rng)
 	assert_eq(ra["type"], rb["type"], "the same seed rolls the same goody type")
+	assert_eq(str(ra), str(rb), "the same seed produces the identical full reward descriptor")
+
+# Enable organised wild forces for a state: any player holding a classical-era
+# tech lifts the ancient era's no_wild_units quiet phase (§9/§2.1), which is the
+# "wild forces disabled" gate on raider-spawning bad goodies (§24).
+func _lift_wild_quiet_phase(gs) -> void:
+	gs.players[0].technologies.append("alphabet")
+
+func test_goody_scout_settler_worker_records_spawn_their_unit() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	for type_id in ["scout", "settler", "worker"]:
+		var r = Events._apply_goody({"type": "unit", "unit_type": type_id}, u, gs, gs.rng)
+		var nu = gs.get_unit(int(r.get("unit_id", -1)))
+		assert_true(nu != null, "the %s goody spawns a unit" % type_id)
+		assert_eq(nu.unit_type_id, type_id, "the spawned unit is a %s" % type_id)
+		assert_eq(nu.owner_player_id, 1, "the spawned %s belongs to the discoverer" % type_id)
+
+func test_goody_ambush_spawns_wild_raiders_on_adjacent_tiles() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	var r = Events._apply_goody({"type": "ambush", "damage": 50, "spawn_chance": 100,
+		"min_spawn": 1, "spawn_unit": "warrior", "bad": true}, u, gs, gs.rng)
+	assert_eq(u.health, 50, "the ambush still deals its damage")
+	var spawned = r.get("spawned_unit_ids", [])
+	assert_eq(spawned.size(), 8, "spawn_chance 100 fills every legal adjacent tile")
+	for wid in spawned:
+		var w = gs.get_unit(int(wid))
+		assert_eq(w.owner_player_id, -2, "an ambush raider is wild (owner -2)")
+		assert_true(w.is_wild, "an ambush raider carries is_wild")
+		assert_eq(gs.map.distance(u.x, u.y, w.x, w.y), 1, "raiders spawn adjacent to the site")
+
+func test_goody_ambush_min_spawn_force_fills() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	var r = Events._apply_goody({"type": "ambush", "damage": 50, "spawn_chance": 0,
+		"min_spawn": 2, "spawn_unit": "warrior", "bad": true}, u, gs, gs.rng)
+	assert_eq(r.get("spawned_unit_ids", []).size(), 2,
+		"min_spawn guarantees raiders even when every chance roll misses")
+
+func test_goody_ambush_strong_spawns_without_damage() -> void:
+	# The strong tier carries no `damage` field: raiders only (§24).
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	var r = Events._apply_goody({"type": "ambush", "spawn_chance": 40,
+		"min_spawn": 2, "spawn_unit": "warrior", "bad": true}, u, gs, gs.rng)
+	assert_eq(u.health, 100, "ambush_strong deals no damage to the discoverer")
+	assert_true(r.get("spawned_unit_ids", []).size() >= 2,
+		"ambush_strong spawns at least min_spawn raiders")
+
+func test_bad_goody_ineligible_for_recon_discoverer() -> void:
+	var gs = make_gs()
+	_lift_wild_quiet_phase(gs)
+	var amb = {"type": "ambush", "damage": 50, "spawn_chance": 20,
+		"min_spawn": 1, "spawn_unit": "warrior", "bad": true}
+	var scout = make_unit(gs, "scout", 1, 5, 5)
+	assert_false(Events._goody_eligible(amb, scout, gs),
+		"a recon-line discoverer never receives a bad reward")
+	var warrior = make_unit(gs, "warrior", 1, 10, 10)
+	assert_true(Events._goody_eligible(amb, warrior, gs),
+		"a non-recon discoverer with open adjacent land is ambushable")
+
+func test_bad_goody_ineligible_while_wild_forces_are_suppressed() -> void:
+	var gs = make_gs()
+	var amb = {"type": "ambush", "damage": 50, "spawn_chance": 20,
+		"min_spawn": 1, "spawn_unit": "warrior", "bad": true}
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	assert_false(Events._goody_eligible(amb, u, gs),
+		"the ancient quiet phase (no_wild_units) blocks raider-spawning goodies")
+	_lift_wild_quiet_phase(gs)
+	assert_true(Events._goody_eligible(amb, u, gs),
+		"a later era lifts the suppression")
+
+func test_bad_goody_ineligible_without_a_placeable_raider_tile() -> void:
+	var gs = make_gs()
+	_lift_wild_quiet_phase(gs)
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	# Occupy all 8 adjacent tiles so no raider can be placed.
+	for nb in gs.map.neighbours8(5, 5):
+		make_unit(gs, "warrior", 1, nb.x, nb.y)
+	var amb = {"type": "ambush", "damage": 50, "spawn_chance": 20,
+		"min_spawn": 1, "spawn_unit": "warrior", "bad": true}
+	assert_false(Events._goody_eligible(amb, u, gs),
+		"an ambush with no legal adjacent spawn tile is re-rolled")
+
+func test_heal_goody_gated_by_damage_prereq() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 5, 5)
+	var heal = {"type": "heal", "damage_prereq": 60}
+	u.health = 100
+	assert_false(Events._goody_eligible(heal, u, gs),
+		"a full-health discoverer cannot roll the gated heal")
+	u.health = 41
+	assert_false(Events._goody_eligible(heal, u, gs),
+		"59% lost is still below the 60% damage_prereq")
+	u.health = 40
+	assert_true(Events._goody_eligible(heal, u, gs),
+		"a discoverer at 60% lost health is eligible to heal")
+
+func test_map_goody_reveal_chance_and_tiles() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 10, 10)
+	var full = Events._apply_goody({"type": "map", "radius": 2, "offset": 0,
+		"reveal_chance": 100}, u, gs, gs.rng)
+	assert_eq(int(full["x"]), 10, "offset 0 centres on the site")
+	assert_eq(int(full["y"]), 10, "offset 0 centres on the site")
+	assert_eq(full.get("tiles", []).size(), 25, "reveal_chance 100 includes the whole radius")
+	var none = Events._apply_goody({"type": "map", "radius": 2, "offset": 0,
+		"reveal_chance": 0}, u, gs, gs.rng)
+	assert_eq(none.get("tiles", []).size(), 0, "reveal_chance 0 includes nothing")
+
+func test_map_goody_offset_centres_on_least_explored_point() -> void:
+	var gs = make_gs()
+	var u = make_unit(gs, "warrior", 1, 10, 10)
+	# The owner has seen everything west of x=14; the least-explored candidate
+	# within offset 4 of the site sits as far east as allowed (x = 14).
+	var mem = {}
+	for tile in gs.map.all_tiles():
+		if tile.x < 14:
+			mem["%d,%d" % [tile.x, tile.y]] = {}
+	gs.seen_memory[1] = mem
+	var r = Events._apply_goody({"type": "map", "radius": 2, "offset": 4,
+		"reveal_chance": 100}, u, gs, gs.rng)
+	assert_eq(int(r["x"]), 14, "the reveal recentres toward unexplored territory")
+
+func test_exploration_reward_rerolls_past_ineligible_records() -> void:
+	var gs = make_gs()
+	_lift_wild_quiet_phase(gs)
+	# A crushingly heavy bad record plus a token gold record: a recon discoverer
+	# must skip the bad one; a warrior lands on it.
+	gs.db.goodies = {"goodies": [
+		{"id": "amb", "type": "ambush", "weight": 1000, "damage": 10,
+			"spawn_chance": 100, "min_spawn": 1, "spawn_unit": "warrior", "bad": true},
+		{"id": "small_gold", "type": "treasury", "weight": 1, "min": 5, "max": 5},
+	]}
+	var scout = make_unit(gs, "scout", 1, 5, 5)
+	var r = Events.exploration_reward(scout, gs, gs.rng)
+	assert_eq(str(r.get("id", "")), "small_gold",
+		"a recon discoverer re-rolls past the bad reward every time")
+	var warrior = make_unit(gs, "warrior", 1, 10, 10)
+	var r2 = Events.exploration_reward(warrior, gs, gs.rng)
+	assert_eq(str(r2.get("id", "")), "amb",
+		"a non-recon discoverer can land on the (heavily weighted) bad reward")
+
+func test_exploration_reward_difficulty_weight_overrides() -> void:
+	# Settler difficulty zeroes both ambush tiers and enables settler/worker;
+	# deity keeps settler/worker at 0. Rolls are deterministic for the seed.
+	var gs = make_gs(1, 777)
+	_lift_wild_quiet_phase(gs)
+	gs.difficulty_id = "settler"
+	var u = make_unit(gs, "warrior", 1, 10, 10)
+	var seen_ids = {}
+	for _i in range(60):
+		var r = Events.exploration_reward(u, gs, gs.rng)
+		seen_ids[str(r.get("id", ""))] = true
+	assert_false(seen_ids.has("ambush"), "settler difficulty never rolls an ambush")
+	assert_false(seen_ids.has("ambush_strong"), "settler difficulty never rolls a strong ambush")
+	assert_true(seen_ids.has("settler") or seen_ids.has("worker"),
+		"settler difficulty enables the free settler/worker rewards")
+
+	var gs2 = make_gs(1, 777)
+	_lift_wild_quiet_phase(gs2)
+	gs2.difficulty_id = "deity"
+	var u2 = make_unit(gs2, "warrior", 1, 10, 10)
+	var seen2 = {}
+	for _i in range(60):
+		var r2 = Events.exploration_reward(u2, gs2, gs2.rng)
+		seen2[str(r2.get("id", ""))] = true
+	assert_false(seen2.has("settler"), "deity never rolls the free settler")
+	assert_false(seen2.has("worker"), "deity never rolls the free worker")
 
 # ── Phase 2 catalogue events ─────────────────────────────────────────────────────
 

@@ -1315,32 +1315,71 @@ static func _spawn_unit_at(unit_type: String, player_id: int, x: int, y: int, ga
 	game_state.units.append(u)
 	return u.id
 
-# Reward when a unit enters a goody hut / discovery site (§9). The goody table
-# (data/goodies.json) supplies the weighted list of rewards and their magnitudes;
-# a difficulty may bias the weights via difficulties.json `goody_weights`
-# (id -> weight). One reward is rolled from gs.rng and applied to pure game state
-# here, so the result is deterministic and survives save/load. Returns a
-# descriptor; the facade surfaces it (notification + signals) and, when a unit was
-# spawned, emits unit_created for the returned `unit_id`.
+# Reward when a unit enters a goody hut / discovery site (§9, game-data.md §24).
+# The goody table (data/goodies.json) supplies the weighted list of rewards and
+# their magnitudes; a difficulty may bias the weights via difficulties.json
+# `goody_weights` (id -> weight; a base weight of 0 means "only where a difficulty
+# enables it"). §24's re-roll rules are applied by zero-weighting every currently
+# ineligible record BEFORE the single weighted roll — equivalent in distribution
+# to re-rolling past them, with a fixed rng draw count. One reward is rolled from
+# gs.rng and applied to pure game state here, so the result is deterministic and
+# survives save/load. Returns a descriptor (with the rolled goody `id` attached);
+# the facade surfaces it (notification + signals), emits unit_created for a
+# spawned `unit_id`, and for each ambush-spawned wild raider in `spawned_unit_ids`.
 static func exploration_reward(unit: Unit, game_state, rng: RNG) -> Dictionary:
 	var db: DataDB = game_state.db
 	var goodies: Array = db.get_goodies()
 	if goodies.empty():
 		return {"type": "none"}
 
-	# Per-difficulty weight overrides (default to each goody's base weight).
+	# Per-difficulty weight overrides (default to each goody's base weight); an
+	# ineligible record (recon-immune bad reward, unplaceable ambush raiders,
+	# unmet heal damage_prereq) rolls at weight 0 (§24 re-roll rules).
 	var diff: Dictionary = db.get_difficulty(game_state.difficulty_id)
 	var overrides: Dictionary = diff.get("goody_weights", {})
 	var weights: Array = []
+	var total: int = 0
 	for g in goodies:
 		var w: int = int(overrides.get(str(g.get("id", "")), g.get("weight", 0)))
-		weights.append(w if w > 0 else 0)
+		if w < 0 or not _goody_eligible(g, unit, game_state):
+			w = 0
+		weights.append(w)
+		total += w
+	if total <= 0:
+		return {"type": "none"}
 
 	var idx: int = rng.rand_weighted(weights)
 	if idx < 0 or idx >= goodies.size():
 		idx = 0
 	var goody: Dictionary = goodies[idx]
-	return _apply_goody(goody, unit, game_state, rng)
+	var reward: Dictionary = _apply_goody(goody, unit, game_state, rng)
+	reward["id"] = str(goody.get("id", ""))
+	return reward
+
+# §24 eligibility for one goody record given the discoverer and game state; an
+# ineligible record is skipped by the weighted roll (the "re-roll" rules). Pure
+# read — draws no rng — so weighing the table never disturbs the shared stream.
+static func _goody_eligible(goody: Dictionary, unit: Unit, game_state) -> bool:
+	var db: DataDB = game_state.db
+	if bool(goody.get("bad", false)):
+		# Recon-line discoverers (classification "recon") never receive a bad reward.
+		if str(db.get_unit(unit.unit_type_id).get("classification", "")) == "recon":
+			return false
+		# A raider-spawning ambush needs organised wild forces to exist (the era's
+		# no_wild_units quiet phase is the game's "wild forces disabled" state) and
+		# at least one legal adjacent tile to place a raider on.
+		if int(goody.get("spawn_chance", 0)) > 0 or int(goody.get("min_spawn", 0)) > 0:
+			if WildForces._era_suppresses_wild(game_state, db):
+				return false
+			if _ambush_spawn_tiles(unit, game_state).empty():
+				return false
+	if goody.has("damage_prereq"):
+		# Only eligible when the discoverer has lost at least damage_prereq % of
+		# its maximum health. Integer math: lost*100 >= prereq*max_hp.
+		var max_hp: int = db.get_constant("max_hp", 100)
+		if (max_hp - unit.health) * 100 < int(goody.get("damage_prereq", 0)) * max_hp:
+			return false
+	return true
 
 # Apply one rolled goody's effect to game state and return its descriptor.
 static func _apply_goody(goody: Dictionary, unit: Unit, game_state, rng: RNG) -> Dictionary:
@@ -1363,9 +1402,21 @@ static func _apply_goody(goody: Dictionary, unit: Unit, game_state, rng: RNG) ->
 			unit.health = db.get_constant("max_hp", 100)
 			return {"type": "heal"}
 		"map":
-			# Presentation-only reveal around the discoverer; no sim state changes.
-			return {"type": "map", "x": unit.x, "y": unit.y,
-				"radius": int(goody.get("radius", 4))}
+			# Presentation-only reveal; no sim state changes (§24). With `offset`,
+			# centre on the least-explored point within `offset` tiles of the site;
+			# each tile inside `radius` of the centre is then included with
+			# `reveal_chance`% probability (rolled from the shared rng so the
+			# descriptor is deterministic and save/load-stable).
+			var radius: int = int(goody.get("radius", 4))
+			var offset: int = int(goody.get("offset", 0))
+			var chance: int = int(goody.get("reveal_chance", 100))
+			var centre: Array = _least_explored_centre(unit, game_state, offset, radius)
+			var tiles: Array = []
+			for t in _tiles_within(game_state.map, centre[0], centre[1], radius):
+				if rng.rand_bool_percent(chance):
+					tiles.append("%d,%d" % [t.x, t.y])
+			return {"type": "map", "x": centre[0], "y": centre[1],
+				"radius": radius, "tiles": tiles}
 		"unit":
 			var new_id: int = _spawn_reward_unit(
 				str(goody.get("unit_type", "warrior")), unit, game_state, db)
@@ -1376,11 +1427,15 @@ static func _apply_goody(goody: Dictionary, unit: Unit, game_state, rng: RNG) ->
 			return {"type": "tech", "tech_id": tech_id}
 		"ambush":
 			# The discoverer is hurt (never killed by a goody — that would orphan the
-			# in-flight move). A floor of 1 health keeps the unit alive.
-			var dmg: int = int(goody.get("damage", 50))
-			var floored: int = unit.health - dmg
-			unit.health = floored if floored > 1 else 1
-			return {"type": "ambush", "damage": dmg, "unit_id": unit.id}
+			# in-flight move). A floor of 1 health keeps the unit alive. The strong
+			# tier (`ambush_strong`) carries no `damage` and only spawns raiders.
+			var dmg: int = int(goody.get("damage", 0))
+			if dmg > 0:
+				var floored: int = unit.health - dmg
+				unit.health = floored if floored > 1 else 1
+			var spawned: Array = _spawn_ambush_raiders(goody, unit, game_state, rng)
+			return {"type": "ambush", "damage": dmg, "unit_id": unit.id,
+				"spawned_unit_ids": spawned}
 		_:
 			return {"type": gtype}
 
@@ -1424,3 +1479,90 @@ static func _grant_free_tech(unit: Unit, game_state, db: DataDB) -> String:
 	player.technologies.append(best)
 	Eras.refresh(player, db)
 	return best
+
+# The legal tiles an ambush goody may spawn a wild raider on: the 8 neighbours of
+# the discoverer's tile that are passable land and carry no unit or settlement.
+# Pure read, deterministic order (WorldMap.neighbours8).
+static func _ambush_spawn_tiles(unit: Unit, game_state) -> Array:
+	var db: DataDB = game_state.db
+	var out: Array = []
+	for nb in game_state.map.neighbours8(unit.x, unit.y):
+		var ter: Dictionary = db.get_terrain(nb.terrain_id)
+		if str(ter.get("domain", "land")) != "land" or bool(ter.get("impassable", false)):
+			continue
+		if not Stack.at(game_state.units, nb.x, nb.y).empty():
+			continue
+		if game_state.get_settlement_at(nb.x, nb.y) != null:
+			continue
+		out.append(nb)
+	return out
+
+# Spawn the ambush goody's wild raiders (§24): each legal adjacent tile rolls
+# `spawn_chance`% (in neighbour order, from the shared rng); if fewer than
+# `min_spawn` passed, the remaining legal tiles are force-filled in order until
+# the minimum is met (or the tiles run out). Spawning reuses WildForces'
+# primitive so raiders are owner -2 / is_wild exactly like ambient spawns.
+# Returns the new unit ids for the facade to surface as unit_created.
+static func _spawn_ambush_raiders(goody: Dictionary, unit: Unit, game_state, rng: RNG) -> Array:
+	var chance: int = int(goody.get("spawn_chance", 0))
+	var min_spawn: int = int(goody.get("min_spawn", 0))
+	if chance <= 0 and min_spawn <= 0:
+		return []
+	var unit_type: String = str(goody.get("spawn_unit", "warrior"))
+	var chosen: Array = []
+	var skipped: Array = []
+	for t in _ambush_spawn_tiles(unit, game_state):
+		if rng.rand_bool_percent(chance):
+			chosen.append(t)
+		else:
+			skipped.append(t)
+	while chosen.size() < min_spawn and not skipped.empty():
+		chosen.append(skipped.pop_front())
+	var ids: Array = []
+	for t in chosen:
+		WildForces._spawn_wild_unit(t.x, t.y, game_state, unit_type)
+		ids.append(game_state.units[game_state.units.size() - 1].id)
+	return ids
+
+# The map goody's reveal centre (§24): the point within `offset` tiles of the
+# site whose radius-neighbourhood holds the most tiles the discoverer's owner has
+# never seen (SeenMemory). Deterministic — pure read, first-best wins ties in
+# fixed scan order — so no rng is drawn. offset 0 returns the site itself.
+static func _least_explored_centre(unit: Unit, game_state, offset: int, radius: int) -> Array:
+	if offset <= 0:
+		return [unit.x, unit.y]
+	var map = game_state.map
+	var best_x: int = unit.x
+	var best_y: int = unit.y
+	var best_score: int = -1
+	for dy in range(-offset, offset + 1):
+		for dx in range(-offset, offset + 1):
+			var c = map.get_tile(unit.x + dx, unit.y + dy)
+			if c == null:
+				continue
+			var score: int = 0
+			for t in _tiles_within(map, c.x, c.y, radius):
+				if not SeenMemory.has_seen(game_state, unit.owner_player_id, t.x, t.y):
+					score += 1
+			if score > best_score:
+				best_score = score
+				best_x = c.x
+				best_y = c.y
+	return [best_x, best_y]
+
+# All tiles within Chebyshev `radius` of (x, y), deduplicated across map wrap,
+# in fixed scan order (dy then dx ascending). Pure read.
+static func _tiles_within(map, x: int, y: int, radius: int) -> Array:
+	var out: Array = []
+	var seen: Dictionary = {}
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			var t = map.get_tile(x + dx, y + dy)
+			if t == null:
+				continue
+			var key: String = "%d,%d" % [t.x, t.y]
+			if seen.has(key):
+				continue
+			seen[key] = true
+			out.append(t)
+	return out
