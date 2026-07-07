@@ -2,6 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Workflow
+
+Every change falls into one of four **work types**. The procedure is currently the same for all four (they are kept separate so they can diverge later):
+
+| Work type | Purpose |
+|---|---|
+| **bugfix** | Correct incorrect behaviour. |
+| **feature** | Add new capability. |
+| **refactor** | Restructure code without changing behaviour. |
+| **maintenance** | Dependencies, tooling, docs, chores. |
+
+For each of the four, follow this sequence:
+
+1. **Ask for any clarifications** needed before starting.
+2. **Create a working branch** named `<work_type>-<relevant_name>` (e.g. `bugfix-combat-rng`, `feature-trade-routes`). Use a hyphen prefix — `dev/`-style slash prefixes are blocked.
+3. **Do the work** on that branch.
+4. **Check whether any documents need updating** (`docs/ref/`, `docs/user/`, `docs/planning/`, `CLAUDE.md`, `CHANGELOG.md`) and inform the user of anything affected.
+5. **Merge the branch back to `main`.**
+
 ## Commands
 
 ```bash
@@ -190,10 +209,10 @@ Hard-won failure modes that have bitten more than once. Each one *passes CI or l
 
 To cut a release:
 
-1. **Bump the version** in `project.godot` (`config/version`). Follow semver:
-   - Patch (`0.4.x`) for bug fixes and small docs changes.
-   - Minor (`0.x.0`) for new features or substantial rewrites.
-   - Major (`1.0.0`) for breaking API or save-format changes.
+1. **Bump the version** in `project.godot` (`config/version`). The scheme is `major.minor.bugfix`:
+   - **bugfix** (`0.4.x`) for bug fixes and small docs changes.
+   - **minor** (`0.x.0`) for new features or substantial rewrites.
+   - **major** (`1.0.0`) for breaking API or save-format changes.
 2. **Update `CHANGELOG.md`**: add a `## [VERSION] - YYYY-MM-DD` entry above the
    previous one. Group changes under `### Added`, `### Changed`, `### Fixed`.
    Read the `git log` since the last tag (`git log --oneline --no-merges <last-tag>..HEAD`)
