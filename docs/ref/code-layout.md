@@ -281,7 +281,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 **`player_step(gs, player_id, hooks)`** — runs when a player ends their turn:
 1. Pre-turn bookkeeping
 2. Auto-assign workers to tiles (`_auto_assign_workers`): the **city centre tile is always worked for free** (it does not consume a population worker slot), then `effective_workers()` population citizens work the highest-scoring locked/owned tiles in the culture ring. Without the free centre a fresh size-1 city worked a single off-centre tile and ran a zero food surplus, so it never grew (the §4.2 food box never filled)
-3. Treasury: income (finance slice of settlement commerce) − unit upkeep (civics waive free units / drop distance maintenance); insolvency handling
+3. Treasury: income (finance slice of settlement commerce) − unit upkeep (civics waive free units / drop distance maintenance); insolvency handling (`_disband_for_insolvency`: past the grace period units are disbanded — structures are never sold; treasury clamps at 0)
 4. Research: accumulate research slice of commerce (+ civic science effects) against current tech cost
 5. Intelligence accumulation (`_apply_intelligence` — §7.1 espionage points per rival, from the intel slice + structure `espionage` output scaled by `espionage_output`)
 6. Settlement steps (iterates `settlement_step` for all owned settlements), then §4.9 cultural revolt / city flipping (`CultureRevolt.process_player`, queued onto `gs.pending_flips`)

@@ -233,8 +233,8 @@ Resolved on branch `dev-missing-features`, one commit per item; covered by
 - [x] **Subordination / tributaries** (§7) — `set_subordination` command + world-step
       `_collect_tribute()`; tributaries inherit the overlord's wars.
 - [x] **Upkeep scaling + insolvency** (§6.1) — settlement upkeep scales by
-      distance-from-capital and size, less policy modifier; insolvency sells/disbands
-      after `insolvency_grace_turns`.
+      distance-from-capital and size, less policy modifier; insolvency disbands units
+      after `insolvency_grace_turns` (structures are never sold — reconciled 2026-07-07).
 - [x] **Slider policy constraints** (§6.2) — `_cmd_set_sliders` enforces policy
       increment, min research, and an optional max-research cap.
 - [x] **Contentment & wellbeing breadth** (§4.5/§4.6) — garrison comfort, overcrowding

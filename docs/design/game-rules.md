@@ -779,7 +779,9 @@ by `blockade_commerce_penalty` (a percentage) for as long as the blockade holds.
   size), minus policy upkeep and unit costs.
 * Upkeep is reduced by administrative structures and certain policies. If the treasury
   cannot cover upkeep, the research allocation is forced down and, in the extreme,
-  structures and units are sold or disbanded (insolvency).
+  units are disbanded (insolvency). Structures are never sold — buildings and their
+  invested costs are always retained; with no units left the treasury simply clamps
+  at zero.
 
 ### 6.2 Allocation sliders
 The player sets percentages across finance, research, culture, and intelligence,

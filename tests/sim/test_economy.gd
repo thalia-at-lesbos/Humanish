@@ -102,7 +102,9 @@ func test_insolvency_disbands_units() -> void:
 	assert_true(gs.units.size() < before, "Insolvency disbands units to cover upkeep")
 	assert_true(p.treasury >= 0, "Treasury is non-negative after insolvency handling")
 
-func test_insolvency_sells_structure_before_disbanding() -> void:
+func test_insolvency_never_sells_structures() -> void:
+	# Buildings and their invested costs are always retained: prolonged
+	# insolvency may only disband units, never sell a structure.
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	p.treasury = 0; p.insolvent_turns = 5
@@ -111,5 +113,21 @@ func test_insolvency_sells_structure_before_disbanding() -> void:
 	make_unit(gs, "warrior", 1, 6, 6)
 	for i in range(20):
 		make_unit(gs, "warrior", 1, i, 1)
+	var units_before: int = gs.units.size()
 	TurnEngine._update_treasury(gs, p)
-	assert_true(s.structures.empty(), "A structure is sold during insolvency")
+	assert_eq(s.structures, ["granary"], "Structures are never sold during insolvency")
+	assert_true(gs.units.size() < units_before, "Units are disbanded instead")
+	assert_true(p.treasury >= 0, "Treasury is non-negative after insolvency handling")
+
+func test_insolvency_with_no_units_clamps_treasury_at_zero() -> void:
+	# With nothing left to disband the treasury simply clamps at 0 and the
+	# city keeps every structure.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.treasury = -500; p.insolvent_turns = 5
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.structures = ["granary", "barracks"]
+	TurnEngine._update_treasury(gs, p)
+	assert_eq(p.treasury, 0, "Treasury clamps at 0 when there is nothing to disband")
+	assert_eq(s.structures, ["granary", "barracks"],
+		"Structures survive insolvency even with no units to disband")

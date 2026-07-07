@@ -1668,7 +1668,7 @@ and related combat code (§5.3):
 | `is_ai` | bool | false | Controlled by `PlayerAI` |
 | `celebration_turns` | int | 0 | Remaining turns of a We Love the King celebration |
 | `events_fired` | Array | [] | IDs of one-shot events already triggered (§9) |
-| `insolvent_turns` | int | 0 | Consecutive turns in the red; triggers structure/unit sales at the grace-period cap |
+| `insolvent_turns` | int | 0 | Consecutive turns in the red; triggers unit disbanding at the grace-period cap (structures are never sold) |
 | `golden_age_turns` | int | 0 | Remaining turns of an active Golden Age (§14.4) |
 | `golden_age_count` | int | 0 | Number of Golden Ages the player has had (used to escalate GP cost) |
 | `pending_golden_age_gp` | int | 0 | GP points accumulated toward triggering the next Golden Age |
