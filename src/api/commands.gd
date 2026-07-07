@@ -38,12 +38,14 @@ static func found_settlement(player_id: int, unit_id: int,
 		"name": name
 	}
 
-static func set_sliders(player_id: int, finance: int, research: int,
+# The three adjustable rates (science/culture/espionage). Finance (economy) is
+# derived by the sim as the remainder: 100 − (research + culture + intel).
+static func set_sliders(player_id: int, research: int,
 		culture: int, intel: int) -> Dictionary:
 	return {
 		"type": IDs.CommandType.SET_SLIDERS,
 		"player_id": player_id,
-		"finance": finance, "research": research,
+		"research": research,
 		"culture": culture, "intel": intel
 	}
 

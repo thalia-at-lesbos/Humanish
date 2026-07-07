@@ -119,7 +119,7 @@ Functional set of independently-invalidated regions (names are functional, not v
 
 * **World/camera**: selection-camera recenter, fog-of-war, waypoints, highlighted tile,
   colored tiles, blockaded tiles, globe-overlay layers and their info.
-* **HUD control groups**: economic-slider buttons, misc action buttons, the on-tile unit
+* **HUD control groups**: economic-rate buttons, misc action buttons, the on-tile unit
   list, the selection action buttons, citizen-assignment buttons, research buttons,
   replay buttons.
 * **Data panes**: aggregate game data, score, selection data, the per-unit info pane, the
@@ -279,8 +279,10 @@ module entry points: *parse-help(widget) → text*, *execute-action(widget) → 
   angry-citizen tiles, emphasize (economic focus), automate-citizens, automate-production,
   rename city, rename unit, liberate city, city tab selector (units / buildings / wonders),
   zoom-to-city.
-* **Empire economy & research**: research selection, tech-tree node, change-economic-slider
-  percentage, launch-victory project, religion conversion, score breakdown.
+* **Empire economy & research**: research selection, tech-tree node, change-economic-rate
+  percentage (+/− in 10% steps on the three adjustable rates — science, culture,
+  espionage — with economy the read-only derived remainder), launch-victory project,
+  religion conversion, score breakdown.
 * **Generic action**: the catch-all action widget (maps to a context action, §3), generic
   button, close-screen.
 * **Diplomacy & trade**: contact another leader, a tradeable-item toggle, cancel/kill a
@@ -497,7 +499,8 @@ The full set of secondary windows the UI provides. Each is *functional* — the 
 data it shows and what actions it offers, not its layout:
 
 * **Main HUD**: world view, minimap, selected-unit/stack panel with action buttons,
-  selected-city summary, economic sliders, research indicator, turn/score indicators,
+  selected-city summary, economic rate controls (three +/− rate rows plus the derived
+  economy remainder), research indicator, turn/score indicators,
   message area, end-turn control. The selected-unit panel shows the unit's health and
   movement plus its **current state** — the standing order or stance it is under
   (fortified, sleeping, on sentry, healing, en route to a go-to target, or building an

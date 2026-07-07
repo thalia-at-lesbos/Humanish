@@ -268,6 +268,26 @@ the diplomacy screen. See the 2026-07-07 entry under "Recently reconciled" and
 
 ## Recently reconciled
 
+- **2026-07-07** — Allocation sliders became three adjustable rates (§6.2): the
+  player now sets **science (research), culture, espionage (intel)** via +/−
+  buttons in 10% steps, and **economy (finance) is the derived remainder**
+  (100 − the three), shown read-only. `Commands.set_sliders(player_id,
+  research, culture, intel)` carries only the three rates;
+  `SimFacade._cmd_set_sliders` validates each ≥ 0, sum ≤ 100, the policy
+  `slider_increment` multiples and `slider_min_research` floor, then derives
+  `slider_finance` — the four `Player` fields and the save format are
+  unchanged (they still always sum to 100), and the
+  `TurnEngine._update_treasury` insolvency path still mutates
+  research/finance directly. `scenes/hud/slider_panel.gd` rewritten from four
+  `HSlider`s to three label+−/+ rows plus an `Economy: NN%` label
+  (`FOCUS_NONE` preserved); `SliderMath`
+  (`src/api/slider_math.gd`) and its test deleted (no rebalancing needed —
+  the remainder absorbs every change). `PlayerAI.manage_economy` submits the
+  same solvency/focus finance tilt through the new signature.
+  `game-rules.md` §4.3/§6.2, `user-interface-design.md`, `docs/user/`, and
+  the in-game encyclopedia reworded. Tests: `tests/sim/test_policies.gd`
+  (validation matrix incl. sum > 100 / negative / derived remainder),
+  `tests/scenes/test_slider_panel.gd` (rewritten).
 - **2026-07-07** — Insolvency never sells structures (§6.1): decided that all
   buildings and their invested costs are always retained — prolonged insolvency
   may only disband units. `TurnEngine._sell_or_disband` (newest-structure sale

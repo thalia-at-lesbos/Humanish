@@ -28,7 +28,7 @@ func _populate(vbox) -> void:
 	if p == null:
 		_add_line(vbox, "No active player.")
 		return
-	_add_line(vbox, "Intel slider: %d%%" % p.slider_intel)
+	_add_line(vbox, "Espionage rate: %d%%" % p.slider_intel)
 	var min_cost: int = gs.db.get_constant("intel_mission_cost", 100)
 	var listed_any: bool = false
 	for alliance in gs.alliances:

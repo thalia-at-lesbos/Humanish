@@ -34,7 +34,7 @@ sections:
   "§3  Turn structure":        "Authoritative world-step / player-step order"
   "§4  Settlements":           "Growth, output split, production, contentment, wellbeing, culture, conquest (§4.8), cultural revolt (§4.9 provisional), tile maturation (§4.10 provisional), feature clearing & chopping (§4.11 provisional)"
   "§5  Units":                 "Definition, movement, combat strength, combat resolution, XP & upgrades, healing & entrenchment, nuclear weapons (§5.7 provisional), naval blockade (§5.8 provisional)"
-  "§6  Economy & research":    "Treasury, sliders, research graph, policies, specialists & Great People, draft (§6.6 provisional), trade routes (§6.7 provisional)"
+  "§6  Economy & research":    "Treasury, allocation rates (economy derived as the remainder), research graph, policies, specialists & Great People, draft (§6.6 provisional), trade routes (§6.7 provisional)"
   "§7  Diplomacy & war":       "Alliances, trades, subordination, espionage (§7.1 provisional), world assemblies (§7.2 provisional), diplomatic victory (§7.3 provisional)"
   "§8  Beliefs & orgs":        "Religion founding/spread, state religion (§8.1 provisional), missionary spread (§8.2 provisional)"
   "§9  Wild forces & events":  "Wild spawning (§9.2 provisional), wild-AI behaviour (§9.1 provisional), animals (§9.3 provisional), exploration rewards, scripted events"
@@ -325,13 +325,14 @@ Surplus sustenance accumulates in a "store" (food box) each turn:
   deltas; route the percentage bonuses through this chain — the same `apply_stacked_bonus`
   idiom already used for combat strength — so structures/policies that grant `+x%` yield
   behave as the reference specifies.)*
-* The generic economic (commerce) output is partitioned by the player's adjustable
-  **allocation sliders** into the four commerce types — **finance (gold), research,
-  culture, and intelligence (espionage)** — by `commerce = commerceYield × sliderPercent /
-  100`. The slider values sum to 100 (the last channel takes the remainder so no commerce is
-  lost to rounding), may be constrained to allowed increments by the player's governing
-  policies, and some channels may have enforced minimums. Per-commerce building/specialist
-  bonuses and a further commerce-rate modifier layer on after the split.
+* The generic economic (commerce) output is partitioned by the player's
+  **allocation rates** into the four commerce types — **finance (gold), research,
+  culture, and intelligence (espionage)** — by `commerce = commerceYield × ratePercent /
+  100`. The player adjusts three rates (research, culture, intelligence) in policy-allowed
+  increments; **finance is the derived remainder** (100 − the three), so the four always
+  sum to 100 and no commerce is lost to rounding. Some channels may have enforced
+  minimums. Per-commerce building/specialist bonuses and a further commerce-rate
+  modifier layer on after the split.
 
 ### 4.4 Production
 * A settlement processes an **order queue** of buildable items (units, structures,
@@ -783,17 +784,19 @@ by `blockade_commerce_penalty` (a percentage) for as long as the blockade holds.
   invested costs are always retained; with no units left the treasury simply clamps
   at zero.
 
-### 6.2 Allocation sliders
-The player sets percentages across finance, research, culture, and intelligence,
-constrained to increments allowed by the governing policies and summing to a whole. Some
-policies cap the maximum research rate (a minimum research share). The slider partitions
-each settlement's generic economic output.
+### 6.2 Allocation rates
+The player adjusts **three** rates — research (science), culture, and intelligence
+(espionage) — in 10% steps via +/− controls, constrained to increments allowed by the
+governing policies; the three may sum to at most 100 and **finance (economy) is the
+derived remainder** (100 − the three), shown read-only. Some policies cap the maximum
+research rate (a minimum research share). The resulting four-way split partitions each
+settlement's generic economic output.
 
 * **Starting allocation.** A new player begins at **100% research** (everything else at
   0%), so the tech tree advances from turn one without the player having to touch the
-  sliders. With no finance income this draws the treasury down, so the player is expected
-  to dial finance back up once gold runs low.
-* **Computer players** manage this allocation automatically: they keep the slider
+  rates. With no finance income this draws the treasury down, so the player is expected
+  to dial research down (raising the derived economy remainder) once gold runs low.
+* **Computer players** manage this allocation automatically: they keep the split
   research-heavy while solvent and shift it toward finance when the treasury runs thin,
   always within the policy-imposed increment and research-floor constraints. (This mirrors
   the human starting default; without it the all-research start would slowly bankrupt the
@@ -945,7 +948,7 @@ the city's output (§4.3):
 > first-pass espionage model now wired into the engine. The accumulation/output/defense
 > formulas, the mission-cost curve, and the mission effects are placeholders to be
 > verified and tuned against the reference game before being relied on. There is **no AI
-> behaviour** for espionage yet (the computer player neither funds the intel slider nor
+> behaviour** for espionage yet (the computer player neither funds the espionage rate nor
 > launches missions); missions are reachable from the human espionage advisor and through
 > `apply_command`.
 
@@ -953,7 +956,7 @@ the city's output (§4.3):
 EP and **spread evenly across every alliance it has met** (its `contacts`), tracked per
 target alliance. A player's per-turn output is the sum, over its settlements, of:
 
-* the **intelligence slice** of that city's commerce (the intel allocation slider, §6.2);
+* the **intelligence slice** of that city's commerce (the espionage allocation rate, §6.2);
   plus
 * the **flat espionage** of the city's structures (Palace +4, Courthouse +2, Jail +4,
   Security Bureau +8, Intelligence Agency +8, …);

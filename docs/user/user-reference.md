@@ -8,7 +8,7 @@ For a shorter introduction see [Quick Start](quick-start.md).
 ## Contents
 
 1. [Screens and navigation](#1-screens-and-navigation)
-2. [Economy sliders](#2-economy-sliders)
+2. [Economy rates](#2-economy-rates)
 3. [Cities](#3-cities)
 4. [Units](#4-units)
 5. [Terrain and improvements](#5-terrain-and-improvements)
@@ -71,20 +71,22 @@ Press **Escape** to open. Buttons: **Resume**, **Save**, **Load**, **New Game**,
 
 ---
 
-## 2. Economy Sliders
+## 2. Economy Rates
 
 Your empire's commerce output (trade, city production, and population) is split four ways.
-The four sliders must always total **100**:
+You adjust **three** rates with **+/−** buttons in 10% steps; **Economy** is read-only and
+always equals 100 minus the other three:
 
-| Slider | Funds |
-|--------|-------|
-| **Finance** | Gold income — treasury per turn |
-| **Research** | Science — progress toward the current technology |
+| Rate | Funds |
+|------|-------|
+| **Science** | Research — progress toward the current technology |
 | **Culture** | Cultural output — city border expansion, cultural victory |
-| **Intelligence** | Espionage points accumulated against rival alliances |
+| **Espionage** | Espionage points accumulated against rival alliances |
+| **Economy** (derived) | Gold income — treasury per turn |
 
-Adjust from the slider panel (visible on the HUD) or the Options screen.  
-Changing one slider redistributes the remainder evenly across the others in round-robin order.
+Adjust from the rate panel on the HUD. A **+** that would push the three rates over 100,
+or a **−** that would drop a rate below 0 (or Science below a civic-imposed research
+minimum), is disabled.
 
 ---
 
@@ -302,7 +304,7 @@ Research cost scales with:
 
 ### Funding
 
-The **Research** slider determines what fraction of your total commerce goes to science each turn. Progress is shown in the Research bar at the top of the screen.
+The **Science** rate determines what fraction of your total commerce goes to research each turn. Progress is shown in the Research bar at the top of the screen.
 
 ### Eras
 
@@ -351,7 +353,7 @@ The **United Nations** wonder (if built) enables the **Diplomatic** victory cond
 
 ### Espionage
 
-Your **Intelligence** slider (and buildings such as the Jail or Intelligence Agency) accumulates **espionage points (EP)** against each rival alliance. Spend them on the **Espionage advisor** or through a **Spy** unit:
+Your **Espionage** rate (and buildings such as the Jail or Intelligence Agency) accumulates **espionage points (EP)** against each rival alliance. Spend them on the **Espionage advisor** or through a **Spy** unit:
 
 - **Active missions** — steal technology or gold, sabotage production, destroy buildings, poison water, incite unrest or revolt, force anarchy, or mount counterespionage. Run them from the advisor's "Select Mission…" menu, or march a Spy onto a rival city and strike that specific city. Each mission costs EP and risks **interception** — and a Spy caught in the act is lost.
 - **Passive intelligence** — costs nothing to use: while your banked EP against a rival stays above a threshold (higher for distant targets and rivals who out-spy you), the advisor shows their **demographics**, **current research**, full **city details** (Investigate City), extra **map vision** around a city (City Visibility), or **who is behind** espionage strikes against you (Detect Missions). Drop below the threshold and the intel goes dark again.
