@@ -36,7 +36,7 @@ static func resolve(attacker: Unit, defender: Unit,
 	# the city's structure + cultural defence.
 	var settle: Settlement = game_state.get_settlement_at(defender.x, defender.y)
 	var at_settlement: bool = settle != null
-	var settle_def: int = _settlement_defence(settle, db)
+	var settle_def: int = settlement_defence(settle, db)
 	var a_fortified: bool = defender.entrenchment > 0
 	var d_fortified: bool = attacker.entrenchment > 0
 
@@ -265,7 +265,9 @@ static func _unit_class(u: Unit, db: DataDB) -> String:
 
 # Total defensive bonus a settlement grants its garrison (§5.3): each built
 # structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …).
-static func _settlement_defence(settle, db: DataDB) -> int:
+# Public so the facade's city-intel readout (§25.6) shows the same number the
+# combat resolver uses.
+static func settlement_defence(settle, db: DataDB) -> int:
 	if settle == null:
 		return 0
 	var total: int = 0

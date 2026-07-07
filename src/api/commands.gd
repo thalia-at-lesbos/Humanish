@@ -399,11 +399,22 @@ static func dequeue_production(player_id: int, settlement_id: int,
 static func espionage_mission(player_id: int, target_alliance_id: int,
 		mission: String) -> Dictionary:
 	# mission: an id from data/espionage_missions.json (steal_tech, sabotage,
-	# incite_unrest, steal_gold, poison_water, …)
+	# destroy_building, steal_gold, incite_revolt, switch_civic, counterespionage, …)
 	return {
 		"type": IDs.CommandType.ESPIONAGE_MISSION,
 		"player_id": player_id,
 		"target_alliance_id": target_alliance_id,
+		"mission": mission
+	}
+
+# Spy-unit-on-tile espionage mission (§7.1): the spy `unit_id` must be standing on a
+# foreign city tile with full movement; the mission strikes that city directly. The
+# target alliance is derived from the city's owner, so no alliance id is passed.
+static func spy_mission(player_id: int, unit_id: int, mission: String) -> Dictionary:
+	return {
+		"type": IDs.CommandType.SPY_MISSION,
+		"player_id": player_id,
+		"unit_id": unit_id,
 		"mission": mission
 	}
 

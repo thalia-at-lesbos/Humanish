@@ -58,7 +58,7 @@ The row of buttons along the top of the HUD. Each opens a full-screen info panel
 | Finance | — | Treasury breakdown: income, upkeep, net per turn |
 | Military | — | All your units listed with status |
 | Domestic Advisor | — | City-by-city summary: growth, production, disorder warnings |
-| Espionage | — | Intelligence points accumulated per rival |
+| Espionage | — | Intelligence points and missions per rival; every rival civ and its cities with your passive intel (see §9) |
 | Religion | — | Founded beliefs and spread status |
 | Corporation | — | Founded economic organisations |
 | Turn Log | — | Chronological record of events this game |
@@ -348,6 +348,15 @@ Open with **F4**. You see each rival player's stance toward you and available di
 Your relationship deteriorates from aggression (war, betrayal of agreements) and improves over time with peace and shared borders.
 
 The **United Nations** wonder (if built) enables the **Diplomatic** victory condition — the world assembly holds elections that an alliance can win with 67 % of the weighted vote.
+
+### Espionage
+
+Your **Intelligence** slider (and buildings such as the Jail or Intelligence Agency) accumulates **espionage points (EP)** against each rival alliance. Spend them on the **Espionage advisor** or through a **Spy** unit:
+
+- **Active missions** — steal technology or gold, sabotage production, destroy buildings, poison water, incite unrest or revolt, force anarchy, or mount counterespionage. Run them from the advisor's "Select Mission…" menu, or march a Spy onto a rival city and strike that specific city. Each mission costs EP and risks **interception** — and a Spy caught in the act is lost.
+- **Passive intelligence** — costs nothing to use: while your banked EP against a rival stays above a threshold (higher for distant targets and rivals who out-spy you), the advisor shows their **demographics**, **current research**, full **city details** (Investigate City), extra **map vision** around a city (City Visibility), or **who is behind** espionage strikes against you (Detect Missions). Drop below the threshold and the intel goes dark again.
+- **What you see without intel** — a rival city's readout shows only its defenses: defense bonus, HP, garrison, and defensive buildings. Population and production stay hidden until investigated.
+- **Spies are invisible.** Only you see your own spies; they cross closed borders freely, can stand in any city, and cannot be attacked.
 
 ---
 

@@ -151,9 +151,10 @@ subsystem this build does not have:
   persistence, an admin/host channel, and a full map editor respectively.
 - **Session `retire`, `all-chat`, `team-chat`, `free-colony`** — multiplayer chat
   and colony-split subsystems (this build is single-machine hotseat).
-- **Espionage verbs `sabotage` / `destroy` / `steal plans` as *unit missions*** —
-  the mechanic exists at alliance scope via `ESPIONAGE_MISSION`; a spy-unit-on-tile
-  mission model is unbuilt.
+- (Espionage verbs `sabotage` / `destroy` / `steal plans` as *unit missions* are now
+  built: a spy on a foreign city tile runs any catalogue mission via `SPY_MISSION` /
+  `Commands.spy_mission` — see §5.1 and `game-data.md` §25.5 — alongside the
+  alliance-scope `ESPIONAGE_MISSION` screen path.)
 - (`SPREAD_BELIEF` is now built: a missionary unit on a city tile spreads the
   player's religion via the `SPREAD_BELIEF` command — see the missionary
   subsystem.)
@@ -207,25 +208,42 @@ catalogued here with implementation plans; close each entry as it lands.
 Measured against `humanish-full-docs/generic/` (the reference data set), the
 shortfalls are catalogue depth, not missing machinery.
 
-### 5.1 Espionage missions — 5 of 18 (`game-data.md` §25)
+### 5.1 Espionage missions — CLOSED (18/18 mission types; `game-data.md` §25)
 
 The mission framework (cost curve, interception, per-effect target gates, the
-espionage screen) is complete; the catalogue is a slice.
+espionage screen), the **thirteen active missions** (each with a `case` in
+`SimFacade._espionage_apply`, a gate in `_mission_target_valid`, and tests in
+`tests/sim/test_intelligence.gd`), and **spy-unit-on-tile execution** (`game-data.md`
+§25.5) are complete, as before.
 
-- **Add the remaining ~13 `EspionageMissionInfo` records** to
-  `data/espionage_missions.json`: destroy-building, destroy-production,
-  destroy-improvement, steal-maps, spread-culture, spread-religion,
-  counterespionage, buy-a-city, and the other reference verbs. The generic
-  reference docs give only the count (18), not per-record costs/gates — pull exact
-  values from the upstream `GameEspionageMissionInfo.xml` when promoting each.
-- **New effect verbs** each need a `case` in `SimFacade._espionage_apply` and a
-  target gate in `SimFacade._mission_target_valid`.
-- **Spy-unit-on-tile missions** (vs. the current alliance-scope screen missions)
-  are a larger lift: they require the spy unit's infiltration/discovery state and a
-  per-tile target model. Treat as a follow-on phase after the screen catalogue is
-  filled.
-- Extend `tests/api/test_*espionage*` (or the facade suite) with one case per new
-  verb.
+**The five passive, information-gathering missions are now built** (`game-data.md`
+§25.6) — but as **standing EP thresholds, not runnable operations**, which dissolved
+the "required subsystem" this entry used to block on. Instead of a serialized
+per-player knowledge store with expiry rules, each passive record (`kind: "passive"`
+in `data/espionage_missions.json`) reveals its intel *while* the viewer's banked EP
+against the target alliance meets a threshold (base × the §25.2 EP-advantage curve ×
+a capital-to-target distance surcharge). What a player knows is a pure function of
+current EP: nothing new is serialized, save/load and `state_hash` are untouched, and
+dropping below the threshold re-hides the intel. `see_demographics` /
+`see_research` / `detect_missions` (attribution of incoming missions) are
+alliance-scope; `investigate_city` / `city_visibility` are per-city. The espionage
+advisor lists every rival civ/leader and each of their cities, with locked rows shown
+as "have/need EP" progress.
+
+The **information fog** the passive missions lift is likewise built: a rival city's
+readout is restricted to its defensive posture (defence %, siege HP, garrison,
+defensive structures — `SimFacade.city_intel_lines`) until `investigate_city` is met;
+foreign spies are invisible (not rendered, absent from the tile readout, ignored by
+`Pathfinding._has_enemy`, cannot be attacked, and an intercepted tile mission now
+destroys the spy); `city_visibility` merges live sight into `player_visible_tiles`.
+`PlayerAI` plays spies (§B7 `_manage_spy`: build to `ai_spy_count`, infiltrate the
+nearest rival city, run the highest-priority affordable mission).
+
+Not modelled (acceptable rest-gap): the full `get_state()` is still exposed to every
+facade client, so the fog is honoured by the UI read paths rather than enforced by a
+filtered state snapshot — a determined netcode client could still read hidden fields.
+Promoting the fog into a filtered per-player state view remains possible later
+without data changes.
 
 ### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
 

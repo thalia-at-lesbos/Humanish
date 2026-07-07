@@ -611,7 +611,10 @@ func test_tile_info_text_shows_foreign_city() -> void:
 	var text = facade.tile_info_text(6, 6)
 	assert_true(text.find("Greece") >= 0, "Foreign city's owner name appears in tile info")
 	assert_true(text.find("Athens") >= 0, "Foreign city's name appears in tile info")
-	assert_true(text.find("pop") >= 0, "Foreign city's population appears in tile info")
+	# Information fog (§25.6): a rival city shows its defensive posture; its
+	# population stays hidden until investigate_city passive intel is met.
+	assert_true(text.find("Defence: +") >= 0, "Foreign city's defence readout appears")
+	assert_false(text.find("pop") >= 0, "Foreign city's population is hidden without intel")
 
 func test_tile_info_text_omits_own_subjects() -> void:
 	var facade = setup_facade(1502, "small",

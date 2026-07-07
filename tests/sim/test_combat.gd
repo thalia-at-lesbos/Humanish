@@ -314,16 +314,16 @@ func test_settlement_defence_helper_sums_structure_and_cultural() -> void:
 	var gs = make_gs()
 	var s = make_settlement(gs, 2, 5, 5)
 	s.structures = ["walls"]            # defence_bonus 50 + cultural_defence_bonus 10
-	assert_eq(Combat._settlement_defence(s, gs.db), 60,
+	assert_eq(Combat.settlement_defence(s, gs.db), 60,
 		"Settlement defence = structure defence_bonus + cultural_defence_bonus")
-	assert_eq(Combat._settlement_defence(null, gs.db), 0, "No settlement → no bonus")
+	assert_eq(Combat.settlement_defence(null, gs.db), 0, "No settlement → no bonus")
 
 func test_defender_in_settlement_is_stronger() -> void:
 	var gs = make_gs()
 	var d = make_warrior(gs, 2, 5, 5)   # base_strength 10
 	var s = make_settlement(gs, 2, 5, 5)
 	s.structures = ["walls"]
-	var def_bonus: int = Combat._settlement_defence(s, gs.db)
+	var def_bonus: int = Combat.settlement_defence(s, gs.db)
 	var defending: int = d.effective_strength(gs.db, false, {}, {}, "", true, def_bonus)
 	var in_open: int = d.effective_strength(gs.db, false, {}, {}, "", false, 0)
 	assert_gt(defending, in_open, "A garrison inside a walled city defends harder")

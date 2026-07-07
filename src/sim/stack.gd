@@ -36,6 +36,10 @@ static func get_defender(units: Array, x: int, y: int, attacker_player_id: int,
 			continue
 		if u.owner_player_id == attacker_player_id:
 			continue
+		# Spies cannot be attacked (§7.1): an espionage unit is never a valid combat
+		# target, so a tile holding only spies has no defender and is not hostile.
+		if db.get_unit(u.unit_type_id).get("tags", []).has("espionage"):
+			continue
 		var str_val: int = u.effective_strength(db, false, ter, feat, "")
 		if str_val > best_str:
 			best_str = str_val

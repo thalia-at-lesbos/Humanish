@@ -50,6 +50,14 @@ var era: int = 0
 # Espionage accumulation per target alliance_id
 var intel_points: Dictionary = {}   # alliance_id -> int
 
+# Active counterespionage cover (§7.1): turns of heightened interception this player
+# holds against a rival alliance's missions, keyed by that rival's alliance_id. Set
+# by the `counterespionage` mission, ticked down one per turn in TurnEngine._tick_states,
+# and read by SimFacade._espionage_interception_chance when that rival attacks one of
+# this player's alliance's cities. Serialized with int-key coercion on load (the
+# recurring JSON float/string-key gotcha).
+var counter_espionage: Dictionary = {}   # rival_alliance_id -> turns_left
+
 # Decaying diplomatic memory of other players' acts (§7, Diplomacy): keyed by the
 # remembered rival's player_id, each a {memory_kind -> signed points} Dictionary.
 # Points accrue when the rival acts (Diplomacy.record) and decay toward zero each
@@ -164,6 +172,7 @@ func serialize() -> Dictionary:
 		"technologies": technologies.duplicate(),
 		"era": era,
 		"intel_points": intel_points.duplicate(),
+		"counter_espionage": counter_espionage.duplicate(),
 		"diplo_memory": diplo_memory.duplicate(true),
 		"alliance_id": alliance_id,
 		"free_early_wins": free_early_wins,
@@ -215,6 +224,12 @@ static func deserialize(d: Dictionary):
 	var loaded_intel: Dictionary = d.get("intel_points", {})
 	for k in loaded_intel:
 		p.intel_points[int(k)] = int(loaded_intel[k])
+	# counter_espionage is keyed by rival alliance_id (int) — coerce keys/values back
+	# to int on load for the same reason as intel_points (the JSON key-type gotcha).
+	p.counter_espionage = {}
+	var loaded_ce: Dictionary = d.get("counter_espionage", {})
+	for k in loaded_ce:
+		p.counter_espionage[int(k)] = int(loaded_ce[k])
 	# diplo_memory is rival_player_id(int) -> {kind(str): points(int)}. JSON turns the
 	# outer key into a string and the points into floats, so coerce both back on load.
 	p.diplo_memory = {}

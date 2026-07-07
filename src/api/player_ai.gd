@@ -349,6 +349,7 @@ static func _sorted_options(gs, s, player) -> Array:
 	var needs_defender: bool = _city_defender_count(gs, s, player.id) < _defender_target(gs, s, player.id)
 	var wants_settler: bool = _wants_settler(gs, player)
 	var wants_worker: bool = _wants_worker(gs, player)
+	var wants_spy: bool = _wants_spy(gs, player)
 	# Leader personality (§C3): within a role, items on the leader's stronger axes
 	# sort earlier — a soft bias, applied *below* the role floors so the defender
 	# floor still wins. A traitless leader has an all-zero profile, leaving the
@@ -370,6 +371,10 @@ static func _sorted_options(gs, s, player) -> Array:
 		if bool(u.get("can_found", false)) and not wants_settler:
 			continue
 		if _is_worker_unit(u) and not wants_worker:
+			continue
+		# Spies (§B7): only built while the empire wants one (rivals met, below
+		# the ai_spy_count target) — never as cheap fallback spam.
+		if _is_spy_unit(u) and not wants_spy:
 			continue
 		var item_u: Dictionary = {"type": "unit", "id": uid}
 		opts.append({"type": "unit", "id": uid, "role": _unit_role(u, needs_defender),
@@ -408,7 +413,9 @@ static func _sorted_options(gs, s, player) -> Array:
 static func _unit_role(u: Dictionary, needs_defender: bool) -> int:
 	if _is_military_unit(u):
 		return ROLE_DEFENDER if needs_defender else ROLE_FALLBACK
-	if bool(u.get("can_found", false)) or _is_worker_unit(u):
+	# A wanted spy ranks with the expansion units (unwanted ones are filtered out
+	# before ranking, like settlers/workers the empire does not want).
+	if bool(u.get("can_found", false)) or _is_worker_unit(u) or _is_spy_unit(u):
 		return ROLE_EXPANSION
 	return ROLE_FALLBACK
 
@@ -513,6 +520,8 @@ static func manage_units(facade, player_id: int) -> void:
 			_manage_free_military(facade, gs, u, player_id)
 		elif _is_worker_unit(udata):
 			_manage_worker(facade, gs, u, player_id)
+		elif _is_spy_unit(udata):
+			_manage_spy(facade, gs, u, player_id)
 		elif str(udata.get("classification", "")) == "recon":
 			facade.apply_command(Commands.mission_explore(player_id, u.id))
 		else:
@@ -647,6 +656,22 @@ static func _wants_worker(gs, player) -> bool:
 		if u.owner_player_id == player.id and _is_worker_unit(gs.db.get_unit(u.unit_type_id)):
 			workers += 1
 	return workers < _owned_city_count(gs, player.id)
+
+# A spy is wanted once a rival alliance has been met and the empire holds fewer
+# espionage units than its ai_spy_count target (§B7).
+static func _wants_spy(gs, player) -> bool:
+	var alliance = gs.get_player_alliance(player.id)
+	if alliance == null or alliance.contacts.empty():
+		return false
+	var spies: int = 0
+	for u in gs.units:
+		if u.owner_player_id == player.id and _is_spy_unit(gs.db.get_unit(u.unit_type_id)):
+			spies += 1
+	return spies < gs.db.get_constant("ai_spy_count", 1)
+
+# Data-driven via the "espionage" tag, like the facade's own spy recognition.
+static func _is_spy_unit(u: Dictionary) -> bool:
+	return u.get("tags", []).has("espionage")
 
 # Is there a legal, positive-scoring city site within settling range of the empire?
 # Scanned around each city (and a no-city player always qualifies so it can settle
@@ -903,6 +928,59 @@ static func _manage_worker(facade, gs, u, player_id: int) -> void:
 static func _wake_if_sleeping(facade, u, player_id: int) -> void:
 	if u.is_sleeping:
 		facade.apply_command(Commands.unit_wake(player_id, u.id))
+
+# ── §B7 Spies: infiltrate the nearest rival city and strike (§7.1) ─────────────
+#
+# Deterministic like the rest of the playbook — no RNG here. On a foreign city
+# tile with full movement the spy runs the highest-priority mission the banked
+# EP affords (spy_mission_options already filters to valid + affordable rows;
+# interception — and the spy's capture — is resolved inside the facade against
+# the shared gs.rng). Off-station it marches on the nearest rival city: spies
+# path through closed borders and cannot be attacked, so the direct route is
+# safe. With EP short it simply holds position until accrual catches up.
+
+# Mission preference, best first: permanent gains (tech, gold) over temporary
+# disruption. Anything the options row set offers outside this list is ignored.
+const SPY_MISSION_PRIORITY: Array = ["steal_tech", "steal_gold", "sabotage",
+	"destroy_building", "poison_water", "incite_unhappiness"]
+
+static func _manage_spy(facade, gs, u, player_id: int) -> void:
+	var options: Array = facade.spy_mission_options(u.id)
+	if not options.empty():
+		var offered: Array = []
+		for o in options:
+			offered.append(str(o["id"]))
+		for want in SPY_MISSION_PRIORITY:
+			if want in offered:
+				facade.apply_command(Commands.spy_mission(player_id, u.id, want))
+				return
+		return  # on station; nothing worthwhile affordable yet
+	var target = _nearest_rival_city(gs, u, player_id)
+	if target == null:
+		facade.apply_command(Commands.unit_fortify(player_id, u.id))
+		return
+	if u.x == target.x and u.y == target.y:
+		return  # infiltrated; waiting for EP to afford a mission
+	_wake_if_sleeping(facade, u, player_id)
+	facade.apply_command(Commands.mission_move_to(player_id, u.id, target.x, target.y))
+
+# The nearest city owned by another alliance (lowest settlement id on a distance
+# tie, so the march target is stable between turns).
+static func _nearest_rival_city(gs, u, player_id: int):
+	var me = gs.get_player(player_id)
+	if me == null:
+		return null
+	var best = null
+	var best_d: int = -1
+	for s in gs.settlements:
+		var owner = gs.get_player(s.owner_player_id)
+		if owner == null or owner.alliance_id == me.alliance_id:
+			continue
+		var d: int = gs.map.distance(u.x, u.y, s.x, s.y)
+		if best == null or d < best_d or (d == best_d and s.id < best.id):
+			best = s
+			best_d = d
+	return best
 
 # The resource improvement a worker should build on `tile` for this player, or ""
 # when the tile carries no improvable, visible resource — i.e. it is unowned, has

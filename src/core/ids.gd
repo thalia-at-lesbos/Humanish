@@ -121,7 +121,10 @@ enum CommandType {
     FREE_VASSAL = 64,
     # Cancel a standing open-borders agreement with another player (§7). Either side
     # may revoke it; their territory then blocks the other's units again.
-    CANCEL_OPEN_BORDERS = 65
+    CANCEL_OPEN_BORDERS = 65,
+    # Spy-unit-on-tile espionage mission (§7.1): a spy standing on a foreign city
+    # tile with full movement runs an espionage mission against that city.
+    SPY_MISSION = 66
 }
 
 # Win condition types

@@ -195,6 +195,21 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 		btn.connect("pressed", self, "_on_action_pressed", [item])
 		add_child(btn)
 
+	# Spy espionage actions (§7.1): only a spy standing on a foreign city tile with
+	# full movement gets any rows, and the list is pre-filtered to missions whose gate
+	# holds and that the player can afford — so the buttons appear only when usable.
+	var spy_menu: Array = _facade.spy_mission_options(u.id)
+	if not spy_menu.empty():
+		var spy_hdr: Label = Label.new()
+		spy_hdr.text = "Espionage:"
+		add_child(spy_hdr)
+		for sm in spy_menu:
+			var label: String = "%s  (%d EP, %d%% risk)" % [
+				str(sm.get("name", "")), int(sm.get("cost", 0)), int(sm.get("interception", 0))]
+			var sbtn: Button = _left_button(label)
+			sbtn.connect("pressed", self, "_on_spy_mission_pressed", [u.id, str(sm.get("id", ""))])
+			add_child(sbtn)
+
 	# Issue 6: Worker improvement buttons — shown for units that can build.
 	var db = _facade._db
 	if db.get_unit(u.unit_type_id).get("can_build", false):
@@ -466,6 +481,13 @@ func _on_explore_pressed(unit_id: int) -> void:
 func _on_wake_pressed(unit_id: int) -> void:
 	_facade.apply_command(Commands.unit_wake(
 		_facade.get_state().current_player_id, unit_id))
+	rebuild()
+
+# Run a spy-on-tile espionage mission (§7.1): the facade derives the target city from
+# the spy's tile and spends the spy's movement on success.
+func _on_spy_mission_pressed(unit_id: int, mission_id: String) -> void:
+	_facade.apply_command(Commands.spy_mission(
+		_facade.get_state().current_player_id, unit_id, mission_id))
 	rebuild()
 
 func _clear_children() -> void:

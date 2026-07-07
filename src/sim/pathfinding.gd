@@ -25,6 +25,12 @@ static func find_path(map: WorldMap, from_x: int, from_y: int,
 	var unit_data: Dictionary = db.get_unit(unit.unit_type_id)
 	var domain: String = unit_data.get("domain", "land")
 
+	# Spies infiltrate (§7.1): an espionage unit ignores civilian borders so it can
+	# walk through foreign territory and stand on any city tile (own or foreign). It
+	# still cannot tunnel through enemy stacks (the _has_enemy gate below is unchanged,
+	# which already permits the destination tile to hold units).
+	var infiltrate: bool = unit_data.get("tags", []).has("espionage")
+
 	# Deep-water (ocean) entry is gated (§5): a sea unit may only enter a
 	# "deep_water" tile if it is ocean_capable AND its owner has researched the
 	# ocean-travel tech — UNLESS the tile lies in friendly/allied territory (the
@@ -77,9 +83,9 @@ static func find_path(map: WorldMap, from_x: int, from_y: int,
 			# exempt only insofar as the same allow-list applies to it too (so you can
 			# still attack/stack into legal targets). Skipped for domain-only callers
 			# (no game_state threaded in) and ownerless/wild movers.
-			if not border_passage_allowed(nb, owner_player_id, game_state):
+			if not infiltrate and not border_passage_allowed(nb, owner_player_id, game_state):
 				continue
-			if _has_enemy(nb.x, nb.y, all_units, owner_player_id):
+			if _has_enemy(nb.x, nb.y, all_units, owner_player_id, db):
 				# Cannot pass THROUGH enemies, but the destination may hold one —
 				# entering it is an attack, resolved by the move command.
 				if not (nb.x == to_x and nb.y == to_y):
@@ -233,9 +239,15 @@ static func _tile_has_friendly_settlement(tile: Tile, ocean_ctx) -> bool:
 		return false
 	return s.owner_player_id in alliance.member_player_ids
 
-static func _has_enemy(x: int, y: int, all_units: Array, owner_id: int) -> bool:
+# Foreign espionage units are skipped: a spy is invisible to everyone but its
+# owner (§7.1), so it must neither block a path nor leak its position by
+# turning a tile into an "occupied" one. A mover landing on a hidden spy's tile
+# simply shares it (the spy is never a combat defender either — see Stack).
+static func _has_enemy(x: int, y: int, all_units: Array, owner_id: int, db: DataDB) -> bool:
 	for u in all_units:
 		if u.x == x and u.y == y and u.owner_player_id != owner_id:
+			if db.get_unit(u.unit_type_id).get("tags", []).has("espionage"):
+				continue
 			return true
 	return false
 

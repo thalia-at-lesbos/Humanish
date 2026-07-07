@@ -875,3 +875,53 @@ func test_assembly_vote_backs_a_liked_candidate() -> void:
 		Diplomacy.record(gs, gs.db, 1, 2, "gave_gift")  # +10 each → Friendly
 	assert_eq(Assembly.ai_vote(gs, 1), Assembly.VOTE_YEA,
 		"a member that likes the candidate backs it")
+
+# ── §B7 Spies: build, infiltrate, strike ────────────────────────────────────────
+
+func test_wants_spy_needs_contact_and_counts_spies() -> void:
+	var gs = make_gs(2)
+	var p = gs.get_player(1)
+	assert_false(PlayerAI._wants_spy(gs, p), "No rival met → no spy wanted")
+	gs.alliances[0].contacts = [2]
+	assert_true(PlayerAI._wants_spy(gs, p), "A known rival makes a spy wanted")
+	make_unit(gs, "spy", 1, 2, 2)
+	assert_false(PlayerAI._wants_spy(gs, p),
+		"At the ai_spy_count target no further spy is wanted")
+
+func test_ai_spy_marches_on_nearest_rival_city() -> void:
+	var gs = make_gs(2)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 2, 10, 10, 3)
+	make_settlement(gs, 2, 16, 16, 3)
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	PlayerAI._manage_spy(f, gs, spy, 1)
+	assert_true(spy.x > 8 or spy.y > 8 or (spy.goto_x == 10 and spy.goto_y == 10),
+		"The spy moves (or is routed) toward the nearest rival city")
+	var target = PlayerAI._nearest_rival_city(gs, spy, 1)
+	assert_eq([target.x, target.y], [10, 10], "The nearer of the two cities is chosen")
+
+func test_ai_spy_on_station_runs_priority_mission() -> void:
+	var gs = make_gs(2)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	gs.db.constants["intel_interception_chance"] = 0
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	PlayerAI._manage_spy(f, gs, spy, 1)
+	assert_true(gs.get_player(1).has_tech("mining"),
+		"steal_tech leads the priority list and fires from the city tile")
+	assert_eq(spy.movement_left, 0, "The mission consumed the spy's turn")
+
+func test_ai_spy_holds_station_when_ep_short() -> void:
+	var gs = make_gs(2)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(1).intel_points = {2: 0}
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	PlayerAI._manage_spy(f, gs, spy, 1)
+	assert_eq([spy.x, spy.y], [8, 8], "With no EP the spy waits on station")
+	assert_not_null(gs.get_unit(spy.id), "…and is not thrown away")

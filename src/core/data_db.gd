@@ -348,18 +348,34 @@ func _validate_econ_org_refs() -> void:
 			if not resources.has(res_id):
 				_errors.append("Corporation '%s' input_resource '%s' not in resources table" % [org_id, res_id])
 
-# Every espionage mission (§7.1) must carry an id, a positive cost_multiplier, and
-# an effect verb SimFacade._espionage_apply knows how to dispatch.
+# Every espionage mission (§7.1) must carry an id and an effect verb the engine
+# knows. Active records need a positive cost_multiplier (they are paid for and
+# dispatched by SimFacade._espionage_apply); passive records (kind "passive",
+# §25.6) instead need a positive threshold_multiplier and a valid scope — they
+# are standing reveal thresholds, never executed.
 func _validate_espionage_mission_refs() -> void:
-	var known := ["steal_tech", "sabotage", "incite_unrest", "steal_gold", "poison_water"]
+	var known := ["steal_tech", "sabotage", "destroy_building", "destroy_project",
+		"destroy_improvement", "steal_gold", "poison_water", "insert_culture",
+		"incite_unhappiness", "incite_revolt", "switch_civic", "switch_religion",
+		"counterespionage"]
+	var known_passive := ["see_demographics", "investigate_city", "see_research",
+		"city_visibility", "detect_missions"]
 	for m in get_espionage_missions():
 		var mid = str(m.get("id", ""))
 		if mid == "":
 			_errors.append("Espionage mission missing an id")
 			continue
+		var effect = str(m.get("effect", ""))
+		if str(m.get("kind", "active")) == "passive":
+			if int(m.get("threshold_multiplier", 0)) <= 0:
+				_errors.append("Passive espionage mission '%s' must have a positive threshold_multiplier" % mid)
+			if not (str(m.get("scope", "")) in ["alliance", "city"]):
+				_errors.append("Passive espionage mission '%s' needs scope 'alliance' or 'city'" % mid)
+			if not (effect in known_passive):
+				_errors.append("Espionage mission '%s' has unknown passive effect '%s'" % [mid, effect])
+			continue
 		if int(m.get("cost_multiplier", 0)) <= 0:
 			_errors.append("Espionage mission '%s' must have a positive cost_multiplier" % mid)
-		var effect = str(m.get("effect", ""))
 		if not (effect in known):
 			_errors.append("Espionage mission '%s' has unknown effect '%s'" % [mid, effect])
 

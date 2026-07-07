@@ -1601,6 +1601,13 @@ static func _tick_states(gs: GameState, player: Player) -> void:
 		player.transition_turns -= 1
 	if player.celebration_turns > 0:
 		player.celebration_turns -= 1
+	# Tick down any active counterespionage cover (§7.1), dropping spent entries.
+	for aid in player.counter_espionage.keys():
+		var left: int = int(player.counter_espionage[aid]) - 1
+		if left > 0:
+			player.counter_espionage[aid] = left
+		else:
+			player.counter_espionage.erase(aid)
 	# A running Golden Age counts down one turn (§14.4).
 	GreatPeople.tick_golden_age(player)
 	for s in gs.settlements:

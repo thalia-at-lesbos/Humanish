@@ -60,7 +60,7 @@ sections:
   "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
   "§24  Goody huts":             "goodies.json: weighted discovery-site reward table and map placement (incomplete — 7 of 12 reference rewards)"
-  "§25  Espionage missions":     "espionage_missions.json: alliance-scope intel mission catalogue (incomplete — 5 of 18 reference missions)"
+  "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue — 13 active missions run from the alliance screen and by spy units on city tiles; 5 passive intelligence missions as standing EP thresholds (§25.6) with the information-fog rules they lift"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
@@ -2160,35 +2160,192 @@ the reference `normalizeAddExtras` step, §28, which can scatter extra huts near
 
 ## 25. Espionage missions
 
-> **Status: incomplete** — 5 of the reference's 18 mission records are modelled, and only
-> the alliance-scope screen missions; spy-unit-on-tile missions are deferred.
+> **Status: complete (18 mission types)** — the thirteen active, state-changing
+> missions run from two paths: the alliance-scope espionage screen and a spy unit
+> standing on a foreign city tile (§25.5). The five passive, information-gathering
+> missions are **standing EP thresholds** (§25.6): they never run and spend
+> nothing — their intel stays revealed while the attacker's banked EP against the
+> target meets a distance-scaled threshold. What they reveal is defined by the
+> **information-fog rules** (§25.6): a rival city shows only its defensive
+> posture, foreign spies are invisible, and rival demographics/research are
+> hidden until the matching passive threshold is met.
 
-`data/espionage_missions.json`. Accrued intel points (EP) against a target alliance are
-spent on a mission from this table.
+### 25.1 How a mission runs
+
+`data/espionage_missions.json` holds the catalogue. Each turn a player's espionage output
+accrues as **intel points (EP)** ledgered *per target alliance* (§7, §15.5). EP is the
+currency these missions spend. The flow in `SimFacade._cmd_espionage_mission` is:
+
+1. **Resolve** the named mission record (rejected if absent from the table).
+2. **Gate** — the mission's per-verb *target gate* must hold *before any EP is spent*
+   (`_mission_target_valid`): e.g. `steal_tech` needs a tech the target knows and the
+   attacker lacks; `destroy_building` needs a target city holding a razeable structure.
+   A gate-failed mission spends nothing.
+3. **Pay** — the attacker must hold at least the mission's cost in EP against that
+   alliance; the cost is deducted whether or not the mission then succeeds.
+4. **Interception** — a `gs.rng` roll against the mission's interception chance. On a hit
+   the EP is still spent but the effect is suppressed ("mission intercepted").
+5. **Apply** — `_espionage_apply` dispatches the `effect` verb, mutating game state
+   deterministically. Every city-targeting verb acts on the **most populous valid target
+   city** (lowest settlement id breaking a tie), so outcomes are reproducible.
+
+### 25.2 Cost and interception
 
 **Cost** = `intel_mission_cost` (100) × `cost_multiplier`/100 × (1 + EP-advantage/100),
-with the EP-advantage curve capped by `intel_cost_advantage_max` (200).
-**Interception** = `intel_interception_chance` (25%) base ± the mission's
-`interception_modifier`, capped at `intel_interception_max` (90%). Both live in
-`constants.json` and are computed in `SimFacade`.
+where the EP-advantage is how much more EP the *target* holds against the attacker than the
+attacker holds against the target (a well-defended rival costs more to strike), capped by
+`intel_cost_advantage_max` (200). When the attacker is ahead the surcharge is zero and the
+cost floors at the scaled base.
 
-| id | name | effect | `cost_multiplier` | `interception_modifier` | Magnitude |
-|----|------|--------|:-----------------:|:-----------------------:|-----------|
-| `steal_tech` | Steal Tech | `steal_tech` | 100 | 0 | copy one technology the attacker lacks |
-| `sabotage` | Sabotage | `sabotage` | 80 | 0 | halve a target city's stored production |
-| `incite_unrest` | Incite Unrest | `incite_unrest` | 120 | +10 | largest target city into disorder next turn |
-| `steal_gold` | Steal Treasury | `steal_gold` | 90 | 0 | transfer up to 100 gold from the richest member |
-| `poison_water` | Poison Water | `poison_water` | 150 | +20 | remove 1 population from the largest city (pop ≥ 2) |
+**Interception** = `intel_interception_chance` (25%) base
++ the strongest `espionage_defense` structure across the target's cities
++ the mission's own `interception_modifier`
++ `intel_counterespionage_bonus` (25) if any target member holds **active
+counterespionage cover** against the attacker's alliance,
+capped at `intel_interception_max` (90%).
 
-Each mission is offered/accepted only when its target gate holds
-(`SimFacade._mission_target_valid`, per effect verb).
+All five constants live in `constants.json` and the arithmetic is computed in `SimFacade`.
 
-**Gap to reference:** `GameEspionageMissionInfo.xml` defines **18** mission records (the
-above plus destroy-building / destroy-production / destroy-improvement, steal maps, spread
-culture/religion, counterespionage, buy-a-city, and others); the project ships **5**. The
-reference docs give the count but not the remaining 13 records' costs/gates, so they are
-flagged here, not specified. **Spy-unit-on-tile** missions (as opposed to alliance-scope
-screen missions) are deferred entirely.
+### 25.3 The catalogue
+
+Magnitudes (`amount`, `duration`) live in the mission record — the table is the single
+source of mission tuning. Each `effect` verb has a matching handler in
+`SimFacade._espionage_apply` and a target gate in `_mission_target_valid`.
+
+| id | name | effect | `cost_multiplier` | `intercept` | magnitude fields | What it does |
+|----|------|--------|:-:|:-:|---|---|
+| `steal_tech` | Steal Technology | `steal_tech` | 100 | 0 | — | Copies one technology a target member knows that the attacker lacks. |
+| `sabotage` | Sabotage Production | `sabotage` | 80 | 0 | — | Halves a target city's stored production. |
+| `destroy_building` | Destroy Building | `destroy_building` | 100 | +5 | — | Razes the **costliest non-Palace** structure in the largest target city. |
+| `destroy_project` | Destroy Project | `destroy_project` | 150 | +5 | — | Cancels an in-progress **endgame project** and wipes its stored production. |
+| `destroy_improvement` | Destroy Improvement | `destroy_improvement` | 75 | 0 | — | Clears the improvement on a tile worked by a target city. |
+| `steal_gold` | Steal Treasury | `steal_gold` | 300 | 0 | `amount` 100 | Transfers up to `amount` gold from the richest target member to the attacker. |
+| `poison_water` | Poison Water | `poison_water` | 120 | +20 | — | Removes 1 population from the largest target city (population ≥ 2). |
+| `insert_culture` | Spread Culture | `insert_culture` | 120 | +5 | `amount` 100 | Adds `amount` of the **attacker's** cultural influence to the largest target city's tile, feeding §4.9 revolt pressure. |
+| `incite_unhappiness` | Foment Unrest | `incite_unhappiness` | 120 | +10 | `amount` 3, `duration` 5 | Adds a timed angry-citizen modifier of `amount` faces for `duration` turns to the largest target city. |
+| `incite_revolt` | Incite Revolt | `incite_revolt` | 650 | +20 | `duration` 3 | Tips the largest target city into disorder and starts a `duration`-turn revolt during which it produces nothing. |
+| `switch_civic` | Foment Anarchy | `switch_civic` | 200 | +10 | `duration` 2 | Throws the largest target city's owner into `duration` turns of governmental anarchy. |
+| `switch_religion` | Incite Schism | `switch_religion` | 180 | +10 | `duration` 2 | Strips the state religion from a target member that has one and forces `duration` turns of anarchy. |
+| `counterespionage` | Counterespionage | `counterespionage` | 100 | 0 | `duration` 5 | The attacker holds **+`intel_counterespionage_bonus`% interception** of the target alliance's missions for `duration` turns. |
+
+### 25.4 State touched
+
+Most verbs read and write existing aggregates, so they compose with the rest of the
+engine rather than carrying bespoke state:
+
+- **`destroy_building`** removes from `Settlement.structures` (and clears any matching
+  `structure_bonuses`); the Palace is never targetable.
+- **`destroy_project`** dequeues the project at the head of `production_queue` and zeroes
+  `production_store`.
+- **`destroy_improvement`** clears `Tile.improvement_id` / `improvement_turns_left` /
+  `improvement_age` on a worked tile.
+- **`insert_culture`** adds to `Tile.influence[attacker]`, which the §4.9 cultural-revolt
+  subsystem reads directly when judging whether a city flips.
+- **`incite_unhappiness`** appends a `{amount, turns_left}` entry to
+  `Settlement.timed_happiness` — the same timed-anger channel random events use, which
+  decays one turn at a time.
+- **`incite_revolt`** sets `in_disorder`, fills `discontented`, and raises `revolt_turns`.
+- **`switch_civic` / `switch_religion`** set the victim player's `transition_turns`
+  (anarchy), and the religion variant also clears `state_religion`.
+- **`counterespionage`** writes the attacker's `Player.counter_espionage` ledger
+  (rival alliance id → turns), ticked down each turn in `TurnEngine._tick_states` and
+  read back by the interception calculation. Both this ledger and `intel_points` are
+  int-keyed and coerced back to int on load (the recurring JSON key-type discipline).
+
+### 25.5 Spy units on tiles
+
+Besides the alliance-scope espionage screen, the same thirteen missions can be run by a
+**spy unit** physically standing in a target city — a unit carrying the `espionage` tag
+in `data/units.json` (the Spy). Three rules govern a spy's behaviour, all enforced in
+`SimFacade` so the UI never offers an order the rules would reject:
+
+- **Spies can stand on any city tile, friendly or foreign.** A spy *infiltrates*: in
+  `Pathfinding.find_path` an espionage unit ignores civilian borders (it may cross and
+  traverse foreign territory), and `_cmd_move_stack` / `can_stack_move` route an all-spy
+  stack onto a city tile as a **peaceful relocation** — never combat — even into a
+  garrisoned city or one its owner is at war with. (A spy still cannot tunnel *through* an
+  enemy field stack; it just needs a path to the city.) Non-spy civilians are unaffected
+  and still cannot enter foreign territory at peace.
+- **Spies cannot be attacked.** `Stack.get_defender` skips espionage units, so a tile
+  holding only spies has no defender and is not a hostile/attackable target. A spy stacked
+  under a real defender is never chosen as the victim; the military unit takes the blow.
+- **Spies are invisible to everyone but their owner.** The world view draws (and
+  stack-badges) a foreign espionage unit for no one, the tile readout omits it, and
+  `Pathfinding._has_enemy` ignores it — a hidden spy neither blocks a rival's path
+  nor leaks its position by making its tile read as occupied. A unit moving onto a
+  tile held only by a hidden enemy spy simply shares it (no combat is possible).
+- **A spy acts only from a foreign city tile, and only at full movement.** The action gate
+  (`_spy_target_city`) requires the unit to be an espionage unit with its **whole movement
+  allowance unspent**, standing on a settlement owned by a *different alliance*. The
+  mission then strikes **that specific city** (and its owner), not the alliance's largest —
+  the per-effect handlers and gates take an optional target city for exactly this. Running
+  a mission consumes the spy's entire turn (`movement_left → 0`). A spy on its own/allied
+  city, on open ground, or with spent movement is offered nothing.
+
+The command is `Commands.spy_mission(player, unit, mission_id)` →
+`SimFacade._cmd_spy_mission`, which derives the target alliance from the city's owner and
+shares the validate → pay → interception → apply pipeline (`_run_espionage_mission`) with
+the screen path. The HUD lists a spy's available missions via
+`SimFacade.spy_mission_options(unit_id)`, which returns **only valid (gate holds) and
+usable (affordable)** rows — empty whenever the spy cannot act, which is the signal for the
+selection panel to show no espionage buttons.
+
+**An intercepted tile mission captures the spy.** `_run_espionage_mission` reports its
+outcome (`MissionRun.REJECTED` / `EXECUTED` / `INTERCEPTED`); on interception the
+spy-on-tile path destroys the spy unit (the EP is already spent, and the command still
+counts as an attempted mission) with a "spy captured" notification to the owner. The
+alliance-scope screen path involves no unit, so interception there only wastes the EP,
+as before. The computer player runs spies through `PlayerAI._manage_spy` (§B7,
+`ai-design.md`): it builds up to `ai_spy_count` spies once a rival is met, marches them
+to the nearest rival city, and on station runs the highest-priority affordable mission
+(steal_tech → steal_gold → sabotage → destroy_building → poison_water →
+incite_unhappiness), deterministically.
+
+### 25.6 Passive intelligence and information fog
+
+The five passive records complete the 18-type reference catalogue. They are **not
+runnable** (`_run_espionage_mission`, `espionage_mission_options`, and
+`spy_mission_options` all exclude `kind: "passive"`) and spend no EP. Instead each is a
+**standing threshold**: its intel is revealed *while*
+
+```
+EP(attacker → target alliance)  ≥  intel_mission_cost × threshold_multiplier/100
+                                   × (1 + capped EP-advantage/100)     ← §25.2 curve
+                                   × (1 + intel_passive_distance_percent/100 × d/D)
+```
+
+where `d` is the Chebyshev distance from the viewer's capital to the target city
+(city-scope) or the target's nearest city (alliance-scope), and `D` is half the sum of
+the map's dimensions. Knowledge is therefore a **pure function of current EP** — nothing
+new is serialized, save/load is untouched, and dropping below a threshold re-hides the
+intel. The arithmetic lives in `SimFacade._passive_intel_threshold` /
+`_passive_intel_active`, with current-player wrappers `passive_intel_threshold` /
+`passive_intel_active` feeding the espionage advisor (which shows locked rows as
+"have/need EP" progress).
+
+| id | scope | `threshold_multiplier` | What it reveals while held |
+|----|-------|:-:|---|
+| `see_demographics` | alliance | 50 | Each member's empire statistics (population, cities, land tiles, production, GNP, unit count/power — `SimFacade.player_demographics`) on the espionage advisor. |
+| `investigate_city` | city | 80 | The full civilian readout of that city — population, current production, complete structure list — in the tile readout and the advisor (`city_intel_lines`). |
+| `see_research` | alliance | 120 | Each member's current research target and progress (`SimFacade.player_research_info`). |
+| `city_visibility` | city | 160 | Live sight over the city and its surroundings within `intel_city_visibility_radius` (2), merged into `player_visible_tiles` so the fog lifts; derived live, never committed to fog memory. |
+| `detect_missions` | alliance | 200 | Attribution: an espionage mission the target runs against you (executed *or* intercepted) is reported with the perpetrator's name instead of anonymously (`_intel_detects`). |
+
+**The information fog these lift** (the baseline a player sees without intel):
+
+- **A rival city shows only its defensive posture** — defence bonus percent
+  (`Combat.settlement_defence`), siege HP out of `TurnEngine.city_max_health`, its
+  defensive structures (positive `defence_bonus`/`cultural_defence_bonus`), and a
+  garrison summary. Population, production, religion, and the full building list are
+  hidden until `investigate_city` is met. Alliance-mates stay fully readable.
+- **Foreign spies are invisible** everywhere (§25.5).
+- Rival demographics and research appear nowhere in the UI until the matching
+  passive threshold is met.
+
+Constants: `intel_passive_distance_percent` (100) and `intel_city_visibility_radius`
+(2) in `constants.json`, beside the §25.2 five. Validation: a passive record must carry
+a positive `threshold_multiplier`, a `scope` of `alliance`/`city`, and a known passive
+effect verb (`DataDB._validate_espionage_mission_refs`).
 
 ---
 
