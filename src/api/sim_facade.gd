@@ -15,6 +15,11 @@ extends Reference
 # The only way to mutate state is apply_command().
 # Events are emitted as signals so UI can observe without polling.
 
+# _run_espionage_mission outcomes (§7.1): callers must distinguish an intercepted
+# mission (EP spent; a tile spy is captured) from a gate/afford rejection
+# (nothing spent) and a clean execution.
+enum MissionRun { REJECTED, EXECUTED, INTERCEPTED }
+
 signal event_emitted(event_dict)
 signal quest_event(quest_dict)   # §4 multi-turn quest armed / completed / reward-pending / failed
 signal turn_advanced(turn_number)
@@ -1628,7 +1633,7 @@ func _cmd_espionage_mission(cmd: Dictionary) -> bool:
 	if mission.empty():
 		return false
 	# Alliance-scope screen mission: no fixed city, the effect picks its own victim.
-	return _run_espionage_mission(p, target_alliance, mission, null)
+	return _run_espionage_mission(p, target_alliance, mission, null) != MissionRun.REJECTED
 
 # Spy-unit-on-tile espionage mission (§7.1): the spy `unit_id` must be an espionage
 # unit standing on a foreign city tile with FULL movement. The mission strikes that
@@ -1650,8 +1655,19 @@ func _cmd_spy_mission(cmd: Dictionary) -> bool:
 	var mission: Dictionary = _db.get_espionage_mission(str(cmd.get("mission", "")))
 	if mission.empty():
 		return false
-	if not _run_espionage_mission(p, target_alliance, mission, city):
+	var outcome: int = _run_espionage_mission(p, target_alliance, mission, city)
+	if outcome == MissionRun.REJECTED:
 		return false
+	if outcome == MissionRun.INTERCEPTED:
+		# A spy caught in the act is captured and destroyed (§7.1) — the EP is
+		# already spent. The command still succeeded: the mission was attempted.
+		Stack.remove_unit(_gs.units, u.id)
+		if _selection != null:
+			_selection.selected_unit_ids.erase(u.id)
+		_add_notification("Your spy was captured in " + city.name + ".", "major")
+		_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+		_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+		return true
 	u.movement_left = 0
 	u.has_moved = true
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
@@ -1659,29 +1675,44 @@ func _cmd_spy_mission(cmd: Dictionary) -> bool:
 
 # Validate, pay for, roll interception against, and apply a mission. `target_city`
 # (null for the alliance-scope screen path) fixes which city/owner the effect strikes.
-# Returns true when the mission ran (even if intercepted — the EP is still spent);
-# false when the gate fails or the attacker cannot afford it (no EP spent).
+# Returns EXECUTED or INTERCEPTED when the mission ran (the EP is spent either
+# way — an intercepted tile spy is captured, see _cmd_spy_mission); REJECTED when
+# the gate fails or the attacker cannot afford it (no EP spent).
 func _run_espionage_mission(p: Player, target_alliance: Alliance,
-		mission: Dictionary, target_city) -> bool:
+		mission: Dictionary, target_city) -> int:
+	# Passive intel records (§25.6) are standing threshold abilities, not
+	# runnable operations — they cannot be executed from either mission path.
+	if str(mission.get("kind", "active")) == "passive":
+		return MissionRun.REJECTED
 	# Reject a mission whose target gate does not hold (e.g. stealing a tech the
 	# target cannot offer) before spending any points.
 	if not _mission_target_valid(p, target_alliance, mission, target_city):
-		return false
+		return MissionRun.REJECTED
 	var have: int = int(p.intel_points.get(target_alliance.id, 0))
 	var cost: int = _mission_cost(p, target_alliance, have, mission)
 	if have < cost:
-		return false
+		return MissionRun.REJECTED
 	p.intel_points[target_alliance.id] = have - cost
+	# detect_missions passive intel (§25.6): a victim holding the detect
+	# threshold against the attacker learns who is behind the strike; otherwise
+	# it stays anonymous.
+	var detected: bool = _intel_detects(target_alliance, p.alliance_id)
 	# A defender's espionage_defense structures plus the mission's own
 	# interception_modifier raise the chance; interception spends the points but
 	# fails the mission (§7, §15.5).
 	var chance: int = _espionage_interception_chance(target_alliance,
 		int(mission.get("interception_modifier", 0)), p.alliance_id)
 	if _gs.rng.rand_bool_percent(chance):
-		_add_notification("Espionage mission intercepted.", "info")
-		return true
+		if detected:
+			_add_notification("Espionage mission by " + p.name + " intercepted.", "info")
+		else:
+			_add_notification("Espionage mission intercepted.", "info")
+		return MissionRun.INTERCEPTED
 	_espionage_apply(p, target_alliance, mission, target_city)
-	return true
+	if detected:
+		_add_notification(p.name + " ran the '" + str(mission.get("name", "")) \
+			+ "' espionage mission against you.", "info")
+	return MissionRun.EXECUTED
 
 # Dispatch a mission's `effect` verb onto game state (§7.1). Each verb is a pure,
 # deterministic application; magnitudes come from the mission record / constants.
@@ -1922,6 +1953,10 @@ func espionage_mission_options(target_alliance_id: int) -> Array:
 		return out
 	var have: int = int(p.intel_points.get(target_alliance_id, 0))
 	for m in _db.get_espionage_missions():
+		# Passive intel records (§25.6) are standing abilities shown by the
+		# advisor's intel blocks, not runnable operations.
+		if str(m.get("kind", "active")) == "passive":
+			continue
 		var cost: int = _mission_cost(p, target, have, m)
 		out.append({
 			"id": str(m.get("id", "")),
@@ -1959,6 +1994,9 @@ func spy_mission_options(unit_id: int) -> Array:
 		return out
 	var have: int = int(p.intel_points.get(target.id, 0))
 	for m in _db.get_espionage_missions():
+		# Passive intel records (§25.6) never run from a tile spy either.
+		if str(m.get("kind", "active")) == "passive":
+			continue
 		var cost: int = _mission_cost(p, target, have, m)
 		# Only valid (gate holds) and usable (affordable) missions are listed.
 		if have < cost or not _mission_target_valid(p, target, m, city):
@@ -2200,6 +2238,223 @@ func _espionage_poison_water(target: Alliance, target_city = null) -> void:
 	if biggest != null and biggest.population >= 2:
 		biggest.population -= 1
 		_add_notification("Poisoned the water supply of " + biggest.name, "major")
+
+# ── Passive intel (§25.6): threshold-based information missions ───────────────
+#
+# Passive missions (kind "passive" in data/espionage_missions.json) spend no EP.
+# Their intel stays revealed WHILE the attacker's banked EP against the target
+# alliance meets the mission's threshold, so what a player knows is a pure
+# function of current state — nothing new is serialized and save/load is
+# untouched. Threshold = intel_mission_cost × threshold_multiplier/100, scaled
+# by the same capped EP-advantage curve as active mission costs, then by a
+# distance surcharge: +intel_passive_distance_percent% at a Chebyshev distance
+# of half the map's mean dimension between the viewer's capital and the target
+# city (city-scope missions) or the target's nearest city (alliance scope).
+
+# The threshold the viewer's EP must meet for `mission` against `target`.
+# `target_city` (a Settlement or null) fixes the city for city-scope missions.
+func _passive_intel_threshold(viewer: Player, target: Alliance,
+		mission: Dictionary, target_city) -> int:
+	var have: int = int(viewer.intel_points.get(target.id, 0))
+	var base: int = _espionage_mission_cost(viewer, target, have)
+	base = base * int(mission.get("threshold_multiplier", 100)) / 100
+	var diag: int = (_gs.map.width + _gs.map.height) / 2
+	if diag > 0:
+		var pct: int = _db.get_constant("intel_passive_distance_percent", 100)
+		base += base * (pct * _intel_distance(viewer, target, target_city)) / (diag * 100)
+	return base
+
+# Whether the viewer currently holds `mission_id`'s intel over the target.
+# False for anything that is not a passive record, and always false against the
+# viewer's own alliance (there is nothing to reveal).
+func _passive_intel_active(viewer: Player, target: Alliance,
+		mission_id: String, target_city) -> bool:
+	if viewer == null or target == null or viewer.alliance_id == target.id:
+		return false
+	var mission: Dictionary = _db.get_espionage_mission(mission_id)
+	if mission.empty() or str(mission.get("kind", "active")) != "passive":
+		return false
+	var have: int = int(viewer.intel_points.get(target.id, 0))
+	if have <= 0:
+		return false
+	return have >= _passive_intel_threshold(viewer, target, mission, target_city)
+
+# Current-player wrappers for the UI (§25.6). `city_id` >= 0 pins a city-scope
+# mission's target; alliance-scope missions ignore it.
+func passive_intel_active(mission_id: String, target_alliance_id: int, city_id: int = -1) -> bool:
+	var viewer: Player = _gs.get_player(_gs.current_player_id)
+	var target: Alliance = _gs.get_alliance(target_alliance_id)
+	var city = _gs.get_settlement(city_id) if city_id >= 0 else null
+	return _passive_intel_active(viewer, target, mission_id, city)
+
+func passive_intel_threshold(mission_id: String, target_alliance_id: int, city_id: int = -1) -> int:
+	var viewer: Player = _gs.get_player(_gs.current_player_id)
+	var target: Alliance = _gs.get_alliance(target_alliance_id)
+	var mission: Dictionary = _db.get_espionage_mission(mission_id)
+	if viewer == null or target == null or mission.empty():
+		return 0
+	var city = _gs.get_settlement(city_id) if city_id >= 0 else null
+	return _passive_intel_threshold(viewer, target, mission, city)
+
+# Chebyshev distance from the viewer's capital to the target city, or to the
+# target alliance's nearest city on the alliance-scope path. 0 when either side
+# has no city yet (no surcharge rather than a spurious one).
+func _intel_distance(viewer: Player, target: Alliance, target_city) -> int:
+	var cap: Settlement = _player_capital(viewer.id)
+	if cap == null:
+		return 0
+	if target_city != null:
+		return _chebyshev(cap.x, cap.y, target_city.x, target_city.y)
+	var best: int = -1
+	for s in _gs.settlements:
+		if not _settlement_in_alliance(s, target):
+			continue
+		var d: int = _chebyshev(cap.x, cap.y, s.x, s.y)
+		if best < 0 or d < best:
+			best = d
+	return best if best >= 0 else 0
+
+# The player's capital: the city holding the Palace, falling back to the
+# earliest-founded (lowest-id) owned city.
+func _player_capital(player_id: int) -> Settlement:
+	var fallback: Settlement = null
+	for s in _gs.settlements:
+		if s.owner_player_id != player_id:
+			continue
+		if s.structures.has("palace"):
+			return s
+		if fallback == null or s.id < fallback.id:
+			fallback = s
+	return fallback
+
+func _chebyshev(ax: int, ay: int, bx: int, by: int) -> int:
+	var dx: int = ax - bx if ax > bx else bx - ax
+	var dy: int = ay - by if ay > by else by - ay
+	return dx if dx > dy else dy
+
+# Whether any member of the victim alliance holds detect_missions intel over the
+# attacker (§25.6): the victim then learns WHO is behind a mission it suffers
+# (or intercepts) instead of an anonymous strike.
+func _intel_detects(victim: Alliance, attacker_alliance_id: int) -> bool:
+	var attacker_alliance: Alliance = _gs.get_alliance(attacker_alliance_id)
+	if attacker_alliance == null:
+		return false
+	for pid in victim.member_player_ids:
+		if _passive_intel_active(_gs.get_player(pid), attacker_alliance,
+				"detect_missions", null):
+			return true
+	return false
+
+# What the current player may legitimately see of a rival's city (§25.6
+# information fog): its defensive posture only — the defence bonus its
+# structures grant, its siege HP, the garrison, and which of its structures are
+# defensive. Population, production and the full building list stay hidden
+# until the viewer's investigate_city intel is active against that city.
+# Shared by tile_info_text and the espionage advisor.
+func city_intel_lines(city_id: int) -> Array:
+	var s: Settlement = _gs.get_settlement(city_id)
+	if s == null:
+		return []
+	var owner: Player = _gs.get_player(s.owner_player_id)
+	var owner_name: String = owner.name if owner != null else "Wild"
+	var lines: Array = []
+	lines.append(owner_name + "'s city: " + s.name)
+	var maxh: int = TurnEngine.city_max_health(s, _db)
+	var hp: int = s.health if s.health >= 0 and s.health <= maxh else maxh
+	lines.append("Defence: +" + str(Combat.settlement_defence(s, _db)) + "%   HP: " \
+		+ str(hp) + "/" + str(maxh))
+	var defences: Array = []
+	for struct_id in s.structures:
+		var st: Dictionary = _db.get_structure(struct_id)
+		if int(st.get("defence_bonus", 0)) > 0 or int(st.get("cultural_defence_bonus", 0)) > 0:
+			defences.append(str(st.get("name", str(struct_id).capitalize())))
+	if not defences.empty():
+		lines.append("Defences: " + PoolStringArray(defences).join(", "))
+	var garrison: Dictionary = {}   # unit display name → count
+	for u in _gs.units:
+		if u.x == s.x and u.y == s.y and u.owner_player_id != _gs.current_player_id \
+				and not _is_espionage_unit(u):
+			var uname: String = str(_db.get_unit(u.unit_type_id).get("name", u.unit_type_id.capitalize()))
+			garrison[uname] = int(garrison.get(uname, 0)) + 1
+	if garrison.empty():
+		lines.append("Garrison: none")
+	else:
+		var parts: Array = []
+		for uname in garrison:
+			parts.append(str(garrison[uname]) + "x " + uname)
+		lines.append("Garrison: " + PoolStringArray(parts).join(", "))
+	if owner != null and passive_intel_active("investigate_city", owner.alliance_id, s.id):
+		lines.append("Population: " + str(s.population))
+		if not s.production_queue.empty():
+			var item: Dictionary = s.production_queue[0]
+			lines.append("Producing: " + str(item.get("id", "")).capitalize())
+		if not s.structures.empty():
+			var names: Array = []
+			for struct_id in s.structures:
+				names.append(str(_db.get_structure(struct_id).get("name", str(struct_id).capitalize())))
+			lines.append("Structures: " + PoolStringArray(names).join(", "))
+	return lines
+
+# Empire-wide demographics for a player (§25.6 see_demographics): the summary
+# the demographics reveal shows on the espionage advisor. Computed live from
+# game state; also valid for the viewer's own empire.
+func player_demographics(player_id: int) -> Dictionary:
+	var pop: int = 0
+	var cities: int = 0
+	var production: int = 0
+	var gnp: int = 0
+	for s in _gs.settlements:
+		if s.owner_player_id != player_id:
+			continue
+		cities += 1
+		pop += s.population
+		production += s.output_production
+		gnp += s.output_commerce
+	var soldiers: int = 0
+	var power: int = 0
+	for u in _gs.units:
+		if u.owner_player_id != player_id:
+			continue
+		soldiers += 1
+		power += int(_db.get_unit(u.unit_type_id).get("base_strength", 0))
+	var land: int = 0
+	for y in range(_gs.map.height):
+		for x in range(_gs.map.width):
+			if _gs.map.get_tile(x, y).owner_player_id == player_id:
+				land += 1
+	return {"population": pop, "cities": cities, "production": production,
+		"gnp": gnp, "soldiers": soldiers, "power": power, "land": land}
+
+# The rival's current research target and progress (§25.6 see_research).
+func player_research_info(player_id: int) -> Dictionary:
+	var p: Player = _gs.get_player(player_id)
+	if p == null or p.current_research_id == "":
+		return {}
+	return {"tech": p.current_research_id,
+		"progress": p.research_store,
+		"cost": int(_db.get_technology(p.current_research_id).get("cost", 0))}
+
+# Tiles kept in live sight by city_visibility intel (§25.6): every rival city
+# the current player holds that intel over lights its surroundings within
+# intel_city_visibility_radius. Merged into player_visible_tiles below.
+func _intel_visible_tiles(player_id: int) -> Dictionary:
+	var viewer: Player = _gs.get_player(player_id)
+	if viewer == null:
+		return {}
+	var out: Dictionary = {}
+	var radius: int = _db.get_constant("intel_city_visibility_radius", 2)
+	for s in _gs.settlements:
+		var owner: Player = _gs.get_player(s.owner_player_id)
+		if owner == null or owner.alliance_id == viewer.alliance_id:
+			continue
+		var target: Alliance = _gs.get_alliance(owner.alliance_id)
+		if not _passive_intel_active(viewer, target, "city_visibility", s):
+			continue
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if _gs.map.is_valid(s.x + dx, s.y + dy):
+					out[str(s.x + dx) + "," + str(s.y + dy)] = true
+	return out
 
 # ── Transport / embarkation (§5.2) ────────────────────────────────────────────
 
@@ -3040,7 +3295,13 @@ func player_visible_tiles(player_id: int) -> Dictionary:
 	# Single source of truth: the pure sight set computed in the sim layer (unit ∪
 	# city ∪ owned territory ∪ ring fringe), shared with the turn pipeline's fog
 	# memory commit so the rendered fog and the committed memory agree exactly.
-	return TurnEngine.player_visible_set(_gs, player_id)
+	# city_visibility passive intel (§25.6) joins here — a live, presentation-side
+	# reveal that is derived from current EP, so it never enters the committed
+	# memory or the sim's own sight model.
+	var seen: Dictionary = TurnEngine.player_visible_set(_gs, player_id)
+	for key in _intel_visible_tiles(player_id):
+		seen[key] = true
+	return seen
 
 # Persistent fog memory (§fog): the "x,y" → last-seen-snapshot map a player has
 # accumulated, read by the scene fog layer / world view so revealed fog and
@@ -3274,13 +3535,26 @@ func tile_info_text(tx: int, ty: int) -> String:
 		+ "   Defence: +" + str(int(ter.get("defence_bonus", 0))) + "%")
 
 	# Foreign cities and units on this tile (read-only; player may not own them).
+	# A rival city shows only its defensive posture (§25.6 information fog) via
+	# city_intel_lines; an alliance-mate's city stays fully readable.
+	var rival_city_here: bool = false
 	for s in _gs.settlements:
 		if s.x == tx and s.y == ty and s.owner_player_id != _gs.current_player_id:
 			var owner: Player = _gs.get_player(s.owner_player_id)
-			var owner_name: String = owner.name if owner != null else "?"
-			lines.append(owner_name + "'s city: " + s.name + "  (pop " + str(s.population) + ")")
+			if owner != null and viewer != null and owner.alliance_id == viewer.alliance_id:
+				lines.append(owner.name + "'s city: " + s.name + "  (pop " + str(s.population) + ")")
+				continue
+			rival_city_here = true
+			for intel_line in city_intel_lines(s.id):
+				lines.append(intel_line)
 	for u in _gs.units:
 		if u.x == tx and u.y == ty and u.owner_player_id != _gs.current_player_id:
+			# The garrison line of the rival-city intel block already covers these.
+			if rival_city_here:
+				continue
+			# Foreign spies are invisible to everyone but their owner (§7.1).
+			if _is_espionage_unit(u):
+				continue
 			var udata: Dictionary = _db.get_unit(u.unit_type_id)
 			var uname: String = udata.get("name", u.unit_type_id.capitalize())
 			var unit_label: String

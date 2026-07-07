@@ -217,8 +217,14 @@ func test_espionage_mission_options_lists_catalogue() -> void:
 	gs.get_player(2).technologies = ["mining"]
 	gs.get_player(1).intel_points = {2: 100000}
 	var opts = f.espionage_mission_options(2)
-	assert_eq(opts.size(), gs.db.get_espionage_missions().size(),
-		"Options cover every catalogue mission")
+	# Passive intel records (§25.6) are threshold abilities, not runnable
+	# operations, so only the active catalogue is offered.
+	var active_count: int = 0
+	for m in gs.db.get_espionage_missions():
+		if str(m.get("kind", "active")) != "passive":
+			active_count += 1
+	assert_eq(opts.size(), active_count,
+		"Options cover every ACTIVE catalogue mission")
 	var steal = null
 	for o in opts:
 		if o["id"] == "steal_tech":
@@ -428,6 +434,9 @@ func test_spy_mission_runs_and_spends_movement() -> void:
 	make_settlement(gs, 2, 8, 8, 5)
 	gs.get_player(2).treasury = 500
 	gs.get_player(1).intel_points = {2: 100000}
+	# Pin interception to 0 so the spy survives — an intercepted spy is captured
+	# and destroyed (its own test below).
+	gs.db.constants["intel_interception_chance"] = 0
 	var spy = make_unit(gs, "spy", 1, 8, 8)
 	assert_eq(spy.movement_left, spy.movement_total, "A fresh spy has full movement")
 	assert_true(f._cmd_spy_mission({"player_id": 1, "unit_id": spy.id, "mission": "steal_gold"}),
@@ -490,3 +499,207 @@ func test_spy_mission_options_only_valid_and_usable() -> void:
 	gs.get_player(1).intel_points = {2: 0}
 	assert_true(f.spy_mission_options(spy.id).empty(),
 		"With no EP, no usable spy actions are shown")
+
+# ── Spy capture: an intercepted tile mission destroys the spy (§7.1) ───────────
+
+func test_spy_captured_on_interception() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).treasury = 500
+	gs.get_player(1).intel_points = {2: 100000}
+	gs.db.constants["intel_interception_chance"] = 100
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	assert_true(f._cmd_spy_mission({"player_id": 1, "unit_id": spy.id, "mission": "steal_gold"}),
+		"An intercepted mission still counts as attempted (EP spent)")
+	assert_null(gs.get_unit(spy.id), "The captured spy is destroyed")
+	assert_true(int(gs.get_player(1).intel_points[2]) < 100000,
+		"Interception still spends the mission's EP")
+	assert_eq(gs.get_player(2).treasury, 500, "The intercepted effect never applies")
+
+func test_spy_survives_successful_mission() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).treasury = 500
+	gs.get_player(1).intel_points = {2: 100000}
+	gs.db.constants["intel_interception_chance"] = 0
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	assert_true(f._cmd_spy_mission({"player_id": 1, "unit_id": spy.id, "mission": "steal_gold"}))
+	assert_not_null(gs.get_unit(spy.id), "An unintercepted spy survives its mission")
+
+# ── Passive intel (§25.6): threshold-based information missions ────────────────
+
+func test_passive_mission_never_runs() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.get_player(1).intel_points = {2: 100000}
+	assert_false(f._cmd_espionage_mission({"player_id": 1, "target_alliance_id": 2,
+		"mission": "see_demographics"}), "A passive record is not a runnable mission")
+	assert_eq(int(gs.get_player(1).intel_points[2]), 100000, "No EP is ever spent on it")
+
+func test_passive_missions_excluded_from_option_lists() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 2, 8, 8, 5)
+	gs.get_player(2).technologies = ["mining"]
+	gs.get_player(1).intel_points = {2: 100000}
+	var spy = make_unit(gs, "spy", 1, 8, 8)
+	for o in f.espionage_mission_options(2) + f.spy_mission_options(spy.id):
+		var m = gs.db.get_espionage_mission(str(o["id"]))
+		assert_true(str(m.get("kind", "active")) != "passive",
+			"No passive record appears in either options feed: " + str(o["id"]))
+
+func test_passive_intel_activates_at_threshold() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var threshold: int = f.passive_intel_threshold("see_demographics", 2)
+	assert_true(threshold > 0, "A passive record has a positive threshold")
+	gs.get_player(1).intel_points = {2: threshold - 1}
+	assert_false(f.passive_intel_active("see_demographics", 2),
+		"Below the threshold the intel stays hidden")
+	gs.get_player(1).intel_points = {2: threshold}
+	assert_true(f.passive_intel_active("see_demographics", 2),
+		"Meeting the threshold reveals the intel")
+	gs.get_player(1).intel_points = {2: threshold - 1}
+	assert_false(f.passive_intel_active("see_demographics", 2),
+		"Dropping back below re-hides it (visibility is a pure function of EP)")
+
+func test_passive_threshold_scales_with_distance() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 1, 2, 2, 3)                 # viewer capital
+	var near = make_settlement(gs, 2, 3, 3, 3)      # Chebyshev 1
+	var far = make_settlement(gs, 2, 16, 16, 3)     # Chebyshev 14
+	var t_near: int = f.passive_intel_threshold("investigate_city", 2, near.id)
+	var t_far: int = f.passive_intel_threshold("investigate_city", 2, far.id)
+	assert_true(t_far > t_near, "A distant city needs more EP to keep eyes on")
+
+func test_passive_threshold_scales_with_defender_ep() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	gs.get_player(1).intel_points = {2: 10}
+	var base_t: int = f.passive_intel_threshold("see_demographics", 2)
+	gs.get_player(2).intel_points = {1: 100000}
+	assert_true(f.passive_intel_threshold("see_demographics", 2) > base_t,
+		"A rival's counter-EP raises the threshold (same curve as active costs)")
+
+func test_city_visibility_lights_intel_tiles() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_settlement(gs, 1, 2, 2, 3)                 # viewer capital, far away
+	var rival = make_settlement(gs, 2, 16, 16, 3)
+	gs.get_player(1).intel_points = {2: 0}
+	assert_false(f.player_visible_tiles(1).has("16,16"),
+		"Without intel the distant rival city is out of sight")
+	gs.get_player(1).intel_points = {2: 1000000}
+	var seen: Dictionary = f.player_visible_tiles(1)
+	assert_true(seen.has("16,16"), "city_visibility intel lights the city tile")
+	assert_true(seen.has("14,14"), "…and its surroundings within the radius")
+	assert_eq(rival.owner_player_id, 2, "(pure read — nothing mutated)")
+
+func test_detect_missions_attributes_the_attacker() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.get_player(1).intel_points = {2: 100000}
+	gs.get_player(2).treasury = 500
+	gs.db.constants["intel_interception_chance"] = 0
+	# Without detect intel the strike is anonymous.
+	f._cmd_espionage_mission({"player_id": 1, "target_alliance_id": 2, "mission": "steal_gold"})
+	for n in f.get_notification_queue():
+		assert_false(str(n["text"]).find("P1 ran the") >= 0,
+			"Undetected: the victim never learns who struck")
+	# The victim banking detect-threshold EP against the attacker names them.
+	gs.get_player(2).intel_points = {1: 1000000}
+	f._cmd_espionage_mission({"player_id": 1, "target_alliance_id": 2, "mission": "steal_gold"})
+	var attributed: bool = false
+	for n in f.get_notification_queue():
+		if str(n["text"]).find("P1 ran the") >= 0:
+			attributed = true
+	assert_true(attributed, "Detected: the mission is attributed to its perpetrator")
+
+func test_demographics_and_research_reads() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 2, 8, 8, 4)
+	gs.map.get_tile(8, 8).owner_player_id = 2
+	make_warrior(gs, 2, 8, 8)
+	gs.get_player(2).current_research_id = "mining"
+	gs.get_player(2).research_store = 7
+	var d: Dictionary = f.player_demographics(2)
+	assert_eq(int(d["cities"]), 1, "Demographics counts the rival's cities")
+	assert_eq(int(d["population"]), 4, "…and its population")
+	assert_eq(int(d["soldiers"]), 1, "…and its units")
+	assert_eq(int(d["land"]), 1, "…and its owned tiles")
+	var r: Dictionary = f.player_research_info(2)
+	assert_eq(str(r["tech"]), "mining", "Research info names the current target")
+	assert_eq(int(r["progress"]), 7, "…with its accumulated progress")
+
+# ── Information fog: the foreign-city readout is restricted (§25.6) ─────────────
+
+func test_foreign_city_readout_restricted_to_defense() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 2, 8, 8, 5)
+	s.structures = ["walls"]
+	make_warrior(gs, 2, 8, 8)
+	var txt: String = f.tile_info_text(8, 8)
+	assert_true(txt.find("Defence: +") >= 0, "Defence percent is shown")
+	assert_true(txt.find("HP: ") >= 0, "Siege HP is shown")
+	assert_true(txt.find("Walls") >= 0, "Defensive structures are shown")
+	assert_true(txt.find("Garrison: ") >= 0, "The garrison is summarised")
+	assert_false(txt.find("pop") >= 0 or txt.find("Population") >= 0,
+		"Population stays hidden without investigate intel")
+
+func test_investigate_city_unlocks_full_readout() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 2, 8, 8, 5)
+	s.structures = ["walls", "granary"]
+	gs.get_player(1).intel_points = {2: 1000000}
+	var txt: String = f.tile_info_text(8, 8)
+	assert_true(txt.find("Population: 5") >= 0,
+		"Investigate intel reveals the city's population")
+	assert_true(txt.find("Granary") >= 0, "…and its full structure list")
+
+func test_foreign_spy_hidden_from_tile_readout() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	make_unit(gs, "spy", 2, 7, 7)
+	make_warrior(gs, 2, 7, 7)
+	var txt: String = f.tile_info_text(7, 7)
+	assert_true(txt.find("Warrior") >= 0, "A foreign combatant is listed")
+	assert_false(txt.find("Spy") >= 0, "A foreign spy is invisible in the readout")
+
+# ── Spy invisibility in movement: hidden spies never block or leak (§7.1) ──────
+
+func test_enemy_spy_does_not_block_pathing() -> void:
+	var gs = make_gs(2)
+	var w = make_warrior(gs, 1, 2, 2)
+	var enemy_spy = make_unit(gs, "spy", 2, 3, 2)
+	assert_false(Pathfinding._has_enemy(3, 2, gs.units, 1, gs.db),
+		"A hidden enemy spy does not mark its tile as enemy-held")
+	var enemy_warrior = make_warrior(gs, 2, 3, 2)
+	assert_true(Pathfinding._has_enemy(3, 2, gs.units, 1, gs.db),
+		"A visible enemy combatant still does")
+	assert_eq([w.x, enemy_spy.x], [2, 3], "(pure read — nothing moved)")
+
+func test_moving_onto_hidden_spy_tile_coexists() -> void:
+	var gs = make_gs(2)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	var enemy_spy = make_unit(gs, "spy", 2, 8, 8)
+	var w = make_warrior(gs, 1, 7, 8)
+	assert_true(f._cmd_move_stack(Commands.move_stack(1, 7, 8, 8, 8, [w.id])),
+		"Moving onto a tile occupied only by a hidden enemy spy is a plain move")
+	assert_eq([w.x, w.y], [8, 8], "The mover arrives")
+	assert_not_null(gs.get_unit(enemy_spy.id), "The hidden spy is untouched (no combat)")
+	assert_eq([enemy_spy.x, enemy_spy.y], [8, 8], "Both units share the tile")

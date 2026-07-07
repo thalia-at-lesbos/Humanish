@@ -208,54 +208,42 @@ catalogued here with implementation plans; close each entry as it lands.
 Measured against `humanish-full-docs/generic/` (the reference data set), the
 shortfalls are catalogue depth, not missing machinery.
 
-### 5.1 Espionage missions — active operations complete; passive intel deferred (`game-data.md` §25)
+### 5.1 Espionage missions — CLOSED (18/18 mission types; `game-data.md` §25)
 
 The mission framework (cost curve, interception, per-effect target gates, the
-espionage screen) and the **thirteen active, state-changing missions** are complete:
-`steal_tech`, `sabotage`, `destroy_building`, `destroy_project`,
-`destroy_improvement`, `steal_gold`, `poison_water`, `insert_culture`,
-`incite_unhappiness`, `incite_revolt`, `switch_civic`, `switch_religion`, and
-`counterespionage` — each with a `case` in `SimFacade._espionage_apply`, a target
-gate in `_mission_target_valid`, and a case in `tests/sim/test_intelligence.gd`.
+espionage screen), the **thirteen active missions** (each with a `case` in
+`SimFacade._espionage_apply`, a gate in `_mission_target_valid`, and tests in
+`tests/sim/test_intelligence.gd`), and **spy-unit-on-tile execution** (`game-data.md`
+§25.5) are complete, as before.
 
-**Spy-unit-on-tile missions are now built** (`game-data.md` §25.5). A spy (the
-`espionage`-tagged unit) infiltrates city tiles — `Pathfinding.find_path` waives
-borders for it and `_cmd_move_stack`/`can_stack_move` relocate an all-spy stack onto a
-city tile peacefully (no combat, even into a garrisoned/at-war city); spies cannot be
-attacked (`Stack.get_defender` skips them). From a foreign city tile, at full movement,
-a spy runs any of the thirteen missions against **that specific city** via
-`Commands.spy_mission` → `_cmd_spy_mission`, sharing the validate→pay→intercept→apply
-pipeline with the screen path; `spy_mission_options(unit_id)` feeds the HUD only the
-valid+usable rows. The per-effect handlers/gates take an optional target city for this.
+**The five passive, information-gathering missions are now built** (`game-data.md`
+§25.6) — but as **standing EP thresholds, not runnable operations**, which dissolved
+the "required subsystem" this entry used to block on. Instead of a serialized
+per-player knowledge store with expiry rules, each passive record (`kind: "passive"`
+in `data/espionage_missions.json`) reveals its intel *while* the viewer's banked EP
+against the target alliance meets a threshold (base × the §25.2 EP-advantage curve ×
+a capital-to-target distance surcharge). What a player knows is a pure function of
+current EP: nothing new is serialized, save/load and `state_hash` are untouched, and
+dropping below the threshold re-hides the intel. `see_demographics` /
+`see_research` / `detect_missions` (attribution of incoming missions) are
+alliance-scope; `investigate_city` / `city_visibility` are per-city. The espionage
+advisor lists every rival civ/leader and each of their cities, with locked rows shown
+as "have/need EP" progress.
 
-**Deferred: the five passive, information-gathering missions.** These do not mutate
-shared game state — they lift *information fog* by revealing a rival's hidden data to
-the spying player only. The engine has **no per-player information-fog subsystem**:
-`SimFacade.get_state()` already exposes the full `GameState` to every client (the UI,
-`PlayerAI`, the netcode), so there is nothing for these missions to *un*-hide, and
-modelling them would mean either no-op missions or a new subsystem. The five:
+The **information fog** the passive missions lift is likewise built: a rival city's
+readout is restricted to its defensive posture (defence %, siege HP, garrison,
+defensive structures — `SimFacade.city_intel_lines`) until `investigate_city` is met;
+foreign spies are invisible (not rendered, absent from the tile readout, ignored by
+`Pathfinding._has_enemy`, cannot be attacked, and an intercepted tile mission now
+destroys the spy); `city_visibility` merges live sight into `player_visible_tiles`.
+`PlayerAI` plays spies (§B7 `_manage_spy`: build to `ai_spy_count`, infiltrate the
+nearest rival city, run the highest-priority affordable mission).
 
-- **See demographics** — reveal a rival's empire-wide statistics (score, GNP,
-  production, soldiers, land area) so they show on the demographics/score screens.
-- **City visibility** — grant ongoing line-of-sight onto a target city's tile and its
-  surroundings even outside the spy's own sight range.
-- **Investigate city** — a one-shot detailed dump of a single city's contents
-  (buildings, garrison, production, religion) at the moment of the mission.
-- **See research** — reveal what technology a rival is currently researching and its
-  progress.
-- **Detect active missions** ("no active missions") — reveal which espionage missions
-  rivals currently have running against the spy, and/or suppress new ones.
-
-**Required subsystem (prerequisite for promoting these):** a *per-player knowledge /
-information-fog layer* distinct from map fog-of-war. Concretely it needs (a) a
-serialized per-player store of "what this player has learned about rivals" (revealed
-demographics snapshots, last-investigated-city records, known research targets, an
-intel-visibility tile set), (b) a `SimFacade` read API that filters `get_state()`
-through that store so a client sees only what its player legitimately knows, and (c)
-expiry/refresh rules for time-limited reveals (e.g. city visibility lasting N turns).
-Until that exists, these five stay out of `data/espionage_missions.json`. The
-reference catalogue is therefore **18 mission types: 13 active (built) + 5 passive
-(blocked on the knowledge layer)**.
+Not modelled (acceptable rest-gap): the full `get_state()` is still exposed to every
+facade client, so the fog is honoured by the UI read paths rather than enforced by a
+filtered state snapshot — a determined netcode client could still read hidden fields.
+Promoting the fog into a filtered per-player state view remains possible later
+without data changes.
 
 ### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
 

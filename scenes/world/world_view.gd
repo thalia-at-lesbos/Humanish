@@ -282,6 +282,10 @@ func _draw() -> void:
 		var key: String = str(u.x) + "," + str(u.y)
 		if not visible_tiles.empty() and not visible_tiles.has(key):
 			continue
+		# Foreign spies are invisible (§7.1): only their owner sees espionage
+		# units, so they are neither drawn nor counted into stack badges.
+		if _is_hidden_spy(u, gs):
+			continue
 		counts[key] = int(counts.get(key, 0)) + 1
 		if u.id == head_uid:
 			selected_unit = u
@@ -299,6 +303,13 @@ func _draw() -> void:
 		if int(counts.get(key2, 0)) > 1 and not badged.has(key2):
 			badged[key2] = true
 			_draw_stack_badge(u.x, u.y, int(counts[key2]))
+
+# A foreign espionage unit is hidden from the viewing player (§7.1). Data-driven
+# via the "espionage" tag so any future spy-class unit is covered.
+func _is_hidden_spy(u, gs) -> bool:
+	if u.owner_player_id == gs.current_player_id:
+		return false
+	return _facade._db.get_unit(u.unit_type_id).get("tags", []).has("espionage")
 
 func _draw_settlement_dot(tx: int, ty: int, col: Color) -> void:
 	var screen_pos: Vector2 = _tile_to_screen(tx, ty)

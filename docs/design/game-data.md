@@ -60,7 +60,7 @@ sections:
   "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
   "§24  Goody huts":             "goodies.json: weighted discovery-site reward table and map placement (incomplete — 7 of 12 reference rewards)"
-  "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue, run from the alliance screen and by spy units on city tiles (13 active missions complete; 5 passive intelligence missions deferred)"
+  "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue — 13 active missions run from the alliance screen and by spy units on city tiles; 5 passive intelligence missions as standing EP thresholds (§25.6) with the information-fog rules they lift"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (incomplete — 6 of 9 reference steps)"
@@ -2160,13 +2160,15 @@ the reference `normalizeAddExtras` step, §28, which can scatter extra huts near
 
 ## 25. Espionage missions
 
-> **Status: active operations complete (alliance-scope screen *and* spy-unit-on-tile);
-> passive intelligence deferred** — the thirteen active, state-changing missions run
-> from two paths: the alliance-scope espionage screen and a spy unit standing on a
-> foreign city tile (§25.5). The five passive, information-gathering missions (revealing
-> demographics, city/research visibility, investigating a city, detecting active
-> missions) are deferred pending an information-fog subsystem — see
-> `docs/planning/designgaps.md`.
+> **Status: complete (18 mission types)** — the thirteen active, state-changing
+> missions run from two paths: the alliance-scope espionage screen and a spy unit
+> standing on a foreign city tile (§25.5). The five passive, information-gathering
+> missions are **standing EP thresholds** (§25.6): they never run and spend
+> nothing — their intel stays revealed while the attacker's banked EP against the
+> target meets a distance-scaled threshold. What they reveal is defined by the
+> **information-fog rules** (§25.6): a rival city shows only its defensive
+> posture, foreign spies are invisible, and rival demographics/research are
+> hidden until the matching passive threshold is met.
 
 ### 25.1 How a mission runs
 
@@ -2267,6 +2269,11 @@ in `data/units.json` (the Spy). Three rules govern a spy's behaviour, all enforc
 - **Spies cannot be attacked.** `Stack.get_defender` skips espionage units, so a tile
   holding only spies has no defender and is not a hostile/attackable target. A spy stacked
   under a real defender is never chosen as the victim; the military unit takes the blow.
+- **Spies are invisible to everyone but their owner.** The world view draws (and
+  stack-badges) a foreign espionage unit for no one, the tile readout omits it, and
+  `Pathfinding._has_enemy` ignores it — a hidden spy neither blocks a rival's path
+  nor leaks its position by making its tile read as occupied. A unit moving onto a
+  tile held only by a hidden enemy spy simply shares it (no combat is possible).
 - **A spy acts only from a foreign city tile, and only at full movement.** The action gate
   (`_spy_target_city`) requires the unit to be an espionage unit with its **whole movement
   allowance unspent**, standing on a settlement owned by a *different alliance*. The
@@ -2282,6 +2289,63 @@ the screen path. The HUD lists a spy's available missions via
 `SimFacade.spy_mission_options(unit_id)`, which returns **only valid (gate holds) and
 usable (affordable)** rows — empty whenever the spy cannot act, which is the signal for the
 selection panel to show no espionage buttons.
+
+**An intercepted tile mission captures the spy.** `_run_espionage_mission` reports its
+outcome (`MissionRun.REJECTED` / `EXECUTED` / `INTERCEPTED`); on interception the
+spy-on-tile path destroys the spy unit (the EP is already spent, and the command still
+counts as an attempted mission) with a "spy captured" notification to the owner. The
+alliance-scope screen path involves no unit, so interception there only wastes the EP,
+as before. The computer player runs spies through `PlayerAI._manage_spy` (§B7,
+`ai-design.md`): it builds up to `ai_spy_count` spies once a rival is met, marches them
+to the nearest rival city, and on station runs the highest-priority affordable mission
+(steal_tech → steal_gold → sabotage → destroy_building → poison_water →
+incite_unhappiness), deterministically.
+
+### 25.6 Passive intelligence and information fog
+
+The five passive records complete the 18-type reference catalogue. They are **not
+runnable** (`_run_espionage_mission`, `espionage_mission_options`, and
+`spy_mission_options` all exclude `kind: "passive"`) and spend no EP. Instead each is a
+**standing threshold**: its intel is revealed *while*
+
+```
+EP(attacker → target alliance)  ≥  intel_mission_cost × threshold_multiplier/100
+                                   × (1 + capped EP-advantage/100)     ← §25.2 curve
+                                   × (1 + intel_passive_distance_percent/100 × d/D)
+```
+
+where `d` is the Chebyshev distance from the viewer's capital to the target city
+(city-scope) or the target's nearest city (alliance-scope), and `D` is half the sum of
+the map's dimensions. Knowledge is therefore a **pure function of current EP** — nothing
+new is serialized, save/load is untouched, and dropping below a threshold re-hides the
+intel. The arithmetic lives in `SimFacade._passive_intel_threshold` /
+`_passive_intel_active`, with current-player wrappers `passive_intel_threshold` /
+`passive_intel_active` feeding the espionage advisor (which shows locked rows as
+"have/need EP" progress).
+
+| id | scope | `threshold_multiplier` | What it reveals while held |
+|----|-------|:-:|---|
+| `see_demographics` | alliance | 50 | Each member's empire statistics (population, cities, land tiles, production, GNP, unit count/power — `SimFacade.player_demographics`) on the espionage advisor. |
+| `investigate_city` | city | 80 | The full civilian readout of that city — population, current production, complete structure list — in the tile readout and the advisor (`city_intel_lines`). |
+| `see_research` | alliance | 120 | Each member's current research target and progress (`SimFacade.player_research_info`). |
+| `city_visibility` | city | 160 | Live sight over the city and its surroundings within `intel_city_visibility_radius` (2), merged into `player_visible_tiles` so the fog lifts; derived live, never committed to fog memory. |
+| `detect_missions` | alliance | 200 | Attribution: an espionage mission the target runs against you (executed *or* intercepted) is reported with the perpetrator's name instead of anonymously (`_intel_detects`). |
+
+**The information fog these lift** (the baseline a player sees without intel):
+
+- **A rival city shows only its defensive posture** — defence bonus percent
+  (`Combat.settlement_defence`), siege HP out of `TurnEngine.city_max_health`, its
+  defensive structures (positive `defence_bonus`/`cultural_defence_bonus`), and a
+  garrison summary. Population, production, religion, and the full building list are
+  hidden until `investigate_city` is met. Alliance-mates stay fully readable.
+- **Foreign spies are invisible** everywhere (§25.5).
+- Rival demographics and research appear nowhere in the UI until the matching
+  passive threshold is met.
+
+Constants: `intel_passive_distance_percent` (100) and `intel_city_visibility_radius`
+(2) in `constants.json`, beside the §25.2 five. Validation: a passive record must carry
+a positive `threshold_multiplier`, a `scope` of `alliance`/`city`, and a known passive
+effect verb (`DataDB._validate_espionage_mission_refs`).
 
 ---
 

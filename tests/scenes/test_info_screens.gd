@@ -210,3 +210,39 @@ func test_options_screen_score_toggle_routes_through_facade() -> void:
 	screen._on_toggle_score()
 	assert_signal_emitted(facade, "screen_requested",
 		"Options score toggle should emit screen_requested (TOGGLE_SCORE)")
+
+# ── Espionage advisor: rival blocks and passive intel rows (§25.6) ─────────────
+
+func test_espionage_screen_lists_rival_cities_and_passive_rows() -> void:
+	var facade = _make_espionage_facade(204)
+	var gs = facade.get_state()
+	# Give the rival a known city so a city block renders.
+	var rival_id: int = gs.players[1].id
+	var s = load("res://src/sim/settlement.gd").new()
+	s.id = gs.next_settlement_id()
+	s.owner_player_id = rival_id
+	s.x = 3; s.y = 3
+	s.population = 4
+	s.name = "Rivalton"
+	gs.settlements.append(s)
+	var screen = load("res://scenes/screens/espionage_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	screen.show_screen()
+	assert_not_null(_find_by_text(screen, "See Demographics"),
+		"Alliance-scope passive rows are listed (locked as have/need EP)")
+	assert_not_null(_find_by_text(screen, "Rivalton"),
+		"Every rival city appears in the advisor")
+	assert_not_null(_find_by_text(screen, "Investigate City"),
+		"City-scope passive rows are listed per city")
+
+func test_espionage_screen_reveals_demographics_over_threshold() -> void:
+	var facade = _make_espionage_facade(205)
+	var gs = facade.get_state()
+	gs.get_player(gs.players[0].id).intel_points = {gs.alliances[1].id: 1000000}
+	var screen = load("res://scenes/screens/espionage_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	screen.show_screen()
+	assert_not_null(_find_by_text(screen, "pop "),
+		"Over the threshold the rival's demographics line renders")

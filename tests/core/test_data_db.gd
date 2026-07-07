@@ -306,8 +306,19 @@ func test_espionage_missions_table_is_well_formed() -> void:
 		"destroy_improvement", "steal_gold", "poison_water", "insert_culture",
 		"incite_unhappiness", "incite_revolt", "switch_civic", "switch_religion",
 		"counterespionage"]
+	var known_passive := ["see_demographics", "investigate_city", "see_research",
+		"city_visibility", "detect_missions"]
 	for m in missions:
 		assert_true(str(m.get("id", "")) != "", "every espionage mission needs an id")
+		if str(m.get("kind", "active")) == "passive":
+			# Passive records (§25.6) are reveal thresholds, not runnable missions.
+			assert_true(int(m.get("threshold_multiplier", 0)) > 0,
+				"passive mission '%s' needs a positive threshold_multiplier" % m.get("id", ""))
+			assert_true(str(m.get("scope", "")) in ["alliance", "city"],
+				"passive mission '%s' needs scope alliance/city" % m.get("id", ""))
+			assert_true(str(m.get("effect", "")) in known_passive,
+				"mission '%s' effect '%s' must be a known passive verb" % [m.get("id", ""), m.get("effect", "")])
+			continue
 		assert_true(int(m.get("cost_multiplier", 0)) > 0,
 			"mission '%s' needs a positive cost_multiplier" % m.get("id", ""))
 		assert_true(str(m.get("effect", "")) in known,
