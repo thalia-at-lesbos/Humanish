@@ -314,15 +314,187 @@ func test_normalize_equalises_strategic_resources() -> void:
 func test_normalize_is_seed_deterministic() -> void:
 	var a = _gen_full("continents", 5599)
 	var b = _gen_full("continents", 5599)
+	assert_eq(a.starts, b.starts, "the same seed must keep the same (repositioned) starts")
 	var at = a.map.all_tiles()
 	var bt = b.map.all_tiles()
 	var same = true
 	for i in range(at.size()):
 		if at[i].terrain_id != bt[i].terrain_id or at[i].resource_id != bt[i].resource_id \
-				or at[i].river_n != bt[i].river_n or at[i].river_w != bt[i].river_w:
+				or at[i].river_n != bt[i].river_n or at[i].river_w != bt[i].river_w \
+				or at[i].has_discovery != bt[i].has_discovery:
 			same = false
 			break
 	assert_true(same, "normalize + goody placement must be reproducible for a seed")
+
+# ── Step 1: reposition weak starts (normalizeStartingPlotLocations) ──────────────
+
+# A blank all-`terrain` map for targeted normalize-step tests.
+func _flat_map(w, h, terrain):
+	var map = load("res://src/world/world_map.gd").new()
+	map.init(w, h, false, false)
+	for t in map.all_tiles():
+		t.terrain_id = terrain
+	return map
+
+func _fresh_rng(seed_val):
+	var rng = load("res://src/core/rng.gd").new()
+	rng.init(seed_val)
+	return rng
+
+func test_reposition_moves_weak_start_to_better_plot() -> void:
+	var db = make_db()
+	# A desert map with one lush grassland patch: the start seeded into the
+	# desert must shift toward the patch.
+	var map = _flat_map(20, 20, "desert")
+	for y in range(8, 13):
+		for x in range(10, 15):
+			map.get_tile(x, y).terrain_id = "grassland"
+	var starts = [[8, 10]]
+	var before = MapGen._start_plot_score(map, db, 8, 10)
+	var min_gain = db.get_constant("start_normalize_reposition_min_gain", 4)
+	var radius = db.get_constant("start_normalize_reposition_radius", 3)
+	MapGen._normalize_reposition_starts(map, db, starts, radius, min_gain, {})
+	assert_ne(starts[0], [8, 10], "a weak start next to better land must be shifted")
+	var after = MapGen._start_plot_score(map, db, int(starts[0][0]), int(starts[0][1]))
+	assert_true(after >= before + min_gain,
+		"the shifted plot must beat the old one by >= min_gain (%d -> %d)" % [before, after])
+
+func test_reposition_keeps_min_start_spacing() -> void:
+	var g = _gen("continents", 6161)
+	var starts = MapGen.find_start_positions(g.map, g.db, 4, "continents")
+	var floor_d = 1 << 30
+	for i in range(starts.size()):
+		for j in range(i + 1, starts.size()):
+			var d = g.map.distance(int(starts[i][0]), int(starts[i][1]),
+				int(starts[j][0]), int(starts[j][1]))
+			floor_d = d if d < floor_d else floor_d
+	var rng = _fresh_rng(6161)
+	MapGen.normalize_starts(g.map, g.db, rng, starts, "continents")
+	for i in range(starts.size()):
+		for j in range(i + 1, starts.size()):
+			var d2 = g.map.distance(int(starts[i][0]), int(starts[i][1]),
+				int(starts[j][0]), int(starts[j][1]))
+			assert_true(d2 >= floor_d,
+				"repositioning must never pack starts closer than the original layout (%d < %d)" % [d2, floor_d])
+
+func test_reposition_respects_terra_start_bounds() -> void:
+	var g = _gen_full("terra", 4242)
+	var x_max = g.map.width * 42 / 100
+	for s in g.starts:
+		assert_true(int(s[0]) <= x_max,
+			"repositioned Terra starts must stay in the Old World (x=%d, max=%d)" % [int(s[0]), x_max])
+		var ter = g.db.get_terrain(g.map.get_tile(int(s[0]), int(s[1])).terrain_id)
+		assert_eq(ter.get("domain", "land"), "land", "a repositioned start must stay on land")
+		assert_false(ter.get("impassable", false), "a repositioned start must stay passable")
+
+func test_reposition_is_seed_reproducible() -> void:
+	var runs = []
+	for _i in range(2):
+		var g = _gen("continents", 7272)
+		var starts = MapGen.find_start_positions(g.map, g.db, 4, "continents")
+		var min_gain = g.db.get_constant("start_normalize_reposition_min_gain", 4)
+		var radius = g.db.get_constant("start_normalize_reposition_radius", 3)
+		MapGen._normalize_reposition_starts(g.map, g.db, starts, radius, min_gain, {})
+		runs.append(starts)
+	assert_eq(runs[0], runs[1], "step 1 must reposition identically for the same seed")
+
+# ── Step 8: normalizeAddGoodTerrain ──────────────────────────────────────────────
+
+func test_add_good_terrain_upgrades_wider_ring_within_quota() -> void:
+	var db = make_db()
+	var map = _flat_map(20, 20, "tundra")
+	map.get_tile(12, 10).resource_id = "fur"  # resource tiles must be left alone
+	var rng = _fresh_rng(11)
+	MapGen._normalize_add_good_terrain(map, db, rng, 10, 10, 2, 3)
+	var upgraded = 0
+	for t in map.tiles_in_range(10, 10, 2):
+		if map.distance(t.x, t.y, 10, 10) <= 1:
+			assert_eq(t.terrain_id, "tundra", "step 8 must not touch the inner ring")
+		elif t.terrain_id == "grassland":
+			upgraded += 1
+	assert_eq(upgraded, 3, "step 8 must upgrade exactly `quota` poor tiles in the wider ring")
+	assert_eq(map.get_tile(12, 10).terrain_id, "tundra", "a resource tile must keep its terrain")
+	for t in map.all_tiles():
+		if map.distance(t.x, t.y, 10, 10) > 2:
+			assert_eq(t.terrain_id, "tundra", "step 8 must stay inside its radius")
+
+func test_add_good_terrain_is_seed_reproducible() -> void:
+	var grids = []
+	for _i in range(2):
+		var g = _gen("continents", 8383)
+		var starts = MapGen.find_start_positions(g.map, g.db, 4, "continents")
+		var rng = _fresh_rng(8383)
+		for s in starts:
+			MapGen._normalize_add_good_terrain(g.map, g.db, rng, int(s[0]), int(s[1]), 2, 3)
+		var grid = []
+		for t in g.map.all_tiles():
+			grid.append(t.terrain_id)
+		grids.append(grid)
+	assert_eq(grids[0], grids[1], "step 8 must upgrade the same tiles for the same seed")
+
+# ── Step 9: normalizeAddExtras ───────────────────────────────────────────────────
+
+# A synthetic two-start map: one lush start (grassland + food bonuses), one
+# far-below-par desert start.
+func _extras_map():
+	var db = make_db()
+	var map = _flat_map(26, 13, "desert")
+	for t in map.tiles_in_range(6, 6, 2):
+		t.terrain_id = "grassland"
+	map.get_tile(5, 6).resource_id = "wheat"
+	map.get_tile(7, 6).resource_id = "cow"
+	return {"db": db, "map": map, "starts": [[6, 6], [19, 6]]}
+
+func test_add_extras_tops_up_below_par_start() -> void:
+	var g = _extras_map()
+	var tol = g.db.get_constant("start_normalize_extras_tolerance", 6)
+	var radius = g.db.get_constant("start_normalize_extras_radius", 2)
+	var rng = _fresh_rng(22)
+	MapGen._normalize_add_extras(g.map, g.db, rng, g.starts, radius, tol)
+	var added = 0
+	for t in g.map.tiles_in_range(19, 6, radius):
+		if t.resource_id != "":
+			added += 1
+	assert_true(added > 0, "a below-par start must receive extra resources")
+	for t in g.map.tiles_in_range(19, 6, radius):
+		if t.resource_id != "":
+			var kind = str(g.db.get_resource(t.resource_id).get("type", ""))
+			assert_true(kind == "food" or kind == "luxury",
+				"extras must be food/luxury resources (got %s)" % kind)
+
+func test_add_extras_huts_stay_clear_of_starts() -> void:
+	var g = _extras_map()
+	var tol = g.db.get_constant("start_normalize_extras_tolerance", 6)
+	var radius = g.db.get_constant("start_normalize_extras_radius", 2)
+	var hut_min = g.db.get_constant("goody_hut_min_distance_from_start", 4)
+	var hut_max = g.db.get_constant("start_normalize_extras_hut_radius", 6)
+	var rng = _fresh_rng(33)
+	MapGen._normalize_add_extras(g.map, g.db, rng, g.starts, radius, tol)
+	# The desert start cannot reach par on resources alone, so it earns a hut.
+	var huts = 0
+	for t in g.map.all_tiles():
+		if not t.has_discovery:
+			continue
+		huts += 1
+		assert_true(g.map.distance(t.x, t.y, 19, 6) <= hut_max,
+			"an extras hut must land near the below-par start")
+		for s in g.starts:
+			assert_true(g.map.distance(t.x, t.y, int(s[0]), int(s[1])) >= hut_min,
+				"an extras hut must stay >= %d tiles from every start" % hut_min)
+	assert_eq(huts, g.db.get_constant("start_normalize_extras_huts", 1),
+		"a start still below par after the top-up receives its extras huts")
+
+func test_add_extras_is_seed_reproducible() -> void:
+	var runs = []
+	for _i in range(2):
+		var g = _extras_map()
+		var rng = _fresh_rng(9494)
+		MapGen._normalize_add_extras(g.map, g.db, rng, g.starts, 2, 6)
+		var state = []
+		for t in g.map.all_tiles():
+			state.append([t.resource_id, t.has_discovery])
+		runs.append(state)
+	assert_eq(runs[0], runs[1], "step 9 must place the same extras for the same seed")
 
 # ── Rivers ──────────────────────────────────────────────────────────────────────
 

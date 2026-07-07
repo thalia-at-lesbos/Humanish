@@ -201,9 +201,10 @@ describe the old poll and need updating as part of that rework.
 The seven reference-parity domains formerly tracked in `game-data.md` §20 have all
 been **promoted to first-class data tables and wired into the engine** (now
 `game-data.md` §22–§28). Three are at full reference parity (Specialists §22,
-Corporations §23, Score victory §27) and need nothing further. The remaining four
-ship a working slice but fall short of the reference's full record set. They are
-catalogued here with implementation plans; close each entry as it lands.
+Corporations §23, Score victory §27) and need nothing further. Of the four that
+shipped a working slice, espionage (§5.1), goody huts (was §5.3) and map
+start-fairness (§5.2) have since closed; only diplomacy (§5.4) still falls short
+of the reference's full record set.
 
 Measured against `humanish-full-docs/generic/` (the reference data set), the
 shortfalls are catalogue depth, not missing machinery.
@@ -245,24 +246,14 @@ filtered state snapshot — a determined netcode client could still read hidden 
 Promoting the fog into a filtered per-player state view remains possible later
 without data changes.
 
-### 5.2 Map start-fairness `normalize*` — 6 of 9 steps (`game-data.md` §28)
+### 5.2 Map start-fairness `normalize*` — CLOSED (9/9 steps; `game-data.md` §28)
 
-`MapGen.normalize_starts` implements steps 2–7 plus `BonusBalancer`. Three remain:
-
-- **Step 8 `normalizeAddGoodTerrain`** — upgrade poorer terrain in the wider start
-  radius (beyond the inner ring `_normalize_fix_bad_terrain` already handles), so a
-  capital ringed by tundra/desert is brought toward grass/plains. Add
-  `_normalize_add_good_terrain(map, db, sx, sy, radius)` and a `radius`/quota
-  constant.
-- **Step 9 `normalizeAddExtras`** — a final fairness pass placing extra resources
-  (and optionally goody huts) for starts still below par after the earlier steps.
-- **Step 1 `normalizeStartingPlotLocations`** is currently spacing-only
-  (`find_start_positions`). A true reposition pass would score each candidate plot
-  on surrounding yield/fresh-water/resource access and shift weak starts before the
-  per-start tidy runs.
-- All three must draw from the shared map RNG in fixed order to preserve
-  determinism; extend `tests/world/test_map_gen.gd` with a same-seed reproducibility
-  assertion per step.
+`MapGen.normalize_starts` now implements all nine reference steps plus
+`BonusBalancer`: step 1 repositions weak starts on a yield/fresh-water/resource
+plot score, step 8 upgrades poor terrain in the wider start radius, and step 9
+tops up below-par starts with extra resources and discovery sites. See the
+2026-07-07 entry under "Recently reconciled" and `game-data.md` §28 for the
+constants.
 
 ### 5.4 Diplomacy — no denial-reason layer (`game-data.md` §26)
 
@@ -283,6 +274,26 @@ modelled. The missing piece is the reference's **denial-reason** system.
 
 ## Recently reconciled
 
+- **2026-07-07** — Map start-fairness `normalize*` completed (§5.2): all 9
+  reference steps now run in `MapGen.normalize_starts`. Step 1
+  (`normalizeStartingPlotLocations`): `_normalize_reposition_starts` scores each
+  start plot (`_start_plot_score`: terrain base yields in `score_radius`, food
+  weighted, + per-resource and fresh-water bonuses) and shifts a start to the
+  best plot within `reposition_radius` when it wins by `reposition_min_gain`,
+  never below the layout's minimum pairwise spacing and never outside per-map
+  `start_bounds`; purely score-driven, no RNG draw. Step 8
+  (`normalizeAddGoodTerrain`): `_normalize_add_good_terrain` upgrades up to
+  `good_terrain_quota` resource-free poor tiles at distance 2..`good_terrain_radius`
+  one step toward grass/plains (snow→tundra, tundra→grassland, desert→plains).
+  Step 9 (`normalizeAddExtras`): `_normalize_add_extras` gives starts scoring
+  more than `extras_tolerance` below the richest extra food/luxury resources
+  within `extras_radius`, then up to `extras_huts` extra discovery sites (within
+  `extras_hut_radius`, kept `goody_hut_min_distance_from_start` clear of every
+  start) if still short — the §24 "extras step" hut scatter. Steps 8/9 draw from
+  the shared map RNG in fixed start order; twelve `start_normalize_*` constants
+  added to `data/constants.json`, all overridable per-map via the `normalize`
+  block. Same-seed reproducibility + behavioural tests per step in
+  `tests/world/test_map_gen.gd`.
 - **2026-07-07** — Goody-hut reward catalogue completed (was §5.3): all 12
   `game-data.md` §24 records now ship in `data/goodies.json` (`gold_large`,
   `settler`, `worker`, `scout`, `ambush_strong` added), plus the §24 parameter

@@ -830,12 +830,15 @@ static func place_goody_huts(map: WorldMap, db: DataDB, rng: RNG, starts: Array)
 # ── Start fairness (§1) ──────────────────────────────────────────────────────────
 
 # Reference `normalize*` pass: tidy each capital's surroundings so no player is
-# crippled by a hostile spawn. In fixed start order it removes adjacent peaks,
-# strips bad features/terrain, guarantees fresh water, and tops up food bonuses;
-# then a global pass equalises strategic-resource access across starts. Every
-# random choice comes from the shared map RNG in a fixed order, so the result is
-# deterministic for the seed. Per-map tunables may override the constants via a
-# `normalize` block in data/map_types.json.
+# crippled by a hostile spawn. It first repositions weak starts onto better
+# nearby plots (step 1), then in fixed start order removes adjacent peaks,
+# strips bad features/terrain, guarantees fresh water, tops up food bonuses, and
+# upgrades poor terrain in the wider radius (step 8); then two global passes run:
+# extras for starts still below par (step 9) and strategic-resource equalisation
+# (BonusBalancer). Every random choice comes from the shared map RNG in a fixed
+# order, so the result is deterministic for the seed. Per-map tunables may
+# override the constants via a `normalize` block in data/map_types.json.
+# Mutates `starts` in place when step 1 shifts a plot.
 static func normalize_starts(map: WorldMap, db: DataDB, rng: RNG, starts: Array, map_type_id: String = "") -> void:
 	if starts.empty():
 		return
@@ -847,6 +850,22 @@ static func normalize_starts(map: WorldMap, db: DataDB, rng: RNG, starts: Array,
 		db.get_constant("start_normalize_balance_radius", 2)))
 	var tol: int = int(nz.get("resource_tolerance",
 		db.get_constant("start_normalize_resource_tolerance", 1)))
+	var repos_r: int = int(nz.get("reposition_radius",
+		db.get_constant("start_normalize_reposition_radius", 3)))
+	var repos_gain: int = int(nz.get("reposition_min_gain",
+		db.get_constant("start_normalize_reposition_min_gain", 4)))
+	var good_r: int = int(nz.get("good_terrain_radius",
+		db.get_constant("start_normalize_good_terrain_radius", 2)))
+	var good_quota: int = int(nz.get("good_terrain_quota",
+		db.get_constant("start_normalize_good_terrain_quota", 3)))
+	var extras_r: int = int(nz.get("extras_radius",
+		db.get_constant("start_normalize_extras_radius", 2)))
+	var extras_tol: int = int(nz.get("extras_tolerance",
+		db.get_constant("start_normalize_extras_tolerance", 6)))
+
+	# Step 1 (`normalizeStartingPlotLocations`): shift weak starts before the
+	# per-start tidy steps run. Purely score-driven — no RNG draw.
+	_normalize_reposition_starts(map, db, starts, repos_r, repos_gain, spec)
 
 	for s in starts:
 		var sx: int = int(s[0])
@@ -856,7 +875,9 @@ static func normalize_starts(map: WorldMap, db: DataDB, rng: RNG, starts: Array,
 		_normalize_fix_bad_terrain(map, sx, sy)
 		_normalize_add_fresh_water(map, db, sx, sy)
 		_normalize_add_food_bonuses(map, db, rng, sx, sy, min_food)
+		_normalize_add_good_terrain(map, db, rng, sx, sy, good_r, good_quota)
 
+	_normalize_add_extras(map, db, rng, starts, extras_r, extras_tol)
 	_balance_start_resources(map, db, rng, starts, balance_r, tol)
 
 # A capital has fresh water if its tile borders a river or an oasis, or any
@@ -871,6 +892,89 @@ static func _start_has_fresh_water(map: WorldMap, db: DataDB, x: int, y: int) ->
 		if db.get_terrain(nb.terrain_id).get("domain", "land") != "land":
 			return true
 	return false
+
+# Fairness score of a prospective capital plot: summed terrain base yields in
+# the scoring radius (food weighted `start_normalize_score_food_weight`×), plus
+# `start_normalize_score_resource` per resource in reach, plus
+# `start_normalize_score_fresh_water` when the plot has fresh water. Pure integer
+# arithmetic and no RNG, so the score is deterministic for a map.
+static func _start_plot_score(map: WorldMap, db: DataDB, x: int, y: int) -> int:
+	var score_r: int = db.get_constant("start_normalize_score_radius", 2)
+	var food_w: int = db.get_constant("start_normalize_score_food_weight", 2)
+	var res_b: int = db.get_constant("start_normalize_score_resource", 3)
+	var fw_b: int = db.get_constant("start_normalize_score_fresh_water", 8)
+	var score: int = 0
+	for t in map.tiles_in_range(x, y, score_r):
+		var out: Dictionary = db.get_terrain(t.terrain_id).get("base_output", {})
+		score += int(out.get("food", 0)) * food_w
+		score += int(out.get("production", 0))
+		score += int(out.get("commerce", 0))
+		if t.resource_id != "":
+			score += res_b
+	if _start_has_fresh_water(map, db, x, y):
+		score += fw_b
+	return score
+
+# Step 1 `normalizeStartingPlotLocations`: score each start plot and shift it to
+# the best-scoring passable land tile within `radius` when that beats the current
+# plot by at least `min_gain`. A candidate must keep the layout's existing
+# minimum pairwise start spacing (measured against the other starts' current
+# positions) and stay inside any per-map `start_bounds`, so repositioning never
+# packs players closer than find_start_positions laid them out. Fully
+# deterministic — fixed start order, strict-improvement scan-order tie-break, no
+# RNG draw. Mutates `starts` in place.
+static func _normalize_reposition_starts(map: WorldMap, db: DataDB, starts: Array, radius: int, min_gain: int, spec: Dictionary) -> void:
+	if radius <= 0 or starts.empty():
+		return
+	# The layout's spacing floor: no shift may bring two starts closer than the
+	# closest original pair sits.
+	var floor_d: int = 1 << 30
+	for i in range(starts.size()):
+		for j in range(i + 1, starts.size()):
+			var d: int = map.distance(int(starts[i][0]), int(starts[i][1]),
+				int(starts[j][0]), int(starts[j][1]))
+			if d < floor_d:
+				floor_d = d
+	var bounds: Dictionary = spec.get("start_bounds", {})
+	var x_lo: int = 0
+	var x_hi: int = map.width - 1
+	var y_lo: int = 0
+	var y_hi: int = map.height - 1
+	if not bounds.empty():
+		x_lo = map.width * int(bounds.get("x_min_pct", 0)) / 100
+		x_hi = map.width * int(bounds.get("x_max_pct", 100)) / 100
+		y_lo = map.height * int(bounds.get("y_min_pct", 0)) / 100
+		y_hi = map.height * int(bounds.get("y_max_pct", 100)) / 100
+	for i in range(starts.size()):
+		var sx: int = int(starts[i][0])
+		var sy: int = int(starts[i][1])
+		var best_x: int = sx
+		var best_y: int = sy
+		# A shift must clear the current plot's score by at least min_gain.
+		var best_score: int = _start_plot_score(map, db, sx, sy) + min_gain
+		for t in map.tiles_in_range(sx, sy, radius):
+			if t.x == sx and t.y == sy:
+				continue
+			if t.x < x_lo or t.x > x_hi or t.y < y_lo or t.y > y_hi:
+				continue
+			var ter: Dictionary = db.get_terrain(t.terrain_id)
+			if ter.get("domain", "land") != "land" or ter.get("impassable", false):
+				continue
+			var clear: bool = true
+			for j in range(starts.size()):
+				if j == i:
+					continue
+				if map.distance(t.x, t.y, int(starts[j][0]), int(starts[j][1])) < floor_d:
+					clear = false
+					break
+			if not clear:
+				continue
+			var sc: int = _start_plot_score(map, db, t.x, t.y)
+			if sc > best_score:
+				best_score = sc
+				best_x = t.x
+				best_y = t.y
+		starts[i] = [best_x, best_y]
 
 # Turn any peak on the start tile or its inner ring into hills (the city tile is
 # already passable, so this only affects neighbours).
@@ -898,6 +1002,36 @@ static func _normalize_fix_bad_terrain(map: WorldMap, sx: int, sy: int) -> void:
 			t.terrain_id = "tundra"
 		elif t.terrain_id == "desert":
 			t.terrain_id = "plains"
+
+# One-step terrain upgrades toward grass/plains for step 8. Part of the rule
+# (like _normalize_fix_bad_terrain's fixed ids), not tunable balance.
+const GOOD_TERRAIN_UPGRADE := {"snow": "tundra", "tundra": "grassland", "desert": "plains"}
+
+# Step 8 `normalizeAddGoodTerrain`: upgrade up to `quota` poor flat tiles in the
+# wider start radius — beyond the inner ring _normalize_fix_bad_terrain already
+# handles — one step toward grass/plains (snow→tundra, tundra→grassland,
+# desert→plains), so a tundra/desert-ringed capital gains workable ground. Tiles
+# carrying a resource are left alone so resource/terrain pairings stay valid.
+# Picks draw from the shared map RNG (swap-remove), deterministic for the seed.
+static func _normalize_add_good_terrain(map: WorldMap, db: DataDB, rng: RNG, sx: int, sy: int, radius: int, quota: int) -> void:
+	if radius < 2 or quota <= 0:
+		return
+	var candidates: Array = []
+	for t in map.tiles_in_range(sx, sy, radius):
+		if map.distance(t.x, t.y, sx, sy) <= 1:
+			continue  # start tile + inner ring are step 6's job
+		if t.resource_id != "":
+			continue
+		if GOOD_TERRAIN_UPGRADE.has(t.terrain_id):
+			candidates.append(t)
+	var left: int = quota
+	while left > 0 and not candidates.empty():
+		var pick: int = rng.randi_range(0, candidates.size() - 1)
+		var tile: Tile = candidates[pick]
+		tile.terrain_id = str(GOOD_TERRAIN_UPGRADE[tile.terrain_id])
+		left -= 1
+		candidates[pick] = candidates[candidates.size() - 1]
+		candidates.remove(candidates.size() - 1)
 
 # Guarantee fresh water by carving a short river on the start tile's borders when
 # it has none nearby.
@@ -932,6 +1066,88 @@ static func _normalize_add_food_bonuses(map: WorldMap, db: DataDB, rng: RNG, sx:
 		have += 1
 		slots[pick] = slots[slots.size() - 1]
 		slots.remove(slots.size() - 1)
+
+# Step 9 `normalizeAddExtras`: the final fairness pass for starts still below
+# par after the earlier steps. Every start is scored with the step-1 scorer; any
+# start more than `tol` points below the richest is topped up with extra food and
+# luxury resources on suitable empty tiles within `radius` (strategic access
+# stays the BonusBalancer's domain), and a start *still* below par afterwards is
+# compensated with up to `start_normalize_extras_huts` extra discovery sites
+# nearby (within `start_normalize_extras_hut_radius`, but kept
+# `goody_hut_min_distance_from_start` clear of every start so nobody pops one on
+# turn one). All picks draw from the shared map RNG in fixed start order.
+static func _normalize_add_extras(map: WorldMap, db: DataDB, rng: RNG, starts: Array, radius: int, tol: int) -> void:
+	if starts.size() < 2:
+		return
+	var res_b: int = db.get_constant("start_normalize_score_resource", 3)
+	if res_b < 1:
+		res_b = 1
+	var scores: Array = []
+	var par: int = -(1 << 30)
+	for s in starts:
+		var sc: int = _start_plot_score(map, db, int(s[0]), int(s[1]))
+		scores.append(sc)
+		if sc > par:
+			par = sc
+	var floor_s: int = par - tol
+	var by_ter: Dictionary = _extras_by_terrain(db)
+	var hut_quota: int = db.get_constant("start_normalize_extras_huts", 1)
+	var hut_min: int = db.get_constant("goody_hut_min_distance_from_start", 4)
+	var hut_max: int = db.get_constant("start_normalize_extras_hut_radius", 6)
+	for i in range(starts.size()):
+		if scores[i] >= floor_s:
+			continue
+		var sx: int = int(starts[i][0])
+		var sy: int = int(starts[i][1])
+		# Extra resources on suitable empty tiles until the start reaches par.
+		var slots: Array = []
+		for t in map.tiles_in_range(sx, sy, radius):
+			if t.resource_id == "" and by_ter.has(t.terrain_id):
+				slots.append(t)
+		while scores[i] < floor_s and not slots.empty():
+			var pick: int = rng.randi_range(0, slots.size() - 1)
+			var tile: Tile = slots[pick]
+			var opts: Array = by_ter[tile.terrain_id]
+			tile.resource_id = str(opts[rng.randi_range(0, opts.size() - 1)])
+			scores[i] += res_b
+			slots[pick] = slots[slots.size() - 1]
+			slots.remove(slots.size() - 1)
+		if scores[i] >= floor_s:
+			continue
+		# Still short after the resource top-up: scatter extra discovery sites.
+		var hut_slots: Array = []
+		for t in map.tiles_in_range(sx, sy, hut_max):
+			if t.has_discovery:
+				continue
+			var ter: Dictionary = db.get_terrain(t.terrain_id)
+			if ter.get("domain", "land") != "land" or ter.get("impassable", false):
+				continue
+			var near: bool = false
+			for s2 in starts:
+				if map.distance(t.x, t.y, int(s2[0]), int(s2[1])) < hut_min:
+					near = true
+					break
+			if not near:
+				hut_slots.append(t)
+		var huts_left: int = hut_quota
+		while huts_left > 0 and not hut_slots.empty():
+			var hp: int = rng.randi_range(0, hut_slots.size() - 1)
+			hut_slots[hp].has_discovery = true
+			huts_left -= 1
+			hut_slots[hp] = hut_slots[hut_slots.size() - 1]
+			hut_slots.remove(hut_slots.size() - 1)
+
+# Food + luxury resources indexed by allowed terrain, for the step-9 extras pass
+# (strategic access is equalised separately by _balance_start_resources).
+static func _extras_by_terrain(db: DataDB) -> Dictionary:
+	var merged: Dictionary = _resources_by_terrain(db, "food")
+	var lux: Dictionary = _resources_by_terrain(db, "luxury")
+	for k in lux:
+		if not merged.has(k):
+			merged[k] = []
+		for rid in lux[k]:
+			merged[k].append(rid)
+	return merged
 
 # Equalise strategic-resource access: no start may sit more than `tol` strategic
 # resources below the richest start (within Chebyshev `radius`). Poorer starts get
