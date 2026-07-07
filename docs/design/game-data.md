@@ -59,7 +59,7 @@ sections:
   "§21  Random events":          "events.json record schema, selection framework, prereq/effect vocabulary, and the full event (1–174) + quest (1–18) catalogue"
   "§22  Specialists":            "specialists.json: 14 specialist types with output vectors, GP-point sources, and slot rules"
   "§23  Corporations":           "econ_orgs.json: corporation definitions with HQ, executive unit, input resources, maintenance, and spread"
-  "§24  Goody huts":             "goodies.json: complete 12-record weighted discovery-site reward catalogue with per-difficulty weight overrides and map placement (7 of 12 records implemented)"
+  "§24  Goody huts":             "goodies.json: complete 12-record weighted discovery-site reward catalogue with per-difficulty weight overrides and map placement (complete)"
   "§25  Espionage missions":     "espionage_missions.json: intel mission catalogue — 13 active missions run from the alliance screen and by spy units on city tiles; 5 passive intelligence missions as standing EP thresholds (§25.6) with the information-fog rules they lift"
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates (incomplete — no denial-reason layer)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
@@ -2127,11 +2127,10 @@ count).
 
 ## 24. Goody huts
 
-> **Status: catalogue complete, partially implemented** — all **12** goody records are
-> specified below. Placement and consumption are fully wired; the 7 records marked
-> *shipped* match `data/goodies.json` exactly, while the 5 marked *planned* (and the
-> parameter refinements listed after the table) are documented here but not yet
-> implemented — implementing them is a tracked follow-up.
+> **Status: complete** — all **12** goody records are specified below and shipped:
+> placement, consumption, every record, the parameter refinements listed after the
+> table, and the full per-difficulty weight tables all match `data/goodies.json` /
+> `data/difficulties.json` and `Events.exploration_reward` exactly.
 
 `data/goodies.json` + `MapGen.place_goody_huts`. Map-placed discovery sites; the first land
 unit to enter a hut consumes it and rolls one reward weighted by `weight`.
@@ -2145,27 +2144,25 @@ weight of 0 means the record is rolled only where a difficulty overrides it upwa
 | id | type | weight | Effect | Status |
 |----|------|:------:|--------|:------:|
 | `gold` | treasury | 30 | 20–80 gold | shipped |
-| `gold_large` | treasury | 12 | 40–120 gold — the premium treasury tier | planned |
+| `gold_large` | treasury | 12 | 40–120 gold — the premium treasury tier | shipped |
 | `map` | map | 18 | reveal radius 4 (signal-only, no sim state) | shipped |
 | `experience` | experience | 16 | 5–15 XP to the unit | shipped |
 | `heal` | heal | 10 | unit restored to full health | shipped |
 | `unit` | unit | 11 | spawn a `warrior` for the discoverer | shipped |
-| `settler` | unit | 0 | spawn a `settler` — easy difficulties only (enabled via `goody_weights`) | planned |
-| `worker` | unit | 0 | spawn a `worker` — easy difficulties only (enabled via `goody_weights`) | planned |
-| `scout` | unit | 5 | spawn a `scout` | planned |
+| `settler` | unit | 0 | spawn a `settler` — easy difficulties only (enabled via `goody_weights`) | shipped |
+| `worker` | unit | 0 | spawn a `worker` — easy difficulties only (enabled via `goody_weights`) | shipped |
+| `scout` | unit | 5 | spawn a `scout` | shipped |
 | `tech` | tech | 8 | grant one free researchable tech | shipped |
 | `ambush` | ambush | 7 | discoverer takes 50% damage (`damage: 50`) | shipped |
-| `ambush_strong` | ambush | 4 | wild-raider ambush: each tile adjacent to the site has a 40% chance to spawn a wild `warrior` (owner −2), minimum 2 spawned (`spawn_chance: 40`, `min_spawn: 2`, `spawn_unit: "warrior"`) | planned |
+| `ambush_strong` | ambush | 4 | wild-raider ambush: each tile adjacent to the site has a 40% chance to spawn a wild `warrior` (owner −2), minimum 2 spawned (`spawn_chance: 40`, `min_spawn: 2`, `spawn_unit: "warrior"`) | shipped |
 
-**Parameter refinements** (documented, not yet implemented — new JSON fields on
-existing records):
+**Parameter refinements** (shipped — JSON fields on the records above):
 
 - `map` — centre the reveal on the least-explored point within 4 tiles of the site
   (`offset: 4`) and reveal each tile inside the radius with 80% probability
-  (`reveal_chance: 80`). The shipped record reveals the full radius centred on the site.
+  (`reveal_chance: 80`).
 - `heal` — eligibility gate `damage_prereq: 60`: the reward can only be rolled when the
-  discoverer has lost at least 60% of its maximum health (otherwise re-roll). The shipped
-  record has no gate.
+  discoverer has lost at least 60% of its maximum health (otherwise re-roll).
 - `ambush` — in addition to the 50% damage, spawn wild raiders around the site: each
   adjacent tile has a 20% chance to spawn a wild `warrior`, minimum 1
   (`spawn_chance: 20`, `min_spawn: 1`, `spawn_unit: "warrior"`).
@@ -2175,10 +2172,9 @@ existing records):
   receives a `bad` reward at all (re-roll).
 
 **Per-difficulty availability** — a difficulty may override any goody's weight via
-`difficulties.json` `goody_weights` (id → weight). Shipped today: `settler` overrides
-`{ambush: 2, gold: 38}` and `deity` overrides `{ambush: 16, gold: 22}`. Once all 12
-records exist, the target override tables are the following (each difficulty column is a
-full weight set normalised to sum 100; 0 = never rolled at that difficulty):
+`difficulties.json` `goody_weights` (id → weight). Every difficulty ships the full
+override table below (each difficulty column is a full weight set normalised to sum
+100; 0 = never rolled at that difficulty):
 
 | id | settler | chieftain | warlord | noble | prince | monarch | emperor | immortal | deity |
 |----|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|

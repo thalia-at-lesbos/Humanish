@@ -886,6 +886,36 @@ func test_entering_goody_hut_consumes_it_and_applies_reward() -> void:
 	assert_eq(gs.get_player(pid).treasury, 40, "The goody reward is applied (gold banked)")
 	assert_signal_emitted(facade, "goody_received", "entering a hut emits goody_received")
 
+func test_goody_ambush_spawns_wild_raiders_and_surfaces_them() -> void:
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 0}], ["time"])
+	var gs = facade.get_state()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	# Lift the ancient quiet phase so raider-spawning bad goodies are eligible
+	# (§24), then force a single deterministic ambush reward.
+	gs.get_player(pid).technologies.append("alphabet")
+	gs.db.goodies = {"goodies": [{"id": "ambush", "type": "ambush", "weight": 10,
+		"damage": 50, "bad": true, "spawn_chance": 100, "min_spawn": 1,
+		"spawn_unit": "warrior"}]}
+	gs.map.get_tile(3, 2).has_discovery = true
+	var w = make_warrior(gs, pid, 2, 2)
+
+	watch_signals(facade)
+	assert_true(facade.apply_command(Commands.move_stack(pid, 2, 2, 3, 2)),
+		"Moving onto the ambush hut succeeds")
+	assert_eq(w.health, 50, "the ambush damages the discoverer")
+	var wild := 0
+	for u in gs.units:
+		if u.owner_player_id == -2 and u.is_wild:
+			wild += 1
+	assert_true(wild >= 1, "the ambush spawns at least one wild raider (owner -2)")
+	assert_signal_emitted(facade, "unit_created",
+		"each ambush raider is surfaced via unit_created")
+	assert_signal_emitted(facade, "goody_received", "the ambush emits goody_received")
+
 # ── Cultural-border vision: player_visible_tiles (border-vision feature) ──────
 
 func test_player_visible_tiles_includes_owned_territory_and_one_ring() -> void:

@@ -1,12 +1,17 @@
 {
-  "_comment": "Goody-hut (discovery-site) reward table (§9). The first land unit to enter a hut consumes it and rolls one reward weighted by `weight`. A difficulty may override a goody's weight via difficulties.json `goody_weights` (id -> weight). Effect verbs are read by Events.exploration_reward: treasury (min..max gold), experience (min..max XP to the unit), heal (unit to full health), map (signal-only reveal of `radius` tiles, no sim state), unit (spawn `unit_type` for the discoverer), tech (grant a free researchable tech), ambush (the discoverer takes `damage`% and a hostile may be implied). Magnitudes live here so the table is the single source of reward tuning.",
+  "_comment": "Goody-hut (discovery-site) reward table (§9, game-data.md §24). The first land unit to enter a hut consumes it and rolls one reward weighted by `weight` (0 = only rolled where a difficulty overrides it upward via difficulties.json `goody_weights`, id -> weight; each difficulty column there sums to 100). Effect verbs are read by Events.exploration_reward: treasury (min..max gold), experience (min..max XP to the unit), heal (unit to full health; `damage_prereq` gates it to a discoverer that has lost at least that % of max health, else re-roll), map (signal-only reveal, no sim state: `radius` tiles centred on the least-explored point within `offset` tiles of the site, each tile included with `reveal_chance`%), unit (spawn `unit_type` for the discoverer), tech (grant a free researchable tech), ambush (the discoverer takes `damage`% and each legal adjacent tile has `spawn_chance`% to spawn a wild `spawn_unit` (owner -2), minimum `min_spawn`). A `bad: true` reward is re-rolled when it cannot apply (no placeable raider, or wild forces still suppressed by the era's quiet phase) and never lands on a recon-classification discoverer. Magnitudes live here so the table is the single source of reward tuning.",
   "goodies": [
-    { "id": "gold",       "type": "treasury",   "weight": 30, "min": 20, "max": 80 },
-    { "id": "map",        "type": "map",        "weight": 18, "radius": 4 },
-    { "id": "experience", "type": "experience", "weight": 16, "min": 5,  "max": 15 },
-    { "id": "heal",       "type": "heal",       "weight": 10 },
-    { "id": "unit",       "type": "unit",       "weight": 11, "unit_type": "warrior" },
-    { "id": "tech",       "type": "tech",       "weight": 8 },
-    { "id": "ambush",     "type": "ambush",     "weight": 7,  "damage": 50 }
+    { "id": "gold",          "type": "treasury",   "weight": 30, "min": 20, "max": 80 },
+    { "id": "gold_large",    "type": "treasury",   "weight": 12, "min": 40, "max": 120 },
+    { "id": "map",           "type": "map",        "weight": 18, "radius": 4, "offset": 4, "reveal_chance": 80 },
+    { "id": "experience",    "type": "experience", "weight": 16, "min": 5,  "max": 15 },
+    { "id": "heal",          "type": "heal",       "weight": 10, "damage_prereq": 60 },
+    { "id": "unit",          "type": "unit",       "weight": 11, "unit_type": "warrior" },
+    { "id": "settler",       "type": "unit",       "weight": 0,  "unit_type": "settler" },
+    { "id": "worker",        "type": "unit",       "weight": 0,  "unit_type": "worker" },
+    { "id": "scout",         "type": "unit",       "weight": 5,  "unit_type": "scout" },
+    { "id": "tech",          "type": "tech",       "weight": 8 },
+    { "id": "ambush",        "type": "ambush",     "weight": 7,  "damage": 50, "bad": true, "spawn_chance": 20, "min_spawn": 1, "spawn_unit": "warrior" },
+    { "id": "ambush_strong", "type": "ambush",     "weight": 4,  "bad": true, "spawn_chance": 40, "min_spawn": 2, "spawn_unit": "warrior" }
   ]
 }

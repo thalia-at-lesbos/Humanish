@@ -203,10 +203,11 @@ func test_structure_specialist_slots_name_known_types() -> void:
 func test_goodies_table_loads_and_is_well_formed() -> void:
 	var db = _db()
 	var goodies = db.get_goodies()
-	assert_true(goodies.size() > 0, "goodies.json must define some rewards")
+	assert_eq(goodies.size(), 12, "goodies.json defines the full 12-record catalogue (§24)")
 	for g in goodies:
 		assert_true(str(g.get("id", "")) != "", "every goody needs an id")
-		assert_true(int(g.get("weight", 0)) > 0, "goody '%s' needs a positive weight" % g.get("id", ""))
+		assert_true(int(g.get("weight", -1)) >= 0,
+			"goody '%s' needs a non-negative weight (0 = difficulty-enabled only)" % g.get("id", ""))
 
 func test_goody_unit_types_resolve() -> void:
 	var db = _db()
@@ -215,6 +216,28 @@ func test_goody_unit_types_resolve() -> void:
 		if ut != null and ut != "":
 			assert_true(db.units.has(str(ut)),
 				"goody '%s' unit_type '%s' must be a real unit" % [g.get("id", ""), ut])
+		var su = g.get("spawn_unit", "")
+		if su != null and su != "":
+			assert_true(db.units.has(str(su)),
+				"goody '%s' spawn_unit '%s' must be a real unit" % [g.get("id", ""), su])
+
+func test_goody_weight_overrides_are_full_normalised_tables() -> void:
+	# §24: every difficulty carries a full goody_weights column — one entry per
+	# goody id, summing to 100 — so the per-difficulty reward mix is explicit.
+	var db = _db()
+	var goody_ids = {}
+	for g in db.get_goodies():
+		goody_ids[str(g.get("id", ""))] = true
+	for diff_id in db.difficulties:
+		var gw = db.difficulties[diff_id].get("goody_weights", {})
+		assert_eq(gw.size(), goody_ids.size(),
+			"difficulty '%s' overrides every goody id" % diff_id)
+		var total = 0
+		for k in gw:
+			assert_true(goody_ids.has(str(k)),
+				"difficulty '%s' goody_weights key '%s' is a real goody" % [diff_id, k])
+			total += int(gw[k])
+		assert_eq(total, 100, "difficulty '%s' goody_weights sum to 100" % diff_id)
 
 # ── Random-event lifecycle tables (§9) ───────────────────────────────────────────
 

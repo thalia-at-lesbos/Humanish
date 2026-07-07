@@ -264,19 +264,6 @@ without data changes.
   determinism; extend `tests/world/test_map_gen.gd` with a same-seed reproducibility
   assertion per step.
 
-### 5.3 Goody huts — 7 of 12 rewards (`game-data.md` §24)
-
-Placement and consumption are complete; the reward catalogue is short.
-
-- **Add the remaining ~5 `GoodyInfo` records** to `data/goodies.json` (e.g. split
-  gold tiers, separate map/experience variants, the barbarian-spawn ambush variant).
-  Exact weights/magnitudes come from the upstream `GameGoodyInfo.xml`; the generic
-  docs give only the count (12).
-- A reward whose `type` is a verb `Events.exploration_reward` does not yet handle
-  needs a new branch there.
-- Coordinate with §5.2 step 9 (`normalizeAddExtras`) if extra near-start huts are
-  wanted.
-
 ### 5.4 Diplomacy — no denial-reason layer (`game-data.md` §26)
 
 Attitude levels, live factors, decaying memory, and one-off/recurring deals are all
@@ -296,6 +283,17 @@ modelled. The missing piece is the reference's **denial-reason** system.
 
 ## Recently reconciled
 
+- **2026-07-07** — Goody-hut reward catalogue completed (was §5.3): all 12
+  `game-data.md` §24 records now ship in `data/goodies.json` (`gold_large`,
+  `settler`, `worker`, `scout`, `ambush_strong` added), plus the §24 parameter
+  refinements (`map` offset/reveal_chance, `heal` damage_prereq, `ambush` raider
+  spawns, `bad: true` re-roll rules with recon immunity — implemented as
+  eligibility zero-weighting in `Events.exploration_reward`). Ambush raiders
+  spawn via `WildForces._spawn_wild_unit` (owner −2) and are surfaced through
+  `unit_created`. Every difficulty in `data/difficulties.json` carries the full
+  12-column `goody_weights` table (each summing to 100). "Wild forces disabled"
+  is interpreted as the era's `no_wild_units` quiet phase (no game-level toggle
+  exists).
 - **2026-06-07** — Conscription / draft implemented (`026dc9d`): `DRAFT` command
   (`Commands.draft` / `SimFacade._cmd_draft`) conscripts a military unit from a
   city's population when `can_draft` is active; city screen exposes a Draft Unit
