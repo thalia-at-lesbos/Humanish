@@ -206,6 +206,18 @@ generic of each (reasonable merge).
 
 ## 4. Structures (buildings & wonders)
 
+> **Resolution note (2026-07-08, A2 — 6608796):** every straight value diff below
+> is now applied to `data/structures.json` (costs, tech gates, negative health,
+> happiness rows, granary health). The negative-health fix also uncovered and
+> retired a dead `effects.unhealthy` key (never read; the engine reads
+> `health_penalty`) on factory/industrial_park/coal_plant/shale_plant/ironworks.
+> Still diverging on purpose: the `science%` rows (library/seowon/academy —
+> CommerceModifiers unverified, see note below), military_academy cost 300
+> (reference "not city-buildable −1" is a buildability change, deferred),
+> three_gorges_dam `unhealthy_global` (dead key, global semantics — needs wiring),
+> Apollo/Manhattan + spaceship-part costs (A10). The table below is the original
+> audit snapshot, kept verbatim.
+
 Value diffs (`cost` in hammers; `science%` = iResearchModifier; `happy/health`):
 
 ```
