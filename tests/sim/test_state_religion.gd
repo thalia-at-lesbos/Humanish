@@ -123,7 +123,10 @@ func test_cathedral_happiness_requires_state_religion() -> void:
 	gs.founded_beliefs["buddhism"] = 1
 	var s = make_settlement(gs, 1, 5, 5, 5)
 	s.belief_id = "buddhism"
-	s.structures = ["buddhist_cathedral"]  # happiness_bonus 2, requires_state_religion
+	# Reference parity (A2) set the shipped cathedral happiness_bonus to 0; inject
+	# a bonus here so the requires_state_religion gate itself stays under test.
+	gs.db.structures["buddhist_cathedral"]["happiness_bonus"] = 2
+	s.structures = ["buddhist_cathedral"]  # requires_state_religion
 	TurnEngine._update_contentment(gs, s, p, gs.db)
 	var without: int = s.positive_sentiment
 	p.state_religion = "buddhism"
