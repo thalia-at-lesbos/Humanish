@@ -239,6 +239,24 @@ func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 			total += int(gw[k])
 		assert_eq(total, 100, "difficulty '%s' goody_weights sum to 100" % diff_id)
 
+func test_first_strike_fields_are_non_negative_ints() -> void:
+	# §15.5: first_strikes / chance_first_strikes on units and the promotion
+	# bonus forms must be non-negative integers wherever present — a negative
+	# or fractional value would corrupt the integer combat loop.
+	var db = _db()
+	for uid in db.units:
+		var u = db.units[uid]
+		for key in ["first_strikes", "chance_first_strikes"]:
+			if u.has(key):
+				assert_true(int(u[key]) >= 0 and int(u[key]) == u[key],
+					"unit '%s' %s is a non-negative int" % [uid, key])
+	for pid in db.promotions:
+		var p = db.promotions[pid]
+		for key in ["first_strikes_bonus", "chance_first_strikes_bonus"]:
+			if p.has(key):
+				assert_true(int(p[key]) >= 0 and int(p[key]) == p[key],
+					"promotion '%s' %s is a non-negative int" % [pid, key])
+
 func test_belief_refs_resolve() -> void:
 	# Every structure a belief references (temple/monastery/cathedral tiers and its
 	# holy_site_structure) must exist in structures.json, and a non-null

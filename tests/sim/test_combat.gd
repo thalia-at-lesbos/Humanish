@@ -132,6 +132,80 @@ func test_odds_clamp_gives_hopeless_attacker_a_chance() -> void:
 	assert_true(landed_a_hit,
 		"Odds clamp lets a hopeless attacker land at least one hit across seeds")
 
+# ── Chance first strikes (§15.5) ──────────────────────────────────────────────
+
+func _make_chance_striker(gs, chance, base_fs = 1):
+	# Synthetic attacker type carrying a chance_first_strikes stat.
+	gs.db.units["chance_striker"] = {
+		"id": "chance_striker", "base_strength": 5, "movement": 60,
+		"classification": "ranged", "tags": [],
+		"first_strikes": base_fs, "chance_first_strikes": chance,
+		"combat_limit": 0, "withdrawal_chance": 0, "upkeep": 0, "cost": 30
+	}
+	var atk = load("res://src/sim/unit.gd").new()
+	atk.id = gs.next_unit_id(); atk.unit_type_id = "chance_striker"
+	atk.owner_player_id = 1; atk.x = 5; atk.y = 6
+	atk.base_strength = 5; atk.health = 100
+	atk.movement_total = 60; atk.movement_left = 60
+	gs.units.append(atk)
+	return atk
+
+func test_chance_first_strikes_same_seed_identical_outcome() -> void:
+	var gs = make_gs()
+	var atk = _make_chance_striker(gs, 3)
+	var defender = make_warrior(gs, 2, 5, 5)
+	var r1: Dictionary = Combat.resolve(atk, defender, gs, _rng(99))
+	# Reset healths so the second resolve starts from identical state.
+	atk.health = 100; defender.health = 100
+	var r2: Dictionary = Combat.resolve(atk, defender, gs, _rng(99))
+	for key in r1:
+		assert_eq(r2[key], r1[key],
+			"Chance-FS combat is seed-deterministic (key '%s')" % key)
+
+func test_chance_first_strikes_rolls_within_bounds() -> void:
+	# rolled_first_strikes = guaranteed + uniform 0..chance, never outside.
+	var gs = make_gs()
+	var atk = _make_chance_striker(gs, 2, 1)
+	var seen = {}
+	for s in range(60):
+		var fs = Combat.rolled_first_strikes(gs.db, atk, _rng(s))
+		assert_true(fs >= 1 and fs <= 3,
+			"Rolled first strikes stay within guaranteed..guaranteed+chance")
+		seen[fs] = true
+	assert_eq(seen.size(), 3, "Across seeds the whole 0..chance range is reached")
+
+func test_zero_chance_first_strikes_consumes_no_rng_draw() -> void:
+	# A unit without a chance stat must not draw from the rng, or every seeded
+	# combat stream in the game would shift.
+	var gs = make_gs()
+	var warrior = make_warrior(gs, 1, 5, 6)
+	var r_used = _rng(7)
+	var fs = Combat.rolled_first_strikes(gs.db, warrior, r_used)
+	assert_eq(fs, 0, "A warrior has no first strikes")
+	assert_eq(r_used.randi_range(0, 1000000), _rng(7).randi_range(0, 1000000),
+		"The rng stream is untouched by a zero-chance first-strike read")
+
+func test_drill_promotions_grant_first_strikes() -> void:
+	# Drill I/II carry first_strikes_bonus (previously read nowhere); a chance
+	# bonus field aggregates the same way for the A8 drill retune.
+	var gs = make_gs()
+	var atk = _make_chance_striker(gs, 0, 1)
+	atk.promotions = ["drill1", "drill2"]
+	assert_eq(Combat.rolled_first_strikes(gs.db, atk, _rng(1)), 3,
+		"Guaranteed first strikes sum unit base + drill promotion bonuses")
+	gs.db.promotions["test_drill_chance"] = {
+		"id": "test_drill_chance", "name": "Test Drill",
+		"applies_to": "land", "chance_first_strikes_bonus": 2
+	}
+	atk.promotions = ["test_drill_chance"]
+	var seen = {}
+	for s in range(60):
+		var fs = Combat.rolled_first_strikes(gs.db, atk, _rng(s))
+		assert_true(fs >= 1 and fs <= 3,
+			"Promotion chance bonus rolls within guaranteed..guaranteed+chance")
+		seen[fs] = true
+	assert_eq(seen.size(), 3, "Promotion chance bonus spans its whole range")
+
 # ── Flanking (§5.4) ────────────────────────────────────────────────────────────
 
 func test_flanking_damages_stacked_unit() -> void:
