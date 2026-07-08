@@ -331,12 +331,17 @@ static func _sorted_options(gs, s, player) -> Array:
 	# floor still wins. A traitless leader has an all-zero profile, leaving the
 	# Phase-B cheapest-first order untouched.
 	var profile: Dictionary = _focus_profile(player, db)
+	# Resource availability, computed once for the whole roster (§15.12): the AI
+	# never queues a unit whose strategic resources it has not connected.
+	var have: Dictionary = EconOrgs.accessible_resources(gs, player.id)
 	var opts: Array = []
 	for uid in db.units:
 		var u: Dictionary = db.units[uid]
 		if str(u.get("classification", "")) == "great_person":
 			continue
 		if not _tech_ok(u.get("tech_required", null), player):
+			continue
+		if not UnitPrereqs.resource_ok(u.get("resource_required", null), have):
 			continue
 		# Religion-spreaders (missionaries) need a religion plus either a monastery
 		# (trains_missionaries) or the Organized Religion civic (§8).
@@ -1103,9 +1108,11 @@ static func _focus_profile(player, db) -> Dictionary:
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
-# A tech requirement is satisfied when it is absent/empty or the player knows it.
+# Tech gate shared by the build/civic choosers. Delegates to the canonical
+# compound-prereq reader (§15.12) so a list-form `tech_required` (ALL required)
+# gates the AI exactly like the sim and the UI.
 static func _tech_ok(req, player) -> bool:
-	return req == null or req == "" or player.has_tech(str(req))
+	return UnitPrereqs.tech_ok(req, player)
 
 # True when a city can train missionaries (§8): the player must have a religion to
 # spread, and the city must hold a `trains_missionaries` structure (Monastery) or

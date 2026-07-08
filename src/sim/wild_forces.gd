@@ -366,10 +366,10 @@ static func _strongest_naval_unit_type(game_state) -> String:
 		var bs: int = int(ud.get("base_strength", 0))
 		if bs <= 0:
 			continue  # transports / work boats are not raider stock
-		var tech_req = ud.get("tech_required", null)
-		if tech_req != null and str(tech_req) != "":
-			if leader == null or not leader.has_tech(str(tech_req)):
-				continue
+		# Compound tech gate (§15.12): all listed techs; a null leader (headless)
+		# only passes tech-free units.
+		if not UnitPrereqs.tech_ok(ud.get("tech_required", null), leader):
+			continue
 		if bs > best_str:
 			best_str = bs
 			best_id = str(uid)
@@ -589,10 +589,10 @@ static func _strongest_wild_unit_type(game_state) -> String:
 		var bs: int = int(ud.get("base_strength", 0))
 		if bs <= 0:
 			continue
-		var tech_req = ud.get("tech_required", null)
-		if tech_req != null and str(tech_req) != "":
-			if leader == null or not leader.has_tech(str(tech_req)):
-				continue
+		# Compound tech gate (§15.12): all listed techs; a null leader (headless)
+		# only passes tech-free units.
+		if not UnitPrereqs.tech_ok(ud.get("tech_required", null), leader):
+			continue
 		if bs > best_str:
 			best_str = bs
 			best_id = str(uid)

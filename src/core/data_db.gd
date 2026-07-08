@@ -264,6 +264,7 @@ func _load_json(path: String) -> Dictionary:
 func _validate() -> void:
 	_validate_tech_prereqs()
 	_validate_unit_tech_refs()
+	_validate_unit_resource_refs()
 	_validate_improvement_tech_refs()
 	_validate_specialist_refs()
 	_validate_goody_refs()
@@ -301,12 +302,37 @@ func _validate_tech_prereqs() -> void:
 			if not technologies.has(prereq):
 				_errors.append("Tech '%s' prereq_any '%s' not found" % [tech_id, prereq])
 
+# A unit's tech_required may be null, a single tech id, or a list of tech ids
+# (compound AND form, §15.12). Every listed id must exist in the tech table.
 func _validate_unit_tech_refs() -> void:
 	for unit_id in units:
 		var u: Dictionary = units[unit_id]
 		var req = u.get("tech_required", null)
-		if req != null and req != "" and not technologies.has(req):
-			_errors.append("Unit '%s' tech_required '%s' not found" % [unit_id, req])
+		if req != null and not (req is String) and not (req is Array):
+			_errors.append("Unit '%s' tech_required must be null, a tech id, or a list of tech ids" % unit_id)
+			continue
+		for tech_id in UnitPrereqs.tech_list(req):
+			if not technologies.has(tech_id):
+				_errors.append("Unit '%s' tech_required '%s' not found" % [unit_id, tech_id])
+
+# A unit's resource_required may be null, a single resource id, or a Dictionary
+# with "all" / "any" lists (compound form, §15.12). Every referenced id must
+# exist in the resources table, and a dictionary form may only carry the two
+# known keys so a typo ("anyy") cannot silently drop a gate.
+func _validate_unit_resource_refs() -> void:
+	for unit_id in units:
+		var u: Dictionary = units[unit_id]
+		var req = u.get("resource_required", null)
+		if req != null and not (req is String) and not (req is Dictionary):
+			_errors.append("Unit '%s' resource_required must be null, a resource id, or {all/any} lists" % unit_id)
+			continue
+		if req is Dictionary:
+			for key in req:
+				if not (key in ["all", "any"]):
+					_errors.append("Unit '%s' resource_required has unknown key '%s' (only all/any)" % [unit_id, key])
+		for res_id in UnitPrereqs.resource_ids(req):
+			if not resources.has(res_id):
+				_errors.append("Unit '%s' resource_required '%s' not in resources table" % [unit_id, res_id])
 
 func _validate_improvement_tech_refs() -> void:
 	for imp_id in improvements:

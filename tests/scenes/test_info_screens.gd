@@ -198,6 +198,28 @@ func test_encyclopedia_units_tab_marks_ocean_capability() -> void:
 	assert_not_null(_find_by_text(box2, "coastal only"),
 		"Galley detail labels it coastal only")
 
+func test_encyclopedia_unit_detail_renders_compound_prereqs() -> void:
+	# §15.12 compound forms must render readably: the knight's tech AND list
+	# joins with " + ", its all-resource set with " + ", and the maceman's
+	# any-resource alternatives with " or ".
+	var facade = setup_facade(97)
+	var screen = load("res://scenes/screens/encyclopedia_screen.gd").new()
+	add_child_autofree(screen)
+	screen.init(facade)
+	var db = facade._db
+	var box1 = VBoxContainer.new()
+	add_child_autofree(box1)
+	screen._detail_unit(box1, db.units["knight"])
+	assert_not_null(_find_by_text(box1, "Guilds + Horseback Riding"),
+		"Knight detail lists both required techs joined with +")
+	assert_not_null(_find_by_text(box1, "Horse + Iron"),
+		"Knight detail lists both required resources joined with +")
+	var box2 = VBoxContainer.new()
+	add_child_autofree(box2)
+	screen._detail_unit(box2, db.units["maceman"])
+	assert_not_null(_find_by_text(box2, "Copper or Iron"),
+		"Maceman detail lists the resource alternatives joined with or")
+
 func test_options_screen_score_toggle_routes_through_facade() -> void:
 	var facade = setup_facade(92)
 	var gs = facade.get_state()

@@ -391,3 +391,80 @@ func test_diplomacy_table_is_well_formed() -> void:
 	for k in kinds:
 		assert_true(kinds[k].has("value"), "memory kind '%s' has a value" % k)
 		assert_true(int(kinds[k].get("decay", 0)) > 0, "memory kind '%s' decays" % k)
+
+# ── Compound unit prerequisites (§15.12) ─────────────────────────────────────────
+
+func test_unit_tech_list_form_validates_clean() -> void:
+	# A list-form tech_required of real techs must not raise validation errors —
+	# the shipped knight carries the compound ["guilds", "horseback_riding"] set.
+	var db = _db()
+	var knight_req = db.get_unit("knight").get("tech_required", null)
+	assert_true(knight_req is Array, "knight ships a list-form tech_required")
+	assert_true("guilds" in knight_req and "horseback_riding" in knight_req,
+		"knight requires Guilds + Horseback Riding")
+	assert_true(db.get_errors().empty(), "list-form tech prereqs validate cleanly")
+
+func test_unit_tech_list_bad_id_fails_validation() -> void:
+	var db = _db()
+	db.units["bogus_unit"] = {"id": "bogus_unit",
+		"tech_required": ["guilds", "no_such_tech"], "resource_required": null}
+	db._validate_unit_tech_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_unit" in err and "no_such_tech" in err:
+			found = true
+	assert_true(found, "an unknown tech inside a list-form tech_required is reported")
+
+func test_unit_tech_wrong_type_fails_validation() -> void:
+	var db = _db()
+	db.units["bogus_unit"] = {"id": "bogus_unit", "tech_required": 7}
+	db._validate_unit_tech_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_unit" in err and "tech_required" in err:
+			found = true
+	assert_true(found, "a non-null/String/Array tech_required is reported")
+
+func test_unit_resource_forms_validate_clean() -> void:
+	# The shipped data uses all three resource forms: single (swordsman "iron"),
+	# all-set (knight horse+iron) and any-set (maceman copper-or-iron).
+	var db = _db()
+	var knight_res = db.get_unit("knight").get("resource_required", null)
+	assert_true(knight_res is Dictionary and knight_res.get("all", []).size() == 2,
+		"knight ships an all-form resource_required (horse + iron)")
+	var mace_res = db.get_unit("maceman").get("resource_required", null)
+	assert_true(mace_res is Dictionary and mace_res.get("any", []).size() == 2,
+		"maceman ships an any-form resource_required (copper or iron)")
+	assert_true(db.get_errors().empty(), "compound resource prereqs validate cleanly")
+
+func test_unit_resource_bad_id_fails_validation() -> void:
+	var db = _db()
+	db.units["bogus_unit"] = {"id": "bogus_unit",
+		"resource_required": {"all": ["iron"], "any": ["unobtainium"]}}
+	db._validate_unit_resource_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_unit" in err and "unobtainium" in err:
+			found = true
+	assert_true(found, "an unknown resource id in either list is reported")
+
+func test_unit_resource_single_bad_id_fails_validation() -> void:
+	var db = _db()
+	db.units["bogus_unit"] = {"id": "bogus_unit", "resource_required": "unobtainium"}
+	db._validate_unit_resource_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_unit" in err and "unobtainium" in err:
+			found = true
+	assert_true(found, "an unknown single-form resource id is reported")
+
+func test_unit_resource_unknown_key_fails_validation() -> void:
+	var db = _db()
+	db.units["bogus_unit"] = {"id": "bogus_unit",
+		"resource_required": {"anyy": ["iron"]}}
+	db._validate_unit_resource_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_unit" in err and "anyy" in err:
+			found = true
+	assert_true(found, "a typoed all/any key cannot silently drop a resource gate")

@@ -359,6 +359,80 @@ func test_structure_percent_production_applies_multiplicatively() -> void:
 	assert_eq(s.production_store, expected,
 		"Forge's +25% applies multiplicatively on base production, not as a flat add")
 
+# ── Compound unit prerequisites — the production gate (§15.12) ─────────────────
+#
+# The build gate every chooser shares (city screen offers, PlayerAI's queue,
+# draft, upgrades): UnitPrereqs.tech_ok over the player, plus
+# UnitPrereqs.resource_ok over EconOrgs.accessible_resources. Exercised here
+# against a real game state with the shipped compound units.
+
+# Connect a resource to player 1: an owned tile carrying it with the required
+# improvement, plus the resource's reveal tech.
+func _connect_resource(gs, res_id, x, y) -> void:
+	var res = gs.db.get_resource(res_id)
+	var t = gs.map.get_tile(x, y)
+	t.owner_player_id = 1
+	t.resource_id = res_id
+	t.improvement_id = str(res.get("improvement_required", ""))
+	var reveal = str(res.get("tech_required", ""))
+	var p = gs.get_player(1)
+	if reveal != "" and not p.has_tech(reveal):
+		p.technologies.append(reveal)
+
+func _unit_buildable(gs, unit_id) -> bool:
+	var u = gs.db.get_unit(unit_id)
+	var p = gs.get_player(1)
+	if not UnitPrereqs.tech_ok(u.get("tech_required", null), p):
+		return false
+	return UnitPrereqs.resource_ok(u.get("resource_required", null),
+		EconOrgs.accessible_resources(gs, 1))
+
+func test_two_tech_and_list_needs_both_techs() -> void:
+	# Maceman: tech_required ["civil_service", "machinery"] (AND), resource any-of.
+	var gs = make_gs(1)
+	_connect_resource(gs, "iron", 6, 6)   # resource side satisfied throughout
+	var p = gs.get_player(1)
+	assert_false(_unit_buildable(gs, "maceman"), "no techs → not buildable")
+	p.technologies.append("civil_service")
+	assert_false(_unit_buildable(gs, "maceman"), "one of two AND techs → not buildable")
+	p.technologies.append("machinery")
+	assert_true(_unit_buildable(gs, "maceman"), "both AND techs → buildable")
+
+func test_any_resource_set_satisfied_by_either() -> void:
+	# Maceman's resource_required {"any": ["copper", "iron"]}.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["civil_service", "machinery"]
+	assert_false(_unit_buildable(gs, "maceman"), "neither alternative → not buildable")
+	_connect_resource(gs, "copper", 6, 6)
+	assert_true(_unit_buildable(gs, "maceman"), "copper alone satisfies the any-set")
+	var gs2 = make_gs(1)
+	gs2.get_player(1).technologies = ["civil_service", "machinery"]
+	_connect_resource(gs2, "iron", 6, 6)
+	assert_true(_unit_buildable(gs2, "maceman"), "iron alone satisfies the any-set")
+
+func test_all_resource_set_needs_every_entry() -> void:
+	# Knight: resource_required {"all": ["horse", "iron"]}.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["guilds", "horseback_riding"]
+	assert_false(_unit_buildable(gs, "knight"), "no resources → not buildable")
+	_connect_resource(gs, "horse", 6, 6)
+	assert_false(_unit_buildable(gs, "knight"), "horse alone → not buildable (all-set)")
+	_connect_resource(gs, "iron", 7, 7)
+	assert_true(_unit_buildable(gs, "knight"), "horse + iron → buildable")
+
+func test_traded_resource_satisfies_the_gate() -> void:
+	# A resource received through an active recurring deal counts as connected —
+	# the same accessibility rule corporations use (§7 / §15.12).
+	var gs = make_gs(2)
+	var p = gs.get_player(1)
+	p.technologies = ["civil_service", "machinery"]
+	assert_false(_unit_buildable(gs, "maceman"), "no home or traded metal → blocked")
+	gs.deals.append({"proposer_player_id": 1, "accepter_player_id": 2,
+		"recurring": {"receive": {"resources": ["iron"]}}})
+	assert_true(_unit_buildable(gs, "maceman"), "iron via a recurring deal → buildable")
+
 # ── Culture ──────────────────────────────────────────────────────────────────
 
 func test_culture_ring_does_not_decrease() -> void:

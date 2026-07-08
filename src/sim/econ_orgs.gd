@@ -111,7 +111,7 @@ static func accessible_input_count(game_state, org: Dictionary, player_id: int) 
 	var inputs: Array = org.get("input_resources", [])
 	if inputs.empty():
 		return 0
-	var have: Dictionary = _player_accessible_resources(game_state, player_id)
+	var have: Dictionary = accessible_resources(game_state, player_id)
 	var count: int = 0
 	for res_id in inputs:
 		if have.has(res_id):
@@ -120,7 +120,11 @@ static func accessible_input_count(game_state, org: Dictionary, player_id: int) 
 
 # Set (Dictionary used as a set) of resource ids the player has connected — from
 # its own connected tiles plus any received through an active recurring deal (§7).
-static func _player_accessible_resources(game_state, player_id: int) -> Dictionary:
+# Public: also the availability half of the compound unit resource gate (§15.12) —
+# UnitPrereqs.resource_ok checks a unit's resource_required against this set, so
+# corporations, the production/upgrade/draft gates, the AI, and the UI all agree
+# on what "having a resource" means.
+static func accessible_resources(game_state, player_id: int) -> Dictionary:
 	var out: Dictionary = {}
 	var db: DataDB = game_state.db
 	var player: Player = game_state.get_player(player_id)

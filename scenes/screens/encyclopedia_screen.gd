@@ -106,6 +106,32 @@ func _fmt_name(d: Dictionary) -> String:
 		return str(d["name"])
 	return _fmt(str(d.get("id", "?")))
 
+# Render a unit's compound tech requirement (§15.12): "none", a single tech, or
+# an AND list joined with " + ".
+func _fmt_tech_req(req) -> String:
+	var names = PoolStringArray()
+	for t in UnitPrereqs.tech_list(req):
+		names.append(_fmt(t))
+	return "none" if names.size() == 0 else names.join(" + ")
+
+# Render a unit's compound resource requirement (§15.12): "" when none, every
+# `all` entry joined with " + ", the `any` alternatives with " or ".
+func _fmt_resource_req(req) -> String:
+	var spec: Dictionary = UnitPrereqs.resource_spec(req)
+	var all_names = PoolStringArray()
+	for r in spec["all"]:
+		all_names.append(_fmt(r))
+	var any_names = PoolStringArray()
+	for r in spec["any"]:
+		any_names.append(_fmt(r))
+	var any_part: String = any_names.join(" or ")
+	if all_names.size() == 0:
+		return any_part
+	var all_part: String = all_names.join(" + ")
+	if any_part == "":
+		return all_part
+	return all_part + " + (" + any_part + ")"
+
 func _join(arr: Array) -> String:
 	if arr.empty():
 		return "none"
@@ -465,11 +491,10 @@ func _detail_unit(vbox: VBoxContainer, d: Dictionary) -> void:
 	_lbl(vbox, "Cost:           %d production" % [d.get("cost", 0)])
 	var upkeep = int(d.get("upkeep", 0))
 	_lbl(vbox, "Upkeep:         %s" % ["none" if upkeep == 0 else "%d gold/turn" % upkeep])
-	var tech = d.get("tech_required", null)
-	_lbl(vbox, "Tech required:  " + ("none" if tech == null else _fmt(str(tech))))
-	var res = d.get("resource_required", null)
-	if res != null:
-		_lbl(vbox, "Resource:       " + _fmt(str(res)))
+	_lbl(vbox, "Tech required:  " + _fmt_tech_req(d.get("tech_required", null)))
+	var res_line: String = _fmt_resource_req(d.get("resource_required", null))
+	if res_line != "":
+		_lbl(vbox, "Resource:       " + res_line)
 	var upgrades = d.get("upgrades_to", null)
 	if upgrades != null:
 		_lbl(vbox, "Upgrades to:    " + _fmt(str(upgrades)))

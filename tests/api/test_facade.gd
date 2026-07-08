@@ -1128,3 +1128,53 @@ func test_explore_rejected_for_civilian_units() -> void:
 	assert_false(f.apply_command(Commands.mission_explore(pid, worker.id)),
 		"A worker (civilian) may not explore")
 	assert_false(worker.is_exploring, "Worker is not exploring")
+
+# ── Unit upgrades gate on the target's compound prerequisites (§15.12) ───────────
+
+# Connect a resource to `pid`: an owned tile carrying it with its required
+# improvement, plus the resource's reveal tech.
+func _connect_resource_for(gs, pid, res_id, x, y) -> void:
+	var res = gs.db.get_resource(res_id)
+	var t = gs.map.get_tile(x, y)
+	t.owner_player_id = pid
+	t.resource_id = res_id
+	t.improvement_id = str(res.get("improvement_required", ""))
+	var reveal = str(res.get("tech_required", ""))
+	var p = gs.get_player(pid)
+	if reveal != "" and not p.has_tech(reveal):
+		p.technologies.append(reveal)
+
+func test_upgrade_blocked_without_target_tech() -> void:
+	var gs = make_gs(1)
+	var pid: int = gs.players[0].id
+	gs.current_player_id = pid
+	var f = bare_facade(gs)
+	var p = gs.get_player(pid)
+	p.treasury = 1000
+	_connect_resource_for(gs, pid, "copper", 8, 8)   # resource side satisfied
+	var vet = make_warrior(gs, pid, 5, 5)            # warrior upgrades_to axeman
+	assert_false(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
+		"upgrade refused while the target's tech (bronze_working) is missing")
+	assert_eq(vet.unit_type_id, "warrior", "unit unchanged after the refusal")
+	p.technologies.append("bronze_working")
+	assert_true(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
+		"upgrade accepted once the target's tech is researched")
+	assert_eq(gs.get_unit(vet.id).unit_type_id, "axeman", "unit became the target type")
+
+func test_upgrade_blocked_without_target_resource() -> void:
+	# Axeman's compound resource set {"any": ["copper", "iron"]}: the upgrade is
+	# refused with neither metal and accepted with either one connected.
+	var gs = make_gs(1)
+	var pid: int = gs.players[0].id
+	gs.current_player_id = pid
+	var f = bare_facade(gs)
+	var p = gs.get_player(pid)
+	p.treasury = 1000
+	p.technologies.append("bronze_working")
+	var vet = make_warrior(gs, pid, 5, 5)
+	assert_false(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
+		"upgrade refused with no copper or iron connected")
+	_connect_resource_for(gs, pid, "iron", 8, 8)
+	assert_true(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
+		"upgrade accepted with iron alone (any-of set)")
+	assert_eq(gs.get_unit(vet.id).unit_type_id, "axeman", "warrior upgraded to axeman")

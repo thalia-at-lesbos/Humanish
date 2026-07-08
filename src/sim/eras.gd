@@ -33,13 +33,17 @@ static func era_of_tech(tech_id: String, db) -> int:
 	return _index_of_age(str(tech.get("era", "")), db)
 
 # Era index a unit becomes available in: the era of its required tech (0 if the
-# unit needs no tech — e.g. the starting Warrior/Settler).
+# unit needs no tech — e.g. the starting Warrior/Settler). A compound AND list
+# (§15.12) makes the unit available only once every tech is researched, so its
+# era is the highest era over the listed techs.
 static func era_of_unit(unit_id: String, db) -> int:
 	var u: Dictionary = db.get_unit(unit_id)
-	var req = u.get("tech_required", null)
-	if req == null or str(req) == "":
-		return 0
-	return era_of_tech(str(req), db)
+	var best: int = 0
+	for tech_id in UnitPrereqs.tech_list(u.get("tech_required", null)):
+		var e: int = era_of_tech(tech_id, db)
+		if e > best:
+			best = e
+	return best
 
 # Era index a structure becomes available in: its own "era" tag if present, else
 # the era of its required tech.

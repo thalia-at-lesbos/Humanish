@@ -929,3 +929,54 @@ func test_ai_spy_holds_station_when_ep_short() -> void:
 	PlayerAI._manage_spy(f, gs, spy, 1)
 	assert_eq([spy.x, spy.y], [8, 8], "With no EP the spy waits on station")
 	assert_not_null(gs.get_unit(spy.id), "…and is not thrown away")
+
+# ── Compound prerequisites: the AI never queues what it cannot build (§15.12) ────
+
+func test_ai_excludes_units_missing_resources() -> void:
+	# With Bronze Working but no copper/iron connected, the axeman (resource
+	# any-of copper/iron) must not appear among the AI's production options.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var p = gs.get_player(1)
+	p.technologies = ["bronze_working"]
+	var s = make_settlement(gs, 1, 5, 5)
+	for opt in PlayerAI._sorted_options(gs, s, p):
+		assert_true(str(opt["id"]) != "axeman",
+			"axeman must not be offered without copper or iron")
+
+func test_ai_includes_unit_once_resource_connected() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var p = gs.get_player(1)
+	p.technologies = ["bronze_working", "mining"]   # mining reveals copper
+	var s = make_settlement(gs, 1, 5, 5)
+	var t = gs.map.get_tile(8, 8)
+	t.owner_player_id = 1
+	t.resource_id = "copper"
+	t.improvement_id = "mine"
+	var found := false
+	for opt in PlayerAI._sorted_options(gs, s, p):
+		if str(opt["id"]) == "axeman":
+			found = true
+	assert_true(found, "axeman is offered once copper is connected")
+
+func test_ai_excludes_compound_tech_units_until_all_researched() -> void:
+	# Maceman needs civil_service AND machinery: one of the two is not enough.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var p = gs.get_player(1)
+	p.technologies = ["civil_service", "mining"]
+	var s = make_settlement(gs, 1, 5, 5)
+	var t = gs.map.get_tile(8, 8)
+	t.owner_player_id = 1
+	t.resource_id = "iron"
+	t.improvement_id = "mine"
+	for opt in PlayerAI._sorted_options(gs, s, p):
+		assert_true(str(opt["id"]) != "maceman",
+			"maceman must not be offered with only one of its two AND techs")
+	p.technologies.append("machinery")
+	var found := false
+	for opt in PlayerAI._sorted_options(gs, s, p):
+		if str(opt["id"]) == "maceman":
+			found = true
+	assert_true(found, "maceman is offered once both AND techs are researched")
