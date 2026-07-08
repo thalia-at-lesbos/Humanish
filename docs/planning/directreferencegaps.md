@@ -1,8 +1,17 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
-Status: **in progress** — sequencing step 1 (bug fixes + A12) done 2026-07-08; next
-is the step-2 `[decide]`/D3 register review (user sitting) while B1–B3 proceed.
-Date: 2026-07-07.
+Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
+B1–B3 done 2026-07-08. Date: 2026-07-07.
+
+**DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
+everything adopts the reference value/model, and ALL Humanish-only content is
+removed.** Concretely: every `[decide]` flag below resolves to "adopt reference";
+D1 = adopt the reference tech graph; D2 = adopt the reference geometric border
+curve; D3 = the intentional-deviation register is dissolved (nothing is an
+intentional deviation — every listed divergence gets scheduled and fixed); D4 = cut
+all Humanish-only content (see D4 for the enumerated list and migration notes).
+A fresh session can proceed without further user input: the A-phase data passes are
+unblocked, then C-phase, then D1/D2/D4 as work items.
 
 Sources of truth for this plan:
 - `docs/planning/reference-parity-audit.md` — the raw discrepancy audit (per-unit/per-table
@@ -27,14 +36,14 @@ through `gs.rng`; every new constant in `data/*.json` (never in code).
 
 Pure JSON edits toward reference values. Each can ship independently; the integration
 playthrough gate plus the listed suites cover regressions. **Balance-sensitive items
-are flagged `[decide]` — adopt the reference value or document the deviation as
-intentional in the table's section of game-data.md; don't leave it ambiguous.**
+are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value"
+(see DECISIONS above); the inline `[decide→RESOLVED]` marks record each outcome.**
 
 - **A1. Unit stats** (`data/units.json`; tests `tests/sim/test_combat.gd`,
   `test_unit*.gd`): apply audit §2 per-unit values — strength/cost/moves/withdrawal/
   first-strikes/cargo/air-range. Sub-decisions:
-  - `[decide]` The across-the-board naval rescale (frigate 18 vs 8 …) — revert to
-    reference or keep; if kept, document in game-data §5.
+  - `[decide→RESOLVED: revert to reference]` The across-the-board naval rescale
+    (frigate 18 vs 8 …) — revert every naval strength to the reference value.
   - ~~Withdrawal chances on the mounted line (chariot 10, horse archer 20, cuirassier
     15, cavalry/cossack 30, gunship 25, conquistador 15, immortal 10, war chariot 10,
     keshik 20, camel archer 15, submarine line 50) look accidentally dropped — restore.~~
@@ -56,43 +65,46 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   audit need the reference's `CommerceModifiers` read before changing.
 - **A3. Difficulty table** (`data/difficulties.json`; tests `tests/sim/test_wild*.gd`,
   `test_turn_engine.gd`): audit §5 — research % (prince 110 …), free wins 5/4/3/2/1/0,
-  `[decide]` health/happiness columns (reference never goes negative for the human),
+  `[decide→RESOLVED: adopt reference]` health/happiness columns (reference never
+  goes negative for the human),
   `ai_research_per_era` sign/semantics (reference: AI research gets *cheaper* per era
-  at high difficulty — align the sign or rename the field), `[decide]` water-raider
-  density ÷4 back to reference, `combat_bonus_vs_wild` semantics (reference puts the
-  modifier on the barbarian side; ours on the human — pick one and document).
-- **A4. World sizes** (`data/world_sizes.json`): `[decide]` grids (only duel matches)
-  and research % recentring (75–120 vs reference 100–150) — both look deliberate;
-  either adopt reference or mark the table "intentional deviation" in game-data §*.
-  players_suggested 2/3/5/7/9/11 if parity chosen.
+  at high difficulty — align the sign or rename the field), `[decide→RESOLVED]`
+  water-raider density back to reference (undo the ÷4), `combat_bonus_vs_wild`
+  semantics → reference model (modifier on the barbarian side).
+- **A4. World sizes** (`data/world_sizes.json`): `[decide→RESOLVED: adopt reference]`
+  grids, research % 100–150, players_suggested 2/3/5/7/9/11.
 - **A5. Terrain & features** (`data/terrains.json`, `features.json`; tests
-  `tests/world/*`, `tests/sim/test_settlement*`): `[decide]` grassland 2/1/0 → 2/0/0
-  (largest single economic deviation — changing it reshapes every game); hills
-  1/2/0 → net 1/1/0-equivalent; mountains workable +1P (reference: unworkable) —
-  keep-or-revert; river commerce on desert/tundra (+1C, reference) — add
-  `river_commerce_bonus: 1` to both; flood-plains defence −33 (reference 0).
+  `tests/world/*`, `tests/sim/test_settlement*`): `[decide→RESOLVED: adopt reference
+  on all]` grassland 2/1/0 → 2/0/0 (largest single economic change — expect broad
+  seeded-test recalibration); hills 1/2/0 → net 1/1/0-equivalent; mountains become
+  unworkable (reference); river commerce on desert/tundra (+1C) — add
+  `river_commerce_bonus: 1` to both; flood-plains defence −33 → 0.
 - **A6. Improvements** (`data/improvements.json`): town 1/1/4 → 0/0/4 base
-  (reference; its +1P/+1F come from civics), workshop −1F/+1P at base `[decide]`.
+  (reference; its +1P/+1F come from civics), workshop −1F/+1P at base
+  `[decide→RESOLVED: adopt reference]`.
 - **A7. Specialists & settled GPs** (`data/specialists.json`; test
   `test_great_people.gd`): citizen +1 production; artist 4 culture (+1 research);
   spy 4 esp (+1 research); settled greats per audit §8 (great_priest +2P/+5 gold …).
-  `[decide]` GPP 1-per-specialist scaling: either ×3 with reference thresholds or
-  keep the ⅓ scale — verify `gp_threshold` progression matches the chosen scale.
+  `[decide→RESOLVED: adopt reference]` GPP scaling ×3 with the reference
+  `gp_threshold` progression.
 - **A8. Promotions values** (`data/promotions.json`): combat6 +25; flanking2 +20;
   interception 10/20; guerrilla3 +50 withdrawal; woodsman3 +2 FS & same-tile heal;
   drill line per game-data §29.3 (needs B2 for chance-FS/collateral fields).
 - **A9. Traits & leaders** (`data/leaders_traits.json`; test `test_data_db.gd`):
   imperialistic GG 50 → 100; creative drop `library` from its building list;
-  charismatic-25%-XP model `[decide]`; Hammurabi aggressive+organized, Brennus
+  charismatic-25%-XP model `[decide→RESOLVED: adopt reference model]`; Hammurabi
+  aggressive+organized, Brennus
   charismatic+spiritual, Gilgamesh creative+protective. (The free-vs-double-speed
   model itself is B4.)
 - **A10. Projects/spaceship** (`data/projects.json`; test `test_win_conditions*.gd`):
   costs 1000–2000 per game-data §29.2/audit §4; counts casing ×5, thrusters ×5,
   engines ×2; Apollo 1600, Manhattan 1500 (they may stay buildings — the cost is the
   parity item).
-- **A11. Globals** (`data/constants.json`): growth 12+8·pop → 20+2·pop `[decide]`;
-  `min_settlement_distance` 3 → 2 `[decide]`; heal rates → 20/15/10/5 (city/friendly/
-  neutral/enemy) `[decide]` (settlement 30 and hostile 0 are ours); XP-per-combat cap
+- **A11. Globals** (`data/constants.json`): growth 12+8·pop → 20+2·pop
+  `[decide→RESOLVED: adopt]`; `min_settlement_distance` 3 → 2
+  `[decide→RESOLVED: adopt]`; heal rates → 20/15/10/5 (city/friendly/
+  neutral/enemy) `[decide→RESOLVED: adopt, dropping our settlement-30/hostile-0
+  extras]`; XP-per-combat cap
   10 (new constant — currently uncapped below 100); `experience_vs_wild_cap` 20 → 10;
   ~~`animal_xp_lifetime_cap` 10 → 5 **and fix the cap-of-10 claim in game-rules
   §9.3 — the reference value is 5**~~ **DONE 2026-07-08** (2093ccb, constant + code
@@ -105,8 +117,9 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   in goodies.json is the documented "difficulty-enabled only" convention. Goody data
   tests live in `tests/core/test_data_db.gd` (no `test_goodies*.gd` exists). No change.
 - **A13. Tech-tree eras/costs** (`data/technologies.json`): future_tech 10000;
-  calendar+iron_working → classical, genetics+stealth → future `[decide]` (interacts
-  with era-driven systems: wild spawns, `Eras.player_era`). Full rewiring is D1.
+  calendar+iron_working → classical, genetics+stealth → future
+  `[decide→RESOLVED: adopt]` (interacts with era-driven systems: wild spawns,
+  `Eras.player_era`). Full rewiring is D1.
 
 ## Phase B — schema extensions (DataDB + sim reads; small, mechanical)
 
@@ -178,8 +191,8 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   victory turn thresholds, and give wild spawning its own pace column (marathon 400).
 - **C4. Culture-level city defence** (§15.4, §29.4): defence modifier from the
   settlement's culture tier in `Combat` city-defence math; bombard reduces it, heals
-  5%/turn. `[decide]` first whether the border-expansion curve itself moves to the
-  reference geometric thresholds (D2) — the defence tiers can key off either curve.
+  5%/turn. `[decide→RESOLVED]` the border-expansion curve moves to the reference
+  geometric thresholds (D2 adopted) — the defence tiers key off that curve.
 - **C5. SDI + The Internet + nuke interception** (§15.7, §29.2): projects.json
   entries (non-spaceship projects with effects — small `projects` model extension),
   interception roll in the nuke-strike path (`src/sim/nuclear.gd`), tech-share check
@@ -192,32 +205,44 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
 - **C8. War-weariness deepening** (§15.8) — *optional*: keep the 2-constant model or
   adopt per-event weights; if adopted, wire into `CombatApply` outcomes. Low priority.
 
-## Phase D — decision items (need a call before any work)
+## Phase D — decided 2026-07-08 (all resolved "adopt reference"); now work items
 
-- **D1. Tech-graph parity** (largest divergence; audit §3): the reference graph
-  (AND + OR prereqs, full 92-tech table below) vs the current flat all-AND rewiring.
-  Adopting it needs: `prereqs_any` actually honoured in research gating + AI
-  cheapest-tech choice, then a pure data pass. Affects: era pacing, wild-forces
-  timing, AI openings, every playthrough test. Recommendation: adopt — costs already
-  match, and OR-prereqs are what give the reference tree its multiple paths.
-- **D2. Border-expansion curve**: near-linear 10 rings (current) vs reference
-  geometric 5 levels ×4 speeds (§29.4). Interacts with `CultureRevolt`, `Influence`,
-  fat-cross reach. If keeping ours, C4 defence tiers key off ring count.
-- **D3. Intentional-deviation register**: naval rescale (A1), difficulty philosophy
-  (A3), map grids/research % (A4), grassland hammer (A5), mountains workable (A5),
-  building upkeep model + no-inflation interplay (C1 changes the economy's total
-  load — retune `upkeep`s when C1 lands), missiles-as-defenders (2026-07-08:
-  `Stack.get_defender` selects purely by strength, so the now-40-strength guided
-  missile can defend a city; reference missiles cannot defend — decide with C5's
-  nuke/interception work). Whatever survives review gets an
-  "intentional, differs from reference" note in its game-data section; the rest gets
-  scheduled.
-- **D4. Humanish-only content**: `anti_tank` unit; `merchant_guild`/
-  `overseas_trading_co`/`nationalist_mutual` orgs; invented promotions (accuracy I/II,
-  boarding, dogfighting, air supremacy, escort, evasion, withdrawal); `sun_faith`/
-  `earth_covenant` religions. Keep (and document as extensions) or cut. Reference
-  promotions we lack regardless: ace, ambush, charge, leader, medic3, mobility,
-  range1/2, tactics — add in A8 if promotion parity is wanted.
+- **D1. Tech-graph parity** — **DECIDED: adopt** the reference graph (AND + OR
+  prereqs, full 92-tech table below). Work: (1) honour `prereqs_any` in research
+  gating + the AI cheapest-tech choice; (2) pure data pass from the appendix table
+  (eras + AND/OR columns; costs already match except future_tech, A13); (3) rename
+  our `communism` tech to the reference `utopia` (audit §3) — grep data + tests for
+  the id. Affects era pacing, wild-forces timing, AI openings, every playthrough
+  test — do last among the big items, when A/C are green.
+- **D2. Border-expansion curve** — **DECIDED: adopt** the reference geometric
+  5 levels ×4 speeds (§29.4), replacing the near-linear 10 rings. Touches
+  `culture_ring_thresholds` (constants.json), `CultureRevolt`, `Influence`,
+  fat-cross reach; C4's defence tiers key off the new curve.
+- **D3. Intentional-deviation register** — **DECIDED: dissolved.** Nothing is an
+  intentional deviation; every formerly-listed divergence is now scheduled inside
+  its phase item: naval rescale (A1), difficulty philosophy (A3), map grids/research %
+  (A4), grassland hammer (A5), mountains workable (A5). Two engine follow-ups it
+  held become work items:
+  - **Building upkeep retune** with C1 (inflation changes the economy's total load —
+    retune `upkeep`s when C1 lands).
+  - **Missiles cannot defend** (reference): exclude `classification: "missile"` from
+    `Stack.get_defender` (mirror the espionage-tag exclusion) and destroy missiles
+    left stackless/cityless on capture — schedule with C5's nuke/interception work.
+- **D4. Humanish-only content** — **DECIDED: cut it all.** Remove: `anti_tank` unit;
+  `merchant_guild`/`overseas_trading_co`/`nationalist_mutual` orgs; invented
+  promotions (accuracy I/II, boarding, dogfighting, air supremacy, escort, evasion,
+  withdrawal); `sun_faith`/`earth_covenant` religions **including their
+  `temple_of_sun`/`grove_sanctuary` structures** (added 2026-07-08 by the
+  dangling-holy-sites bugfix — that fix's *validator and tests* stay; only the
+  content goes). Also add the reference promotions we lack: ace, ambush, charge,
+  leader, medic3, mobility, range1/2, tactics — fold into A8.
+  **Migration notes for the cut pass:** long-standing tests bind some of these ids
+  (`sun_faith`, `merchant_guild` were kept bespoke precisely because tests reference
+  them — update test id references, not test logic); check `data/leaders_traits.json`
+  society/trait references, `data/events.json`/`quests` effects, and encyclopedia
+  rendering for dangling ids; DataDB validators (`_validate_belief_refs`,
+  `_validate_econ_org_refs`, …) will catch stragglers at load — run the full gate
+  after each table's cut.
 
 ## Bug fixes (do now, independent of phases) — ALL DONE 2026-07-08
 
@@ -246,11 +271,17 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
 ## Sequencing recommendation
 
 1. ~~Bug fixes + A12 (small, safe).~~ **DONE 2026-07-08.**
-2. A-phase data passes behind the `[decide]` register (D3 review first — one sitting).
-3. B1–B3 (schema; unblock A1's prereq sets and A8's drill line).
-4. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
-   here), then C4/C5/C7, then C6.
-5. D1 tech graph last among the big items (touches everything; do when A/B are green).
+2. ~~A-phase data passes behind the `[decide]` register.~~ **UNBLOCKED — all
+   decisions resolved "adopt reference" (see DECISIONS above). Next up: A1–A11, A13
+   data passes; fold the new reference promotions (D4) into A8.**
+3. ~~B1–B3 (schema; unblock A1's prereq sets and A8's drill line).~~ **DONE
+   2026-07-08 (B1 f77a574, B2 1d90307, B3 c10ecdf).**
+4. D4 content cut (independent of A; see migration notes) — can go before or after
+   the A passes, but before D1 so the graph pass doesn't have to carry dead ids.
+5. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
+   here), then C4/C5 (+ the missiles-cannot-defend item)/C7, then C6.
+6. D1 tech graph + D2 border curve last among the big items (touch everything; do
+   when A/C are green).
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
 save/load determinism tests must pass after every schema change (int-coercion rule for
