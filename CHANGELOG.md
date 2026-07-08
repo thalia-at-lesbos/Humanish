@@ -5,6 +5,19 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Added
+- **Compound unit prerequisites.** Units can now require several technologies
+  (all of them) and strategic resources in "all of these" / "any one of these"
+  combinations — knights need Guilds + Horseback Riding and Horse + Iron;
+  macemen accept Copper or Iron. The reference prerequisite sets are applied
+  across the unit roster.
+- **Strategic resource requirements are enforced.** Previously they were
+  display-only: cities could build, players could draft, and the AI could
+  queue any unit without the listed resource. Building, drafting, upgrading,
+  and AI production now all require the resources (connected or imported).
+- **Unit upgrades check prerequisites.** Upgrading into a unit now requires
+  its technologies and resources, not just gold.
+
 ### Fixed
 - **Sun Faith and Earth Covenant are real religions now.** Both referenced
   holy-site structures that didn't exist and, having no founding technology,
