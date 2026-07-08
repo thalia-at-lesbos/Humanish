@@ -43,7 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Unimplemented reference mechanics": "Parity targets with reference values — inflation, whipping, pace scaling, culture defence, chance first strikes, siege caps, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters, compound prereqs (all unimplemented)"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — inflation, whipping, pace scaling, culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Unimplemented reference mechanics — every subsection (15.1–15.12) is a reference-parity target, none implemented; values final (from reference XML), models unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1526,7 +1526,7 @@ supplies the values they read. A faithful implementation must reproduce both.
 11. (Recommended) an **override-hook seam** mirroring the phase-override pattern so content
     can replace any rule.
 
-## 15. Unimplemented reference mechanics (parity targets)
+## 15. Reference-parity mechanics (parity targets; unimplemented unless a subsection says otherwise)
 
 > **⚠️ Provisional — none of §15 is implemented.** Every subsection below specifies a
 > mechanic (or a rule-level correction) that exists in the reference game but has no
@@ -1609,24 +1609,27 @@ modifier can be adopted independently, keyed off whatever thresholds are in forc
 Bombardment reduces this modifier before combat (reference
 `CITY_DEFENSE_DAMAGE_HEAL_RATE` 5 %/turn recovery).
 
-### 15.5 Chance first strikes *(unimplemented)*
+### 15.5 Chance first strikes
 
 Reference units have `first_strikes` (guaranteed) **plus** `chance_first_strikes`: an
 extra uniform-random 0…N first strikes rolled per combat (from the shared RNG, pipeline
-order). Humanish models only the guaranteed part. Reference carriers of the chance stat:
-navy seal 1+1, skirmisher 1+1 (Humanish currently 1+0 and 2+0/1+0 — see the unit
-retune list). Drill promotions also grant chance first strikes in the reference
-(see `game-data.md` §29.3). Schema: add `chance_first_strikes` (int, default 0) to
-`units.json`/`promotions.json`; combat resolution rolls it once per battle.
+order). Implemented: `Combat.rolled_first_strikes` sums the unit's `first_strikes`,
+its promotions' `first_strikes_bonus`es, and one uniform 0…chance roll (unit
+`chance_first_strikes` + promotion `chance_first_strikes_bonus`es), drawing from the
+shared RNG only when a chance stat is present so chance-free units consume no draw.
+Carriers: navy seal 1+1, skirmisher 1+1. Drill promotions also grant chance first
+strikes in the reference (see `game-data.md` §29.3); their chance values land with
+the A8 promotions data pass in `directreferencegaps.md`.
 
-### 15.6 Per-unit siege damage caps *(unimplemented — semantics correction)*
+### 15.6 Per-unit siege damage caps
 
 The reference `iCombatLimit` is a **per-unit maximum damage percentage**: a sieging
 attacker cannot reduce the defender below `100 − limit` HP (catapult/trebuchet 75 →
 defender floor 25; cannon 80 → floor 20; artillery/mobile artillery 85 → floor 15;
-machine gun and all non-siege units 100 → can kill). Humanish's single
-`combat_limit: 1` (universal 1-HP floor) makes all siege drastically stronger than the
-reference. Parity: store the floor per unit (25/25/20/15/15) and keep 0 = "no cap".
+machine gun and all non-siege units 100 → can kill). Implemented: `combat_limit`
+stores the per-unit defender-health floor (catapult/trebuchet/hwacha 25, cannon 20,
+artillery/mobile artillery 15; 0 = no cap), replacing the old universal 1-HP floor
+that made all siege drastically stronger than the reference.
 
 ### 15.7 Nuke interception & the two missing projects *(unimplemented)*
 
@@ -1699,14 +1702,17 @@ difficulty. Parity: give the settler/worker records the per-difficulty weights f
 §29.7 (they already exist as data; only the weights change — no engine work beyond
 per-difficulty goody weighting, which §24 already supports).
 
-### 15.12 Compound unit prerequisites *(unimplemented — schema)*
+### 15.12 Compound unit prerequisites
 
 Reference units may require **several techs (all)** and **a fixed resource plus a
 list of alternatives (any one)**: knight = Guilds + Horseback Riding, Horse **and**
 Iron; maceman = Civil Service + Machinery, Copper **or** Iron; bomber = Flight **and**
-Radio. Humanish's single `tech_required` / `resource_required` fields cannot express
-this; many units therefore unlock earlier or without their resource gates. Parity:
-`tech_required` → list (AND), `resource_required` → `{ "all": [...], "any": [...] }`
-(or two fields), with `DataDB` validation and per-unit values from the audit's §2
-table. This is the schema half; the per-unit value corrections are Phase-A retunes in
+Radio. Implemented: `tech_required` accepts a list (AND) and `resource_required` a
+`{ "all": [...], "any": [...] }` dictionary (single-string forms remain valid), read
+everywhere through the canonical `UnitPrereqs.tech_ok`/`resource_ok` (the resource
+side checks `EconOrgs.accessible_resources` — connected tiles plus deal imports), with
+`DataDB` validation; the audit-§2 per-unit prereq sets are applied. Enforcement note:
+this also introduced the game's first *resource* gates (build/draft/upgrade/AI) —
+`resource_required` was previously display-only, and upgrades had no prereq gate.
+The remaining per-unit stat corrections are Phase-A retunes in
 `directreferencegaps.md`.
