@@ -106,6 +106,27 @@ func test_enter_keys_bound_to_end_turn_control() -> void:
 	assert_eq(hk.lookup(KEY_KP_ENTER, false, false), IDs.ControlType.END_TURN,
 		"Numpad Enter ends the turn")
 
+# The documented function-key bindings (Controls screen, user docs, design §3.1).
+# Uses the engine KEY_* constants so a raw-scancode typo in hotkeys.json is
+# caught (F9 was once bound as 16777257 = KEY_F14 instead of 16777252 = KEY_F9).
+func test_function_keys_bound_to_documented_controls() -> void:
+	var hk = load("res://scenes/input/hotkey_map.gd").new()
+	hk.load_bindings()
+	assert_eq(hk.lookup(KEY_F1, false, false), IDs.ControlType.OPEN_ENCYCLOPEDIA,
+		"F1 opens the Encyclopedia")
+	assert_eq(hk.lookup(KEY_F2, false, false), IDs.ControlType.OPEN_TECH,
+		"F2 opens the tech tree")
+	assert_eq(hk.lookup(KEY_F3, false, false), IDs.ControlType.OPEN_POLICY,
+		"F3 opens the civics screen")
+	assert_eq(hk.lookup(KEY_F4, false, false), IDs.ControlType.OPEN_DIPLOMACY,
+		"F4 opens the diplomacy screen")
+	assert_eq(hk.lookup(KEY_F5, false, false), IDs.ControlType.QUICK_SAVE,
+		"F5 quick-saves")
+	assert_eq(hk.lookup(KEY_F9, false, false), IDs.ControlType.QUICK_LOAD,
+		"F9 quick-loads")
+	assert_eq(hk.lookup(KEY_ESCAPE, false, false), IDs.ControlType.OPEN_MENU,
+		"Escape opens the pause menu")
+
 func _key(scancode):
 	var e = InputEventKey.new()
 	e.scancode = scancode
