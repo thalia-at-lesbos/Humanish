@@ -132,6 +132,40 @@ func test_odds_clamp_gives_hopeless_attacker_a_chance() -> void:
 	assert_true(landed_a_hit,
 		"Odds clamp lets a hopeless attacker land at least one hit across seeds")
 
+# ── Per-unit siege damage caps (§15.6) ────────────────────────────────────────
+
+func test_siege_cap_floors_defender_health() -> void:
+	# A sieging attacker cannot reduce the defender below its combat_limit
+	# floor — the fight ends with the defender alive at exactly the floor.
+	var gs = make_gs()
+	gs.db.units["sieger"] = {
+		"id": "sieger", "base_strength": 200, "movement": 60,
+		"classification": "siege", "tags": ["siege"],
+		"first_strikes": 0, "combat_limit": 25, "withdrawal_chance": 0,
+		"upkeep": 0, "cost": 50
+	}
+	var atk = load("res://src/sim/unit.gd").new()
+	atk.id = gs.next_unit_id(); atk.unit_type_id = "sieger"
+	atk.owner_player_id = 1; atk.x = 5; atk.y = 6
+	atk.base_strength = 200; atk.health = 100
+	atk.movement_total = 60; atk.movement_left = 60
+	gs.units.append(atk)
+	var defender = make_warrior(gs, 2, 5, 5)
+	var result: Dictionary = Combat.resolve(atk, defender, gs, _rng(11))
+	assert_true(result["defender_survived"],
+		"A capped attacker can never kill: the defender survives at the floor")
+	assert_eq(result["defender_health_after"], 25,
+		"The defender is reduced exactly to the unit's combat_limit floor")
+
+func test_siege_roster_carries_reference_floors() -> void:
+	# §15.6 data pass: floor = 100 − reference iCombatLimit.
+	var gs = make_gs()
+	var floors = {"catapult": 25, "trebuchet": 25, "hwacha": 25,
+		"cannon": 20, "artillery": 15, "mobile_artillery": 15}
+	for uid in floors:
+		assert_eq(int(gs.db.get_unit(uid).get("combat_limit", 0)), floors[uid],
+			"'%s' carries its §15.6 damage floor" % uid)
+
 # ── Chance first strikes (§15.5) ──────────────────────────────────────────────
 
 func _make_chance_striker(gs, chance, base_fs = 1):
