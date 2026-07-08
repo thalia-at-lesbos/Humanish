@@ -3,6 +3,50 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [0.5.2] - 2026-07-07 "Full Feature Alpha 3"
+
+### Added
+- **Three-rate economy slider panel.** Finance and research set directly in ±10%
+  steps; the economy (treasury) rate is the derived remainder.
+- **Espionage system (§7.1).** Passive intel with information fog, spy
+  invisibility, and AI spies; spy-unit-on-tile missions; and the complete active
+  mission catalogue.
+- **Quest subsystem.** Multi-turn quest tracking with the full 18-quest
+  catalogue (aim/constraint predicates), quest-armed popups with descriptions, a
+  random era-chance trigger, and a 20-turn quest grace period.
+- **Reworked random-event system (§9).** Data-driven framework plus a broad
+  catalogue: pure-verb events; STRUCT_YIELD/SPEC/SGP/SPREAD, ESP, PEACE-WAR,
+  DESTROY_BLDG, PILLAGE, and REVOLT effect verbs; niche-system prereqs; and an
+  event-choice popup. Events (and quests) can be toggled off per game.
+- **Global warming (§11)** replaces per-tile pollution.
+- **Complete 12-record goody-hut reward catalogue (§5.3).**
+- **Map start-fairness normalization** (steps 1, 8, 9) for more even starts (§5.2).
+- **Diplomacy denial-reason layer** — deal refusals now explain themselves (§5.4).
+- **Society-driven city naming** with historical city-name lists for all 34
+  civilizations, plus city-screen navigation.
+- **Combat unit strength** (base + net effective) shown in the selection panel.
+- **All combat units can Explore**, not just recon units.
+- **Work boats** apply a sea improvement instantly and are consumed on use.
+
+### Changed
+- Insolvency now disbands units only — structures are never sold.
+- Fortify is restricted to land combat units (no bonus for mounted units).
+- Quick Load rebound to **F9** as documented (was `KEY_F14`).
+- Selection panel gains a dark-charcoal background hugged to its content.
+- `run_tests.sh` now exits non-zero when tests fail.
+
+### Fixed
+- Economy slider readouts and on-tile stack member buttons are left-justified.
+- Selection panel's action list now reflects the selected unit.
+- Save lists are date-sorted; the main bar shows a signed gold rate.
+- Map clicks release HUD focus, arrow keys pan only, and turn start focuses the
+  next idle unit.
+- Workers consume work boats on build and no longer place cottages on zero-food
+  tiles.
+- Remembered fog lightened; culture water reach capped; capital no longer
+  floods; scout coast-trap fixed.
+- New Game from the pause menu unpauses the tree before returning to the title.
+
 ## [0.5.1] - 2026-06-20 "Full Feature Alpha 2"
 
 ### Added
