@@ -3,6 +3,25 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Fixed
+- **Sun Faith and Earth Covenant are real religions now.** Both referenced
+  holy-site structures that didn't exist and, having no founding technology,
+  were silently auto-founded on turn 1 of every game (masking base city
+  unhealthiness with a free health bonus). They now have proper holy-site
+  structures (Temple of the Sun, Grove Sanctuary) and founding technologies
+  (Calendar, Agriculture), and the data loader cross-checks every belief's
+  structure and tech references.
+- **Animal lifetime XP cap corrected to 5** (was 10, which is the reference's
+  barbarian cap, not the animal cap).
+- **Mounted and submarine withdrawal chances restored** — chariot through
+  cavalry/cossack, gunship, the unique mounted units, and the submarine line
+  had lost their withdrawal values.
+- **Guided Missile works.** It shipped with strength 0 (strikes could never
+  hurt anything); it now strikes at its reference strength 40 and is consumed
+  on use — launch, hit, miss, or interception — like the nuclear weapons.
+
 ## [0.5.2] - 2026-07-07 "Full Feature Alpha 3"
 
 ### Added
