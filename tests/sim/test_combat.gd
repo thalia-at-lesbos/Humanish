@@ -503,3 +503,49 @@ func test_panther_vs_hill_warrior_odds_are_plausible() -> void:
 	# Odds the panther wins a round (out of 1000), as resolve() computes them.
 	var a_odds: int = (a_str * 1000) / (a_str + d_str)
 	assert_eq(a_odds, 500, "Panther wins ~50% of rounds — an even fight, working as designed")
+
+# ── §9 wild combat modifier (A3, reference semantics) ────────────────────────
+# `wild_combat_modifier` (difficulties.json) is a percentage modifier applied to
+# the WILD side's strength when it fights a human player's unit — the reference
+# model puts the discount on the barbarian's side, never as a bonus on the
+# player's own unit — and it skips AI opponents (their handicap is ai_bonus).
+# The shipped value is 0 at every level; these inject one to pin the semantics.
+
+func _resolve_wild_fight(seed_val, wild_mod, wild_attacks = false, human_is_ai = false):
+	var gs = make_gs(1, seed_val)
+	gs.db.difficulties[gs.difficulty_id]["wild_combat_modifier"] = wild_mod
+	gs.get_player(1).is_ai = human_is_ai
+	var human = make_warrior(gs, 1, 5, 6)
+	var raider = make_warrior(gs, -2, 5, 5, true)
+	if wild_attacks:
+		return Combat.resolve(raider, human, gs, gs.rng)
+	return Combat.resolve(human, raider, gs, gs.rng)
+
+func test_wild_combat_modifier_weakens_a_wild_defender() -> void:
+	# −90% turns the str-10 raider into a str-1 defender: the human attacker's
+	# odds hit the 900/1000 ceiling and its per-hit damage grows, so with the
+	# same seed the fight is a rout where the baseline is a coin flip.
+	var base: Dictionary = _resolve_wild_fight(42, 0)
+	var nerfed: Dictionary = _resolve_wild_fight(42, -90)
+	assert_false(nerfed["defender_survived"], "a −90% wild defender loses the fight")
+	assert_true(nerfed["attacker_survived"], "the human attacker survives the rout")
+	assert_true(int(nerfed["defender_health_after"]) <= int(base["defender_health_after"]),
+		"the modifier hurts the wild side, not the player's")
+
+func test_wild_combat_modifier_weakens_a_wild_attacker() -> void:
+	# The same modifier applies when the wild unit is the ATTACKER: its own
+	# strength is cut, so it dies against the defending human warrior.
+	var res: Dictionary = _resolve_wild_fight(42, -90, true)
+	assert_false(res["attacker_survived"], "a −90% wild attacker loses the fight")
+	assert_true(res["defender_survived"], "the defending human unit survives")
+
+func test_wild_combat_modifier_skips_ai_opponents() -> void:
+	# Vs an AI player the modifier is inert (the AI's aid is folded into
+	# ai_bonus), so the same seed replays the unmodified fight exactly.
+	var base: Dictionary = _resolve_wild_fight(42, 0)
+	var vs_ai: Dictionary = _resolve_wild_fight(42, -90, false, true)
+	assert_eq(vs_ai["defender_health_after"], base["defender_health_after"],
+		"an AI opponent gets no wild-side modifier (defender health identical)")
+	assert_eq(vs_ai["attacker_health_after"], base["attacker_health_after"],
+		"an AI opponent gets no wild-side modifier (attacker health identical)")
+	assert_eq(vs_ai["rounds"], base["rounds"], "the fight replays round-for-round")

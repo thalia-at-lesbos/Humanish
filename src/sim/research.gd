@@ -49,16 +49,17 @@ static func _effective_cost(tech_id: String, player: Player, db: DataDB,
 	var cost: int = int(tech.get("cost", 100))
 
 	# Difficulty research handicap (§2.2). A player aid: the human pays the level's
-	# handicap_research_percent (Settler 60 … Noble 100 … Deity 130). The AI does
+	# handicap_research_percent (Settler 60 … Noble 100 … Deity 135). The AI does
 	# NOT pay it (its handicap is the separate ai_bonus beaker boost); instead it
 	# gets ai_research_per_era — a per-era cost modifier that compounds with its
-	# era (negative on easy levels = slower, positive on hard levels = faster).
+	# era, applied with the reference sign convention: NEGATIVE means the AI's
+	# techs get CHEAPER each era (0 on easy levels, −1…−5 Prince→Deity).
 	var diff: Dictionary = db.get_difficulty(difficulty_id)
 	if player != null and player.is_ai:
 		var per_era: int = int(diff.get("ai_research_per_era", 0))
 		if per_era != 0:
 			for _i in range(Eras.player_era(player, db)):
-				cost = Fixed.scale(cost, 100 - per_era)
+				cost = Fixed.scale(cost, 100 + per_era)
 	else:
 		cost = Fixed.scale(cost, int(diff.get("handicap_research_percent", 100)))
 	# World size.

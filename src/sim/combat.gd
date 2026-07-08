@@ -72,6 +72,29 @@ static func resolve(attacker: Unit, defender: Unit,
 		if a_str < 1:
 			a_str = 1
 
+	# Wild combat modifier (§9, reference model): the difficulty's
+	# `wild_combat_modifier` is a percentage applied to the WILD side's strength
+	# when it fights a human player's unit — a modifier on the barbarian's side
+	# (negative = weaker raiders), never a bonus on the player's own unit. The AI
+	# side's version is folded into `ai_bonus`, so an AI opponent gets nothing
+	# here. Reference value is 0 at every difficulty level.
+	if attacker.is_wild != defender.is_wild:
+		var wild_mod: int = int(db.get_difficulty(game_state.difficulty_id).get(
+			"wild_combat_modifier", 0))
+		if wild_mod != 0:
+			var opp_id: int = defender.owner_player_id if attacker.is_wild \
+				else attacker.owner_player_id
+			var opp: Player = game_state.get_player(opp_id)
+			if opp != null and not opp.is_ai:
+				if attacker.is_wild:
+					a_str += Fixed.scale(a_str, wild_mod)
+					if a_str < 1:
+						a_str = 1
+				else:
+					d_str += Fixed.scale(d_str, wild_mod)
+					if d_str < 1:
+						d_str = 1
+
 	# Firepower (§5.4) feeds the per-hit damage model, captured from the real
 	# effective strengths before any odds-only clamps below.
 	var a_fp: int = attacker.firepower(db, a_str)
