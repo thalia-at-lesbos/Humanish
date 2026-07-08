@@ -73,6 +73,19 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   industrial park −2), happiness rows (market/forum/odeon/ball court/hippodrome,
   cathedral-tier), granary health 0. The `science%` rows flagged "unverified" in the
   audit need the reference's `CommerceModifiers` read before changing.
+  **DONE 2026-07-08** (6608796): all §4 straight value diffs applied — costs/techs/
+  happiness/granary as listed; laboratory/research_institute −1 health too (audit
+  row). Wiring find: `effects.unhealthy` was a *dead key* (read nowhere — the engine
+  reads `health_penalty`), so factory/industrial_park/coal_plant/shale_plant/
+  ironworks silently had no health malus; all converted to `health_penalty`.
+  Left unchanged: `science%` rows (library 25/seowon 35/academy 50 — CommerceModifiers
+  unverified), military_academy cost 300 (reference "not city-buildable" is a
+  mechanic change, not a value diff), three_gorges_dam's still-dead
+  `unhealthy_global: 2` (global semantics ≠ per-city `health_penalty`; needs its own
+  wiring), hippodrome's still-dead `happiness_with_horse: 1`. Cathedral-tier flat
+  happy → 0 leaves cathedrals culture-only until the reference's culture%-slider
+  happiness mechanic exists. One recalibration: the `test_state_religion.gd`
+  cathedral-gate test now injects its own `happiness_bonus`.
 - **A3. Difficulty table** (`data/difficulties.json`; tests `tests/sim/test_wild*.gd`,
   `test_turn_engine.gd`): audit §5 — research % (prince 110 …), free wins 5/4/3/2/1/0,
   `[decide→RESOLVED: adopt reference]` health/happiness columns (reference never
