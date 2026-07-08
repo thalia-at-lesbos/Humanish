@@ -2711,6 +2711,17 @@ func _draftable_unit(p: Player) -> String:
 			best_id = uid
 	return best_id
 
+# Remove a spent `one_use` weapon after its strike resolves. The attacker may
+# already have died in the exchange (removed by _apply_combat_result), so only
+# remove it if it still exists.
+func _consume_one_use(u: Unit) -> void:
+	if _gs.get_unit(u.id) == null:
+		return
+	Stack.remove_unit(_gs.units, u.id)
+	if _selection != null:
+		_selection.selected_unit_ids.erase(u.id)
+	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
+
 # Launch a one-use nuclear weapon at a target tile (§5.7). The missile is consumed
 # whether or not it is intercepted. Forbidden while a Non-Proliferation resolution
 # (`no_nuclear`) is in force.
@@ -2930,16 +2941,22 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 		IDs.CommandType.MISSION_BOMBARD:
 			var tx: int = int(cmd.get("target_x", -1))
 			var ty: int = int(cmd.get("target_y", -1))
-			var is_air: bool = _db.get_unit(u.unit_type_id).get("domain", "land") == "air"
+			var udata_b: Dictionary = _db.get_unit(u.unit_type_id)
+			var is_air: bool = udata_b.get("domain", "land") == "air"
+			# A `one_use` weapon (guided missile) is spent on launch, hit or miss —
+			# the same rule as the §5.7 nuke path.
+			var one_use: bool = "one_use" in udata_b.get("tags", [])
 			if is_air:
 				# Air strikes reach within range; an interceptor may shoot the
 				# bomber down before it strikes (§5.2).
-				var reach: int = int(_db.get_unit(u.unit_type_id).get("air_range",
+				var reach: int = int(udata_b.get("air_range",
 					_db.get_constant("air_strike_default_range", 4)))
 				if _gs.map.distance(u.x, u.y, tx, ty) > reach:
 					return false
 				if _resolve_interception(u, tx, ty, player_id):
 					u.has_moved = true; u.movement_left = 0
+					if one_use:
+						_consume_one_use(u)
 					return true  # intercepted: mission aborted
 			var target: Unit = Stack.get_defender(_gs.units, tx, ty, player_id, _gs)
 			if target == null:
@@ -2950,6 +2967,8 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			emit_signal("combat_resolved", result)
 			_add_combat_notification(u, target, result)
 			u.has_moved = true
+			if one_use:
+				_consume_one_use(u)
 		IDs.CommandType.MISSION_AIRLIFT:
 			var tx2: int = int(cmd.get("target_x", u.x))
 			var ty2: int = int(cmd.get("target_y", u.y))

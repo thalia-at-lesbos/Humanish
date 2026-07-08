@@ -35,6 +35,34 @@ func test_air_strike_out_of_range_rejected() -> void:
 		"unit_id": fighter.id, "target_x": 15, "target_y": 5}),
 		"A target beyond air range cannot be struck")
 
+func test_guided_missile_strikes_and_is_consumed() -> void:
+	# A guided missile (strength 40, tag one_use) strikes via the air-bombard
+	# path and is spent on launch — it never survives its own mission.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	gs.alliances[0].at_war_with = [2]; gs.alliances[1].at_war_with = [1]
+	var missile = make_unit(gs, "guided_missile", 1, 5, 5)
+	var target = make_unit(gs, "warrior", 2, 8, 5)  # within air_range 8
+	target.base_strength = 1; target.health = 1
+	assert_true(f._cmd_mission({"type": IDs.CommandType.MISSION_BOMBARD, "player_id": 1,
+		"unit_id": missile.id, "target_x": 8, "target_y": 5}),
+		"A guided missile strike within range resolves")
+	assert_eq(gs.get_unit(target.id), null, "The strike destroys the weak target")
+	assert_eq(gs.get_unit(missile.id), null, "A one_use weapon is consumed by its strike")
+
+func test_bomber_survives_its_strike() -> void:
+	# A reusable air unit (no one_use tag) flies home after striking.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	gs.alliances[0].at_war_with = [2]; gs.alliances[1].at_war_with = [1]
+	var bomber = make_unit(gs, "bomber", 1, 5, 5)
+	var target = make_unit(gs, "warrior", 2, 8, 5)
+	target.base_strength = 1; target.health = 1
+	assert_true(f._cmd_mission({"type": IDs.CommandType.MISSION_BOMBARD, "player_id": 1,
+		"unit_id": bomber.id, "target_x": 8, "target_y": 5}),
+		"A bomber strike within range resolves")
+	assert_ne(gs.get_unit(bomber.id), null, "A reusable air unit survives its own strike")
+
 func test_airlift_limited_by_range() -> void:
 	var gs = make_gs()
 	var f = bare_facade(gs)
