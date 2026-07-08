@@ -451,16 +451,17 @@ func test_settlement_defence_flows_through_combat_resolve() -> void:
 # ── Panther vs Warrior investigation (pinned numbers) ───────────────────────────
 #
 # A player reported a Panther killing two hill-defending Warriors and asked whether
-# combat is broken. It is working as designed: the Panther (data base_strength 3) is
-# deliberately the strong mid-tier early animal, beating a Warrior (data base_strength
-# 2). The hill terrain's +25% defence bonus IS applied to the defender in resolve(),
-# but at integer strengths it rounds away for a strength-2 unit (2 * 125 / 100 = 2),
-# so a hill barely helps a lone unfortified Warrior. These tests pin the actual
-# numbers so a future balance/data change can't silently shift them.
+# combat is broken. It is working as designed: the Panther (data base_strength 2,
+# the reference value since the A1 parity pass) matches a Warrior (data
+# base_strength 2). The hill terrain's +25% defence bonus IS applied to the defender
+# in resolve(), but at integer strengths it rounds away for a strength-2 unit
+# (2 * 125 / 100 = 2), so a hill barely helps a lone unfortified Warrior. These
+# tests pin the actual numbers so a future balance/data change can't silently
+# shift them.
 
 func test_panther_outpowers_warrior_by_data() -> void:
 	# Pin the raw data stats the investigation reasoned from.
-	assert_eq(int(gs_db_strength("panther")), 3, "Panther base_strength is 3")
+	assert_eq(int(gs_db_strength("panther")), 2, "Panther base_strength is 2 (reference value, A1)")
 	assert_eq(int(gs_db_strength("warrior")), 2, "Warrior base_strength is 2")
 
 func gs_db_strength(uid):
@@ -484,22 +485,21 @@ func test_hill_defence_bonus_reaches_resolve() -> void:
 	assert_eq(as_attacker, 10, "terrain defence never helps the attacker")
 
 func test_panther_vs_hill_warrior_odds_are_plausible() -> void:
-	# Pin the per-round odds: a full-health Panther (str 3) attacking a full-health,
+	# Pin the per-round odds: a full-health Panther (str 2) attacking a full-health,
 	# unfortified Warrior (str 2) on a hill. The hill's +25% truncates away at str 2
-	# (2 * 125 / 100 = 2), so odds = 3*1000/(3+2) = 600/1000 — a clear but not
-	# overwhelming Panther edge. Winning two such fights in a row is plausible
-	# variance (~0.6 per round over several rounds), not a bug.
+	# (2 * 125 / 100 = 2), so odds = 2*1000/(2+2) = 500/1000 — a coin flip per
+	# round. Winning two such fights in a row is plausible variance, not a bug.
 	var gs = make_gs()
 	gs.map.get_tile(5, 5).terrain_id = "hills"
-	var panther = make_unit(gs, "panther", -2, 5, 6)  # str 3, attacker
+	var panther = make_unit(gs, "panther", -2, 5, 6)  # str 2, attacker
 	panther.is_wild = true
 	panther.is_animal = true
 	var warrior = make_unit(gs, "warrior", 1, 5, 5)   # str 2, defender on hill
 	var hills: Dictionary = gs.db.get_terrain("hills")
 	var d_str: int = warrior.effective_strength(gs.db, false, hills, {}, "")
 	var a_str: int = panther.effective_strength(gs.db, true, {}, {}, "")
-	assert_eq(a_str, 3, "Panther attacks at strength 3")
+	assert_eq(a_str, 2, "Panther attacks at strength 2 (reference value, A1)")
 	assert_eq(d_str, 2, "Warrior on a hill defends at strength 2 (hill +25% truncates at str 2)")
 	# Odds the panther wins a round (out of 1000), as resolve() computes them.
 	var a_odds: int = (a_str * 1000) / (a_str + d_str)
-	assert_eq(a_odds, 600, "Panther wins ~60% of rounds — a real edge, working as designed")
+	assert_eq(a_odds, 500, "Panther wins ~50% of rounds — an even fight, working as designed")
