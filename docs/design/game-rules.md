@@ -1375,7 +1375,7 @@ Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`
   **wanders** one tile (also refusing borders). Animals do not rouse raider camps.
 * **Combat limits.** Animals **earn no promotions** from combat (`CombatApply.award_promotions`
   is a no-op for them), and a player unit's **lifetime XP from killing animals is capped** at
-  `animal_xp_lifetime_cap` (10, per the reference) — tracked on `Unit.xp_from_animals`; beyond it, hunting
+  `animal_xp_lifetime_cap` (5, per the reference `ANIMAL_MAX_XP_VALUE`; 10 is the *barbarian* cap) — tracked on `Unit.xp_from_animals`; beyond it, hunting
   animals yields no further experience. (This is in addition to the existing per-fight
   `experience_vs_wild_cap`.)
 

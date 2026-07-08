@@ -107,7 +107,7 @@
   "animal_land_per_unit": 60,
   "animal_detect_radius": 2,
   "animal_spawn_per_turn": 2,
-  "animal_xp_lifetime_cap": 10,
+  "animal_xp_lifetime_cap": 5,
   "unit_sight": 2,
   "ocean_travel_tech": "optics",
   "open_borders_tech": "writing",
