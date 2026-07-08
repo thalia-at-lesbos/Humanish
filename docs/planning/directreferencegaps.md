@@ -1,6 +1,8 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
-Status: **planning** (nothing below is started unless marked). Date: 2026-07-07.
+Status: **in progress** — sequencing step 1 (bug fixes + A12) done 2026-07-08; next
+is the step-2 `[decide]`/D3 register review (user sitting) while B1–B3 proceed.
+Date: 2026-07-07.
 
 Sources of truth for this plan:
 - `docs/planning/reference-parity-audit.md` — the raw discrepancy audit (per-unit/per-table
@@ -33,10 +35,16 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   first-strikes/cargo/air-range. Sub-decisions:
   - `[decide]` The across-the-board naval rescale (frigate 18 vs 8 …) — revert to
     reference or keep; if kept, document in game-data §5.
-  - Withdrawal chances on the mounted line (chariot 10, horse archer 20, cuirassier
+  - ~~Withdrawal chances on the mounted line (chariot 10, horse archer 20, cuirassier
     15, cavalry/cossack 30, gunship 25, conquistador 15, immortal 10, war chariot 10,
-    keshik 20, camel archer 15, submarine line 50) look accidentally dropped — restore.
-  - `guided_missile` strength 0 vs reference 40 — verify missile combat path, then fix.
+    keshik 20, camel archer 15, submarine line 50) look accidentally dropped — restore.~~
+    **DONE 2026-07-08** (d933a61, all 13 values restored).
+  - ~~`guided_missile` strength 0 vs reference 40 — verify missile combat path, then fix.~~
+    **DONE 2026-07-08** (d933a61): strength 40; verification found the `one_use` tag was
+    read nowhere — the air-bombard path now consumes one-use weapons on strike or
+    interception (`SimFacade._consume_one_use`). Follow-up for the D3/C5 sitting:
+    `Stack.get_defender` has no missile/air exclusion, so a garrisoned guided missile
+    can be selected as a city's best defender at 40 (reference missiles cannot defend).
   - settler/worker moves 1 → 2, fast worker 2 → 3, musketeer 1 → 2 (reference).
 - **A2. Building/wonder values** (`data/structures.json`; test `test_settlement*.gd`):
   audit §4 list — costs (barracks 50, cothon 100, forum 150, ger 60, hagia sophia 500
@@ -86,11 +94,16 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   `min_settlement_distance` 3 → 2 `[decide]`; heal rates → 20/15/10/5 (city/friendly/
   neutral/enemy) `[decide]` (settlement 30 and hostile 0 are ours); XP-per-combat cap
   10 (new constant — currently uncapped below 100); `experience_vs_wild_cap` 20 → 10;
-  `animal_xp_lifetime_cap` 10 → 5 **and fix the cap-of-10 claim in game-rules
-  §9.3 — the reference value is 5**; max withdrawal clamp 90 (new).
-- **A12. Goody weights** (`data/goodies.json`): give `settler`/`worker` the
+  ~~`animal_xp_lifetime_cap` 10 → 5 **and fix the cap-of-10 claim in game-rules
+  §9.3 — the reference value is 5**~~ **DONE 2026-07-08** (2093ccb, constant + code
+  fallback + doc together); max withdrawal clamp 90 (new).
+- **A12. Goody weights** (`data/goodies.json`): ~~give `settler`/`worker` the
   per-difficulty weights from game-data §29.7 (per-difficulty weighting already
-  supported per §24). Tests: `tests/sim/test_goodies*.gd`.
+  supported per §24). Tests: `tests/sim/test_goodies*.gd`.~~ **VERIFIED ALREADY
+  SHIPPED 2026-07-08**: `difficulties.json` `goody_weights` columns already carry the
+  §24-normalised settler/worker weights (10/10/5/0/0/0/0/0/0); the base `weight: 0`
+  in goodies.json is the documented "difficulty-enabled only" convention. Goody data
+  tests live in `tests/core/test_data_db.gd` (no `test_goodies*.gd` exists). No change.
 - **A13. Tech-tree eras/costs** (`data/technologies.json`): future_tech 10000;
   calendar+iron_working → classical, genetics+stealth → future `[decide]` (interacts
   with era-driven systems: wild spawns, `Eras.player_era`). Full rewiring is D1.
@@ -170,7 +183,10 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
 - **D3. Intentional-deviation register**: naval rescale (A1), difficulty philosophy
   (A3), map grids/research % (A4), grassland hammer (A5), mountains workable (A5),
   building upkeep model + no-inflation interplay (C1 changes the economy's total
-  load — retune `upkeep`s when C1 lands). Whatever survives review gets an
+  load — retune `upkeep`s when C1 lands), missiles-as-defenders (2026-07-08:
+  `Stack.get_defender` selects purely by strength, so the now-40-strength guided
+  missile can defend a city; reference missiles cannot defend — decide with C5's
+  nuke/interception work). Whatever survives review gets an
   "intentional, differs from reference" note in its game-data section; the rest gets
   scheduled.
 - **D4. Humanish-only content**: `anti_tank` unit; `merchant_guild`/
@@ -180,22 +196,33 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   promotions we lack regardless: ace, ambush, charge, leader, medic3, mobility,
   range1/2, tactics — add in A8 if promotion parity is wanted.
 
-## Bug fixes (do now, independent of phases)
+## Bug fixes (do now, independent of phases) — ALL DONE 2026-07-08
 
-1. **Dangling holy sites**: `beliefs.json` `sun_faith`/`earth_covenant` reference
+1. **Dangling holy sites** — **DONE** (c4122e8): added the two structures (mirroring
+   `shrine`) + names + founding techs (`sun_faith` → calendar, `earth_covenant` →
+   agriculture), keeping D4's keep-or-cut open. Added `DataDB._validate_belief_refs()`
+   + `test_belief_refs_resolve` (covers temple/monastery/cathedral/holy_site_structure
+   and founding_tech). **Finding — the bug was inverted from the wording below**:
+   `founding_tech: null` did not make them unfoundable, it made them *always eligible*,
+   so every game silently founded `earth_covenant` on turn 1 and its +1 health masked
+   base size-1 city unhealthiness (two tests were calibrated against that freebie).
+   ~~`beliefs.json` `sun_faith`/`earth_covenant` reference
    `temple_of_sun`/`grove_sanctuary` which don't exist in `structures.json`, and both
    have `founding_tech: null` (unfoundable). Either add the two structures + founding
    path or strip the two entries. Add a `test_data_db.gd` cross-reference check
-   (every `holy_site_structure` exists) so this class of dangling id fails CI.
-2. **game-rules §9.3 doc error**: animal lifetime XP cap cited as 10 with a reference attribution;
+   (every `holy_site_structure` exists) so this class of dangling id fails CI.~~
+2. **game-rules §9.3 doc error** — **DONE** (2093ccb): cap now 5 in constant, code
+   fallback, and doc. ~~animal lifetime XP cap cited as 10 with a reference attribution;
    reference `ANIMAL_MAX_XP_VALUE` is **5** (10 is the barbarian cap). Fix doc +
-   constant together (A11).
-3. **Audit follow-ups already suspicious**: mounted withdrawal zeros (A1),
-   `guided_missile` strength 0 (A1), settler/worker goody weight 0 (A12).
+   constant together (A11).~~
+3. **Audit follow-ups already suspicious** — **DONE**: mounted withdrawal zeros
+   restored (d933a61), `guided_missile` fixed + one-use wired (d933a61, see A1 note
+   for the open defender quirk), settler/worker goody weights verified already
+   shipped (A12).
 
 ## Sequencing recommendation
 
-1. Bug fixes + A12 (small, safe).
+1. ~~Bug fixes + A12 (small, safe).~~ **DONE 2026-07-08.**
 2. A-phase data passes behind the `[decide]` register (D3 review first — one sitting).
 3. B1–B3 (schema; unblock A1's prereq sets and A8's drill line).
 4. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep

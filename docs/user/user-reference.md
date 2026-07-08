@@ -370,7 +370,7 @@ Your **Espionage** rate (and buildings such as the Jail or Intelligence Agency) 
 
 ### Beliefs (religions)
 
-The first player to meet a belief's founding condition founds it — some beliefs require a particular technology, and a Great Prophet's Found Religion action also works.
+The first player to research a belief's founding technology founds it; a Great Prophet's Found Religion action also works (and ignores the technology requirement).
 Once founded it can **spread** to other cities — passively over time, or actively via a Missionary unit.
 Adopting a **state religion** (in your Civics) gives passive bonuses; changing it triggers anarchy.
 

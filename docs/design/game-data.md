@@ -496,7 +496,7 @@ Air units are based in cities or carriers; they fly missions without moving perm
 | Jet Fighter | 22 | 180 | Advanced Flight | Oil | 60 | — | — |
 | Bomber | 8 | 120 | Flight | Oil | — | Area bomb; 8 tiles range | Stealth Bomber |
 | Stealth Bomber | 24 | 250 | Stealth | Oil | — | Evades interception | — |
-| Guided Missile | — | 50 | Rocketry | — | — | 1-use; collateral damage | — |
+| Guided Missile | 40 | 50 | Rocketry | — | — | 1-use; collateral damage | — |
 | Tactical Nuke | — | 250 | Fission | Uranium | — | 1-use; massive AoE | — |
 | ICBM | — | 350 | Rocketry + Fission | Uranium | — | 1-use; global range | — |
 
@@ -800,6 +800,13 @@ The first faction to research the founding technology founds that religion in on
 | Islam | Divine Right | Islamic Temple | Islamic Monastery | Islamic Cathedral | Masjid al-Haram |
 | Judaism | Monotheism | Jewish Temple | Jewish Monastery | Jewish Cathedral | Temple of Solomon |
 | Taoism | Philosophy | Taoist Temple | Taoist Monastery | Taoist Cathedral | Dai Miao |
+
+**Humanish extension religions** (not in the reference; keep-or-cut pending —
+`directreferencegaps.md` D4): **Sun Faith** (founding tech Calendar, holy site
+structure Temple of the Sun, +1 happiness) and **Earth Covenant** (founding tech
+Agriculture, holy site structure Grove Sanctuary, +1 health). They have no
+temple/monastery/cathedral building line; their holy-site structures mirror the
+Shrine (Great Prophet-built national wonder, +1 gold per adherent city).
 
 **Holy City effect:** +5 Culture/turn baseline; shrine built by Great Prophet yields +1 Gold per city worldwide that has adopted the religion.
 
