@@ -18,7 +18,7 @@ For each of the four, follow this sequence:
 1. **Ask for any clarifications** needed before starting.
 2. **Create a working branch** named `<work_type>-<relevant_name>` (e.g. `bugfix-combat-rng`, `feature-trade-routes`). Use a hyphen prefix — `dev/`-style slash prefixes are blocked.
 3. **Do the work** on that branch.
-4. **Check whether any documents need updating** (`docs/ref/`, `docs/user/`, `docs/planning/`, `CLAUDE.md`, `CHANGELOG.md`) and inform the user of anything affected.
+4. **Check whether any documents need updating** (`docs/ref/`, `docs/user/` including the in-game encyclopedia, `docs/planning/`, `CLAUDE.md`, `CHANGELOG.md`) and **request the user's permission** before updating any that are affected.
 5. **Merge the branch back to `main`.**
 
 ## Commands
