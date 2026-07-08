@@ -320,8 +320,9 @@ Stateless helpers that query `gs.units` by tile position. `at(units, x, y, playe
 1. Compute effective strengths → odds (`Fixed.proportion(a_str, total, 1000)`)
 2. Compute per-hit damage (proportional to opponent's firepower vs self)
 3. Apply free early-win odds clamp against wild units (from difficulty setting)
-4. Loop: consume first-strikes, then draw from RNG each round → attacker or defender takes a hit → check withdrawal, combat limit, death
-5. Compute XP gains, spillover (siege), and flanking (fast unit) damage
+4. Resolve the attacker's first strikes via `rolled_first_strikes` (§15.5): unit `first_strikes` + promotion `first_strikes_bonus`es + one uniform 0..chance roll (unit `chance_first_strikes` + promotion `chance_first_strikes_bonus`es) — the roll draws from the rng only when a chance stat is present
+5. Loop: consume first-strikes, then draw from RNG each round → attacker or defender takes a hit → check withdrawal, combat limit (`combat_limit` is a per-unit defender-health floor, §15.6: catapult/trebuchet/hwacha 25, cannon 20, artillery/mobile artillery 15, 0 = no cap — capped siege softens but never kills), death
+6. Compute XP gains, spillover (siege), and flanking (fast unit) damage
 Returns a result Dictionary — it does not mutate the unit objects directly.
 
 ### `CombatApply`

@@ -17,6 +17,12 @@ All notable changes to Humanish are recorded here. Versions follow
   and AI production now all require the resources (connected or imported).
 - **Unit upgrades check prerequisites.** Upgrading into a unit now requires
   its technologies and resources, not just gold.
+- **Chance first strikes.** Units and promotions can carry a chance stat that
+  grants 0–N extra first strikes rolled once per battle; Navy SEALs and
+  Skirmishers now fight at their reference 1 + 0–1 first strikes.
+- **Per-unit siege damage caps.** Siege weapons soften defenders down to a
+  per-unit health floor (catapult/trebuchet/hwacha 25%, cannon 20%,
+  artillery 15%) instead of near-killing them — other arms finish the job.
 
 ### Fixed
 - **Sun Faith and Earth Covenant are real religions now.** Both referenced
@@ -34,6 +40,8 @@ All notable changes to Humanish are recorded here. Versions follow
 - **Guided Missile works.** It shipped with strength 0 (strikes could never
   hurt anything); it now strikes at its reference strength 40 and is consumed
   on use — launch, hit, miss, or interception — like the nuclear weapons.
+- **Drill promotions do something.** Their first-strike bonus was read
+  nowhere; Drill I–IV now actually grant their first strikes in combat.
 
 ## [0.5.2] - 2026-07-07 "Full Feature Alpha 3"
 

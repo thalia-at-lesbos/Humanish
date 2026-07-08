@@ -126,13 +126,25 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
   (validation), `src/sim/*` production/upgrade gates, `src/api/player_ai.gd` (build
   choice reads), tests `test_data_db.gd`, `test_settlement_production*.gd`. Then apply
   the audit-§2 tech/resource sets (data pass).~~
-- **B2. Chance first strikes** (game-rules §15.5): `chance_first_strikes` on units +
+- **B2. Chance first strikes** (game-rules §15.5) — **DONE 2026-07-08** (1d90307):
+  `Combat.rolled_first_strikes` = unit `first_strikes` + promotion
+  `first_strikes_bonus` + one 0..chance roll (`chance_first_strikes` on units,
+  `chance_first_strikes_bonus` on promotions); the roll draws only when a chance stat
+  is present, so pre-existing seeded streams are unchanged. Data: navy_seal 1+1chance,
+  skirmisher 1+1chance (the audit's two carriers). **Finding: promotion
+  `first_strikes_bonus` was previously read nowhere — the whole drill line was inert;
+  it is now wired.** A8's drill chance values remain a pure data pass.
+  ~~`chance_first_strikes` on units +
   promotions; one `gs.rng` roll per combat in `Combat.resolve()`. Tests:
-  `test_combat.gd` (same-seed determinism + distribution bounds).
-- **B3. Per-unit siege caps** (game-rules §15.6): replace global `combat_limit: 1`
+  `test_combat.gd` (same-seed determinism + distribution bounds).~~
+- **B3. Per-unit siege caps** (game-rules §15.6) — **DONE 2026-07-08** (c10ecdf):
+  catapult/trebuchet/hwacha 25, cannon 20, artillery/mobile artillery 15 (floor =
+  100 − reference limit; 0 = no cap). The engine already treated `combat_limit` as a
+  per-unit defender-health floor, so this was data + tests only.
+  ~~replace global `combat_limit: 1`
   floor with per-unit damage-floor values (catapult/trebuchet/hwacha 25, cannon 20,
   artillery/mobile artillery 15); `src/sim/combat.gd:97-123` already reads per-unit —
-  data + semantics only (floor = 100 − reference limit).
+  data + semantics only (floor = 100 − reference limit).~~
 - **B4. Trait production-speed modifiers** (audit §1.8): new trait key
   `double_production_structures: [...]` (+100% build speed on listed structures)
   replacing `free_structures` for the seven reference traits; keep `free_structures`
