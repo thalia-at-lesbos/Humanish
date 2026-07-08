@@ -42,7 +42,9 @@ func test_draft_raises_unit_and_costs_population():
 func test_draft_picks_most_advanced_draftable():
 	var ctx = _facade_with_city(5)
 	var f = ctx[0]; var gs = ctx[1]; var p = ctx[2]; var s = ctx[3]
-	p.technologies.append("assembly_line")  # unlocks Infantry (stronger)
+	# Infantry needs the compound assembly_line + rifling AND set (§15.12).
+	p.technologies.append("assembly_line")
+	p.technologies.append("rifling")
 	p.policies = {"government": "nationhood"}
 	assert_true(f.apply_command(Commands.draft(1, s.id)))
 	assert_eq(gs.units[0].unit_type_id, "infantry",

@@ -128,8 +128,19 @@ func test_playthrough_unit_commands_and_missions() -> void:
 	assert_true(f.apply_command(Commands.mission_pillage(pid, w2.id)), "pillage accepted")
 	assert_eq(gs.map.get_tile(6, 6).improvement_id, "", "pillage cleared the improvement")
 
-	# Upgrade a warrior to an axeman (costs gold), then disband a spare unit.
+	# Upgrade a warrior to an axeman (costs gold). The upgrade gates on the
+	# target's prerequisites (§15.12): Bronze Working plus a connected copper or
+	# iron. First prove the gate blocks without them, then connect copper (an
+	# owned, mined, revealed tile) and research the techs to let it through.
 	var vet = make_warrior(gs, pid, 7, 7)
+	assert_false(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
+		"upgrade refused without the target's tech and resource prereqs")
+	gs.get_player(pid).technologies.append("mining")          # reveals copper
+	gs.get_player(pid).technologies.append("bronze_working")  # axeman tech
+	var copper_tile = gs.map.get_tile(8, 8)
+	copper_tile.owner_player_id = pid
+	copper_tile.resource_id = "copper"
+	copper_tile.improvement_id = "mine"
 	assert_true(f.apply_command(Commands.unit_upgrade(pid, vet.id)), "upgrade accepted")
 	assert_eq(gs.get_unit(vet.id).unit_type_id, "axeman", "warrior upgraded to axeman")
 

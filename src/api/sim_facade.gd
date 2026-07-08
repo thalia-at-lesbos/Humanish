@@ -2693,17 +2693,20 @@ func _cmd_draft(cmd: Dictionary) -> bool:
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
 
-# The most advanced draftable unit (data `draftable`) whose tech the player holds,
-# ranked by base strength. "" when none is available.
+# The most advanced draftable unit (data `draftable`) whose tech and resource
+# prerequisites the player meets (compound forms per §15.12), ranked by base
+# strength. "" when none is available.
 func _draftable_unit(p: Player) -> String:
 	var best_id: String = ""
 	var best_str: int = -1
+	var have: Dictionary = EconOrgs.accessible_resources(_gs, p.id)
 	for uid in _db.units:
 		var ud: Dictionary = _db.units[uid]
 		if not ud.get("draftable", false):
 			continue
-		var tech: String = str(ud.get("tech_required", ""))
-		if tech != "" and not p.has_tech(tech):
+		if not UnitPrereqs.tech_ok(ud.get("tech_required", null), p):
+			continue
+		if not UnitPrereqs.resource_ok(ud.get("resource_required", null), have):
 			continue
 		var st: int = int(ud.get("base_strength", 0))
 		if st > best_str:
@@ -2872,6 +2875,14 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			var cost: int = int(new_udata.get("cost", 0)) - int(udata.get("cost", 0))
 			var p: Player = _gs.get_player(player_id)
 			if p == null or p.treasury < cost:
+				return false
+			# Upgrading gates on the *target* unit's prerequisites (compound tech
+			# AND-lists and all/any resource sets, §15.12) — you cannot buy your
+			# way into a unit your empire could not train.
+			if not UnitPrereqs.tech_ok(new_udata.get("tech_required", null), p):
+				return false
+			if not UnitPrereqs.resource_ok(new_udata.get("resource_required", null),
+					EconOrgs.accessible_resources(_gs, player_id)):
 				return false
 			p.treasury -= cost
 			u.unit_type_id = upgrades_to

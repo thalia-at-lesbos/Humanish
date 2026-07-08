@@ -245,6 +245,11 @@ _global_script_classes=[ {
 "path": "res://src/sim/unit.gd"
 }, {
 "base": "Reference",
+"class": "UnitPrereqs",
+"language": "GDScript",
+"path": "res://src/core/unit_prereqs.gd"
+}, {
+"base": "Reference",
 "class": "Vassalage",
 "language": "GDScript",
 "path": "res://src/sim/vassalage.gd"

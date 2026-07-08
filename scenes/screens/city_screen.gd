@@ -238,8 +238,11 @@ func _build() -> void:
 	# A sea unit (e.g. work_boat / fishing boats) can only be built in a coastal
 	# city; every option also requires its prerequisite tech (Jun 9 bug report).
 	var coastal: bool = TurnEngine._is_coastal(gs, s.x, s.y)
+	# Connected-resource set, computed once for the option list (§15.12): a unit
+	# with a resource requirement is only offered while the city's owner has it.
+	var have: Dictionary = EconOrgs.accessible_resources(gs, s.owner_player_id)
 	for opt in options:
-		if not _can_offer_production(opt[0], opt[1], db, techs, coastal):
+		if not _can_offer_production(opt[0], opt[1], db, owner, have, coastal):
 			continue
 		var btn := Button.new()
 		btn.text = "+ " + opt[1]
@@ -407,22 +410,23 @@ func _on_specialist(stype: String, new_count: int) -> void:
 	_facade.apply_command(Commands.assign_specialist(s.owner_player_id, _city_id, stype, new_count))
 	rebuild()
 
-# Whether a quick-build option is offered to this city: its prerequisite tech
-# must be researched, and a sea-domain unit requires a coastal city (Jun 9 bug
-# report — work_boat / other water units only appear once buildable).
-func _can_offer_production(kind: String, id: String, db, techs: Array, coastal: bool) -> bool:
+# Whether a quick-build option is offered to this city: its prerequisite techs
+# must be researched and (for units) its resource requirement met — both via the
+# shared compound-prereq reader (§15.12) so the chooser can never offer a unit
+# the sim gates would refuse — and a sea-domain unit requires a coastal city
+# (Jun 9 bug report — work_boat / other water units only appear once buildable).
+# `have` is the owner's connected-resource set (EconOrgs.accessible_resources).
+func _can_offer_production(kind: String, id: String, db, owner, have: Dictionary, coastal: bool) -> bool:
 	var data: Dictionary = db.get_unit(id) if kind == "unit" else db.get_structure(id)
 	if data.empty():
 		return false
-	# tech_required is `null` for base units (warrior/settler/worker). In Godot 3
-	# str(null) is "Null", not "", so guard the null explicitly — otherwise these
-	# units fail the "is this tech researched?" test and vanish from the chooser.
-	var tech_val = data.get("tech_required", null)
-	var tech: String = str(tech_val) if tech_val != null else ""
-	if tech != "" and not (tech in techs):
+	if not UnitPrereqs.tech_ok(data.get("tech_required", null), owner):
 		return false
-	if kind == "unit" and str(data.get("domain", "land")) == "sea" and not coastal:
-		return false
+	if kind == "unit":
+		if not UnitPrereqs.resource_ok(data.get("resource_required", null), have):
+			return false
+		if str(data.get("domain", "land")) == "sea" and not coastal:
+			return false
 	return true
 
 # Whether another copy of (kind, id) may be added to this city's queue.
