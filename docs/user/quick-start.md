@@ -1,6 +1,6 @@
 # Humanish — Quick Start Guide
 
-A turn-based empire-building strategy game for 2–4 players (human or AI).
+A turn-based empire-building strategy game for 2–16 players (human or AI).
 
 ---
 
@@ -27,15 +27,20 @@ Saves are stored in your user data folder:
 ## Starting a New Game
 
 1. Click **New Game** on the title screen.
-2. Choose the number of players (2–4), then fill each player row:
+2. Choose the number of players (2–16; the default follows the world size), then fill each player row:
    - **Name** — anything you like.
-   - **Society** — your civilization. Each has a unique leader trait that affects combat, growth, or economy. You can read the description before committing.
-   - **Human / AI** — uncheck to let the computer play that slot.
+   - **Society** — your civilization (every player must pick one). Each society's leader carries traits that affect combat, growth, or economy.
+   - **Leader** — societies with several historical leaders let you pick one; the leader determines the traits.
+   - **AI** — check the box to let the computer play that slot. Player 1 defaults to human, everyone else to AI.
 3. Set world options:
    - **World size** — Duel (40×24) through Huge (160×100). Larger maps mean longer games.
    - **Map type** — Continents is a safe starting choice. See the [User Reference](user-reference.md) for the full list.
-   - **Pace** — Standard is balanced. Slow or Marathon extend research and build times.
-   - **Difficulty** — Prince is the recommended starting point for new players.
+   - **Pace** — Quick, Normal, or Epic. Normal is balanced; Epic extends research, build times, and the turn limit.
+   - **Difficulty** — Settler, Warlord, Prince, or Emperor. Warlord (the default) suits new players; higher settings strengthen the AI and the raiders.
+   - **Aggressive raiders** — optional: longer raider waves with shorter lulls between them.
+   - **Permanent alliances** — optional: lets players at peace form unbreakable alliances through diplomacy.
+   - **Random events & quests** — on by default; untick to switch both systems off for the game.
+   - **Seed** — the random seed for the map and gameplay. Note it down to replay the same world.
 4. Click **Start Game**.
 
 ---
@@ -70,7 +75,7 @@ You begin with a **Settler** unit (and usually a **Warrior** escort).
 1. **Right-click** a tile to move your Settler there, or use it where it stands if the terrain looks good.  
    Good founding sites have: grassland or plains nearby, a river or coast (fresh water speeds growth), and resources.
 2. With the Settler selected, click **Found City** in the selection panel. Your first city appears.
-3. Your city immediately starts producing — pick something from the production queue in the City Screen (**F** or double-click the city).
+3. Your city immediately starts producing — pick something from the production queue in the City Screen (select the city, then click **Open City** in the selection panel).
 
 ### Turn 2–5 — Explore and grow
 
@@ -88,7 +93,7 @@ The **Science** rate of your economy funds it each turn; the Research bar at the
 
 ### Cities
 
-Double-click a city (or press **F3** while a city is selected) to open the **City Screen**, where you:
+Select a city (left-click its tile) and click **Open City** in the selection panel to open the **City Screen**, where you:
 
 - Choose what to build (units, structures, wonders).
 - Lock or unlock worked tiles around the city.
@@ -120,7 +125,7 @@ A click that would push the total over 100 (or a rate below its minimum) is simp
 
 | Key | Action |
 |-----|--------|
-| **E** | End Turn |
+| **E** / **Enter** | End Turn |
 | **N** | Next idle unit |
 | **B** | Next idle worker |
 | **C** | Centre camera on selection |
@@ -136,17 +141,20 @@ A click that would push the total over 100 (or a rate below its minimum) is simp
 
 ## Winning
 
-At game setup you choose which victory conditions are active. A game ends as soon as any
-alliance achieves one of the enabled conditions:
+Every game is played with the same five active victory conditions. A game ends as soon as
+any alliance achieves one of them:
 
 | Victory | How to win |
 |---------|-----------|
 | **Conquest** | Eliminate every other alliance (no settlements or units remain). |
 | **Domination** | Hold 66 % of land tiles *and* 66 % of population. |
-| **Space Race** | Complete all seven spaceship stages (requires Apollo Program wonder). |
 | **Cultural** | Bring three of your cities to Legendary culture (50,000 culture each). |
-| **Diplomatic** | Win the United Nations election with 67 % of the vote. |
-| **Time** | Have the highest score when the turn limit is reached. |
+| **Score** | Be the first alliance whose score reaches 400 — an immediate win. |
+| **Time** | Have the highest score when the turn limit is reached (330 / 500 / 750 turns at Quick / Normal / Epic pace). |
+
+Score is a weighted sum of land held, population, technologies, and wonders. Two further
+conditions — **Space Race** and **Diplomatic** — appear in the Encyclopedia but are not
+enabled in the current version.
 
 Track your progress in the **Victory Progress** screen (open from the advisor bar).
 
