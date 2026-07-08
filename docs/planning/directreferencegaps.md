@@ -110,11 +110,22 @@ intentional in the table's section of game-data.md; don't leave it ambiguous.**
 
 ## Phase B — schema extensions (DataDB + sim reads; small, mechanical)
 
-- **B1. Compound unit prereqs** (game-rules §15.12): `tech_required` list-AND,
+- **B1. Compound unit prereqs** (game-rules §15.12) — **DONE 2026-07-08** (f77a574):
+  new pure-static `src/core/unit_prereqs.gd` (`UnitPrereqs.tech_ok`/`resource_ok`) is
+  the one reader, shared by the city-screen offer list, `PlayerAI`, draft, upgrade,
+  `Eras.era_of_unit`, and wild spawn tables; availability side =
+  `EconOrgs.accessible_resources` (made public). Audit-§2 tech/resource sets applied
+  in full — **nothing blocked on D1** (all referenced techs/resources exist).
+  Findings: `resource_required` was previously *never enforced anywhere* (display
+  only), and `UNIT_UPGRADE` had no prereq gate at all — both gates are new behaviour.
+  Panzer/tank/tactical_nuke resource entries left unchanged (audit marks them "?").
+  Follow-up (display-only): `technologies.json` `unlocks_units` lists are slightly
+  stale for AND-set units (e.g. flight still lists bomber, which also needs radio).
+  ~~`tech_required` list-AND,
   `resource_required` all/any split. Files: `data/units.json`, `src/core/data_db.gd`
   (validation), `src/sim/*` production/upgrade gates, `src/api/player_ai.gd` (build
   choice reads), tests `test_data_db.gd`, `test_settlement_production*.gd`. Then apply
-  the audit-§2 tech/resource sets (data pass).
+  the audit-§2 tech/resource sets (data pass).~~
 - **B2. Chance first strikes** (game-rules §15.5): `chance_first_strikes` on units +
   promotions; one `gs.rng` roll per combat in `Combat.resolve()`. Tests:
   `test_combat.gd` (same-seed determinism + distribution bounds).
