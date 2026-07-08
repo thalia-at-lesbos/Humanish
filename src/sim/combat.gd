@@ -23,6 +23,24 @@ const COMBAT_SCALE: int = 1000  # odds out of 1000
 #   "attacker_xp_gain": int, "defender_xp_gain": int,
 #   "spillover_damage": int, "flanking_damage": int
 # }
+# Effective first strikes for one battle (§15.5): the unit's guaranteed
+# `first_strikes` plus promotion `first_strikes_bonus`es, plus a uniform
+# 0..chance roll where chance = unit `chance_first_strikes` + promotion
+# `chance_first_strikes_bonus`es. The roll draws from the shared rng ONLY when
+# a chance stat is present, so units without one consume no extra draws and
+# every pre-§15.5 seeded stream is unchanged.
+static func rolled_first_strikes(db: DataDB, unit: Unit, rng: RNG) -> int:
+	var udata: Dictionary = db.get_unit(unit.unit_type_id)
+	var strikes: int = int(udata.get("first_strikes", 0))
+	var chance: int = int(udata.get("chance_first_strikes", 0))
+	for promo_id in unit.promotions:
+		var promo: Dictionary = db.get_promotion(promo_id)
+		strikes += int(promo.get("first_strikes_bonus", 0))
+		chance += int(promo.get("chance_first_strikes_bonus", 0))
+	if chance > 0:
+		strikes += rng.randi_range(0, chance)
+	return strikes
+
 static func resolve(attacker: Unit, defender: Unit,
 		game_state, rng: RNG) -> Dictionary:
 	var db: DataDB = game_state.db
@@ -93,7 +111,10 @@ static func resolve(attacker: Unit, defender: Unit,
 	var max_rounds: int = db.get_constant("combat_max_rounds", 200)
 
 	var a_unit_data: Dictionary = db.get_unit(attacker.unit_type_id)
-	var a_first_strikes: int = int(a_unit_data.get("first_strikes", 0))
+	# §15.5: guaranteed first strikes + promotion bonuses + a per-battle chance
+	# roll, resolved once here before the round loop (the only first-strike rng
+	# draw, so battle order stays the documented pipeline order).
+	var a_first_strikes: int = rolled_first_strikes(db, attacker, rng)
 	var a_combat_limit: int = int(a_unit_data.get("combat_limit", 0))  # 0 = no limit
 	var a_withdrawal: int = int(a_unit_data.get("withdrawal_chance", 0))
 	# Promotion bonuses
