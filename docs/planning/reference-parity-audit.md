@@ -66,6 +66,14 @@ looks accidental rather than a design choice.
 
 ## 2. Units — full value diff (`units.json` vs the reference unit table)
 
+> **Resolution note (2026-07-08, A1 — ca79f8a):** every numeric diff below is now
+> applied to `data/units.json` (tech/resource sets via B1, chance first strikes via
+> B2, combat-limit floors via B3, withdrawal restorations + guided_missile via
+> d933a61, everything else via A1). Still diverging on purpose: settler cost 100
+> (reference 0 = food-box model), icbm `air_range` 999 (both mean unlimited), and
+> the "?"-flagged resource entries (tactical_nuke/panzer/tank). The table below is
+> the original audit snapshot, kept verbatim.
+
 Format: `field humanish≠reference`. `tech X≠[list]` / `resource X≠[list]` = the XML AND/OR
 set (schema issue §1.1/§1.2) — listed only where the JSON value isn't in the set or
 the set has more members. `combat_limit(floorHP) 1≠25 (iCombatLimit 75)` per §1.4.

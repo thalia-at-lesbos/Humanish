@@ -41,9 +41,18 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 
 - **A1. Unit stats** (`data/units.json`; tests `tests/sim/test_combat.gd`,
   `test_unit*.gd`): apply audit §2 per-unit values — strength/cost/moves/withdrawal/
-  first-strikes/cargo/air-range. Sub-decisions:
-  - `[decide→RESOLVED: revert to reference]` The across-the-board naval rescale
-    (frigate 18 vs 8 …) — revert every naval strength to the reference value.
+  first-strikes/cargo/air-range. **DONE 2026-07-08** (ca79f8a): all remaining §2
+  value diffs applied (72 units) — naval rescale reverted, settler/worker/musketeer/
+  fast_worker moves, air ranges, sub/missile cargo, first strikes, cho_ko_nu/
+  numidian_cavalry withdrawal, stale `special` text fixed; pinned panther numbers in
+  `test_combat.gd` recalibrated (str 3 → 2). Left unchanged (audit "?" or model
+  notes): settler cost 100 (reference 0 = food-box model), icbm `air_range` 999
+  (both mean unlimited), tactical_nuke/panzer/tank resource "?" entries. Follow-up
+  for C/D sittings: panzer's only perk was the 3rd move — reference's +50% vs armor
+  is unmodelled, so it is now a plain Tank clone. Sub-decisions:
+  - ~~`[decide→RESOLVED: revert to reference]` The across-the-board naval rescale
+    (frigate 18 vs 8 …) — revert every naval strength to the reference value.~~
+    **DONE 2026-07-08** (ca79f8a).
   - ~~Withdrawal chances on the mounted line (chariot 10, horse archer 20, cuirassier
     15, cavalry/cossack 30, gunship 25, conquistador 15, immortal 10, war chariot 10,
     keshik 20, camel archer 15, submarine line 50) look accidentally dropped — restore.~~
@@ -54,7 +63,8 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
     interception (`SimFacade._consume_one_use`). Follow-up for the D3/C5 sitting:
     `Stack.get_defender` has no missile/air exclusion, so a garrisoned guided missile
     can be selected as a city's best defender at 40 (reference missiles cannot defend).
-  - settler/worker moves 1 → 2, fast worker 2 → 3, musketeer 1 → 2 (reference).
+  - ~~settler/worker moves 1 → 2, fast worker 2 → 3, musketeer 1 → 2 (reference).~~
+    **DONE 2026-07-08** (ca79f8a).
 - **A2. Building/wonder values** (`data/structures.json`; test `test_settlement*.gd`):
   audit §4 list — costs (barracks 50, cothon 100, forum 150, ger 60, hagia sophia 500
   + tech theology, madrassa 90, sacrificial altar 90, ziggurat 90, dun 50 + tech
