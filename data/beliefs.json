@@ -1,8 +1,9 @@
 {
   "sun_faith": {
     "id": "sun_faith",
+    "name": "Sun Faith",
     "founding_prereq": null,
-    "founding_tech": null,
+    "founding_tech": "calendar",
     "happiness_bonus": 1,
     "spread_chance_base": 20,
     "holy_site_structure": "temple_of_sun",
@@ -10,8 +11,9 @@
   },
   "earth_covenant": {
     "id": "earth_covenant",
+    "name": "Earth Covenant",
     "founding_prereq": null,
-    "founding_tech": null,
+    "founding_tech": "agriculture",
     "health_bonus": 1,
     "spread_chance_base": 20,
     "holy_site_structure": "grove_sanctuary",

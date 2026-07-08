@@ -239,6 +239,26 @@ func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 			total += int(gw[k])
 		assert_eq(total, 100, "difficulty '%s' goody_weights sum to 100" % diff_id)
 
+func test_belief_refs_resolve() -> void:
+	# Every structure a belief references (temple/monastery/cathedral tiers and its
+	# holy_site_structure) must exist in structures.json, and a non-null
+	# founding_tech must be a real tech. Guards the dangling-holy-site class of bug
+	# (sun_faith → temple_of_sun shipped without the structure).
+	var db = _db()
+	for bid in db.beliefs:
+		if bid == "_comment":
+			continue
+		var belief = db.beliefs[bid]
+		for key in ["temple", "monastery", "cathedral", "holy_site_structure"]:
+			var sid = belief.get(key, null)
+			if sid != null and sid != "":
+				assert_true(db.structures.has(str(sid)),
+					"belief '%s' %s '%s' must be a real structure" % [bid, key, sid])
+		var tech = belief.get("founding_tech", null)
+		if tech != null and tech != "":
+			assert_true(db.technologies.has(str(tech)),
+				"belief '%s' founding_tech '%s' must be a real tech" % [bid, tech])
+
 # ── Random-event lifecycle tables (§9) ───────────────────────────────────────────
 
 func test_event_tables_load_and_are_well_formed() -> void:

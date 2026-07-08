@@ -16,6 +16,10 @@ extends "res://tests/support/sim_fixture.gd"
 func test_player_founds_belief_when_eligible() -> void:
 	var gs = make_gs()
 	make_settlement(gs, 1, 5, 5)
+	# Eligibility is tech-gated: grant a founding tech (meditation → buddhism).
+	var p = gs.get_player(1)
+	p.technologies.append("meditation")
+	Eras.refresh(p, gs.db)
 	var founded = Beliefs.try_found(1, gs, gs.rng)
 	assert_ne(founded, "", "A player with a settlement founds an eligible belief")
 	assert_eq(gs.founded_beliefs.get(founded, -1), 1, "Founder recorded")

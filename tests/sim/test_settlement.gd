@@ -235,14 +235,15 @@ func test_lock_and_automation_survive_serialization() -> void:
 # they hand-set worked_tiles.
 
 func test_wellfed_city_grows_over_turns_endtoend() -> void:
-	# A grassland city (centre 2 food + worked-tile 2 food = 4) consumes 2/turn,
-	# banks a +2 surplus, and must cross the size-1 growth threshold within a
-	# reasonable horizon and increase population.
+	# A grassland city (centre 2 food + worked-tile 2 food = 4) consumes 2/turn
+	# plus 1 to its net unhealthiness at size 1, banks a +1 surplus, and must
+	# cross the size-1 growth threshold (20) within a reasonable horizon and
+	# increase population. (Beliefs are tech-gated, so no turn-1 health bonus.)
 	var gs = make_gs(1, 42, 20, 20)
 	var s = make_settlement(gs, 1, 10, 10, 1)
 	Influence.found_claim(gs.map, 10, 10, 1, 2, 20)
 	var f = bare_facade(gs)
-	for _t in range(12):
+	for _t in range(24):
 		gs.current_player_id = 1
 		f.apply_command(Commands.end_turn(1))
 	assert_true(s.population > 1,

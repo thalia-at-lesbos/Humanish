@@ -272,6 +272,24 @@ func _validate() -> void:
 	_validate_econ_org_refs()
 	_validate_espionage_mission_refs()
 	_validate_diplomacy_refs()
+	_validate_belief_refs()
+
+# Every structure id a belief references (temple/monastery/cathedral tiers and the
+# holy_site_structure) must exist in the structures table, and a non-null
+# founding_tech must name a real tech — a dangling id ships an unfoundable or
+# undisplayable religion (the sun_faith/temple_of_sun class of bug).
+func _validate_belief_refs() -> void:
+	for bid in beliefs:
+		if bid == "_comment":
+			continue
+		var belief: Dictionary = beliefs[bid]
+		for key in ["temple", "monastery", "cathedral", "holy_site_structure"]:
+			var sid = belief.get(key, null)
+			if sid != null and sid != "" and not structures.has(str(sid)):
+				_errors.append("Belief '%s' %s '%s' not in structures table" % [bid, key, sid])
+		var tech = belief.get("founding_tech", null)
+		if tech != null and tech != "" and not technologies.has(str(tech)):
+			_errors.append("Belief '%s' founding_tech '%s' not found" % [bid, tech])
 
 func _validate_tech_prereqs() -> void:
 	for tech_id in technologies:
