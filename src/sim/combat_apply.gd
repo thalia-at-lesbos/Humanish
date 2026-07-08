@@ -88,7 +88,7 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 static func _award_xp(gs, unit: Unit, opponent: Unit, gain: int) -> int:
 	if gain <= 0 or not opponent.is_animal:
 		return gain if gain > 0 else 0
-	var cap: int = gs.db.get_constant("animal_xp_lifetime_cap", 10)
+	var cap: int = gs.db.get_constant("animal_xp_lifetime_cap", 5)
 	var remaining: int = cap - unit.xp_from_animals
 	if remaining <= 0:
 		return 0

@@ -72,8 +72,9 @@ func test_animals_yield_to_raiders_once_gates_open() -> void:
 func test_player_unit_caps_lifetime_xp_from_animals() -> void:
 	var gs = make_gs(2, 13)
 	var hero = make_warrior(gs, 1, 5, 5)
-	var cap = gs.db.get_constant("animal_xp_lifetime_cap", 10)
-	# Four animal kills worth 6 XP each: granted 6, 4, 0, 0 → capped at 10.
+	var cap = gs.db.get_constant("animal_xp_lifetime_cap", 5)
+	# Four animal kills worth 6 XP each: the first grants are clamped to the
+	# remaining headroom (cap 5 → granted 5, 0, 0, 0), saturating at the cap.
 	for _i in range(4):
 		var beast = _make_animal(gs, "wolf", 6, 6)
 		var result = {
