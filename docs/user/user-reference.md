@@ -39,6 +39,7 @@ For a shorter introduction see [Quick Start](quick-start.md).
 | Left-click tile | Select unit / city on tile, or inspect empty/foreign tile |
 | Right-click tile | Move selected unit(s) to tile, or attack enemy there |
 | Click / drag minimap | Recenter the main map view on that location |
+| **E** / **Enter** | End Turn |
 | **F1** | Encyclopedia |
 | **F2** | Technology tree (Tech Chooser) |
 | **F3** | Policy / Civics screen |
@@ -104,14 +105,14 @@ Good founding criteria:
 
 ### City Screen
 
-Double-click a city to open its detail screen.
+Select a city and click **Open City** in the selection panel to open its detail screen.
 
 **Production queue** — choose what to build: units, structures, or endgame projects.
 One item builds at a time; the queue advances automatically.
 
-**Worked tiles** — the city works a number of tiles equal to its population (up to the surrounding 3-ring radius).
-Click a tile to lock or unlock it. Locked tiles are always worked regardless of automate.
-**Automate Citizens** lets the game choose which tiles to work, favouring food or production.
+**Worked tiles** — the city always works its own tile for free; each remaining citizen (population minus specialists, and minus any lost to disorder) works one more tile inside the city's current cultural border ring.
+Click a tile to lock or unlock it. Locked tiles are always worked first.
+**Automate Citizens** lets the game choose the remaining tiles, favouring food and production; with it off, only the city centre and your locked tiles are worked.
 
 **Specialists** — assign citizens to specialist slots in built structures (e.g. scientist, engineer, merchant, artist).
 Specialists generate Great Person points toward a Great Person of that type (see §10).
@@ -154,7 +155,7 @@ Water tiles come in two kinds: **coast** (shallow water near land) and **ocean**
 
 - A ship must be **ocean-capable** — Work Boats, Galleys, and Triremes are coastal-only and cannot cross open ocean. The Caravel (Optics) is the first ocean-going ship; later naval units are all ocean-capable.
 - Its owner must also have researched the **ocean-travel technology (Optics)**.
-- The restriction is **waived inside your own or an allied civilization's cultural waters**, so you can always sail through friendly coastal sea even before Optics.
+- The restriction is **waived inside friendly cultural waters** — your own territory, an alliance member's, or that of a civilization you hold an open-borders agreement with — so you can always sail through friendly coastal sea even before Optics.
 
 This is why early exploration is hemmed in by your home coastline, and why map types with wide oceans stay isolated until Optics opens them up.
 
@@ -243,6 +244,8 @@ Workers build improvements to boost a tile's yields. Each improvement requires a
 | Watermill | +1 food, +1 prod | Flat | The Wheel | Riverside tiles only |
 | Windmill | +1 prod, +1 commerce | Hills | Machinery | |
 | Lumbermill | +1 food, +1 prod | Flat or hills | Replaceable Parts | Needs a forest; keeps it |
+| Forest Preserve | +1 food | Flat or hills | Scientific Method | Needs a forest; keeps it |
+| Well | +1 production | Flat | Combustion | Needs a resource (oil) |
 | Fort | — | Flat or hills | Mathematics | +50 % defence |
 | Road | +1 commerce | Flat or hills | — | Speeds movement |
 | Railroad | +1 production | Flat or hills | Railroad | Needs a road first |
@@ -299,6 +302,7 @@ Researching a technology unlocks units, structures, improvements, and game mecha
 
 Research cost scales with:
 - **Pace setting** — slower pace multiplies costs.
+- **World size** — smaller worlds discount research (Duel 75 % up to Huge 120 % of the base cost).
 - **Known prerequisites** — each prereq you already own gives a 10 % discount.
 - **Other players who know it** — each other known researcher gives a 5 % discount (capped at 25 %).
 
@@ -349,13 +353,13 @@ Open with **F4**. You see each rival player's stance toward you and available di
 
 Your relationship deteriorates from aggression (war, betrayal of agreements) and improves over time with peace and shared borders.
 
-The **United Nations** wonder (if built) enables the **Diplomatic** victory condition — the world assembly holds elections that an alliance can win with 67 % of the weighted vote.
+The **Apostolic Palace** and later the **United Nations** wonders found world assemblies that hold resident elections and vote on resolutions. The **Diplomatic** victory (winning the World Leader election) is described in the Encyclopedia but is not enabled in the current version (see §19).
 
 ### Espionage
 
 Your **Espionage** rate (and buildings such as the Jail or Intelligence Agency) accumulates **espionage points (EP)** against each rival alliance. Spend them on the **Espionage advisor** or through a **Spy** unit:
 
-- **Active missions** — steal technology or gold, sabotage production, destroy buildings, poison water, incite unrest or revolt, force anarchy, or mount counterespionage. Run them from the advisor's "Select Mission…" menu, or march a Spy onto a rival city and strike that specific city. Each mission costs EP and risks **interception** — and a Spy caught in the act is lost.
+- **Active missions** — steal technology or gold, sabotage production, destroy buildings, projects, or improvements, poison water, insert culture, incite unhappiness or revolt, force a civic or religion switch, or mount counterespionage. Run them from the advisor's "Select Mission…" menu, or march a Spy onto a rival city and strike that specific city. Each mission costs EP and risks **interception** — and a Spy caught in the act is lost.
 - **Passive intelligence** — costs nothing to use: while your banked EP against a rival stays above a threshold (higher for distant targets and rivals who out-spy you), the advisor shows their **demographics**, **current research**, full **city details** (Investigate City), extra **map vision** around a city (City Visibility), or **who is behind** espionage strikes against you (Detect Missions). Drop below the threshold and the intel goes dark again.
 - **What you see without intel** — a rival city's readout shows only its defenses: defense bonus, HP, garrison, and defensive buildings. Population and production stay hidden until investigated.
 - **Spies are invisible.** Only you see your own spies; they cross closed borders freely, can stand in any city, and cannot be attacked.
@@ -366,7 +370,7 @@ Your **Espionage** rate (and buildings such as the Jail or Intelligence Agency) 
 
 ### Beliefs (religions)
 
-The first player to meet a founding condition (researching a specific technology) founds a belief.
+The first player to meet a belief's founding condition founds it — some beliefs require a particular technology, and a Great Prophet's Found Religion action also works.
 Once founded it can **spread** to other cities — passively over time, or actively via a Missionary unit.
 Adopting a **state religion** (in your Civics) gives passive bonuses; changing it triggers anarchy.
 
@@ -382,14 +386,15 @@ Specialists in your cities generate **Great Person points** each turn. When a ci
 
 | Type | Generated by | Notable actions |
 |------|-------------|----------------|
-| Great Scientist | Scientist specialists | Instant technology, boost research |
-| Great Engineer | Engineer specialists | Rush production, construct wonders |
-| Great Merchant | Merchant specialists | Establish trade route, found economic organisation |
-| Great Artist | Artist specialists | Trigger Cultural Golden Age |
-| Great Prophet | Priest specialists | Found or spread a belief, build holy city structures |
-| Great General | Combat experience (all units) | Combat leader bonus for stacked units |
+| Great Scientist | Scientist specialists | Discover a technology instantly, build an Academy |
+| Great Engineer | Engineer specialists | Hurry production, build the Ironworks |
+| Great Merchant | Merchant specialists | Trade mission (instant gold), found an economic organisation |
+| Great Artist | Artist specialists | Great Work (instant culture) |
+| Great Prophet | Priest specialists | Found a religion, build its shrine |
+| Great Spy | Spy specialists | Infiltration (a large windfall of espionage points) |
+| Great General | Combat experience (all units) | Attach to a unit as a leader, build the Military Academy |
 
-Use a Great Person's action from the selection panel when the unit is on a suitable tile.
+Every Great Person can also permanently **join a city** as a super-specialist, and most types can **start a Golden Age**. Use a Great Person's action from the selection panel when the unit is on a suitable tile.
 
 ### Golden Age
 
@@ -418,6 +423,8 @@ Entering a new era produces a notification and may unlock new build options imme
 Unclaimed territory spawns **raiders** — AI-controlled units (owner: Wild Forces) that wander and attack cities and units they encounter. They are not controlled by any player.
 
 Raiders are a persistent early-game threat. Garrison your cities with at least one warrior unit and keep a mobile force nearby to respond. At higher difficulties, raiders have early free combat wins against them removed — meaning they are more dangerous in the opening turns.
+
+The **Aggressive raiders** option at game setup lengthens raider waves and shortens the lulls between them.
 
 ---
 
@@ -463,12 +470,17 @@ For always-on hosting without a GUI, run from a terminal:
 | Flag | Meaning |
 |------|---------|
 | `--save=<file>` | Save-file path (required). Autosaves every turn. |
-| `--players=<n>` | Total player count including AI (2–4). |
-| `--ai=<n>` | How many of those players are AI-controlled. |
+| `--players=<n>` | Total player count including AI (default 2). |
+| `--ai=<n>` | How many of those players the server plays itself (default 0). |
 | `--port=<n>` | TCP port to listen on (default 9080). |
+| `--name=<str>` | Server name shown to joining clients. |
 | `--load=<file>` | Resume from a saved game instead of starting new. |
-| `--world=<size>` | World size ID (duel/tiny/small/standard/large/huge). |
-| `--map=<type>` | Map type ID (continents/pangaea/etc.). |
+| `--new` | Start a fresh game (the default when `--load` is absent). |
+| `--world=<size>` | World size ID (duel/tiny/small/standard/large/huge; default tiny). |
+| `--map=<type>` | Map type ID (continents/pangaea/etc.; default continents). |
+| `--pace=<id>` | Pace ID (quick/normal/epic/marathon; default normal). |
+| `--difficulty=<id>` | Difficulty ID (default warlord). |
+| `--seed=<n>` | RNG seed (random when omitted). |
 
 The server autosaves after every turn (human or AI). If interrupted it can be resumed with `--load`.
 
@@ -502,57 +514,59 @@ The map type sets the overall shape of the world. Each new game generates a fres
 
 ## 17. World Sizes
 
-| Size | Tiles | Notes |
-|------|-------|-------|
-| Duel | 40 × 24 | 2 players; fast games |
-| Tiny | 56 × 36 | 2–3 players |
-| Small | 72 × 44 | 2–4 players |
-| Standard | 96 × 60 | 2–4 players; default |
-| Large | 128 × 80 | 3–4 players; longer games |
-| Huge | 160 × 100 | 4 players; very long games |
+| Size | Tiles | Research cost | Notes |
+|------|-------|---------------|-------|
+| Duel | 40 × 24 | 75 % | 2 players suggested; fast games |
+| Tiny | 56 × 36 | 85 % | 3 players suggested |
+| Small | 72 × 44 | 95 % | 4 players suggested |
+| Standard | 96 × 60 | 100 % | 6 players suggested; default |
+| Large | 128 × 80 | 110 % | 8 players suggested; longer games |
+| Huge | 160 × 100 | 120 % | 10 players suggested; very long games |
+
+The player-count spinner at setup follows the chosen world size's suggestion but can be set to anything from 2 to 16.
 
 ---
 
 ## 18. Societies
 
-Each society has a unique leader trait that provides a passive combat, growth, or economic bonus. Traits stack with civics and other bonuses.
+Each society's leader carries traits that provide passive combat, growth, or economic bonuses. Traits stack with civics and other bonuses. Societies with more than one historical leader let you pick one at setup (the first listed is the default); the chosen leader determines the traits.
 
-| Society | Leader | Character |
-|---------|--------|-----------|
-| American | — | Young expansive republic of pioneers and industry |
-| Arabian | — | Desert faithful with camel riders and scholars |
-| Aztec | — | Sun-worshipping warriors who feed the gods with conquest |
-| Babylonian | — | Lawgivers of Mesopotamia, masters of ordered defence |
-| Byzantine | — | Heirs of Rome whose cataphracts guard a holy empire |
-| Carthaginian | — | Sea-trading financiers who muster mercenary cavalry |
-| Celtic | — | Forest tribes whose guerrilla warriors need no iron |
-| Chinese | — | Industrious dynasty of wonder-builders and crossbowmen |
-| Dutch | — | Merchant seafarers who reclaim land from the waves |
-| Egyptian | — | Builders of the Nile whose chariots need no horse |
-| English | — | Financial island power of redcoats and exchanges |
-| Ethiopian | — | Highland defenders whose drilled musketeers hold the passes |
-| French | — | Creative artisans whose salons and musketeers shine |
-| German | — | Industrial engineers whose panzers race across the field |
-| Greek | — | Philosopher-warriors whose phalanx anchors the line |
-| Holy Roman | — | Pious imperium of landsknechts and free cities |
-| Incan | — | Mountain financiers whose quechua scouts the high passes |
-| Indian | — | Spiritual civilization of fast workers and great souls |
-| Japanese | — | Disciplined samurai who fight on at any wound |
-| Khmer | — | Temple-builders whose ballista elephants storm cities |
-| Korean | — | Scholarly defenders whose hwacha rain fire on attackers |
-| Malinese | — | Gold-rich traders whose skirmishers need no bow training |
-| Mayan | — | Astronomer-kings whose holkan guard the jungle cities |
-| Mongolian | — | Horse-lords whose keshiks ride faster than any foe |
-| Native American | — | Plains nations whose dog soldiers need neither copper nor iron |
-| Ottoman | — | Gunpowder empire whose janissaries heal from every kill |
-| Persian | — | Imperial heartland whose immortals never falter |
-| Portuguese | — | Explorers whose carracks chart trade routes across oceans |
-| Roman | — | Disciplined legions whose praetorians outmatch any sword |
-| Russian | — | Vast creative empire whose cossacks charge at full strength |
-| Spanish | — | Zealous conquistadors who found cities far from home |
-| Sumerian | — | First cities, whose vultures and ziggurats herald civilization |
-| Viking | — | Raiders whose berserkers storm ashore and strike twice |
-| Zulu | — | Fast-mustering impis who flank and overrun the enemy |
+| Society | Leader(s) | Character |
+|---------|-----------|-----------|
+| American | Washington, Roosevelt, Lincoln | Young expansive republic of pioneers and industry |
+| Arabian | Saladin | Desert faithful with camel riders and scholars |
+| Aztec | Montezuma | Sun-worshipping warriors who feed the gods with conquest |
+| Babylonian | Hammurabi | Lawgivers of Mesopotamia, masters of ordered defence |
+| Byzantine | Justinian I | Heirs of Rome whose cataphracts guard a holy empire |
+| Carthaginian | Hannibal | Sea-trading financiers who muster mercenary cavalry |
+| Celtic | Brennus, Boudica | Forest tribes whose guerrilla warriors need no iron |
+| Chinese | Qin Shi Huang, Mao Zedong | Industrious dynasty of wonder-builders and crossbowmen |
+| Dutch | Willem van Oranje | Merchant seafarers who reclaim land from the waves |
+| Egyptian | Hatshepsut, Ramesses II | Builders of the Nile whose chariots need no horse |
+| English | Elizabeth, Victoria, Churchill | Financial island power of redcoats and exchanges |
+| Ethiopian | Zara Yaqob | Highland defenders whose drilled musketeers hold the passes |
+| French | Louis XIV, Napoleon, De Gaulle | Creative artisans whose salons and musketeers shine |
+| German | Bismarck, Frederick | Industrial engineers whose panzers race across the field |
+| Greek | Alexander, Pericles | Philosopher-warriors whose phalanx anchors the line |
+| Holy Roman | Charlemagne | Pious imperium of landsknechts and free cities |
+| Incan | Huayna Capac | Mountain financiers whose quechua scouts the high passes |
+| Indian | Gandhi, Asoka | Spiritual civilization of fast workers and great souls |
+| Japanese | Tokugawa | Disciplined samurai who fight on at any wound |
+| Khmer | Suryavarman II | Temple-builders whose ballista elephants storm cities |
+| Korean | Wang Kon | Scholarly defenders whose hwacha rain fire on attackers |
+| Malinese | Mansa Musa | Gold-rich traders whose skirmishers need no bow training |
+| Mayan | Pacal II | Astronomer-kings whose holkan guard the jungle cities |
+| Mongolian | Genghis Khan, Kublai Khan | Horse-lords whose keshiks ride faster than any foe |
+| Native American | Sitting Bull | Plains nations whose dog soldiers need neither copper nor iron |
+| Ottoman | Mehmed II, Suleiman | Gunpowder empire whose janissaries heal from every kill |
+| Persian | Cyrus, Darius I | Imperial heartland whose immortals never falter |
+| Portuguese | Joao II | Explorers whose carracks chart trade routes across oceans |
+| Roman | Julius Caesar, Augustus Caesar | Disciplined legions whose praetorians outmatch any sword |
+| Russian | Catherine, Peter, Stalin | Vast creative empire whose cossacks charge at full strength |
+| Spanish | Isabella | Zealous conquistadors who found cities far from home |
+| Sumerian | Gilgamesh | First cities, whose vultures and ziggurats herald civilization |
+| Viking | Ragnar | Raiders whose berserkers storm ashore and strike twice |
+| Zulu | Shaka | Fast-mustering impis who flank and overrun the enemy |
 
 See the **Encyclopedia** (F1) for each society's specific trait bonuses.
 
@@ -560,7 +574,7 @@ See the **Encyclopedia** (F1) for each society's specific trait bonuses.
 
 ## 19. Victory Conditions
 
-Select which conditions are active at game setup. A game ends immediately when any alliance achieves an active condition.
+Every game is played with the same **five active conditions**: Conquest, Domination, Cultural, Score, and Time. A game ends immediately when any alliance achieves one of them. Track progress in the **Victory Progress** screen.
 
 ### Conquest
 
@@ -570,23 +584,26 @@ Eliminate every other alliance — no enemy settlements or units may remain on t
 
 Hold at least **66 %** of all land tiles *and* **66 %** of total population simultaneously.
 
-### Space Race
-
-Complete all **seven spaceship stages** in order. Requires the **Apollo Program** wonder to be built first. Track progress in the Victory Progress screen.
-
 ### Cultural
 
 Bring **three** of your cities to **Legendary culture** (50,000 culture points accumulated in each city). The three cities can be any combination; they do not need to reach Legendary simultaneously.
 
-### Diplomatic
+### Score
 
-Win the **United Nations** general election with at least **67 %** of the weighted vote. The UN wonder must be built for this condition to become available.
+The first alliance whose summed score reaches **400** wins immediately.
+
+Score is a weighted sum: your share of land tiles (as a percentage), plus your share of total population (as a percentage), plus 2 points per technology researched and 5 points per wonder built.
 
 ### Time
 
-When the turn limit is reached, the alliance with the **highest score** wins.
+When the turn limit is reached (330 / 500 / 750 turns at Quick / Normal / Epic pace), the alliance with the **highest score** wins.
 
-Score is a weighted sum of land tiles held, total population, and number of technologies researched.
+### Not currently enabled
+
+Two further conditions are described in the Encyclopedia but are not enabled at game setup in the current version:
+
+- **Space Race** — complete all seven spaceship stages after building the **Apollo Program** wonder.
+- **Diplomatic** — win the World Leader election in a world assembly (United Nations: 60 % of the weighted vote; Apostolic Palace: 75 %).
 
 ---
 
@@ -594,7 +611,7 @@ Score is a weighted sum of land tiles held, total population, and number of tech
 
 | Key | Action |
 |-----|--------|
-| **E** | End Turn |
+| **E** / **Enter** | End Turn |
 | **N** | Next idle unit |
 | **B** | Next idle worker |
 | **C** | Centre camera on selection |
