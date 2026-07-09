@@ -203,13 +203,13 @@ Every land tile has a base terrain that sets its movement cost and base yields (
 
 | Terrain | Food | Prod | Commerce | Notes |
 |---------|------|------|----------|-------|
-| Grassland | 2 | 1 | 0 | +1 commerce next to a river |
+| Grassland | 2 | 0 | 0 | +1 commerce next to a river |
 | Plains | 1 | 1 | 0 | +1 commerce next to a river |
-| Desert | 0 | 0 | 0 | Improvements take 25 % longer; mostly needs water |
-| Tundra | 1 | 0 | 0 | Improvements take 25 % longer |
+| Desert | 0 | 0 | 0 | +1 commerce next to a river; improvements take 25 % longer; mostly needs water |
+| Tundra | 1 | 0 | 0 | +1 commerce next to a river; improvements take 25 % longer |
 | Snow | 0 | 0 | 0 | No improvements possible |
-| Hills | 1 | 2 | 0 | +25 % defence, +1 sight, blocks line of sight |
-| Mountain | 0 | 1 | 0 | Impassable to land units; +50 % defence; blocks line of sight |
+| Hills | 1 | 1 | 0 | +25 % defence, +1 sight, blocks line of sight |
+| Mountain | 0 | 0 | 0 | Impassable to land units and never worked by cities; +50 % defence; blocks line of sight |
 | Coast | 1 | 0 | 2 | Shallow water; +10 % defence |
 | Ocean | 1 | 0 | 1 | Deep water; entry restricted until Optics (see §4) |
 
@@ -221,7 +221,7 @@ Features sit on top of terrain and modify it:
 |---------|--------|
 | Forest | +1 production, +50 % defence, blocks line of sight; chopping it gives production to the nearest city |
 | Jungle | −1 food, +50 % defence, blocks line of sight, disease risk; usually cleared before improving |
-| Flood Plains | +3 food (desert tiles by rivers); −33 % defence, disease risk |
+| Flood Plains | +3 food (desert tiles by rivers); disease risk |
 | Oasis | +3 food, +2 commerce (desert only); cannot be improved |
 | Fallout | Heavy yield penalty from nuclear contamination; Workers can clean it |
 | Ice | Impassable; no units or improvements |

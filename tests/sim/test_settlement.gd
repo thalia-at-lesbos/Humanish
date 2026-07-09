@@ -208,6 +208,50 @@ func test_manual_mode_works_only_locked_tiles() -> void:
 	assert_true(_has_pair(s.worked_tiles, 6, 5), "…and the locked tile is worked")
 	assert_true(_has_pair(s.worked_tiles, 5, 5), "…alongside the free city centre")
 
+func test_mountain_is_never_auto_assigned() -> void:
+	# A5 (reference): peaks are unworkable — auto-assign must skip them even when
+	# every other candidate is exhausted.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	gs.map.get_tile(6, 5).terrain_id = "mountain"
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_false(_has_pair(s.worked_tiles, 6, 5),
+		"An unworkable mountain tile is never auto-assigned a citizen")
+
+func test_locked_mountain_is_not_worked() -> void:
+	# A manual lock on unworkable terrain is ignored by the assigner.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	gs.map.get_tile(6, 5).terrain_id = "mountain"
+	s.locked_tiles = [[6, 5]]
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	assert_false(_has_pair(s.worked_tiles, 6, 5),
+		"A locked mountain tile is still never worked")
+
+func test_set_tile_worked_rejects_mountain() -> void:
+	# The SET_TILE_WORKED command refuses to lock an unworkable tile at all.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	gs.map.get_tile(6, 5).terrain_id = "mountain"
+	var f = bare_facade(gs)
+	var ok: bool = f.apply_command(Commands.set_tile_worked(1, s.id, 6, 5, true))
+	assert_false(ok, "Locking a mountain tile is rejected")
+	assert_eq(s.locked_tiles.size(), 0, "No lock is recorded")
+
+func test_river_tile_adds_commerce_to_city_output() -> void:
+	# A5 (reference): a worked grassland river tile yields +1 commerce. The centre
+	# tile is given a river border; output is compared against a river-less twin.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.manage_citizens_auto = false
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	var dry: int = s.output_commerce
+	gs.map.get_tile(5, 5).river_n = true
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	assert_eq(s.output_commerce, dry + 1,
+		"A river border on a worked grassland tile adds +1 commerce")
+
 func test_auto_mode_fills_remaining_slots_around_locks() -> void:
 	var gs = make_gs(1)
 	var s = make_settlement(gs, 1, 5, 5, 3)

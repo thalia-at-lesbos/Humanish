@@ -321,7 +321,8 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		var tile: Tile = gs.map.get_tile(int(wt[0]), int(wt[1]))
 		if tile == null:
 			continue
-		var out: Array = TileOutput.compute(tile, db, player.technologies)
+		var out: Array = TileOutput.compute(tile, db, player.technologies,
+			gs.map.tile_has_river(tile.x, tile.y))
 		total_food     += out[IDs.Output.FOOD]
 		total_prod     += out[IDs.Output.PRODUCTION]
 		total_commerce += out[IDs.Output.COMMERCE]
@@ -1680,6 +1681,8 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 			var ltile = gs.map.get_tile(lx, ly)
 			if ltile == null:
 				continue
+			if not TileOutput.workable(ltile, db):
+				continue  # unworkable terrain (mountain peaks) never takes a citizen
 			if not (ltile.owner_player_id == player.id or ltile.owner_player_id == -1):
 				continue
 			s.worked_tiles.append([lx, ly])
@@ -1695,8 +1698,11 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 		for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
 			if locked_set.has(str(tile.x) + "," + str(tile.y)):
 				continue
+			if not TileOutput.workable(tile, db):
+				continue  # unworkable terrain (mountain peaks) never takes a citizen
 			if tile.owner_player_id == player.id or tile.owner_player_id == -1:
-				var out: Array = TileOutput.compute(tile, db, player.technologies)
+				var out: Array = TileOutput.compute(tile, db, player.technologies,
+					gs.map.tile_has_river(tile.x, tile.y))
 				var score: int = out[0] * 3 + out[1] * 2 + out[2]
 				candidates.append([score, tile.x, tile.y])
 		# Repeatedly take the best candidate. A plain candidates.sort() would

@@ -310,7 +310,8 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 			var is_center: bool = (tile.x == s.x and tile.y == s.y)
 			# The centre tile is worked for free even if not listed in worked_tiles.
 			var is_worked: bool = worked.has(key) or is_center
-			var out = TileOutput.compute(tile, db, techs)
+			var out = TileOutput.compute(tile, db, techs,
+				gs.map.tile_has_river(tile.x, tile.y))
 			var btn := Button.new()
 			var mark: String = _tile_grid_marker(is_center, is_worked, locked.has(key))
 			btn.text = mark + tile.terrain_id.left(4) \
@@ -321,13 +322,16 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 	v.add_child(grid)
 
 # Whether the city can CURRENTLY work this tile: it must lie within the city's
-# real work radius (its culture_ring), and be owned by the city's player or be
-# unowned (-1). Tiles outside the ring, or owned by another player, are not
-# currently usable — they render as a blank cell in the fixed 5×5 grid. The
-# centre tile is always usable (it is worked for free). Mirrors the sim's own
-# auto-assign filter in TurnEngine (tiles_in_range(culture_ring) + ownership).
+# real work radius (its culture_ring), be owned by the city's player or be
+# unowned (-1), and be workable terrain (mountain peaks are unworkable). Tiles
+# outside the ring, owned by another player, or unworkable are not currently
+# usable — they render as a blank cell in the fixed 5×5 grid. The centre tile
+# is always usable (it is worked for free). Mirrors the sim's own auto-assign
+# filter in TurnEngine (tiles_in_range(culture_ring) + ownership + workable).
 func _tile_workable(tile, s, gs) -> bool:
 	if tile.owner_player_id != s.owner_player_id and tile.owner_player_id != -1:
+		return false
+	if not TileOutput.workable(tile, gs.db):
 		return false
 	return gs.map.distance(s.x, s.y, tile.x, tile.y) <= s.culture_ring
 
