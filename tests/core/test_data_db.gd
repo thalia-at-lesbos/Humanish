@@ -190,6 +190,22 @@ func test_specialist_great_person_units_resolve() -> void:
 			assert_true(db.units.has(gp_unit),
 				"Specialist '%s' great_person_unit '%s' must be a real unit" % [sid, gp_unit])
 
+func test_great_person_units_have_settled_specialist_records() -> void:
+	# Settling a Great Person adds the matching `great_*` specialist record
+	# (GreatPeople join_city / the events SGP verb): every great_person unit's
+	# generator must resolve to one, so a settle can never add an unknown type.
+	var db = _db()
+	for uid in db.units:
+		var u: Dictionary = db.units[uid]
+		if not (u is Dictionary) or str(u.get("classification", "")) != "great_person":
+			continue
+		var gen: String = str(u.get("generated_by", ""))
+		var settled: String = "great_" + gen
+		if gen == "" or gen == "combat_xp":
+			settled = "great_general"
+		assert_false(db.get_specialist(settled).empty(),
+			"Great Person unit '%s' needs a settled specialist record '%s'" % [uid, settled])
+
 func test_structure_specialist_slots_name_known_types() -> void:
 	var db = _db()
 	for struct_id in db.structures:

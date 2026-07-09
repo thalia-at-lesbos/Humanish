@@ -86,16 +86,37 @@ func test_join_city_adds_super_specialist() -> void:
 	var u = make_gp(gs, "great_artist", 1, 5, 5)
 	assert_true(GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id}),
 		"join_city succeeds")
-	assert_eq(int(s.specialists.get("artist", 0)), 1, "an artist super-specialist is added")
+	assert_eq(int(s.specialists.get("great_artist", 0)), 1,
+		"a settled Great Artist super-specialist is added")
 	assert_eq(gs.get_unit(u.id), null, "the unit is consumed")
 
-func test_join_city_general_settles_as_engineer() -> void:
+func test_join_city_general_settles_as_great_general() -> void:
 	var gs = make_gs()
 	var s = _city(gs, 1, 5, 5)
 	var u = make_gp(gs, "great_general", 1, 5, 5)
 	GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id})
-	assert_eq(int(s.specialists.get("engineer", 0)), 1,
-		"a settled Great General works as a production (engineer) specialist")
+	assert_eq(int(s.specialists.get("great_general", 0)), 1,
+		"a settled Great General uses its own great_general record")
+
+func test_settled_great_yields_flow_into_city_output() -> void:
+	# The settled forms carry the reference yields (audit §8): a settled Great
+	# Prophet works +2 production / +5 commerce through the normal pipelines.
+	var gs = make_gs()
+	var s = _city(gs, 1, 5, 5)
+	var u = make_gp(gs, "great_prophet", 1, 5, 5)
+	assert_true(GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id}),
+		"join_city succeeds for a Great Prophet")
+	var out: Dictionary = Specialists.settlement_output(gs.db, s)
+	assert_eq(int(out["production"]), 2, "a settled Great Prophet yields +2 production")
+	assert_eq(int(out["commerce"]), 5, "a settled Great Prophet yields +5 commerce")
+
+func test_settled_greats_bank_no_gp_points() -> void:
+	var gs = make_gs()
+	var s = _city(gs, 1, 5, 5)
+	var u = make_gp(gs, "great_scientist", 1, 5, 5)
+	GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id})
+	assert_eq(Specialists.settlement_gp_points(gs.db, s), 0,
+		"settled Great People bank no further GP points (reference)")
 
 # ── Golden Ages ────────────────────────────────────────────────────────────────
 
@@ -328,6 +349,31 @@ func test_special_person_threshold_rises() -> void:
 	TurnEngine._special_person_progress(gs, s)
 	assert_gt(s.special_person_threshold, 100, "The next special person costs more")
 
+func test_threshold_follows_reference_progression() -> void:
+	# Reference progression (A7): base 100, each birth adds 50% of the base, and
+	# the increment accelerates every 10 births — 100, 150, ..., 550, then +100
+	# steps. Pin the first birth and the acceleration at the 10th.
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.specialists = {"scientist": 1}
+	var expected: int = 100
+	for n in range(1, 12):
+		s.special_person_points = s.special_person_threshold
+		TurnEngine._special_person_progress(gs, s)
+		expected += 50 * (n / 10 + 1)
+		assert_eq(s.special_person_threshold, expected,
+			"threshold after birth %d follows the reference progression" % n)
+	assert_eq(s.special_person_threshold, 750,
+		"births 1-9 add +50 each, the 10th and 11th add +100 (acceleration)")
+
+func test_working_specialists_bank_three_gp_points_each() -> void:
+	# Reference GPP rate (A7): every working specialist banks 3 points per turn.
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.specialists = {"scientist": 2, "priest": 1}
+	assert_eq(Specialists.settlement_gp_points(gs.db, s), 9,
+		"three working specialists bank 3 GP points each")
+
 # ── Facade command path ──────────────────────────────────────────────────────
 
 func test_gp_action_through_facade_command() -> void:
@@ -339,5 +385,5 @@ func test_gp_action_through_facade_command() -> void:
 	var u = GreatPeople.spawn_unit(gs, "great_artist", pid, 2, 2)
 	assert_true(facade.apply_command(Commands.gp_action(pid, u.id, "join_city", {"settlement_id": s.id})),
 		"the GP_ACTION command is accepted")
-	assert_eq(int(s.specialists.get("artist", 0)), 1, "the action ran through the facade")
+	assert_eq(int(s.specialists.get("great_artist", 0)), 1, "the action ran through the facade")
 	assert_eq(gs.get_unit(u.id), null, "the unit was consumed via the command path")

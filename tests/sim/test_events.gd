@@ -879,20 +879,21 @@ func test_hymns_event_grants_artist() -> void:
 
 # ── SGP verb ─────────────────────────────────────────────────────────────────────
 
-func test_settle_great_person_general_settles_as_engineer() -> void:
+func test_settle_great_person_general_settles_as_great_general() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5)
 	var add = int(gs.db.get_constant("gp_super_specialist_count", 1))
 	Events.apply_effects([{"verb": "settle_great_person", "gp_type": "general"}], p, gs)
-	assert_eq(int(s.specialists.get("engineer", 0)), add, "a settled General works as an engineer")
+	assert_eq(int(s.specialists.get("great_general", 0)), add,
+		"a settled General uses the great_general record")
 
 func test_settle_great_person_scientist() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5)
 	Events.fire_event("literacy", p, gs)
-	assert_true(int(s.specialists.get("scientist", 0)) >= 1,
+	assert_true(int(s.specialists.get("great_scientist", 0)) >= 1,
 		"Literacy settles a Great Scientist in the city")
 
 # ── SPREAD verb ──────────────────────────────────────────────────────────────────

@@ -239,8 +239,8 @@ Workers build improvements to boost a tile's yields. Each improvement requires a
 | Plantation | +1 commerce | Flat or hills | Calendar | Needs a resource |
 | Quarry | +1 production | Hills or flat | Masonry | Needs a resource |
 | Winery | +1 commerce | Flat | Monarchy | Needs a resource |
-| Cottage | +1 commerce | Flat | Pottery | Grows into Hamlet → Village → Town over time |
-| Workshop | +1 production | Flat | Metal Casting | |
+| Cottage | +1 commerce | Flat | Pottery | Grows into Hamlet (+2) → Village (+3) → Town (+4 commerce) over time |
+| Workshop | −1 food, +1 prod | Flat | Metal Casting | |
 | Watermill | +1 food, +1 prod | Flat | The Wheel | Riverside tiles only |
 | Windmill | +1 prod, +1 commerce | Hills | Machinery | |
 | Lumbermill | +1 food, +1 prod | Flat or hills | Replaceable Parts | Needs a forest; keeps it |

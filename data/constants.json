@@ -193,6 +193,8 @@
   "imperialistic_great_general_pct": 50,
   "great_wall_great_general_pct": 100,
   "gp_super_specialist_count": 1,
+  "gp_threshold_base": 100,
+  "gp_threshold_increase_percent": 50,
   "gp_great_work_culture": 4000,
   "gp_hurry_production_hammers": 500,
   "gp_trade_mission_gold": 2000,

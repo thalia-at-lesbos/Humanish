@@ -98,6 +98,30 @@ func test_improvement_adds_documented_bonus() -> void:
 	assert_eq(improved[IDs.Output.FOOD], base[IDs.Output.FOOD] + bonus,
 		"Farm adds its documented food bonus to grassland output")
 
+func test_cottage_line_base_yields_match_reference() -> void:
+	# A6 (reference): the cottage line is pure commerce at base — 1/2/3/4 with no
+	# food or hammers; the town's +1F/+1P come from civics, not the improvement.
+	var db = _db()
+	var expected := {"cottage": 1, "hamlet": 2, "village": 3, "town": 4}
+	for imp in expected:
+		var tile = _tile("grassland")
+		tile.improvement_id = imp
+		var techs = ["pottery", "printing_press", "nationalism"]
+		var out = TileOutput.compute(tile, db, techs)
+		assert_eq(out[IDs.Output.FOOD], 2, imp + ": no food beyond the grassland base")
+		assert_eq(out[IDs.Output.PRODUCTION], 0, imp + ": no base production")
+		assert_eq(out[IDs.Output.COMMERCE], expected[imp],
+			imp + ": base commerce matches the reference")
+
+func test_workshop_trades_food_for_production() -> void:
+	# A6 (reference): workshop is -1 food / +1 production at base.
+	var db = _db()
+	var tile = _tile("grassland")
+	tile.improvement_id = "workshop"
+	var out = TileOutput.compute(tile, db, ["metal_casting"])
+	assert_eq(out[IDs.Output.FOOD], 1, "Workshop: grassland 2 food less the workshop's 1")
+	assert_eq(out[IDs.Output.PRODUCTION], 1, "Workshop: +1 production")
+
 func test_resource_needs_tech_and_improvement() -> void:
 	var db = _db()
 	var tile = _tile("hills")

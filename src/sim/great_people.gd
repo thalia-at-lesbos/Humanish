@@ -257,13 +257,16 @@ static func _act_join_city(gs: GameState, unit: Unit, player: Player,
 	var s: Settlement = _target_settlement(gs, unit, player, params)
 	if s == null:
 		return false
-	# Permanent super-specialist of the great person's type. A settled Great
-	# General works as a production (engineer) specialist (§14.1).
+	# Permanent super-specialist: the settled form is the matching `great_*`
+	# record in data/specialists.json (§14.1) — reference settled yields, and it
+	# banks no further GP points (gp_points 0). A Great General (generated_by
+	# "combat_xp") settles as `great_general`.
 	var stype: String = str(udata.get("generated_by", ""))
+	var settled: String = "great_" + stype
 	if stype == "" or stype == "combat_xp":
-		stype = "engineer"
+		settled = "great_general"
 	var add: int = gs.db.get_constant("gp_super_specialist_count", 1)
-	s.specialists[stype] = int(s.specialists.get(stype, 0)) + add
+	s.specialists[settled] = int(s.specialists.get(settled, 0)) + add
 	_consume(gs, unit)
 	return true
 
