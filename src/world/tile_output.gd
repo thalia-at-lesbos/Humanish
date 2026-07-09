@@ -14,8 +14,12 @@ class_name TileOutput
 # Returns an Array of IDs.Output.COUNT integers: [food, production, commerce].
 # All values clamped >= 0 at the end.
 
-# compute(tile, db, player_known_techs) -> Array[int] of length 3
-static func compute(tile: Tile, db: DataDB, known_techs: Array) -> Array:
+# compute(tile, db, player_known_techs, has_river) -> Array[int] of length 3
+# `has_river` is whether any of the tile's borders carries a river (the caller
+# reads it from WorldMap.tile_has_river — TileOutput itself has no map access);
+# it feeds the per-terrain `river_commerce_bonus` (+1C on grass/plains/desert/
+# tundra river tiles, reference).
+static func compute(tile: Tile, db: DataDB, known_techs: Array, has_river: bool = false) -> Array:
 	var out := [0, 0, 0]
 
 	var terrain: Dictionary = db.get_terrain(tile.terrain_id)
@@ -24,6 +28,12 @@ static func compute(tile: Tile, db: DataDB, known_techs: Array) -> Array:
 
 	# 1. Terrain base output
 	_add_output(out, terrain.get("base_output", {}))
+
+	# 1b. River commerce (§1.3): terrains with a `river_commerce_bonus` yield the
+	# extra commerce when the tile borders a river. Applied regardless of any
+	# surface feature (a flood-plains desert river tile keeps the desert's +1C).
+	if has_river:
+		out[IDs.Output.COMMERCE] += int(terrain.get("river_commerce_bonus", 0))
 
 	# 2. Landform adjustments (hills adjacency handled by feature, peaks block)
 	# (Landform data embedded in terrain record for simplicity)
@@ -74,6 +84,13 @@ static func compute(tile: Tile, db: DataDB, known_techs: Array) -> Array:
 		out[i] = max(0, out[i])
 
 	return out
+
+# Whether a settlement's citizens can work this tile at all. Terrains flagged
+# `unworkable` (mountain peaks, reference) can never be assigned a worker —
+# shared by the sim's auto-assign, the SET_TILE_WORKED command gate, and the
+# city-screen work grid so all three agree.
+static func workable(tile: Tile, db: DataDB) -> bool:
+	return not bool(db.get_terrain(tile.terrain_id).get("unworkable", false))
 
 static func _add_output(out: Array, delta: Dictionary) -> void:
 	out[IDs.Output.FOOD]       += int(delta.get("food", 0))

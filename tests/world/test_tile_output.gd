@@ -26,7 +26,51 @@ func _tile(terrain):
 func test_grassland_base_output() -> void:
 	var out = TileOutput.compute(_tile("grassland"), _db(), [])
 	assert_eq(out[IDs.Output.FOOD], 2, "Grassland: 2 food")
-	assert_eq(out[IDs.Output.PRODUCTION], 1, "Grassland: 1 production")
+	assert_eq(out[IDs.Output.PRODUCTION], 0, "Grassland: 0 production (reference)")
+
+func test_river_commerce_bonus_on_river_tiles() -> void:
+	# A5 (reference): grass/plains/desert/tundra river tiles yield +1 commerce;
+	# the bonus only applies when the caller reports a river border.
+	var db = _db()
+	for ter in ["grassland", "plains", "desert", "tundra"]:
+		var dry = TileOutput.compute(_tile(ter), db, [], false)
+		var wet = TileOutput.compute(_tile(ter), db, [], true)
+		assert_eq(wet[IDs.Output.COMMERCE], dry[IDs.Output.COMMERCE] + 1,
+			ter + ": +1 commerce adjacent to river")
+
+func test_river_commerce_not_on_hills_or_snow() -> void:
+	var db = _db()
+	for ter in ["hills", "snow", "coast", "mountain"]:
+		var dry = TileOutput.compute(_tile(ter), db, [], false)
+		var wet = TileOutput.compute(_tile(ter), db, [], true)
+		assert_eq(wet[IDs.Output.COMMERCE], dry[IDs.Output.COMMERCE],
+			ter + ": no river commerce bonus")
+
+func test_river_commerce_survives_feature() -> void:
+	# Flood plains on a desert river tile keeps the desert's river +1C (reference:
+	# flood plains 3F/0P/1C).
+	var db = _db()
+	var tile = _tile("desert")
+	tile.feature_id = "flood_plains"
+	var out = TileOutput.compute(tile, db, [], true)
+	assert_eq(out[IDs.Output.FOOD], 3, "Flood plains: 3 food")
+	assert_eq(out[IDs.Output.COMMERCE], 1, "Flood plains river tile: 1 commerce")
+
+func test_mountain_yields_nothing_and_is_unworkable() -> void:
+	# A5 (reference): peaks yield nothing and can never be worked.
+	var db = _db()
+	var tile = _tile("mountain")
+	var out = TileOutput.compute(tile, db, [], true)
+	assert_eq(out[IDs.Output.FOOD], 0, "Mountain: 0 food")
+	assert_eq(out[IDs.Output.PRODUCTION], 0, "Mountain: 0 production (reference)")
+	assert_eq(out[IDs.Output.COMMERCE], 0, "Mountain: 0 commerce")
+	assert_false(TileOutput.workable(tile, db), "Mountain is unworkable")
+	assert_true(TileOutput.workable(_tile("hills"), db), "Hills stay workable")
+
+func test_hills_base_output() -> void:
+	var out = TileOutput.compute(_tile("hills"), _db(), [])
+	assert_eq(out[IDs.Output.FOOD], 1, "Hills: 1 food (net grass-hill)")
+	assert_eq(out[IDs.Output.PRODUCTION], 1, "Hills: 1 production (net grass-hill, reference)")
 
 func test_output_clamps_to_non_negative() -> void:
 	var out = TileOutput.compute(_tile("snow"), _db(), [])

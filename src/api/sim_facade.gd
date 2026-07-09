@@ -1566,11 +1566,13 @@ func _cmd_set_tile_worked(cmd: Dictionary) -> bool:
 	var ty: int = int(cmd.get("y", -999))
 	if not _gs.map.is_valid(tx, ty):
 		return false
-	# The tile must be within the city's worked radius and ownable by the player.
+	# The tile must be within the city's worked radius, ownable by the player,
+	# and workable at all (mountain peaks are unworkable, reference).
 	var in_range: bool = false
 	for tile in _gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
 		if tile.x == tx and tile.y == ty:
-			if tile.owner_player_id == p.id or tile.owner_player_id == -1:
+			if (tile.owner_player_id == p.id or tile.owner_player_id == -1) \
+					and TileOutput.workable(tile, _db):
 				in_range = true
 			break
 	if not in_range:
@@ -3580,7 +3582,8 @@ func tile_info_text(tx: int, ty: int) -> String:
 	# raw terrain base.
 	var viewer: Player = _gs.get_player(_gs.current_player_id)
 	var techs: Array = viewer.technologies if viewer != null else []
-	var out: Array = TileOutput.compute(tile, _db, techs)
+	var out: Array = TileOutput.compute(tile, _db, techs,
+		_gs.map.tile_has_river(tile.x, tile.y))
 	lines.append("Yields: " + str(out[IDs.Output.FOOD]) + "F " \
 		+ str(out[IDs.Output.PRODUCTION]) + "P " \
 		+ str(out[IDs.Output.COMMERCE]) + "C")

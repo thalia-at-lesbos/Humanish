@@ -326,6 +326,16 @@ build scale).
 
 ## 8. Terrain / features / specialists / GP
 
+> **Resolution note (2026-07-08, A5 — 221871c): the terrain/feature rows below are
+> now applied** — grassland 2F/0P, hills net 1F/1P, mountain 0-yield + unworkable
+> (new `unworkable` flag, `TileOutput.workable()`), river +1C extended to
+> desert/tundra (the previously dead `river_commerce_bonus` key is now wired via a
+> `has_river` param on `TileOutput.compute`), flood-plains defence −33 → 0.
+> Still open: the fractional feature health percentages (forest +0.5 / jungle −0.25 /
+> flood-plains −0.4 — needs a fractional-health model, not a value edit). The
+> **specialists / GPP / settled-GP / XP-curve rows are untouched — they are work
+> item A7.** The text below is the original audit snapshot, kept verbatim.
+
 - **[value] Grassland 2F/1P ≠ reference 2F/0P** — every grassland tile produces
   a free hammer; biggest single yield deviation in the game.
 - Hills: Humanish flat 1F/2P/0C terrain vs reference hills = plot modifier

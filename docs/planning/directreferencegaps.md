@@ -113,6 +113,18 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   seeded-test recalibration); hills 1/2/0 → net 1/1/0-equivalent; mountains become
   unworkable (reference); river commerce on desert/tundra (+1C) — add
   `river_commerce_bonus: 1` to both; flood-plains defence −33 → 0.
+  **DONE 2026-07-08** (221871c): all five diffs applied. Wiring finds:
+  `river_commerce_bonus` was a *dead key* (read nowhere — grass/plains carried it
+  with no river commerce actually paid); `TileOutput.compute` gained a `has_river`
+  param fed from `WorldMap.tile_has_river` at all four call sites. Mountains got an
+  `unworkable` terrain flag read by new `TileOutput.workable()`, gated in
+  auto-assign, the SET_TILE_WORKED command, and the city-screen grid. 9 new pinning
+  tests; **zero seeded recalibration needed** — the fixture maps' expectations
+  survived the grassland hammer removal. Left unchanged: fractional feature health
+  (forest +0.5 / jungle −0.25 / flood-plains −0.4) — needs a fractional-health
+  accumulation model, not a value edit; hills river commerce (reference grass-hill
+  river gets +1C via underlying terrain — our hills are their own terrain, no
+  underlying grass/plains to read). Specialists/GP rows of audit §8 are A7.
 - **A6. Improvements** (`data/improvements.json`): town 1/1/4 → 0/0/4 base
   (reference; its +1P/+1F come from civics), workshop −1F/+1P at base
   `[decide→RESOLVED: adopt reference]`.
