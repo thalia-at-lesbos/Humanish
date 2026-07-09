@@ -75,8 +75,8 @@ func test_research_cost_scales_with_difficulty_handicap() -> void:
 	var p = gs.get_player(1)
 	var noble: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble")
 	var deity: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "deity")
-	assert_eq(noble, 50, "Noble pays the base cost (100%)")
-	assert_eq(deity, Fixed.scale(50, 130), "Deity pays 130% (1.3× Noble)")
+	assert_eq(noble, Fixed.scale(50, 130), "Noble pays base × the standard-world 130%")
+	assert_eq(deity, Fixed.scale(Fixed.scale(50, 135), 130), "Deity pays the 135% handicap on top")
 	assert_gt(deity, noble, "A higher difficulty raises the human research cost")
 
 func test_research_cost_scales_with_world_size() -> void:
@@ -84,7 +84,7 @@ func test_research_cost_scales_with_world_size() -> void:
 	var p = gs.get_player(1)
 	var standard: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard")
 	var huge: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "huge")
-	assert_eq(huge, Fixed.scale(50, 120), "A Huge map is 120% of base")
+	assert_eq(huge, Fixed.scale(50, 150), "A Huge map is 150% of base (reference floor 100 at Duel)")
 	assert_gt(huge, standard, "A larger map raises research cost")
 
 func test_research_cost_scales_with_team_size() -> void:
@@ -93,8 +93,8 @@ func test_research_cost_scales_with_team_size() -> void:
 	var solo: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard", 1)
 	var pair: int = Research._effective_cost("mining", p, gs.db, {}, "normal", "noble", "standard", 2)
 	var mod: int = gs.db.get_constant("tech_cost_extra_team_member_modifier", 30)
-	assert_eq(solo, 50, "A solo player pays the base cost (team factor is a no-op)")
-	assert_eq(pair, Fixed.scale(50, 100 + mod), "A two-member team pays (100+modifier)%")
+	assert_eq(solo, Fixed.scale(50, 130), "A solo player pays the chained cost (team factor is a no-op)")
+	assert_eq(pair, Fixed.scale(Fixed.scale(50, 130), 100 + mod), "A two-member team pays (100+modifier)%")
 	assert_gt(pair, solo, "Each extra team member raises the shared-research cost")
 
 # ── §2.2 difficulty research handicaps ───────────────────────────────────────
@@ -106,7 +106,8 @@ func test_human_pays_handicap_but_ai_does_not() -> void:
 	ai.technologies = ["mining"]  # ancient → era 0, so no per-era modifier yet
 	var human_cost: int = Research._effective_cost("agriculture", human, gs.db, {}, "normal", "deity")
 	var ai_cost: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
-	assert_eq(human_cost, Fixed.scale(60, 130), "Human pays the Deity 130% research handicap")
+	assert_eq(human_cost, Fixed.scale(Fixed.scale(60, 135), 130),
+		"Human pays the Deity 135% research handicap (× standard-world 130%)")
 	assert_lt(ai_cost, human_cost, "The AI does not pay the human handicap")
 
 func test_ai_research_per_era_compounds() -> void:
@@ -115,10 +116,30 @@ func test_ai_research_per_era_compounds() -> void:
 	# agriculture has no prereqs, so no discount masks the per-era modifier.
 	ai.technologies = ["mining"]                      # ancient → era 0
 	var era0: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
-	assert_eq(era0, 60, "At era 0 the per-era modifier is a no-op")
+	assert_eq(era0, Fixed.scale(60, 130),
+		"At era 0 the per-era modifier is a no-op (only the standard-world 130% applies)")
 	ai.technologies = ["mining", "metal_casting"]     # classical → a later era
 	var later: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
 	assert_lt(later, era0, "A later-era Deity AI pays less per tech (per-era discount compounds)")
+
+func test_ai_research_per_era_reference_sign_negative_is_cheaper() -> void:
+	# A3 reference semantics: `ai_research_per_era` keeps the reference sign — a
+	# NEGATIVE value makes AI techs CHEAPER, compounding ×(100+per_era)% per era
+	# (the old engine read was 100−per_era with flipped data signs).
+	var gs = make_gs(1)
+	var ai = gs.get_player(1); ai.is_ai = true
+	gs.db.difficulties["deity"]["ai_research_per_era"] = -10
+	ai.technologies = ["mining", "metal_casting"]     # classical → era ≥ 1
+	var eras: int = Eras.player_era(ai, gs.db)
+	assert_gt(eras, 0, "precondition: the AI is past the starting era")
+	var expected: int = 60                            # agriculture base; the AI pays no handicap
+	for _i in range(eras):
+		expected = Fixed.scale(expected, 90)          # 100 + (−10) each era
+	expected = Fixed.scale(expected,
+		int(gs.db.get_world_size("standard").get("research_percent", 100)))
+	var cost: int = Research._effective_cost("agriculture", ai, gs.db, {}, "normal", "deity")
+	assert_eq(cost, expected,
+		"a negative per-era modifier compounds as (100+per_era)% — cheaper each era")
 
 func test_discount_applies_after_the_chain() -> void:
 	# The 10% prereq discount comes off the post-chain (marathon-scaled) cost.
@@ -126,7 +147,7 @@ func test_discount_applies_after_the_chain() -> void:
 	var p = gs.get_player(1)
 	p.technologies = ["mining"]  # holds bronze_working's prereq
 	var cost: int = Research._effective_cost("bronze_working", p, gs.db, {}, "marathon", "noble")
-	var post_chain: int = Fixed.scale(120, 300)  # base 120 × marathon 300%
+	var post_chain: int = Fixed.scale(Fixed.scale(120, 130), 300)  # base 120 × standard world 130% × marathon 300%
 	assert_eq(cost, post_chain - Fixed.scale(post_chain, 10),
 		"The prereq discount is taken off the chained cost, not the base")
 

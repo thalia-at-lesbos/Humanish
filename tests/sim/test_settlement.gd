@@ -583,8 +583,10 @@ func test_traitless_player_has_no_trait_health() -> void:
 	var p = gs.get_player(1)
 	p.traits = []
 	TurnEngine._update_wellbeing(gs, s, p, gs.db)
-	# No traits, no structures, dry inland: positive is purely difficulty (prince=0).
-	assert_eq(s.wellbeing_positive, 0, "A traitless prince city has no positive wellbeing")
+	# No traits, no structures, dry inland: positive is purely difficulty
+	# (prince health_bonus = 2, the reference human floor — A3).
+	assert_eq(s.wellbeing_positive, 2,
+		"A traitless prince city's positive wellbeing is the difficulty aid alone")
 
 # ── Worked-tile feature wellbeing (§4.6) ─────────────────────────────────────
 

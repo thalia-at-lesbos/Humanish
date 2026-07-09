@@ -92,7 +92,7 @@
   "gw_global_unhealth_ratio": 20,
   "gw_nuclear_ratio": 50,
   "wild_land_per_unit": 80,
-  "wild_water_per_unit": 2000,
+  "wild_water_per_unit": 500,
   "raider_land_per_camp": 350,
   "wild_creation_turns_elapsed": 30,
   "wild_city_creation_turns_elapsed": 35,

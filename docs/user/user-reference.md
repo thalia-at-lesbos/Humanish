@@ -302,7 +302,7 @@ Researching a technology unlocks units, structures, improvements, and game mecha
 
 Research cost scales with:
 - **Pace setting** — slower pace multiplies costs.
-- **World size** — smaller worlds discount research (Duel 75 % up to Huge 120 % of the base cost).
+- **World size** — larger worlds raise research costs (Duel 100 % up to Huge 150 % of the base cost).
 - **Known prerequisites** — each prereq you already own gives a 10 % discount.
 - **Other players who know it** — each other known researcher gives a 5 % discount (capped at 25 %).
 
@@ -516,12 +516,12 @@ The map type sets the overall shape of the world. Each new game generates a fres
 
 | Size | Tiles | Research cost | Notes |
 |------|-------|---------------|-------|
-| Duel | 40 × 24 | 75 % | 2 players suggested; fast games |
-| Tiny | 56 × 36 | 85 % | 3 players suggested |
-| Small | 72 × 44 | 95 % | 4 players suggested |
-| Standard | 96 × 60 | 100 % | 6 players suggested; default |
-| Large | 128 × 80 | 110 % | 8 players suggested; longer games |
-| Huge | 160 × 100 | 120 % | 10 players suggested; very long games |
+| Duel | 40 × 24 | 100 % | 2 players suggested; fast games |
+| Tiny | 52 × 32 | 110 % | 3 players suggested |
+| Small | 64 × 40 | 120 % | 5 players suggested |
+| Standard | 84 × 52 | 130 % | 7 players suggested; default |
+| Large | 104 × 64 | 140 % | 9 players suggested; longer games |
+| Huge | 128 × 80 | 150 % | 11 players suggested; very long games |
 
 The player-count spinner at setup follows the chosen world size's suggestion but can be set to anything from 2 to 16.
 

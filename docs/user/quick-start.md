@@ -33,7 +33,7 @@ Saves are stored in your user data folder:
    - **Leader** — societies with several historical leaders let you pick one; the leader determines the traits.
    - **AI** — check the box to let the computer play that slot. Player 1 defaults to human, everyone else to AI.
 3. Set world options:
-   - **World size** — Duel (40×24) through Huge (160×100). Larger maps mean longer games.
+   - **World size** — Duel (40×24) through Huge (128×80). Larger maps mean longer games.
    - **Map type** — Continents is a safe starting choice. See the [User Reference](user-reference.md) for the full list.
    - **Pace** — Quick, Normal, or Epic. Normal is balanced; Epic extends research, build times, and the turn limit.
    - **Difficulty** — Settler, Warlord, Prince, or Emperor. Warlord (the default) suits new players; higher settings strengthen the AI and the raiders.

@@ -94,8 +94,19 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   at high difficulty — align the sign or rename the field), `[decide→RESOLVED]`
   water-raider density back to reference (undo the ÷4), `combat_bonus_vs_wild`
   semantics → reference model (modifier on the barbarian side).
+  **DONE 2026-07-08** (a3d1078): all §5 columns to reference; sign flipped in the
+  `Research._effective_cost` read (×(100+per_era), negative = cheaper); dead
+  `combat_bonus_vs_wild` replaced by `wild_combat_modifier` (barbarian-side percent,
+  0 at every level) newly wired in `Combat.resolve` with human-opponent gating;
+  `wild_water_per_unit` fallback 2000→500. New semantics pinned in `test_research`/
+  `test_combat`; one wellbeing pin recalibrated (prince health floor 2).
 - **A4. World sizes** (`data/world_sizes.json`): `[decide→RESOLVED: adopt reference]`
   grids, research % 100–150, players_suggested 2/3/5/7/9/11.
+  **DONE 2026-07-08** (a3d1078): all three columns to reference (standard now 84×52
+  at 130% research); research-cost chain tests recalibrated (default "standard"
+  gs now scales ×130). Follow-up for a design-doc sitting: game-data §15.8/§15.9
+  tables and ai-design §4's `combat_bonus_vs_wild` mention still show the old
+  values/name (docs/design/ needs user consent).
 - **A5. Terrain & features** (`data/terrains.json`, `features.json`; tests
   `tests/world/*`, `tests/sim/test_settlement*`): `[decide→RESOLVED: adopt reference
   on all]` grassland 2/1/0 → 2/0/0 (largest single economic change — expect broad

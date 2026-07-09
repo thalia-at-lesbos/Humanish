@@ -269,6 +269,17 @@ islamic/buddhist cathedrals, `temple_of_artemis`↔`BUILDING_ARTEMIS`,
 
 ## 5. Difficulties (`difficulties.json` vs the reference handicap table)
 
+> **Resolution note (2026-07-08, A3 — a3d1078):** every diff below is now applied
+> to `data/difficulties.json` (research %, free early wins, health/happiness
+> reference floors — never negative for the human). `ai_research_per_era` carries
+> the reference sign (0/0/0/0/−1…−5) with the `Research._effective_cost` read
+> flipped to match (negative = AI techs cheaper). Water-raider density undid the
+> ×4 (750…250; `wild_water_per_unit` constant fallback 2000→500). The dead
+> `combat_bonus_vs_wild` field was replaced by `wild_combat_modifier` with
+> reference semantics — a percent modifier on the *wild* side's strength vs a
+> human opponent, newly wired in `Combat.resolve`, value 0 at every level. The
+> table below is the original audit snapshot, kept verbatim.
+
 Docs claim these were ported from the reference handicap table and not yet retuned, but
 several columns differ from the file:
 
@@ -289,6 +300,11 @@ several columns differ from the file:
   match the XML. (Deliberate naval-raider damping? Undocumented.)
 
 ## 6. World sizes
+
+> **Resolution note (2026-07-08, A4 — a3d1078):** all three columns below are now
+> at reference values in `data/world_sizes.json` (grids, research % 100–150,
+> players_suggested 2/3/5/7/9/11). The table below is the original audit
+> snapshot, kept verbatim.
 
 - Grids: only duel (40×24) matches. tiny 56×36≠52×32, small 72×44≠64×40,
   standard 96×60≠84×52, large 128×80≠104×64, huge 160×100≠128×80 — Humanish maps
