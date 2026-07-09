@@ -164,7 +164,7 @@ The tables and what they configure:
 | `policies.json` | Category, upkeep modifiers, slider constraints, anger modifier, transition turns, and a per-civic `effects` block of gameplay bonuses (read by `PolicyEffects`) |
 | `promotions.json` | Per-promotion combat bonuses, applies-to filter |
 | `beliefs.json` / `econ_orgs.json` | Founding prereqs, spread chance, economic effects |
-| `specialists.json` | The 14 specialist types (7 working + 7 great-person): per-head `output` vector (food/production/commerce/science/culture/espionage), `gp_points`/`gp_type`, `great_person_unit`, and `default_slots` slot rules (read by `Specialists`) |
+| `specialists.json` | The 14 specialist types (7 working + 7 settled `great_*` forms a Great Person joins a city as): per-head `output` vector (food/production/commerce/science/culture/espionage), `gp_points`/`gp_type` (3 per working specialist, 0 settled), `great_person_unit`, and `default_slots` slot rules (read by `Specialists`) |
 | `ages.json` / `paces.json` / `difficulties.json` | Scaling multipliers and per-level modifiers |
 | `world_sizes.json` | Map width/height, wrap axes, suggested player count |
 | `map_types.json` | Map-script definitions: land-mask `shape`, `climate`, target `land_fraction`, landform/feature chances, and shape params (read by `MapGen`) |

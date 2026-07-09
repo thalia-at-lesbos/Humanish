@@ -128,11 +128,34 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 - **A6. Improvements** (`data/improvements.json`): town 1/1/4 → 0/0/4 base
   (reference; its +1P/+1F come from civics), workshop −1F/+1P at base
   `[decide→RESOLVED: adopt reference]`.
+  **DONE 2026-07-08** (2b6ec0f): town 0/0/4, workshop −1F/+1P, plus village
+  1F/3C → 0/0/3 — an audit omission (the audit's §1.5 row only flagged town, but
+  the reference cottage line is pure commerce at every stage). Data-only:
+  `TileOutput` already takes negative deltas and clamps per-tile totals ≥ 0.
+  Civics effects untouched (town_production/town_commerce already exist; the rest
+  is C6). Left unchanged: the flat-vs-conditional improvement yield *model*
+  (audit §1.5 [schema] — resource-less pasture/camp/quarry etc. keep their flat
+  deltas), roads' commerce, and all rows the audit does not flag.
 - **A7. Specialists & settled GPs** (`data/specialists.json`; test
   `test_great_people.gd`): citizen +1 production; artist 4 culture (+1 research);
   spy 4 esp (+1 research); settled greats per audit §8 (great_priest +2P/+5 gold …).
   `[decide→RESOLVED: adopt reference]` GPP scaling ×3 with the reference
   `gp_threshold` progression.
+  **DONE 2026-07-08** (2b6ec0f): all rows applied — citizen +1P, artist 4Cu+1R,
+  spy 4E+1R, gp_points 3 on all seven working specialists, settled-great yields
+  per audit §8. Wiring find: the `great_*` records were *dead data* — both settle
+  sites (`GreatPeople._act_join_city`, events SGP verb) collapsed settled GPs
+  into their working type; both now add the `great_*` record (so settled greats
+  stop banking GPP, per reference). Threshold progression adopted: base 100,
+  +50%-of-base per birth, accelerating ×(births/10+1) (reference
+  GREAT_PEOPLE_THRESHOLD/_INCREASE; was hardcoded ×1.25 compounding) — constants
+  `gp_threshold_base`/`gp_threshold_increase_percent` in `data/constants.json`.
+  Left unchanged / model notes: settled great_general keeps +2P (reference
+  military-instructor +XP model unbuilt); the GP counter stays per-settlement
+  (reference: per-player); settled specialists still consume a population worker
+  slot (reference: free); the working `citizen` record has no assignment path
+  (reference "excess citizens become citizen specialists" mechanic unbuilt), so
+  its +1P is parity data only.
 - **A8. Promotions values** (`data/promotions.json`): combat6 +25; flanking2 +20;
   interception 10/20; guerrilla3 +50 withdrawal; woodsman3 +2 FS & same-tile heal;
   drill line per game-data §29.3 (needs B2 for chance-FS/collateral fields).
