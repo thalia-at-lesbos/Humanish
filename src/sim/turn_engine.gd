@@ -1209,11 +1209,19 @@ static func _special_person_progress(gs: GameState, s: Settlement) -> void:
 	s.special_person_points += points
 
 	# When the rising threshold is crossed, produce a special person and apply
-	# its effect. The threshold then grows for the next one (§6.5).
+	# its effect. The threshold then grows for the next one on the reference
+	# progression (§6.5/§14.3): each birth adds `gp_threshold_increase_percent`
+	# of the base threshold, and the increment itself accelerates — it is
+	# multiplied by (births/10 + 1), i.e. births 1–9 add +50, 10–19 add +100,
+	# and so on (reference GREAT_PEOPLE_THRESHOLD_INCREASE semantics; kept
+	# per-settlement where the reference counter is per-player).
 	if s.special_person_points >= s.special_person_threshold:
 		s.special_person_points -= s.special_person_threshold
-		s.special_person_threshold = Fixed.scale_up(s.special_person_threshold, 25)
 		s.special_persons_produced += 1
+		var base: int = gs.db.get_constant("gp_threshold_base", 100)
+		var inc_pct: int = gs.db.get_constant("gp_threshold_increase_percent", 50)
+		var accel: int = s.special_persons_produced / 10 + 1
+		s.special_person_threshold += base * inc_pct * accel / 100
 		_apply_special_person(gs, s)
 
 # A produced special person becomes a Great Person unit of the city's dominant

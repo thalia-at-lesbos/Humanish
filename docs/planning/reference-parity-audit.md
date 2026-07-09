@@ -333,8 +333,22 @@ build scale).
 > `has_river` param on `TileOutput.compute`), flood-plains defence −33 → 0.
 > Still open: the fractional feature health percentages (forest +0.5 / jungle −0.25 /
 > flood-plains −0.4 — needs a fractional-health model, not a value edit). The
-> **specialists / GPP / settled-GP / XP-curve rows are untouched — they are work
-> item A7.** The text below is the original audit snapshot, kept verbatim.
+> text below is the original audit snapshot, kept verbatim.
+>
+> **Extension (2026-07-08, A7 — 2b6ec0f): the specialists / GPP / settled-GP rows
+> are now applied too** — citizen +1P, artist 4Cu+1R, spy 4E+1R, 3 GPP per working
+> specialist, settled-great yields as listed below, and the reference threshold
+> progression (base 100, +50%-of-base per birth, ×(births/10+1) acceleration;
+> constants `gp_threshold_base`/`gp_threshold_increase_percent`). Wiring find: the
+> `great_*` specialist records were dead data — both settle sites collapsed a
+> settled GP into its *working* type; they now add the `great_*` record, so the
+> settled yields flow and settled greats bank no GPP. Still open from this block:
+> settled great_general keeps +2P (military-instructor +XP model unbuilt); the GP
+> counter is per-settlement vs the reference's per-player; the XP-per-level curve
+> row (2,5,10,17,26…) is untouched (promotions work, A8-adjacent). The improvement
+> rows the audit carries (§1.5: town +1F+1P) are applied by **A6** (same commit),
+> which also fixed village 1F/3C → 0/0/3 — an omission of this audit — and
+> workshop → −1F/+1P; the §1.5 flat-vs-conditional yield *model* stays.
 
 - **[value] Grassland 2F/1P ≠ reference 2F/0P** — every grassland tile produces
   a free hammer; biggest single yield deviation in the game.

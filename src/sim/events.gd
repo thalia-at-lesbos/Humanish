@@ -1022,9 +1022,9 @@ static func _apply_specialist(eff: Dictionary, player: Player, game_state) -> vo
 		s.specialists[stype] = int(s.specialists.get(stype, 0)) + count
 
 # SGP (§9): settle a free Great Person of `gp_type` (general/prophet/merchant/
-# artist/scientist/spy) in the capital — modelled as a permanent super-specialist of
-# the great person's underlying specialist type, exactly as GreatPeople join_city
-# does (§14.1). No unit is spawned; the GP arrives already settled.
+# artist/scientist/spy) in the capital — a permanent `great_*` super-specialist,
+# exactly as GreatPeople join_city does (§14.1). No unit is spawned; the GP
+# arrives already settled.
 static func _apply_settle_great_person(eff: Dictionary, player: Player, game_state) -> void:
 	var cap: Settlement = capital_of(player.id, game_state)
 	if cap == null:
@@ -1035,22 +1035,24 @@ static func _apply_settle_great_person(eff: Dictionary, player: Player, game_sta
 	var add: int = int(game_state.db.get_constant("gp_super_specialist_count", 1))
 	cap.specialists[stype] = int(cap.specialists.get(stype, 0)) + add
 
-# Map a Great Person type onto the specialist type a settled one works as (§14.1):
-# a settled General works as an engineer (production); the rest map by name.
+# Map a Great Person type onto the settled `great_*` specialist record it works
+# as (§14.1); "prophet"/"priest" both name the settled Great Prophet.
 static func _settled_gp_specialist(gp_type: String) -> String:
 	match gp_type:
-		"general", "engineer":
-			return "engineer"
+		"general":
+			return "great_general"
+		"engineer":
+			return "great_engineer"
 		"prophet", "priest":
-			return "priest"
+			return "great_priest"
 		"artist":
-			return "artist"
+			return "great_artist"
 		"scientist":
-			return "scientist"
+			return "great_scientist"
 		"merchant":
-			return "merchant"
+			return "great_merchant"
 		"spy":
-			return "spy"
+			return "great_spy"
 	return ""
 
 # SPREAD (§9): spread a religion to up to `count` cities. `belief` names the religion
