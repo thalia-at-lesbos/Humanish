@@ -102,12 +102,29 @@ static func award_promotions(gs, u: Unit) -> void:
 		return
 	var thresholds: Array = gs.db.constants.get("experience_thresholds", [])
 	while u.experience_level + 1 < thresholds.size() \
-			and u.experience >= int(thresholds[u.experience_level + 1]):
+			and u.experience >= _xp_needed(gs, u, int(thresholds[u.experience_level + 1])):
 		u.experience_level += 1
 		var promo: String = pick_promotion(gs, u)
 		if promo == "":
 			break  # nothing eligible left; stop awarding
 		u.promotions.append(promo)
+
+# XP needed to reach the next level for `u`: the data threshold reduced by the
+# owner's trait `promotion_xp_reduction` percentages (Charismatic: the reference
+# "-25% XP needed for next promotion" model, A9). Summed across traits, clamped
+# to 100; integer math (truncating scale, like every percent in the engine).
+static func _xp_needed(gs, u: Unit, base: int) -> int:
+	var player = gs.get_player(u.owner_player_id)
+	if player == null:
+		return base
+	var reduction: int = 0
+	for trait_id in player.traits:
+		reduction += int(gs.db.get_trait(trait_id).get("promotion_xp_reduction", 0))
+	if reduction <= 0:
+		return base
+	if reduction > 100:
+		reduction = 100
+	return Fixed.scale(base, 100 - reduction)
 
 # First promotion (in data order) whose prereqs are met, that applies to this
 # unit's class/domain, and that it does not already hold. "" if none qualifies.

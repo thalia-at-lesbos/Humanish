@@ -300,8 +300,8 @@ func test_imperialistic_accelerates_great_general() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	p.traits = ["imperialistic"]
-	# 20 XP * (1 + 50%) = 30 == first threshold.
-	GreatPeople.award_combat_points(gs, p, 7, 7, 20)
+	# 15 XP * (1 + 100%) = 30 == first threshold (A9: reference GG rate +100).
+	GreatPeople.award_combat_points(gs, p, 7, 7, 15)
 	assert_eq(p.great_generals_produced, 1,
 		"Imperialistic leaders reach the threshold with less combat XP")
 

@@ -21,8 +21,7 @@
       "id": "charismatic",
       "name": "Charismatic",
       "happiness_bonus": 1,
-      "xp_bonus": 25,
-      "promotion_cost_reduction": 25,
+      "promotion_xp_reduction": 25,
       "ai_focus": {
         "expand": 1,
         "military": 1,
@@ -35,7 +34,6 @@
       "name": "Creative",
       "culture_per_city": 2,
       "free_structures": [
-        "library",
         "theatre",
         "colosseum"
       ],
@@ -76,7 +74,7 @@
     "imperialistic": {
       "id": "imperialistic",
       "name": "Imperialistic",
-      "great_general_rate_bonus": 50,
+      "great_general_rate_bonus": 100,
       "settler_cost_reduction": 50,
       "ai_focus": {
         "expand": 3,
@@ -431,7 +429,7 @@
       "name": "Brennus",
       "faction": "celtic",
       "traits": [
-        "creative",
+        "charismatic",
         "spiritual"
       ],
       "favorite_civic": "paganism"
@@ -561,8 +559,8 @@
       "name": "Gilgamesh",
       "faction": "sumerian",
       "traits": [
-        "aggressive",
-        "creative"
+        "creative",
+        "protective"
       ],
       "favorite_civic": "theocracy"
     },
@@ -571,8 +569,8 @@
       "name": "Hammurabi",
       "faction": "babylonian",
       "traits": [
-        "organized",
-        "protective"
+        "aggressive",
+        "organized"
       ],
       "favorite_civic": "bureaucracy"
     },
@@ -807,7 +805,7 @@
       "release": "exp2",
       "leader_id": "hammurabi",
       "leader_name": "Hammurabi",
-      "description": "Lawgivers of Mesopotamia, masters of ordered defense.",
+      "description": "Lawgivers of Mesopotamia whose armies march in strict order.",
       "traits": [
         "organized",
         "protective"

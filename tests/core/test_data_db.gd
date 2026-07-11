@@ -136,6 +136,37 @@ func test_society_id_for_leader_reverse_lookup() -> void:
 	assert_eq(db.society_id_for_leader("nonexistent_leader_xyz"), "",
 		"Unknown leader maps to empty society id")
 
+# ── Traits & leaders reference parity (A9) ─────────────────────────────────────
+
+# A9 data pass (audit §1.8 + §10): pin the retuned trait values and leader trait
+# pairs so a regression back to the pre-parity numbers fails loudly.
+func test_traits_and_leaders_carry_a9_reference_values() -> void:
+	var db = _db()
+	var traits: Dictionary = db.leaders_traits.get("traits", {})
+	assert_eq(int(traits["imperialistic"].get("great_general_rate_bonus", 0)), 100,
+		"Imperialistic GG emergence rate is +100% (reference)")
+	assert_eq(db.get_constant("imperialistic_great_general_pct", 0), 100,
+		"The live imperialistic GG constant matches the trait (reference 100)")
+	assert_false("library" in traits["creative"].get("free_structures", []),
+		"Creative's building list drops the library (reference)")
+	assert_true("theatre" in traits["creative"].get("free_structures", []),
+		"Creative keeps the theatre")
+	assert_true("colosseum" in traits["creative"].get("free_structures", []),
+		"Creative keeps the colosseum")
+	assert_eq(int(traits["charismatic"].get("promotion_xp_reduction", 0)), 25,
+		"Charismatic is the reference -25%-XP-needed model")
+	assert_false(traits["charismatic"].has("xp_bonus"),
+		"Charismatic's old xp_bonus approximation is retired")
+	assert_false(traits["charismatic"].has("promotion_cost_reduction"),
+		"Charismatic's old promotion_cost_reduction approximation is retired")
+	var leaders: Dictionary = db.leaders_traits.get("leaders", {})
+	assert_eq(leaders["hammurabi"].get("traits", []), ["aggressive", "organized"],
+		"Hammurabi is aggressive+organized (reference)")
+	assert_eq(leaders["brennus"].get("traits", []), ["charismatic", "spiritual"],
+		"Brennus is charismatic+spiritual (reference)")
+	assert_eq(leaders["gilgamesh"].get("traits", []), ["creative", "protective"],
+		"Gilgamesh is creative+protective (reference)")
+
 # ── Trait AI focus (§C1) ───────────────────────────────────────────────────────
 
 # Every trait must carry an `ai_focus` block over the four strategic axes, all

@@ -265,6 +265,16 @@ islamic/buddhist cathedrals, `temple_of_artemis`↔`BUILDING_ARTEMIS`,
   casing×5/thrusters×5/engine×2 **[value]**; docking bay tech satellites ≠
   reference TECH_SATELLITES ✓ (matches), cockpit fiber_optics ✓.
 
+> **Resolution note (2026-07-11, A10 — 8d6cf6d):** the part counts are the
+> reference's (casing/thrusters ×5, engines ×2) and Apollo/Manhattan cost
+> 1600/1500 (both stay buildings — the move to projects is a model change,
+> deferred). The per-part spaceship *costs* stay 250–600: the reference
+> per-part values were never recorded here (only the 1000–2000 range), so they
+> need a design-doc sitting before they can be adopted. Wiring gap found:
+> `count_needed` is a dead field — the space-race win reads only
+> `stages_required: 7`, counting every completed project as one stage.
+> The Internet/SDI remain missing (game-rules §15.7, a C-phase feature).
+
 ---
 
 ## 5. Difficulties (`difficulties.json` vs the reference handicap table)
@@ -402,6 +412,17 @@ build scale).
   stats — all need a design-doc sitting before the data can land.
 
 ## 10. Traits & leaders
+
+> **Resolution note (2026-07-11, A9 — 8d6cf6d):** the three leader trait pairs
+> below are now the reference pairs in `data/leaders_traits.json`. Of the §1.8
+> value diffs: imperialistic GG rate is 100 (the live
+> `imperialistic_great_general_pct` constant; the trait's
+> `great_general_rate_bonus` mirror was a dead key, kept in sync), creative's
+> list drops `library`, and charismatic is the reference −25%-XP-needed model —
+> its old `xp_bonus`/`promotion_cost_reduction` split was dead data (read
+> nowhere); the new `promotion_xp_reduction: 25` is read in
+> `CombatApply.award_promotions`. The free-vs-double-speed model itself is
+> still open (B4). The text below is the original audit snapshot, kept verbatim.
 
 See §1.8 for the free-vs-double-speed issue and value diffs. Pairings: 34
 societies (= 34 reference civs ✓, one primary leader each; reference has 52

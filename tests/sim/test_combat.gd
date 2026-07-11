@@ -381,6 +381,24 @@ func test_no_promotion_below_threshold() -> void:
 	assert_eq(atk.experience_level, 0, "Below the threshold no level is gained")
 	assert_eq(atk.promotions.size(), 0, "No promotion below the threshold")
 
+func test_charismatic_lowers_promotion_xp_needed() -> void:
+	# A9: the reference Charismatic model — 25% less XP needed per level. The
+	# first non-zero threshold (10) becomes 10*75/100 = 7 for a charismatic
+	# leader's unit, while a traitless owner still needs the full 10.
+	var gs = make_gs()
+	var plain = make_warrior(gs, 1, 5, 6)
+	plain.experience = 8
+	CombatApply.award_promotions(gs, plain)
+	assert_eq(plain.experience_level, 0,
+		"A traitless owner's unit still needs the full threshold")
+	gs.get_player(1).traits = ["charismatic"]
+	var charmed = make_warrior(gs, 1, 6, 6)
+	charmed.experience = 8
+	CombatApply.award_promotions(gs, charmed)
+	assert_eq(charmed.experience_level, 1,
+		"Charismatic lowers the XP needed for a level by 25% (reference)")
+	assert_eq(charmed.promotions.size(), 1, "The reduced threshold awards a promotion")
+
 # ── Attack-move through the facade ───────────────────────────────────────────────
 
 func test_unit_can_attack_adjacent_enemy() -> void:

@@ -190,7 +190,7 @@
   "great_general_first_cost": 30,
   "great_general_cost_growth_pct": 50,
   "great_general_points_per_xp_pct": 100,
-  "imperialistic_great_general_pct": 50,
+  "imperialistic_great_general_pct": 100,
   "great_wall_great_general_pct": 100,
   "gp_super_specialist_count": 1,
   "gp_threshold_base": 100,
