@@ -99,12 +99,13 @@ func test_improvement_adds_documented_bonus() -> void:
 		"Farm adds its documented food bonus to grassland output")
 
 func test_cottage_line_base_yields_match_reference() -> void:
-	# A6 (documented): cottage-line commerce is 1/2/3/4; the town's +1F/+1P come
-	# from civics, not the improvement. Village keeps its documented +1 Food
-	# (game-data §"Improvements" table: Village = +3 Commerce +1 Food).
+	# A6 (verified against the reference 2026-07-11): the cottage line is pure
+	# commerce 1/2/3/4 — zero food/production at every tier; the town's +1F/+1P
+	# come from civics, not the improvement. (The earlier village +1 Food was a
+	# doc artifact; game-data's Improvements table now agrees.)
 	var db = _db()
 	var expected := {"cottage": 1, "hamlet": 2, "village": 3, "town": 4}
-	var food_bonus := {"cottage": 0, "hamlet": 0, "village": 1, "town": 0}
+	var food_bonus := {"cottage": 0, "hamlet": 0, "village": 0, "town": 0}
 	for imp in expected:
 		var tile = _tile("grassland")
 		tile.improvement_id = imp

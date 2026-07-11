@@ -724,8 +724,8 @@ Can only be built once per faction and typically require a number of prerequisit
 | Mt. Rushmore | Fascism | — | Stone | 500 | −25% War Anger in all cities |
 | National Park | Biology | — | — | 300 | +1 specialist per Forest Preserve; removes Population Unhealthiness |
 | Red Cross | Medicine | 6 Hospitals | — | 600 | Free Medic I promotion for units built here |
-| Apollo Program | Rocketry | — | — | 1000 | Allows Spaceship part construction |
-| Manhattan Project | Fission | — | Uranium | 1250 | Allows Tactical Nuke and ICBM construction globally |
+| Apollo Program | Rocketry | — | — | 1600 | Allows Spaceship part construction |
+| Manhattan Project | Fission | — | Uranium | 1500 | Allows Tactical Nuke and ICBM construction globally |
 | Military Academy | Military Science | Great General | — | 300 | +25% military unit production in this city |
 
 ---
@@ -936,8 +936,8 @@ Build times are base turns for a standard Worker. Workers with the Industrious f
 | Offshore Platform | Plastics | Coast/Ocean (Oil at sea) | 6 | Enables Oil; +2 Production +1 Commerce | |
 | Cottage | Pottery | Grassland, Plains, Desert, Tundra (non-resource) | 5 | +1 Commerce | Grows over time to Hamlet/Village/Town |
 | Hamlet | Printing Press | Same as Cottage | — | +2 Commerce | Upgraded from Cottage automatically with turns |
-| Village | — | — | — | +3 Commerce +1 Food | Upgraded from Hamlet |
-| Town | Nationalism | — | — | +4 Commerce +1 Food +1 Production | Upgraded from Village; cannot be pillaged back easily |
+| Village | — | — | — | +3 Commerce | Upgraded from Hamlet |
+| Town | Nationalism | — | — | +4 Commerce | Upgraded from Village; cannot be pillaged back easily; +1 Production under Universal Suffrage, +1 Commerce under Free Speech |
 | Workshop | Metal Casting | Grassland, Plains, Desert, Tundra | 4 | +1 Production | +1 more Production with Caste System; +1 more with Chemistry |
 | Watermill | The Wheel | Flat tiles adjacent to rivers | 5 | +1 Production +1 Food | +1 more Production with Electricity |
 | Windmill | Machinery | Hills (without other improvements) | 5 | +1 Production +1 Commerce | +1 more Commerce with Electricity |
@@ -1422,7 +1422,7 @@ tactical-nuke / Nuclear-Plant-meltdown explosions.
 | Conquest | All other factions eliminated | Last faction with cities and units |
 | Domination | Control ≥66% of land tiles AND ≥66% of world population | Borders + population threshold |
 | Cultural | 3 cities each accumulate 50,000+ culture (Legendary level) | Only 3 cities need to reach this threshold |
-| Space Race | Complete and launch the spaceship (Apollo Program + all 9 parts built) | Parts: SS Casing, Cockpit, Docking Bay, Engine, Life Support, Stasis Chamber, Thrusters + 2 more |
+| Space Race | Complete and launch the spaceship (Apollo Program + all 16 parts built) | Parts: SS Casing ×5, Cockpit, Docking Bay, Engine ×2, Life Support, Stasis Chamber, Thrusters ×5 |
 | Diplomatic | Win UN election with required % of votes | United Nations wonder must exist |
 | Score | Reach a configured absolute score threshold first | The reference's 7th condition; expose as its own selectable win (currently folded into Time) |
 | Time | Highest score at turn limit (2050 AD on standard) | Score = weighted sum of population, tiles, techs, wonders |
@@ -1439,13 +1439,13 @@ All parts require Apollo Program national wonder. Parts must be built in cities 
 
 | Part | Tech Req | Resource | Production Cost | Count Needed |
 |------|----------|----------|-----------------|--------------|
-| SS Casing | Composites + Rocketry | — | 250 | 3 |
-| SS Cockpit | Fiber Optics | — | 400 | 1 |
-| SS Docking Bay | Satellites + Robotics | — | 250 | 1 |
-| SS Engine | Fusion | — | 600 | 1 |
-| SS Life Support | Ecology | — | 400 | 1 |
-| SS Stasis Chamber | Genetics | — | 300 | 1 |
-| SS Thrusters | Superconductors | — | 250 | 2 |
+| SS Casing | Composites + Rocketry | — | 1200 | 5 |
+| SS Cockpit | Fiber Optics | — | 1000 | 1 |
+| SS Docking Bay | Satellites + Robotics | — | 2000 | 1 |
+| SS Engine | Fusion | — | 1600 | 2 |
+| SS Life Support | Ecology | — | 1000 | 1 |
+| SS Stasis Chamber | Genetics | — | 1200 | 1 |
+| SS Thrusters | Superconductors | — | 1200 | 5 |
 
 ---
 
