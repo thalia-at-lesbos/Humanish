@@ -185,6 +185,12 @@ generic of each (reasonable merge).
 
 ## 3. Technologies
 
+> **Resolution note (2026-07-11, A13 — f6e4e20):** the era and cost rows below
+> are now the reference values in `data/technologies.json` — calendar and
+> iron_working are classical, genetics and stealth are future, future_tech
+> costs 10000. The wholesale AND/OR prereq-graph rewiring below remains **D1**
+> (untouched). The text below is the original audit snapshot, kept verbatim.
+
 - Costs: **all 90 match** except `future_tech` 8000 ≠ 10000 **[value]**.
 - Eras: `calendar`, `iron_working` ancient≠classical; `genetics`, `stealth`
   modern≠future **[value]**.
@@ -390,6 +396,10 @@ build scale).
   (game-rules §9.3 cites the reference for 10 — the reference file says 5) **[value, doc wrong]**.
   Max XP per combat 10 (reference) has no Humanish equivalent (`experience_per_
   kill_max 100`).
+  **RESOLVED 2026-07-11 (A11 — f6e4e20)**: `experience_vs_wild_cap` is 10, and
+  a new `experience_per_combat_cap: 10` (read in `Combat.resolve`) is the
+  reference per-combat cap; the dead `max_xp_from_barbarians` duplicate was
+  retired. Still open here: the XP-per-level threshold curve **[value]** above.
 
 ## 9. Promotions
 
@@ -462,9 +472,13 @@ trait pairs differ from the reference leader table **[value]**:
   Humanish analogue **[value/missing]**.
 - Healing rates: settlement 30/friendly 20/allied 15/neutral 5/hostile 0 vs
   reference city 20/friendly 15/neutral 10/enemy 5 **[value]**.
+  **RESOLVED 2026-07-11 (A11 — f6e4e20)**: reference rates adopted (the extra
+  allied tier, no reference analogue, sits at the friendly rate 15).
 - Growth threshold: 12 + 8·pop vs reference `BASE_CITY_GROWTH_THRESHOLD 20` +
   `CITY_GROWTH_MULTIPLIER 2`·pop **[value]**. Min city distance 3 ≠ reference
-  `MIN_CITY_RANGE 2` **[value]**. Combat dice/damage 1000/20 ✓; fortify 5%×5 ✓;
+  `MIN_CITY_RANGE 2` **[value]**.
+  **RESOLVED 2026-07-11 (A11 — f6e4e20)**: both reference values adopted
+  (20 + 2·pop; min distance 2). Combat dice/damage 1000/20 ✓; fortify 5%×5 ✓;
   upgrade cost 20+3/prod ✓ (documented extensions aside); food/citizen 2 ✓.
 
 ## 12. Events & quests
