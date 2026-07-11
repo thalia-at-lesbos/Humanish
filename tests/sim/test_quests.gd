@@ -359,7 +359,7 @@ func test_spread_corp_diffs_against_arming_baseline() -> void:
 	var p = gs.get_player(1)
 	# Found a corporation in the player's first city (records founder + stamps econ_org_id).
 	var hq = make_settlement(gs, 1, 5, 5)
-	EconOrgs.found("merchant_guild", hq, gs)
+	EconOrgs.found("civilized_jewelers", hq, gs)
 	# Arm spread_corp; the snapshot baselines the one existing member city.
 	gs.db.quests["corporate_expansion"]["aim"] = {"kind": "spread_corp", "count": 2}
 	var rec = {"snapshot": Quests._make_snapshot(gs.db.get_quest("corporate_expansion"), p, gs),
@@ -369,8 +369,8 @@ func test_spread_corp_diffs_against_arming_baseline() -> void:
 	# Spread to two more cities.
 	var c2 = make_settlement(gs, 1, 7, 7)
 	var c3 = make_settlement(gs, 1, 9, 9)
-	EconOrgs.spread_to("merchant_guild", c2, gs)
-	EconOrgs.spread_to("merchant_guild", c3, gs)
+	EconOrgs.spread_to("civilized_jewelers", c2, gs)
+	EconOrgs.spread_to("civilized_jewelers", c3, gs)
 	var aim = gs.db.get_quest("corporate_expansion")["aim"]
 	assert_eq(Quests._aim_progress(aim, rec, p, gs), 2, "two NEW member cities since arming → progress 2")
 	assert_true(Quests._aim_complete(aim, rec, p, gs), "spreading to the target count completes the aim")

@@ -36,6 +36,6 @@ func test_belief_adds_happiness() -> void:
 	var s = make_settlement(gs, 1, 5, 5, 5)
 	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
 	var base_pos: int = s.positive_sentiment
-	s.belief_id = "sun_faith"  # happiness_bonus: 1
+	s.belief_id = "buddhism"  # happiness_bonus: 1
 	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
 	assert_gt(s.positive_sentiment, base_pos, "An adopted belief raises positive sentiment")
