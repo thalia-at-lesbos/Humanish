@@ -1,7 +1,7 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
 Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
-B1–B3 done 2026-07-08. Date: 2026-07-07.
+B1–B3 done 2026-07-08; A-phase passes through A10 done 2026-07-11. Date: 2026-07-07.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -187,10 +187,34 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   aggressive+organized, Brennus
   charismatic+spiritual, Gilgamesh creative+protective. (The free-vs-double-speed
   model itself is B4.)
+  **DONE 2026-07-11** (8d6cf6d): all four applied. Findings: the trait's
+  `great_general_rate_bonus` is a *dead key* — the live read is the
+  `imperialistic_great_general_pct` constant (both now 100, code fallback too);
+  charismatic's old `xp_bonus`/`promotion_cost_reduction` keys were **also dead**
+  (read nowhere — charismatic had no wired effect beyond +1 happy), replaced by
+  `promotion_xp_reduction: 25` newly read in `CombatApply.award_promotions`
+  (threshold × (100−reduction)/100, truncating integer scale, summed across
+  traits, clamped ≤100 — the single threshold-read site, so combat and
+  new-unit-XP promotion paths both get it). Pins:
+  `test_traits_and_leaders_carry_a9_reference_values` (`test_data_db.gd`),
+  `test_charismatic_lowers_promotion_xp_needed` (`test_combat.gd`); the
+  imperialistic GG test recalibrated (15 XP × 2 = 30). Babylonian society
+  blurb retuned off "ordered defence" (protective gone).
 - **A10. Projects/spaceship** (`data/projects.json`; test `test_win_conditions*.gd`):
   costs 1000–2000 per game-data §29.2/audit §4; counts casing ×5, thrusters ×5,
   engines ×2; Apollo 1600, Manhattan 1500 (they may stay buildings — the cost is the
   parity item).
+  **DONE 2026-07-11** (8d6cf6d): counts (casing/thrusters ×5, engines ×2) and
+  Apollo 1600 / Manhattan 1500 applied (both stay buildings). **Not applied —
+  values not documented, needs a design-doc sitting** (user rule 2026-07-11):
+  the reference *per-part* spaceship costs — audit §4 and game-data record only
+  the 1000–2000 range, so the parts keep their 250–600 costs. Findings for a
+  later wiring sitting: `count_needed` is a **dead field** (read nowhere) — the
+  space-race win reads `win_conditions.json` `stages_required: 7` and every
+  completed project increments one alliance stage tally, so part *counts* have
+  no engine effect and duplicate parts of one type count as distinct stages.
+  Pin: `test_projects_carry_a10_reference_counts_and_costs`
+  (`test_win_conditions.gd`).
 - **A11. Globals** (`data/constants.json`): growth 12+8·pop → 20+2·pop
   `[decide→RESOLVED: adopt]`; `min_settlement_distance` 3 → 2
   `[decide→RESOLVED: adopt]`; heal rates → 20/15/10/5 (city/friendly/
