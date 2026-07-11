@@ -178,7 +178,8 @@ gunship) — plausibly **[bug?]** since Flanking promotions still exist.
 
 **[missing] Units:** Machine Gun (`UNIT_MACHINE_GUN`), War Elephant
 (`UNIT_WAR_ELEPHANT`), Lion (animal). **[added]:** `anti_tank` (no reference
-counterpart). Missionaries/executives: reference has 7 typed each; Humanish one
+counterpart) — **CUT 2026-07-11 (D4, 3988c5a)**. Missionaries/executives:
+reference has 7 typed each; Humanish one
 generic of each (reasonable merge).
 
 ---
@@ -405,7 +406,7 @@ build scale).
 
 - **[added]** accuracy1/2, boarding1/2, dogfighting1/2, air_supremacy, escort,
   evasion, withdrawal (reference versions don't exist; reference `accuracy` is
-  single-tier).
+  single-tier) — **all 10 CUT 2026-07-11 (D4, 3988c5a)**.
 - **[missing]** ace, ambush, charge, leader, medic3, mobility, range1/2, tactics.
 - **[value]** combat6 +10 ≠ +25; flanking2 +10 ≠ +20; interception1/2 +33/+33 ≠
   +10/+20; guerrilla3 lost +50 withdrawal; drill line lost collateral-damage
@@ -448,14 +449,17 @@ trait pairs differ from the reference leader table **[value]**:
   **[added]** `sun_faith`, `earth_covenant` — and their `holy_site_structure`s
   (`temple_of_sun`, `grove_sanctuary`) **do not exist in structures.json**
   (dangling references), and both have `founding_tech: null` — unfoundable dead
-  data **[bug?]**.
+  data **[bug?]** (bugfix c4122e8 first made them real; then both religions +
+  both structures **CUT 2026-07-11 (D4, 3988c5a)** — the 7 reference religions
+  remain).
 - Econ orgs: the 7 reference corporations map over with **changed input sets**
   (sushi drops rice; ethanol swaps rice→wheat; mining drops gold/silver;
   creative-constructions drops the metals; nationalist/coal adds oil)
   **[value]**; outputs are flat per-org rather than per-resource-consumed
   **[semantics]**; maintenance model differs (3 vs reference 100-scale per-city
   formula). **[added]** merchant_guild, overseas_trading_co, nationalist_mutual
-  (10 vs 7).
+  (10 vs 7) — **all three CUT 2026-07-11 (D4, 3988c5a), with their
+  `corporation_hq` structures; 7 vs 7 now**.
 - Espionage: 18/18 missions covered ✓ (already tracked as closed in
   designgaps §5.1).
 - Goody huts: all 12 reference outcomes present, but `settler` and `worker`
