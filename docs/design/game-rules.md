@@ -1618,8 +1618,9 @@ its promotions' `first_strikes_bonus`es, and one uniform 0…chance roll (unit
 `chance_first_strikes` + promotion `chance_first_strikes_bonus`es), drawing from the
 shared RNG only when a chance stat is present so chance-free units consume no draw.
 Carriers: navy seal 1+1, skirmisher 1+1. Drill promotions also grant chance first
-strikes in the reference (see `game-data.md` §29.3); their chance values land with
-the A8 promotions data pass in `directreferencegaps.md`.
+strikes (see `game-data.md` §29.3): Drill I carries +1 and Drill III +2
+`chance_first_strikes_bonus` (values adopted from the reference, 2026-07-11), so
+the promotion chance field is live shipped data.
 
 ### 15.6 Per-unit siege damage caps
 

@@ -896,8 +896,7 @@ static func _grant_free_promotions(gs: GameState, u: Unit, s: Settlement) -> voi
 		var fx: Dictionary = db.get_structure(sid).get("effects", {})
 		var fp: String = str(fx.get("free_promotion", ""))
 		if fp != "" and not (fp in u.promotions):
-			var applies: String = str(db.get_promotion(fp).get("applies_to", "all"))
-			if applies == "all" or applies == cls or applies == dom:
+			if CombatApply.promo_applies(db.get_promotion(fp), cls, dom):
 				u.promotions.append(fp)
 		if bool(fx.get("free_promotion_all", false)):
 			var pick: String = CombatApply.pick_promotion(gs, u)

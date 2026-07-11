@@ -20,6 +20,8 @@ const VS_CLASS_KEY: Dictionary = {
 	"gunpowder": "vs_gunpowder",
 	"naval": "vs_ships",
 	"air": "vs_fighters",
+	"armor": "vs_armor",
+	"siege": "vs_siege",
 }
 
 var id: int = 0

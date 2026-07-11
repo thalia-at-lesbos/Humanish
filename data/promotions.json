@@ -14,10 +14,10 @@
   "city_garrison2": { "id": "city_garrison2", "name": "City Garrison II",  "prereqs": ["city_garrison1"], "applies_to": "melee", "defense_in_settlement": 25 },
   "city_garrison3": { "id": "city_garrison3", "name": "City Garrison III", "prereqs": ["city_garrison2"], "applies_to": "melee", "defense_in_settlement": 25 },
 
-  "drill1": { "id": "drill1", "name": "Drill I",   "prereqs": ["combat1"], "applies_to": "land" },
+  "drill1": { "id": "drill1", "name": "Drill I",   "prereqs": ["combat1"], "applies_to": "land", "chance_first_strikes_bonus": 1 },
   "drill2": { "id": "drill2", "name": "Drill II",  "prereqs": ["drill1"],  "applies_to": "land", "first_strikes_bonus": 1, "collateral_damage_protection": 20 },
-  "drill3": { "id": "drill3", "name": "Drill III", "prereqs": ["drill2"],  "applies_to": "land", "collateral_damage_protection": 20 },
-  "drill4": { "id": "drill4", "name": "Drill IV",  "prereqs": ["drill3"],  "applies_to": "land", "first_strikes_bonus": 2, "collateral_damage_protection": 20 },
+  "drill3": { "id": "drill3", "name": "Drill III", "prereqs": ["drill2"],  "applies_to": "land", "chance_first_strikes_bonus": 2, "collateral_damage_protection": 20 },
+  "drill4": { "id": "drill4", "name": "Drill IV",  "prereqs": ["drill3"],  "applies_to": "land", "first_strikes_bonus": 2, "vs_mounted": 10, "collateral_damage_protection": 20 },
 
   "guerrilla1": { "id": "guerrilla1", "name": "Guerrilla I",   "prereqs": ["combat1"],     "applies_to": "land", "defense_on_hills": 20 },
   "guerrilla2": { "id": "guerrilla2", "name": "Guerrilla II",  "prereqs": ["guerrilla1"],  "applies_to": "land", "defense_on_hills": 20 },
@@ -25,10 +25,11 @@
 
   "woodsman1": { "id": "woodsman1", "name": "Woodsman I",   "prereqs": ["combat1"],   "applies_to": "land", "combat_in_forest": 20 },
   "woodsman2": { "id": "woodsman2", "name": "Woodsman II",  "prereqs": ["woodsman1"], "applies_to": "land", "forest_movement_bonus": 1, "forest_healing": true },
-  "woodsman3": { "id": "woodsman3", "name": "Woodsman III", "prereqs": ["woodsman2"], "applies_to": "land", "combat_in_forest": 20, "first_strikes_bonus": 2 },
+  "woodsman3": { "id": "woodsman3", "name": "Woodsman III", "prereqs": ["woodsman2"], "applies_to": "land", "combat_in_forest": 20, "first_strikes_bonus": 2, "same_tile_heal": 15 },
 
-  "medic1": { "id": "medic1", "name": "Medic I",  "prereqs": ["combat1"], "applies_to": "land", "adjacent_heal_bonus": 10 },
-  "medic2": { "id": "medic2", "name": "Medic II", "prereqs": ["medic1"],  "applies_to": "land", "adjacent_heal_in_enemy_territory": true },
+  "medic1": { "id": "medic1", "name": "Medic I",   "prereqs": ["combat1"],           "applies_to": "land", "same_tile_heal": 10 },
+  "medic2": { "id": "medic2", "name": "Medic II",  "prereqs": ["medic1"],            "applies_to": "land", "adjacent_tile_heal": 10 },
+  "medic3": { "id": "medic3", "name": "Medic III", "prereqs": ["leader", "medic2"],  "applies_to": "land", "same_tile_heal": 15, "adjacent_tile_heal": 15 },
 
   "flanking1": { "id": "flanking1", "name": "Flanking I",  "prereqs": ["combat1"],   "applies_to": "mounted", "withdrawal_chance_bonus": 10 },
   "flanking2": { "id": "flanking2", "name": "Flanking II", "prereqs": ["flanking1"], "applies_to": "mounted", "withdrawal_chance_bonus": 20 },
@@ -47,11 +48,21 @@
   "morale":     { "id": "morale",     "name": "Morale",     "prereqs": ["combat3"], "applies_to": "land",   "movement_bonus": 100 },
   "blitz":      { "id": "blitz",      "name": "Blitz",      "prereqs": ["combat5"], "applies_to": "mounted","extra_attacks": 1 },
   "commando":   { "id": "commando",   "name": "Commando",   "prereqs": ["combat5"], "applies_to": "land",   "move_after_attack": true },
-  "leadership": { "id": "leadership", "name": "Leadership", "prereqs": [],          "applies_to": "all",    "adjacent_xp_bonus": 100 },
+  "leadership": { "id": "leadership", "name": "Leadership", "prereqs": ["leader"],  "applies_to": "all",    "adjacent_xp_bonus": 100 },
 
   "navigation1": { "id": "navigation1", "name": "Navigation I",  "prereqs": [],             "applies_to": "naval", "movement_bonus": 100 },
   "navigation2": { "id": "navigation2", "name": "Navigation II", "prereqs": ["navigation1"],"applies_to": "naval", "movement_bonus": 100 },
 
   "interception1": { "id": "interception1", "name": "Interception I",  "prereqs": [],               "applies_to": "air", "intercept_bonus": 10 },
-  "interception2": { "id": "interception2", "name": "Interception II", "prereqs": ["interception1"], "applies_to": "air", "intercept_bonus": 20 }
+  "interception2": { "id": "interception2", "name": "Interception II", "prereqs": ["interception1"], "applies_to": "air", "intercept_bonus": 20 },
+
+  "ambush":   { "id": "ambush",   "name": "Ambush",    "prereqs": ["combat2"],   "applies_to": ["siege", "gunpowder", "armor", "air"], "vs_armor": 25 },
+  "charge":   { "id": "charge",   "name": "Charge",    "prereqs": ["combat1"],   "applies_to": ["mounted", "melee", "armor"],          "vs_siege": 25 },
+  "mobility": { "id": "mobility", "name": "Mobility",  "prereqs": ["flanking2"], "applies_to": ["mounted", "armor"],                   "move_discount": 1 },
+  "range1":   { "id": "range1",   "name": "Range I",   "prereqs": ["combat2"],   "applies_to": "air",                                  "air_range_bonus": 1 },
+  "range2":   { "id": "range2",   "name": "Range II",  "prereqs": ["range1"],    "applies_to": "air",                                  "air_range_bonus": 1 },
+  "ace":      { "id": "ace",      "name": "Ace",       "prereqs": ["combat3"],   "applies_to": "air",                                  "evasion_chance": 25 },
+
+  "leader":   { "id": "leader",   "name": "Leader",    "prereqs": [],            "applies_to": "all", "granted_only": true,            "upgrade_discount": 100 },
+  "tactics":  { "id": "tactics",  "name": "Tactics",   "prereqs": ["leader"],    "applies_to": "all",                                  "withdrawal_chance_bonus": 30 }
 }

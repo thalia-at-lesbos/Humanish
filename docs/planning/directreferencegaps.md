@@ -2,8 +2,9 @@
 
 Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
 B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 content
-cut done 2026-07-11 (its promotion-additions half stays blocked on a design-doc
-sitting). Date: 2026-07-07.
+cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
+2026-07-11 (values adopted from the reference under a user-authorized sourcing
+session — see A8/D4 notes). Date: 2026-07-07.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -175,14 +176,28 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   model) — both are correct parity data awaiting mechanics. Recalibrated
   `test_drill_promotions_grant_first_strikes` (drill1 no longer grants a
   strike); new pin `test_promotion_roster_carries_a8_reference_values`
-  (`tests/sim/test_combat.gd`). **Not applied — values not documented, needs a
+  (`tests/sim/test_combat.gd`). ~~**Not applied — values not documented, needs a
   design-doc sitting** (user rule 2026-07-11: source values only from
   audit/§29/game-rules, never the local reference XML): woodsman3's same-tile
   heal *magnitude*; the drill line's chance-first-strike values (§29.3 marks
   drill1 "verify before port"; game-rules §15.5 promises the chance numbers
   with A8 but no doc records them — so B2's promotion
   `chance_first_strikes_bonus` field still has **no data carrier**); and the
-  **entire D4 promotions fold-in** (see D4).
+  **entire D4 promotions fold-in** (see D4).~~ **LEFTOVERS DONE 2026-07-11**
+  (promotions-unblock pass; values adopted from the reference under a
+  user-authorized sourcing session, recorded in game-data §13/§29.3): drill1
+  `chance_first_strikes_bonus: 1`, drill3 `: 2` — B2's field now has live
+  shipped carriers (pin `test_drill_line_chance_first_strikes_live`); drill4
+  regained its +10 vs mounted (live — `vs_mounted` was already wired in
+  `Unit.VS_CLASS_KEY`); woodsman3 `same_tile_heal: 15`; medic
+  line retuned to the reference tile model — medic1 `same_tile_heal: 10`,
+  medic2 `adjacent_tile_heal: 10` (their old `adjacent_heal_bonus`/
+  `adjacent_heal_in_enemy_territory` keys were dead *and* semantically wrong).
+  **Dead-key note:** `same_tile_heal`/`adjacent_tile_heal` have no engine
+  reader (unit healing reads only own-unit `healing_bonus`) — correct parity
+  data awaiting a stack/adjacent-heal mechanic. Roster pin:
+  `test_promotion_roster_carries_reference_additions` (`test_combat.gd`).
+  The D4 promotions fold-in is also done — see D4.
 - **A9. Traits & leaders** (`data/leaders_traits.json`; test `test_data_db.gd`):
   imperialistic GG 50 → 100; creative drop `library` from its building list;
   charismatic-25%-XP model `[decide→RESOLVED: adopt reference model]`; Hammurabi
@@ -409,9 +424,44 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   earlier same-class picks, so award order is unchanged); no `free_promotions`,
   events/quests effects, leaders/traits, or `docs/user/` references existed;
   full gate green (1462 unit + 11 integration, zero SCRIPT ERROR; count
-  unchanged — pure id swaps). The **additions half** (ace, ambush, charge,
+  unchanged — pure id swaps). ~~The **additions half** (ace, ambush, charge,
   leader, medic3, mobility, range1/2, tactics) remains blocked on the
-  design-doc sitting above. Design-doc mentions of the cut content (game-data.md
+  design-doc sitting above.~~ **ADDITIONS HALF DONE 2026-07-11**
+  (promotions-unblock pass; values adopted from the reference under a
+  user-authorized sourcing session; all nine exist in the reference, none
+  dropped; recorded in game-data §13/§19.4; 44 → 53 entries, new entries at
+  the file tail so XP pick order for pre-existing promotions is unchanged):
+  ambush `vs_armor: 25`, charge `vs_siege: 25` (**both live** — the two known
+  engine gaps got their one-line `Unit.VS_CLASS_KEY` entries, `armor`/`siege`);
+  tactics `withdrawal_chance_bonus: 30` (live — existing withdrawal sum);
+  medic3 same/adjacent tile heal 15/15; mobility `move_discount: 1`; range1/2
+  `air_range_bonus: 1` each; ace `evasion_chance: 25`. **`leader` resolution:**
+  the reference model is an attach-granted marker (never XP-picked, 100%
+  upgrade discount) that *gates* the General-only promotions — so
+  `GreatPeople._act_attach_to_unit` now grants `leader` alongside `leadership`,
+  `leader` carries `granted_only: true` (new one-line gate in
+  `pick_promotion`), and `leadership`/`tactics`/`medic3` prereq on it
+  (leadership's prereq [] → ["leader"], per reference). Schema note:
+  `applies_to` now also accepts a *list* of classes/domains
+  (`CombatApply.promo_applies`, shared with `_grant_free_promotions`;
+  encyclopedia renders the list) so ambush/charge/mobility carry their real
+  reference class rosters (helicopter class omitted — no such classification
+  here; reference OR-prereqs simplified to the primary prereq, matching the
+  existing medic1 convention, e.g. ambush keeps combat2 and drops the drill2
+  alternative). **Dead keys flagged** (correct parity data, no engine reader —
+  do not build subsystems for them piecemeal): `move_discount`,
+  `air_range_bonus` (air missions read the *unit* `air_range` only),
+  `evasion_chance`, `upgrade_discount`, medic/woodsman `same_tile_heal`/
+  `adjacent_tile_heal`. Reference deviations kept (pre-existing, unchanged):
+  attach grants to the whole tile stack (reference: one unit); morale's prereq
+  stays combat3 (reference: leader); woodsman3 keeps `combat_in_forest: 20`
+  (reference: +50% forest/jungle *attack* only). Pins:
+  `test_promotion_roster_carries_reference_additions`,
+  `test_granted_only_promotion_never_picked_from_xp`,
+  `test_list_applies_to_matches_class_or_domain`,
+  `test_vs_armor_and_vs_siege_promotions_apply_against_mapped_class`,
+  `test_tactics_withdrawal_bonus_live` (`test_combat.gd`); attach test extended
+  (`test_great_people.gd`). Design-doc mentions of the cut content (game-data.md
   §§ unit/promotion/corporation tables and the §29-era notes) are left in place
   pending a consented design-doc pass.
 
@@ -445,12 +495,14 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 2. ~~A-phase data passes behind the `[decide]` register.~~ **DONE 2026-07-11 —
    all of A1–A13 shipped (A12 verified already present); ~~fold the new
    reference promotions (D4) into A8~~ (A8 done 2026-07-11; the D4 promotion
-   additions are blocked on a design-doc sitting — see A8/D4 notes).**
+   additions + A8 leftovers done later the same day in the promotions-unblock
+   pass — see A8/D4 notes).**
 3. ~~B1–B3 (schema; unblock A1's prereq sets and A8's drill line).~~ **DONE
    2026-07-08 (B1 f77a574, B2 1d90307, B3 c10ecdf).**
 4. ~~D4 content cut (independent of A; see migration notes) — can go before or after
    the A passes, but before D1 so the graph pass doesn't have to carry dead ids.~~
-   **DONE 2026-07-11 (3988c5a; the additions half stays blocked — see D4 note).**
+   **DONE 2026-07-11 (cut 3988c5a; additions half done later the same day in the
+   promotions-unblock pass — see D4 note).**
 5. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
    here), then C4/C5 (+ the missiles-cannot-defend item)/C7, then C6.
 6. D1 tech graph + D2 border curve last among the big items (touch everything; do

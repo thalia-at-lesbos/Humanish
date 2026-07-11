@@ -965,7 +965,7 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 | Combat III | Combat II | +10% Strength |
 | Combat IV | Combat III | +10% Strength |
 | Combat V | Combat IV | +10% Strength |
-| Combat VI | Combat V | +10% Strength |
+| Combat VI | Combat V | +25% Strength |
 
 **City Raider Line** (melee and gunpowder units):
 
@@ -987,10 +987,13 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 
 | Promotion | Prerequisite | Effect |
 |-----------|-------------|--------|
-| Drill I | Combat I | +1 First Strike |
-| Drill II | Drill I | +1 First Strike |
-| Drill III | Drill II | +1 First Strike |
-| Drill IV | Drill III | +1 First Strike; −50% damage taken per hit |
+| Drill I | Combat I | +1 chance First Strike (0–1 rolled per combat) |
+| Drill II | Drill I | +1 First Strike; −20% collateral damage taken |
+| Drill III | Drill II | +2 chance First Strikes (0–2 rolled per combat); −20% collateral damage taken |
+| Drill IV | Drill III | +2 First Strikes; +10% vs Mounted units; −20% collateral damage taken |
+
+(Chance first strikes roll uniformly 0..N per combat, §15.5 of game-rules;
+drill values adopted from the reference 2026-07-11.)
 
 **Guerrilla Line** (archery, rifle, and similar units):
 
@@ -998,7 +1001,7 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 |-----------|-------------|--------|
 | Guerrilla I | Combat I | +20% defending on hills |
 | Guerrilla II | Guerrilla I | +20% defending on hills |
-| Guerrilla III | Guerrilla II | +20% defending on hills; normal movement through all terrain |
+| Guerrilla III | Guerrilla II | +20% defending on hills; +50% withdrawal chance; normal movement through all terrain |
 
 **Woodsman Line** (forest and jungle specialists):
 
@@ -1006,21 +1009,26 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 |-----------|-------------|--------|
 | Woodsman I | Combat I | +20% in forests/jungles |
 | Woodsman II | Woodsman I | +1 Movement in forests/jungles; extra healing in forests |
-| Woodsman III | Woodsman II | +20% in forests/jungles |
+| Woodsman III | Woodsman II | +20% in forests/jungles; +2 First Strikes; units on the same tile heal +15 HP/turn |
 
 **Medic Line** (healing support):
 
 | Promotion | Prerequisite | Effect |
 |-----------|-------------|--------|
-| Medic I | Combat I | Adjacent friendly units heal +10 HP/turn extra |
-| Medic II | Medic I | Adjacent units also heal in enemy territory |
+| Medic I | Combat I | Units on the same tile heal +10 HP/turn extra |
+| Medic II | Medic I | Units on adjacent tiles heal +10 HP/turn extra |
+| Medic III | Leader + Medic II | Units on the same tile heal +15 HP/turn and adjacent tiles +15 HP/turn extra |
+
+(Medic tile values adopted from the reference 2026-07-11; Medic III is a
+Great-General-only promotion — its Leader prerequisite is granted by the
+Attach to Unit action, §14.)
 
 **Flanking Line** (mounted units only):
 
 | Promotion | Prerequisite | Effect |
 |-----------|-------------|--------|
 | Flanking I | Combat I | +10% withdrawal chance |
-| Flanking II | Flanking I | +10% withdrawal chance |
+| Flanking II | Flanking I | +20% withdrawal chance |
 
 **Accuracy Line** (bombers and air units):
 
@@ -1047,11 +1055,16 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 | Cover | Combat I | Archery | −50% damage from Siege unit bombardment |
 | Amphibious | Combat I | Land | No attack penalty when attacking from sea |
 | Sentry | Combat I | Any | +1 Vision range |
+| Ambush | Combat II | Siege/Gunpowder/Armor/Air | +25% vs Armor units |
+| Charge | Combat I | Mounted/Melee/Armor | +25% vs Siege units |
+| Mobility | Flanking II | Mounted/Armor | Terrain movement costs reduced by 1 |
 | March | Medic I | Any land | Heals every turn even when moving or attacking |
 | Morale | Combat III | Any land | +1 Movement |
 | Blitz | Combat V | Mounted | Can attack multiple times per turn |
 | Commando | Combat V | Any land | Can move after attacking |
-| Leadership | Great General | Any | Adjacent friendly units gain +100% XP |
+| Leader | — (granted by a Great General's Attach to Unit action; never earned from XP) | Any | Upgrades cost −100%; prerequisite for the General-only promotions below |
+| Leadership | Leader | Any | Adjacent friendly units gain +100% XP |
+| Tactics | Leader | Any | +30% withdrawal chance |
 | Withdrawal | Combat I | Mounted | Can attempt to withdraw from combat (loses fight but survives) |
 
 **Naval Promotions:**
@@ -1068,8 +1081,11 @@ Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
 
 | Promotion | Prerequisite | Effect |
 |-----------|-------------|--------|
-| Interception I | — | +33% Interception strength |
-| Interception II | Interception I | +33% Interception strength |
+| Interception I | — | +10% Interception strength |
+| Interception II | Interception I | +20% Interception strength |
+| Range I | Combat II | +1 air range |
+| Range II | Range I | +1 air range |
+| Ace | Combat III | +25% chance to evade interception |
 | Dogfighting I | — | +25% vs fighters |
 | Dogfighting II | Dogfighting I | +25% vs fighters |
 | Air Supremacy | Interception I | +33% Interception; reduces enemy intercept by 20% |
@@ -1623,17 +1639,25 @@ and related combat code (§5.3):
 | `defense_in_settlement` | Bonus percent strength when defending inside a settlement |
 | `defense_on_hills` | Bonus percent strength when defending on hills terrain (Guerrilla line) |
 | `combat_in_forest` | Bonus percent strength when fighting in or from a forest tile |
+| `vs_armor` | Bonus percent strength when fighting armor-class opponents |
+| `vs_siege` | Bonus percent strength when fighting siege-class opponents |
 | `first_strikes_bonus` | Additional first-strike rounds beyond the unit's base |
+| `chance_first_strikes_bonus` | Additional 0..N first strikes rolled per combat (§15.5 of game-rules) |
+| `collateral_damage_protection` | Percent protection against collateral/spillover damage (no engine reader yet) |
 | `withdrawal_chance_bonus` | Additional percent added to the unit's withdrawal roll |
 | `healing_bonus` | Extra HP healed per turn (§5.6) |
-| `adjacent_heal_bonus` | HP healed per turn granted to adjacent friendly units |
-| `adjacent_heal_in_enemy_territory` | HP healed to adjacent allies even in enemy territory |
+| `same_tile_heal` | HP healed per turn granted to friendly units on the same tile (no engine reader yet) |
+| `adjacent_tile_heal` | HP healed per turn granted to friendly units on adjacent tiles (no engine reader yet) |
 | `movement_bonus` | Additional movement points |
 | `forest_movement_bonus` | Ignore terrain movement penalty in forests/jungles |
 | `ignore_terrain_cost` | All terrain costs 1 movement point |
 | `vision_bonus` | Extra sight range tiles |
-| `intercept_bonus` | Bonus when intercepting enemy air attacks |
-| `evade_interception_chance` | Percent chance to avoid an interception roll |
+| `intercept_bonus` | Bonus when intercepting enemy air attacks (no engine reader yet) |
+| `evasion_chance` | Percent chance to evade an interception (no engine reader yet) |
+| `air_range_bonus` | Extra air-mission range tiles (no engine reader yet) |
+| `move_discount` | Terrain movement-cost reduction in points (no engine reader yet) |
+| `upgrade_discount` | Percent discount on unit upgrade cost (no engine reader yet) |
+| `granted_only` | Never offered as an XP pick; only appended by an effect (Great-General attach) |
 | `reduce_enemy_intercept` | Reduces the enemy's interception chance |
 | `hit_damage_reduction` | Percent damage reduction per hit received |
 | `siege_bombard_damage_reduction` | Specific reduction against siege splash damage |
@@ -1642,7 +1666,7 @@ and related combat code (§5.3):
 | `move_after_attack` | Unit retains remaining movement after attacking |
 | `heal_while_active` | Unit heals even while moving (March) |
 | `adjacent_xp_bonus` | XP bonus granted to adjacent friendly units after combat |
-| `applies_to` | Array of unit classifications this promotion is valid for |
+| `applies_to` | Classification/domain this promotion is valid for: `"all"`, a single class or domain string, or a list of them |
 | `prereqs` | Array of promotion IDs that must be held first |
 | `can_bombard` | Unit may use the `BOMBARD` mission |
 | `no_amphibious_penalty` | Waives the amphibious attack strength penalty (§5.2) |
@@ -2585,10 +2609,12 @@ the attacker). War Elephant needs compound prereqs (game-rules §15.12).
 
 Units: Navy SEAL 1 + 1 chance; Skirmisher 1 + 1 chance (all other first-strike units
 have 0 chance strikes in the reference; the guaranteed values are in the §5 retune
-list of the audit). Promotions (reference Drill line, replacing the current flat
-+1/tier): Drill I — (no combat fields in reference XML; verify before port),
-Drill II — +1 first strike, +20% collateral-damage protection, Drill III — +20%
-collateral protection, Drill IV — +2 first strikes, +20% collateral protection.
+list of the audit). Promotions (the reference Drill line, verified against the
+reference and shipped 2026-07-11): Drill I — +1 chance first strike (the earlier
+"no combat fields; verify before port" note is resolved: the reference carries
+exactly the one chance stat), Drill II — +1 first strike, +20% collateral-damage
+protection, Drill III — +2 chance first strikes, +20% collateral protection,
+Drill IV — +2 first strikes, +10% vs mounted, +20% collateral protection.
 
 ### 29.4 Culture levels (border/defence tiers)
 
