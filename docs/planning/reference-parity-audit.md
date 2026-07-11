@@ -347,8 +347,9 @@ build scale).
 > counter is per-settlement vs the reference's per-player; the XP-per-level curve
 > row (2,5,10,17,26…) is untouched (promotions work, A8-adjacent). The improvement
 > rows the audit carries (§1.5: town +1F+1P) are applied by **A6** (same commit),
-> which also fixed village 1F/3C → 0/0/3 — an omission of this audit — and
-> workshop → −1F/+1P; the §1.5 flat-vs-conditional yield *model* stays.
+> plus workshop → −1F/+1P; the §1.5 flat-vs-conditional yield *model* stays.
+> (A same-commit village 0/0/3 edit was reverted 2026-07-11 — XML-sourced, not
+> documented by this audit or game-data, which keeps Village at +3C +1F.)
 
 - **[value] Grassland 2F/1P ≠ reference 2F/0P** — every grassland tile produces
   a free hammer; biggest single yield deviation in the game.

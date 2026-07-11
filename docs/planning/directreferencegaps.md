@@ -128,9 +128,12 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 - **A6. Improvements** (`data/improvements.json`): town 1/1/4 → 0/0/4 base
   (reference; its +1P/+1F come from civics), workshop −1F/+1P at base
   `[decide→RESOLVED: adopt reference]`.
-  **DONE 2026-07-08** (2b6ec0f): town 0/0/4, workshop −1F/+1P, plus village
-  1F/3C → 0/0/3 — an audit omission (the audit's §1.5 row only flagged town, but
-  the reference cottage line is pure commerce at every stage). Data-only:
+  **DONE 2026-07-08** (2b6ec0f): town 0/0/4, workshop −1F/+1P. An extra village
+  1F/3C → 0/0/3 edit shipped in the same commit was **reverted 2026-07-11**
+  (bugfix-village-yield-doc-source): it was sourced from the local reference XML,
+  which is off-limits per the user's source rule — the audit flags only town, and
+  game-data's Improvements table documents Village as +3C **+1F**, so village
+  stays 1F/3C. Data-only:
   `TileOutput` already takes negative deltas and clamps per-tile totals ≥ 0.
   Civics effects untouched (town_production/town_commerce already exist; the rest
   is C6). Left unchanged: the flat-vs-conditional improvement yield *model*
