@@ -166,6 +166,36 @@ func test_siege_roster_carries_reference_floors() -> void:
 		assert_eq(int(gs.db.get_unit(uid).get("combat_limit", 0)), floors[uid],
 			"'%s' carries its §15.6 damage floor" % uid)
 
+func test_promotion_roster_carries_a8_reference_values() -> void:
+	# A8 data pass (audit §9 + game-data §29.3): pin the retuned promotion
+	# values so a regression back to the pre-parity numbers fails loudly.
+	var db = make_gs().db
+	assert_eq(int(db.get_promotion("combat6").get("combat_strength_bonus", 0)), 25,
+		"Combat VI is +25% (reference)")
+	assert_eq(int(db.get_promotion("flanking2").get("withdrawal_chance_bonus", 0)), 20,
+		"Flanking II is +20% withdrawal (reference)")
+	assert_eq(int(db.get_promotion("interception1").get("intercept_bonus", 0)), 10,
+		"Interception I is +10% (reference)")
+	assert_eq(int(db.get_promotion("interception2").get("intercept_bonus", 0)), 20,
+		"Interception II is +20% (reference)")
+	assert_eq(int(db.get_promotion("guerrilla3").get("withdrawal_chance_bonus", 0)), 50,
+		"Guerrilla III regained its +50% withdrawal (reference)")
+	assert_eq(int(db.get_promotion("woodsman3").get("first_strikes_bonus", 0)), 2,
+		"Woodsman III regained its +2 first strikes (reference)")
+	# Drill line per §29.3: I bare, II +1 FS, III protection only, IV +2 FS;
+	# II–IV carry +20% collateral-damage protection.
+	assert_false(db.get_promotion("drill1").has("first_strikes_bonus"),
+		"Drill I carries no first-strike field (§29.3)")
+	assert_eq(int(db.get_promotion("drill2").get("first_strikes_bonus", 0)), 1,
+		"Drill II is +1 first strike (§29.3)")
+	assert_false(db.get_promotion("drill3").has("first_strikes_bonus"),
+		"Drill III grants no guaranteed first strike (§29.3)")
+	assert_eq(int(db.get_promotion("drill4").get("first_strikes_bonus", 0)), 2,
+		"Drill IV is +2 first strikes (§29.3)")
+	for tier in ["drill2", "drill3", "drill4"]:
+		assert_eq(int(db.get_promotion(tier).get("collateral_damage_protection", 0)), 20,
+			"'%s' carries +20%% collateral-damage protection (§29.3)" % tier)
+
 # ── Chance first strikes (§15.5) ──────────────────────────────────────────────
 
 func _make_chance_striker(gs, chance, base_fs = 1):
@@ -220,12 +250,13 @@ func test_zero_chance_first_strikes_consumes_no_rng_draw() -> void:
 		"The rng stream is untouched by a zero-chance first-strike read")
 
 func test_drill_promotions_grant_first_strikes() -> void:
-	# Drill I/II carry first_strikes_bonus (previously read nowhere); a chance
-	# bonus field aggregates the same way for the A8 drill retune.
+	# A8 reference drill line (game-data §29.3): Drill I carries no combat
+	# fields, Drill II a guaranteed +1 first strike — so a base-1 unit with
+	# both has exactly 2, with no chance roll drawn.
 	var gs = make_gs()
 	var atk = _make_chance_striker(gs, 0, 1)
 	atk.promotions = ["drill1", "drill2"]
-	assert_eq(Combat.rolled_first_strikes(gs.db, atk, _rng(1)), 3,
+	assert_eq(Combat.rolled_first_strikes(gs.db, atk, _rng(1)), 2,
 		"Guaranteed first strikes sum unit base + drill promotion bonuses")
 	gs.db.promotions["test_drill_chance"] = {
 		"id": "test_drill_chance", "name": "Test Drill",

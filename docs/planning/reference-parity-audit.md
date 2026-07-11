@@ -391,6 +391,14 @@ build scale).
   protection and the 1/1/2 first-strike/chance split (flat +1/tier); woodsman3
   lost +2 first strikes/heal; morale/navigation "+1 move" ✓ equivalent.
 - Combat5's +10% enemy-territory heal and medic tile semantics differ mildly.
+- **RESOLVED 2026-07-11 (A8, `directreferencegaps.md`)**: every documented
+  [value] row applied — combat6 25, flanking2 20, interception 10/20,
+  guerrilla3 +50 withdrawal, woodsman3 +2 first strikes, drill line per
+  game-data §29.3 (collateral protection restored as data; no engine reader
+  yet). Still open: woodsman3's heal magnitude and the drill chance-FS split
+  are recorded nowhere in the docs (this entry's "1/1/2" is not decodable to
+  per-tier numbers), and the [missing] promotions above have no documented
+  stats — all need a design-doc sitting before the data can land.
 
 ## 10. Traits & leaders
 
