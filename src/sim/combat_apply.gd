@@ -128,6 +128,8 @@ static func _xp_needed(gs, u: Unit, base: int) -> int:
 
 # First promotion (in data order) whose prereqs are met, that applies to this
 # unit's class/domain, and that it does not already hold. "" if none qualifies.
+# A `granted_only` promotion (the reference Great-General `leader` marker) is
+# never picked from XP — it is only appended by an effect (§14.1 attach).
 static func pick_promotion(gs, u: Unit) -> String:
 	var db: DataDB = gs.db
 	var udata: Dictionary = db.get_unit(u.unit_type_id)
@@ -137,8 +139,9 @@ static func pick_promotion(gs, u: Unit) -> String:
 		if pid in u.promotions:
 			continue
 		var promo: Dictionary = db.promotions[pid]
-		var applies: String = str(promo.get("applies_to", "all"))
-		if applies != "all" and applies != cls and applies != dom:
+		if bool(promo.get("granted_only", false)):
+			continue
+		if not promo_applies(promo, cls, dom):
 			continue
 		var ok: bool = true
 		for pr in promo.get("prereqs", []):
@@ -148,6 +151,17 @@ static func pick_promotion(gs, u: Unit) -> String:
 		if ok:
 			return pid
 	return ""
+
+# Whether a promotion's `applies_to` covers a unit of classification `cls` /
+# domain `dom`. Accepts the single-string form ("all" / one class / one domain)
+# and the list form (any listed class or domain matches), so multi-class
+# reference promotions (Ambush, Charge, Mobility) can carry their real rosters.
+static func promo_applies(promo: Dictionary, cls: String, dom: String) -> bool:
+	var applies = promo.get("applies_to", "all")
+	if typeof(applies) == TYPE_ARRAY:
+		return (cls in applies) or (dom in applies)
+	var a: String = str(applies)
+	return a == "all" or a == cls or a == dom
 
 # The defeated unit's alliance accumulates war-fatigue against the victor's
 # alliance. Wild forces (no player/alliance) are skipped.

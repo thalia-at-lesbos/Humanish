@@ -196,6 +196,85 @@ func test_promotion_roster_carries_a8_reference_values() -> void:
 		assert_eq(int(db.get_promotion(tier).get("collateral_damage_protection", 0)), 20,
 			"'%s' carries +20%% collateral-damage protection (§29.3)" % tier)
 
+func test_promotion_roster_carries_reference_additions() -> void:
+	# D4 additions + A8 leftovers (values adopted from the reference,
+	# 2026-07-11): the nine formerly-missing promotions, the drill line's
+	# chance-first-strike split, woodsman3's same-tile heal, and the
+	# medic-line tile-heal magnitudes.
+	var db = make_gs().db
+	assert_eq(int(db.get_promotion("drill1").get("chance_first_strikes_bonus", 0)), 1,
+		"Drill I grants 0..1 chance first strikes (reference)")
+	assert_eq(int(db.get_promotion("drill3").get("chance_first_strikes_bonus", 0)), 2,
+		"Drill III grants 0..2 chance first strikes (reference)")
+	assert_eq(int(db.get_promotion("drill4").get("vs_mounted", 0)), 10,
+		"Drill IV carries +10% vs mounted (reference)")
+	assert_eq(int(db.get_promotion("woodsman3").get("same_tile_heal", 0)), 15,
+		"Woodsman III heals stackmates +15 (reference)")
+	assert_eq(int(db.get_promotion("medic1").get("same_tile_heal", 0)), 10,
+		"Medic I is same-tile +10 (reference)")
+	assert_eq(int(db.get_promotion("medic2").get("adjacent_tile_heal", 0)), 10,
+		"Medic II is adjacent-tile +10 (reference)")
+	assert_eq(int(db.get_promotion("medic3").get("same_tile_heal", 0)), 15,
+		"Medic III is same-tile +15 (reference)")
+	assert_eq(int(db.get_promotion("medic3").get("adjacent_tile_heal", 0)), 15,
+		"Medic III is adjacent-tile +15 (reference)")
+	assert_eq(db.get_promotion("medic3").get("prereqs", []), ["leader", "medic2"],
+		"Medic III needs an attached General AND Medic II (reference)")
+	assert_eq(int(db.get_promotion("ambush").get("vs_armor", 0)), 25,
+		"Ambush is +25% vs armor (reference)")
+	assert_eq(int(db.get_promotion("charge").get("vs_siege", 0)), 25,
+		"Charge is +25% vs siege (reference)")
+	assert_eq(int(db.get_promotion("mobility").get("move_discount", 0)), 1,
+		"Mobility is a 1-point terrain move discount (reference)")
+	for r in ["range1", "range2"]:
+		assert_eq(int(db.get_promotion(r).get("air_range_bonus", 0)), 1,
+			"'%s' is +1 air range (reference)" % r)
+	assert_eq(int(db.get_promotion("ace").get("evasion_chance", 0)), 25,
+		"Ace is +25% interception evasion (reference)")
+	assert_eq(int(db.get_promotion("tactics").get("withdrawal_chance_bonus", 0)), 30,
+		"Tactics is +30% withdrawal (reference)")
+	assert_true(bool(db.get_promotion("leader").get("granted_only", false)),
+		"Leader is the granted-only Great-General marker (never XP-picked)")
+	assert_eq(int(db.get_promotion("leader").get("upgrade_discount", 0)), 100,
+		"Leader carries the reference 100% upgrade discount")
+	assert_eq(db.get_promotion("leadership").get("prereqs", []), ["leader"],
+		"Leadership is gated on the Leader marker (reference)")
+
+func test_granted_only_promotion_never_picked_from_xp() -> void:
+	# The Leader marker is only appended by the Great-General attach action;
+	# pick_promotion must skip it even when it is the only eligible entry.
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	gs.db.promotions = {
+		"leader": gs.db.promotions["leader"],
+		"tactics": gs.db.promotions["tactics"]
+	}
+	assert_eq(CombatApply.pick_promotion(gs, u), "",
+		"Neither granted-only leader nor leader-gated tactics is XP-pickable")
+	u.promotions = ["leader"]
+	assert_eq(CombatApply.pick_promotion(gs, u), "tactics",
+		"An attached-General unit can earn the General-only Tactics promotion")
+
+func test_list_applies_to_matches_class_or_domain() -> void:
+	# Multi-class reference promotions (Ambush/Charge/Mobility) carry a list
+	# applies_to; pick_promotion honours the list form in both directions.
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)          # classification melee
+	u.promotions = ["combat1"]
+	gs.db.promotions = {"charge": gs.db.promotions["charge"]}
+	assert_eq(CombatApply.pick_promotion(gs, u), "charge",
+		"A melee unit may take Charge (listed class)")
+	gs.db.units["test_scout"] = {
+		"id": "test_scout", "base_strength": 1, "movement": 60,
+		"classification": "recon", "domain": "naval", "tags": [],
+		"first_strikes": 0, "combat_limit": 0, "withdrawal_chance": 0,
+		"upkeep": 0, "cost": 10
+	}
+	var sc = make_unit(gs, "test_scout", 1, 6, 5)
+	sc.promotions = ["combat1"]
+	assert_eq(CombatApply.pick_promotion(gs, sc), "",
+		"A unit outside the listed classes/domains cannot take Charge")
+
 # ── Chance first strikes (§15.5) ──────────────────────────────────────────────
 
 func _make_chance_striker(gs, chance, base_fs = 1):
@@ -250,12 +329,12 @@ func test_zero_chance_first_strikes_consumes_no_rng_draw() -> void:
 		"The rng stream is untouched by a zero-chance first-strike read")
 
 func test_drill_promotions_grant_first_strikes() -> void:
-	# A8 reference drill line (game-data §29.3): Drill I carries no combat
-	# fields, Drill II a guaranteed +1 first strike — so a base-1 unit with
-	# both has exactly 2, with no chance roll drawn.
+	# Reference drill line (game-data §29.3): Drill II grants a guaranteed
+	# +1 first strike and no chance stat — so a base-1 unit with it has
+	# exactly 2, with no chance roll drawn.
 	var gs = make_gs()
 	var atk = _make_chance_striker(gs, 0, 1)
-	atk.promotions = ["drill1", "drill2"]
+	atk.promotions = ["drill2"]
 	assert_eq(Combat.rolled_first_strikes(gs.db, atk, _rng(1)), 2,
 		"Guaranteed first strikes sum unit base + drill promotion bonuses")
 	gs.db.promotions["test_drill_chance"] = {
@@ -270,6 +349,22 @@ func test_drill_promotions_grant_first_strikes() -> void:
 			"Promotion chance bonus rolls within guaranteed..guaranteed+chance")
 		seen[fs] = true
 	assert_eq(seen.size(), 3, "Promotion chance bonus spans its whole range")
+
+func test_drill_line_chance_first_strikes_live() -> void:
+	# A8 leftover closed (values adopted from the reference): Drill I +1 and
+	# Drill III +2 chance first strikes — the previously carrier-less
+	# chance_first_strikes_bonus field is now exercised by shipped data.
+	# drill1+drill2+drill3 on a 0-FS unit = 1 guaranteed + uniform 0..3.
+	var gs = make_gs()
+	var atk = _make_chance_striker(gs, 0, 0)
+	atk.promotions = ["drill1", "drill2", "drill3"]
+	var seen = {}
+	for s in range(120):
+		var fs = Combat.rolled_first_strikes(gs.db, atk, _rng(s))
+		assert_true(fs >= 1 and fs <= 4,
+			"Drill I–III roll 1 guaranteed + 0..3 chance first strikes")
+		seen[fs] = true
+	assert_eq(seen.size(), 4, "Across seeds the whole drill chance range is reached")
 
 # ── Flanking (§5.4) ────────────────────────────────────────────────────────────
 
@@ -511,6 +606,47 @@ func test_vs_fortified_promotion_applies_against_entrenched_opponent() -> void:
 	var vs_fort: int = u.effective_strength(gs.db, true, {}, {}, "", false, 0, true)
 	var vs_open: int = u.effective_strength(gs.db, true, {}, {}, "", false, 0, false)
 	assert_gt(vs_fort, vs_open, "barrage's vs_fortified bonus applies vs an entrenched unit")
+
+func test_vs_armor_and_vs_siege_promotions_apply_against_mapped_class() -> void:
+	# D4 additions wiring: the new armor/siege rows in Unit.VS_CLASS_KEY make
+	# Ambush (+25% vs armor) and Charge (+25% vs siege) live combat modifiers.
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.promotions = ["charge"]            # vs_siege +25
+	assert_gt(u.effective_strength(gs.db, false, {}, {}, "siege"),
+		u.effective_strength(gs.db, false, {}, {}, "melee"),
+		"charge's vs_siege bonus applies against a siege opponent only")
+	u.promotions = ["ambush"]            # vs_armor +25
+	assert_gt(u.effective_strength(gs.db, false, {}, {}, "armor"),
+		u.effective_strength(gs.db, false, {}, {}, "mounted"),
+		"ambush's vs_armor bonus applies against an armor opponent only")
+
+func test_tactics_withdrawal_bonus_live() -> void:
+	# Tactics (+30 withdrawal, reference) rides the live promotion-withdrawal
+	# sum: a 70%-withdrawal unit holding it reaches 100% and survives every
+	# fatal hit (clamp lifted for the test).
+	var gs = make_gs()
+	gs.db.constants["withdrawal_chance_max"] = 100
+	gs.db.units["coward"] = {
+		"id": "coward", "base_strength": 1, "movement": 200,
+		"classification": "melee", "tags": [],
+		"first_strikes": 0, "combat_limit": 0, "withdrawal_chance": 70,
+		"upkeep": 0, "cost": 10
+	}
+	var atk = load("res://src/sim/unit.gd").new()
+	atk.id = gs.next_unit_id(); atk.unit_type_id = "coward"
+	atk.owner_player_id = 1; atk.x = 5; atk.y = 6
+	atk.base_strength = 1; atk.health = 100
+	atk.movement_total = 200; atk.movement_left = 200
+	atk.promotions = ["tactics"]
+	gs.units.append(atk)
+	var defender = make_warrior(gs, 2, 5, 5)
+	defender.base_strength = 100
+	for s in range(20):
+		atk.health = 100; defender.health = 100
+		var r: Dictionary = Combat.resolve(atk, defender, gs, _rng(s))
+		assert_true(r["attacker_survived"],
+			"70-base + Tactics 30 = 100% withdrawal: the attacker always survives")
 
 # ── Settlement attack / defence modifiers (§5.3) ────────────────────────────────
 

@@ -417,10 +417,20 @@ build scale).
   [value] row applied — combat6 25, flanking2 20, interception 10/20,
   guerrilla3 +50 withdrawal, woodsman3 +2 first strikes, drill line per
   game-data §29.3 (collateral protection restored as data; no engine reader
-  yet). Still open: woodsman3's heal magnitude and the drill chance-FS split
+  yet). ~~Still open: woodsman3's heal magnitude and the drill chance-FS split
   are recorded nowhere in the docs (this entry's "1/1/2" is not decodable to
   per-tier numbers), and the [missing] promotions above have no documented
-  stats — all need a design-doc sitting before the data can land.
+  stats — all need a design-doc sitting before the data can land.~~
+- **RESOLVED 2026-07-11 (promotions-unblock pass)**: the leftovers and the
+  [missing] roster are done, values adopted from the reference (user-authorized
+  sourcing session). Drill chance-FS split: drill1 +1, drill3 +2 chance first
+  strikes (the "1/1/2" decodes as drill1 1 chance / drill2 1 guaranteed /
+  drill3 2 chance / drill4 2 guaranteed; drill4 also carries +10 vs mounted);
+  woodsman3 same-tile heal 15; medic line is same-tile 10 (I) / adjacent 10
+  (II) — the old adjacent-heal/enemy-territory keys were both dead *and* wrong
+  semantics. All nine [missing] promotions added (ace, ambush, charge, leader,
+  medic3, mobility, range1/2, tactics) — every one exists in the reference;
+  none dropped. Values recorded in game-data §13/§19.4/§29.3.
 
 ## 10. Traits & leaders
 

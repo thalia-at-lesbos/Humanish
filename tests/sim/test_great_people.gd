@@ -280,6 +280,8 @@ func test_attach_to_unit_grants_leadership() -> void:
 	assert_true(GreatPeople.perform_action(gs, g, "attach_to_unit", {}),
 		"Attach to Unit succeeds when a friendly military unit shares the tile")
 	assert_true(w.has_promotion("leadership"), "co-located military units gain Leadership")
+	assert_true(w.has_promotion("leader"),
+		"attach also grants the reference Leader marker (gates Tactics/Medic III)")
 	assert_eq(gs.get_unit(g.id), null, "the Great General is consumed into the stack")
 
 # ── Great General from combat (§14.2) ────────────────────────────────────────────

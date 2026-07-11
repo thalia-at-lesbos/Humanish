@@ -722,7 +722,12 @@ func _detail_civic(vbox: VBoxContainer, d: Dictionary) -> void:
 func _detail_promo(vbox: VBoxContainer, d: Dictionary) -> void:
 	_lbl(vbox, _fmt_name(d))
 	_sep(vbox)
-	_lbl(vbox, "Applies to: " + _fmt(str(d.get("applies_to", "all"))))
+	# applies_to is a single class/domain string or a list of them (§19.4).
+	var applies = d.get("applies_to", "all")
+	if typeof(applies) == TYPE_ARRAY:
+		_lbl(vbox, "Applies to: " + _join(applies))
+	else:
+		_lbl(vbox, "Applies to: " + _fmt(str(applies)))
 	var prereqs = d.get("prereqs", []) as Array
 	_lbl(vbox, "Prereqs: " + _join(prereqs))
 	_sep(vbox)

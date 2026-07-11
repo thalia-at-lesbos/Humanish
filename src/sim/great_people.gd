@@ -383,9 +383,11 @@ static func _act_infiltration(gs: GameState, unit: Unit, player: Player,
 	return true
 
 static func _act_attach_to_unit(gs: GameState, unit: Unit, player: Player) -> bool:
-	# Grant the Leadership promotion to every friendly military unit sharing the
-	# tile; the General merges into the stack (§14.1). At least one recipient is
-	# required.
+	# Grant the Leader marker and the Leadership promotion to every friendly
+	# military unit sharing the tile; the General merges into the stack (§14.1).
+	# At least one recipient is required. `leader` is the reference-style
+	# attached-General marker (`granted_only`, never XP-picked): it gates the
+	# General-only promotions (Leadership, Tactics, Medic III) as a prereq.
 	var granted: bool = false
 	for u in gs.units:
 		if u.owner_player_id != player.id or u.id == unit.id:
@@ -394,6 +396,8 @@ static func _act_attach_to_unit(gs: GameState, unit: Unit, player: Player) -> bo
 			continue
 		if gs.db.get_unit(u.unit_type_id).get("classification", "") == "civilian":
 			continue
+		if not u.has_promotion("leader"):
+			u.promotions.append("leader")
 		if not u.has_promotion("leadership"):
 			u.promotions.append("leadership")
 		granted = true
