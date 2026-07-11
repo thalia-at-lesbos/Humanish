@@ -144,6 +144,10 @@ static func resolve(attacker: Unit, defender: Unit,
 	for promo_id in attacker.promotions:
 		var promo: Dictionary = db.get_promotion(promo_id)
 		a_withdrawal += int(promo.get("withdrawal_chance_bonus", 0))
+	# Total withdrawal chance is clamped (reference MAX_WITHDRAWAL_PROBABILITY, A11).
+	var withdrawal_max: int = db.get_constant("withdrawal_chance_max", 90)
+	if a_withdrawal > withdrawal_max:
+		a_withdrawal = withdrawal_max
 
 	var strikes_used: int = 0
 
@@ -187,18 +191,24 @@ static func resolve(attacker: Unit, defender: Unit,
 	# XP gain
 	var min_xp: int = db.get_constant("experience_per_kill_min", 5)
 	var max_xp: int = db.get_constant("experience_per_kill_max", 100)
-	var wild_cap: int = db.get_constant("experience_vs_wild_cap", 20)
+	var wild_cap: int = db.get_constant("experience_vs_wild_cap", 10)
+	# Reference MAX_EXPERIENCE_PER_COMBAT (A11): no single fight awards more.
+	var combat_cap: int = db.get_constant("experience_per_combat_cap", 10)
 
 	var a_xp: int = 0
 	var d_xp: int = 0
 	if not d_survived:
 		a_xp = clamp(_xp_from_kill(a_str, d_str), min_xp, max_xp)
 		if defender.is_wild:
-			a_xp = min(a_xp, wild_cap)
+			a_xp = a_xp if a_xp < wild_cap else wild_cap
 		if atk_player != null and atk_player.free_early_wins > 0 and defender.is_wild:
 			atk_player.free_early_wins -= 1
+		if a_xp > combat_cap:
+			a_xp = combat_cap
 	if not a_survived:
 		d_xp = clamp(_xp_from_kill(d_str, a_str), min_xp, max_xp)
+		if d_xp > combat_cap:
+			d_xp = combat_cap
 
 	# Spillover damage (siege units hit stack)
 	var spillover: int = 0

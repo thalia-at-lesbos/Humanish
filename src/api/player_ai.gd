@@ -577,7 +577,7 @@ static func _legal_site(gs, cx: int, cy: int) -> bool:
 	var ter: Dictionary = gs.db.get_terrain(tile.terrain_id)
 	if str(ter.get("domain", "land")) != "land" or bool(ter.get("impassable", false)):
 		return false
-	var min_dist: int = gs.db.get_constant("min_settlement_distance", 3)
+	var min_dist: int = gs.db.get_constant("min_settlement_distance", 2)
 	for s in gs.settlements:
 		if gs.map.distance(cx, cy, s.x, s.y) < min_dist:
 			return false

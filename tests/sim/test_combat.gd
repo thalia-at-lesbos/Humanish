@@ -327,6 +327,62 @@ func test_withdrawal_saves_attacker_from_fatal_hit() -> void:
 	assert_eq(result["attacker_health_after"], 100,
 		"Withdrawn attacker reports its pre-combat health, not a mangled value")
 
+func test_withdrawal_chance_clamped_at_max() -> void:
+	# A11: total withdrawal chance (unit + promotions) is clamped at
+	# withdrawal_chance_max (reference MAX_WITHDRAWAL_PROBABILITY 90), so even a
+	# nominal 200% withdrawer sometimes dies — across fixed seeds at least one
+	# fatal hit must land (P(all 60 withdraw) at 90% ≈ 0.2%).
+	var died_once: bool = false
+	for s in range(60):
+		var gs = make_gs()
+		gs.db.constants["withdrawal_chance_max"] = 90
+		gs.db.units["coward"] = {
+			"id": "coward", "base_strength": 1, "movement": 200,
+			"classification": "melee", "tags": [],
+			"first_strikes": 0, "combat_limit": 0, "withdrawal_chance": 200,
+			"upkeep": 0, "cost": 10
+		}
+		var atk = load("res://src/sim/unit.gd").new()
+		atk.id = gs.next_unit_id(); atk.unit_type_id = "coward"
+		atk.owner_player_id = 1; atk.x = 5; atk.y = 6
+		atk.base_strength = 1; atk.health = 100
+		atk.movement_total = 200; atk.movement_left = 200
+		gs.units.append(atk)
+		var defender = make_warrior(gs, 2, 5, 5)
+		defender.base_strength = 100
+		var r: Dictionary = Combat.resolve(atk, defender, gs, _rng(s))
+		if not r["attacker_survived"]:
+			died_once = true
+			break
+	assert_true(died_once,
+		"The 90% withdrawal clamp lets a fatal hit land across seeds (A11)")
+
+func test_xp_per_combat_capped_at_ten() -> void:
+	# A11: no single fight awards more than experience_per_combat_cap
+	# (reference MAX_EXPERIENCE_PER_COMBAT 10). Killing a 1.5×-stronger,
+	# full-health defender earns 15 raw XP (150·10/100); the cap trims it to 10.
+	# 100 guaranteed first strikes make the kill certain and damage-free, so the
+	# outcome is seed-independent.
+	var gs = make_gs()
+	gs.db.units["xp_probe"] = {
+		"id": "xp_probe", "base_strength": 100, "movement": 60,
+		"classification": "melee", "tags": [],
+		"first_strikes": 100, "combat_limit": 0, "withdrawal_chance": 0,
+		"upkeep": 0, "cost": 30
+	}
+	var atk = load("res://src/sim/unit.gd").new()
+	atk.id = gs.next_unit_id(); atk.unit_type_id = "xp_probe"
+	atk.owner_player_id = 1; atk.x = 5; atk.y = 6
+	atk.base_strength = 100; atk.health = 100
+	atk.movement_total = 60; atk.movement_left = 60
+	gs.units.append(atk)
+	var defender = make_warrior(gs, 2, 5, 5)
+	defender.base_strength = 150
+	var result: Dictionary = Combat.resolve(atk, defender, gs, _rng(11))
+	assert_false(result["defender_survived"], "First strikes kill the defender")
+	assert_eq(int(result["attacker_xp_gain"]), 10,
+		"XP per combat is capped at 10 (reference, A11)")
+
 # ── War fatigue (§3.8/§7) ────────────────────────────────────────────────────────
 
 func test_combat_loss_accrues_war_fatigue() -> void:

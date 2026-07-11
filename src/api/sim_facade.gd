@@ -3842,7 +3842,7 @@ func can_found_settlement_at(unit_id: int) -> bool:
 		return false
 	if not _is_foundable_tile(u.x, u.y):
 		return false
-	var min_dist: int = _db.get_constant("min_settlement_distance", 3)
+	var min_dist: int = _db.get_constant("min_settlement_distance", 2)
 	for existing in _gs.settlements:
 		if _gs.map.distance(u.x, u.y, existing.x, existing.y) < min_dist:
 			return false
