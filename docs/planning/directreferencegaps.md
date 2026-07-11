@@ -159,6 +159,25 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 - **A8. Promotions values** (`data/promotions.json`): combat6 +25; flanking2 +20;
   interception 10/20; guerrilla3 +50 withdrawal; woodsman3 +2 FS & same-tile heal;
   drill line per game-data §29.3 (needs B2 for chance-FS/collateral fields).
+  **DONE 2026-07-11**: all documented §9 value diffs applied — combat6 25,
+  flanking2 20, interception1/2 10/20, guerrilla3 +50 withdrawal, woodsman3
+  first_strikes_bonus 2, drill line per §29.3 literally (drill1 stripped to no
+  combat fields, drill2 +1 FS, drill3 protection-only, drill4 +2 FS + the dead
+  invented `hit_damage_reduction: 50` replaced; drill2–4 carry
+  `collateral_damage_protection: 20`). Dead-key notes: `collateral_damage_
+  protection` has **no engine reader** (spillover damage reads no promotion
+  key) and `intercept_bonus` was already dead (no air-interception combat
+  model) — both are correct parity data awaiting mechanics. Recalibrated
+  `test_drill_promotions_grant_first_strikes` (drill1 no longer grants a
+  strike); new pin `test_promotion_roster_carries_a8_reference_values`
+  (`tests/sim/test_combat.gd`). **Not applied — values not documented, needs a
+  design-doc sitting** (user rule 2026-07-11: source values only from
+  audit/§29/game-rules, never the local reference XML): woodsman3's same-tile
+  heal *magnitude*; the drill line's chance-first-strike values (§29.3 marks
+  drill1 "verify before port"; game-rules §15.5 promises the chance numbers
+  with A8 but no doc records them — so B2's promotion
+  `chance_first_strikes_bonus` field still has **no data carrier**); and the
+  **entire D4 promotions fold-in** (see D4).
 - **A9. Traits & leaders** (`data/leaders_traits.json`; test `test_data_db.gd`):
   imperialistic GG 50 → 100; creative drop `library` from its building list;
   charismatic-25%-XP model `[decide→RESOLVED: adopt reference model]`; Hammurabi
@@ -304,7 +323,16 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   `temple_of_sun`/`grove_sanctuary` structures** (added 2026-07-08 by the
   dangling-holy-sites bugfix — that fix's *validator and tests* stay; only the
   content goes). Also add the reference promotions we lack: ace, ambush, charge,
-  leader, medic3, mobility, range1/2, tactics — fold into A8.
+  leader, medic3, mobility, range1/2, tactics — ~~fold into A8~~ **NOT added in
+  A8 (2026-07-11): none of their reference stats (effects, magnitudes, prereqs,
+  unit classes) are documented in the audit/§29/game-rules, and per the user
+  rule values may not be sourced from the local reference XML — a design-doc
+  sitting must record their reference stats first, then the additions are a
+  pure data pass (the cut pass should not assume they exist).** Known engine
+  gaps for when they land: `vs_armor`/`vs_siege` need `Unit.VS_CLASS_KEY`
+  entries (one line each); air-range/upgrade-discount/move-discount/tile-heal
+  promotion keys have no readers; the Great-General attach path grants our
+  `leadership`, not a reference-style `leader` marker.
   **Migration notes for the cut pass:** long-standing tests bind some of these ids
   (`sun_faith`, `merchant_guild` were kept bespoke precisely because tests reference
   them — update test id references, not test logic); check `data/leaders_traits.json`
@@ -342,7 +370,9 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 1. ~~Bug fixes + A12 (small, safe).~~ **DONE 2026-07-08.**
 2. ~~A-phase data passes behind the `[decide]` register.~~ **UNBLOCKED — all
    decisions resolved "adopt reference" (see DECISIONS above). Next up: A1–A11, A13
-   data passes; fold the new reference promotions (D4) into A8.**
+   data passes; ~~fold the new reference promotions (D4) into A8~~ (A8 done
+   2026-07-11; the D4 promotion additions are blocked on a design-doc sitting —
+   see A8/D4 notes).**
 3. ~~B1–B3 (schema; unblock A1's prereq sets and A8's drill line).~~ **DONE
    2026-07-08 (B1 f77a574, B2 1d90307, B3 c10ecdf).**
 4. D4 content cut (independent of A; see migration notes) — can go before or after
