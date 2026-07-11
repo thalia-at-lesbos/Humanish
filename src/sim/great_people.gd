@@ -106,7 +106,7 @@ static func award_combat_points(gs: GameState, player: Player,
 	var pts: int = Fixed.scale(xp, db.get_constant("great_general_points_per_xp_pct", 100))
 	var rate_bonus: int = 0
 	if "imperialistic" in player.traits:
-		rate_bonus += db.get_constant("imperialistic_great_general_pct", 50)
+		rate_bonus += db.get_constant("imperialistic_great_general_pct", 100)
 	if _player_has_structure(gs, player, "great_wall"):
 		rate_bonus += db.get_constant("great_wall_great_general_pct", 100)
 	if rate_bonus != 0:

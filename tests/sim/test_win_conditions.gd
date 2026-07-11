@@ -106,6 +106,27 @@ func test_endgame_project_no_win_before_all_stages() -> void:
 	assert_eq(WinConditions.check_all(gs), -1,
 		"One stage short of the endgame project is not a win")
 
+func test_projects_carry_a10_reference_counts_and_costs() -> void:
+	# A10 data pass (audit §4): pin the reference spaceship part counts
+	# (casing x5, thrusters x5, engines x2) and the Apollo/Manhattan costs
+	# (1600/1500) so a regression back to the pre-parity numbers fails loudly.
+	# (Per-part reference costs are undocumented — the 250-600 costs are
+	# unchanged pending a design-doc sitting.)
+	var gs = make_gs()
+	assert_eq(int(gs.db.projects["ss_casing"].get("count_needed", 0)), 5,
+		"SS Casing needs 5 instances (reference)")
+	assert_eq(int(gs.db.projects["ss_thrusters"].get("count_needed", 0)), 5,
+		"SS Thrusters need 5 instances (reference)")
+	assert_eq(int(gs.db.projects["ss_engine"].get("count_needed", 0)), 2,
+		"SS Engines need 2 instances (reference)")
+	for pid in ["ss_cockpit", "ss_docking_bay", "ss_life_support", "ss_stasis_chamber"]:
+		assert_eq(int(gs.db.projects[pid].get("count_needed", 0)), 1,
+			"'%s' needs a single instance (reference)" % pid)
+	assert_eq(int(gs.db.get_structure("apollo_program").get("cost", 0)), 1600,
+		"Apollo Program costs 1600 (reference project cost)")
+	assert_eq(int(gs.db.get_structure("manhattan_project").get("cost", 0)), 1500,
+		"Manhattan Project costs 1500 (reference project cost)")
+
 func test_completing_a_project_advances_the_stage_count() -> void:
 	# Drive the real production path: a finished "project" item bumps the
 	# alliance's stage tally (turn_engine `_complete_item`), which is exactly what
