@@ -82,7 +82,14 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   reads `health_penalty`), so factory/industrial_park/coal_plant/shale_plant/
   ironworks silently had no health malus; all converted to `health_penalty`.
   Left unchanged: `science%` rows (library 25/seowon 35/academy 50 — CommerceModifiers
-  unverified), military_academy cost 300 (reference "not city-buildable" is a
+  unverified; **verified 2026-07-11**, feature-parity-economy-unblock: the
+  reference's research commerce-modifiers are library/university/observatory/
+  laboratory 25, academy 50, seowon 35 — all six match the shipped values, now
+  pinned in `test_data_db.gd`. Wiring note: `science_bonus` is a **dead key** in
+  the sim — research income is the commerce split plus specialist/policy adders,
+  with no per-city research% multiplier applied anywhere; only the PlayerAI
+  economy-structure heuristic and the encyclopedia read it. Needs its own wiring
+  sitting), military_academy cost 300 (reference "not city-buildable" is a
   mechanic change, not a value diff), three_gorges_dam's still-dead
   `unhealthy_global: 2` (global semantics ≠ per-city `health_penalty`; needs its own
   wiring), hippodrome's still-dead `happiness_with_horse: 1`. Cathedral-tier flat
@@ -134,9 +141,15 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   **DONE 2026-07-08** (2b6ec0f): town 0/0/4, workshop −1F/+1P. An extra village
   1F/3C → 0/0/3 edit shipped in the same commit was **reverted 2026-07-11**
   (bugfix-village-yield-doc-source): it was sourced from the local reference XML,
-  which is off-limits per the user's source rule — the audit flags only town, and
-  game-data's Improvements table documents Village as +3C **+1F**, so village
-  stays 1F/3C. Data-only:
+  which was off-limits per the then-current source rule — the audit flags only
+  town, and game-data's Improvements table documented Village as +3C **+1F**.
+  **Re-verified and re-applied 2026-07-11** (feature-parity-economy-unblock,
+  user-authorized source): the reference's cottage line is pure commerce
+  1/2/3/4 with zero food/production at every tier, so village is 0F/3C after
+  all; the game-data Improvements table row was the artifact and is corrected
+  (village +3C; town +4C with the +1F/+1P note moved to its civics). Pinned in
+  `test_tile_output.gd` (`test_cottage_line_base_yields_match_reference`).
+  Data-only:
   `TileOutput` already takes negative deltas and clamps per-tile totals ≥ 0.
   Civics effects untouched (town_production/town_commerce already exist; the rest
   is C6). Left unchanged: the flat-vs-conditional improvement yield *model*
@@ -161,7 +174,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   (reference: per-player); settled specialists still consume a population worker
   slot (reference: free); the working `citizen` record has no assignment path
   (reference "excess citizens become citizen specialists" mechanic unbuilt), so
-  its +1P is parity data only.
+  its +1P is parity data only. **Spy row verified 2026-07-11**
+  (feature-parity-economy-unblock): the reference specialist table's spy carries
+  research 1 / espionage 4 — exactly the shipped 4E+1R; pinned in
+  `test_data_db.gd`.
 - **A8. Promotions values** (`data/promotions.json`): combat6 +25; flanking2 +20;
   interception 10/20; guerrilla3 +50 withdrawal; woodsman3 +2 FS & same-tile heal;
   drill line per game-data §29.3 (needs B2 for chance-FS/collateral fields).
@@ -222,16 +238,20 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   engines ×2; Apollo 1600, Manhattan 1500 (they may stay buildings — the cost is the
   parity item).
   **DONE 2026-07-11** (8d6cf6d): counts (casing/thrusters ×5, engines ×2) and
-  Apollo 1600 / Manhattan 1500 applied (both stay buildings). **Not applied —
-  values not documented, needs a design-doc sitting** (user rule 2026-07-11):
-  the reference *per-part* spaceship costs — audit §4 and game-data record only
-  the 1000–2000 range, so the parts keep their 250–600 costs. Findings for a
+  Apollo 1600 / Manhattan 1500 applied (both stay buildings). Findings for a
   later wiring sitting: `count_needed` is a **dead field** (read nowhere) — the
   space-race win reads `win_conditions.json` `stages_required: 7` and every
   completed project increments one alliance stage tally, so part *counts* have
   no engine effect and duplicate parts of one type count as distinct stages.
   Pin: `test_projects_carry_a10_reference_counts_and_costs`
   (`test_win_conditions.gd`).
+  **Leftover CLOSED 2026-07-11** (feature-parity-economy-unblock): the per-part
+  costs, previously held back as "not documented", were read from the reference
+  and adopted — casing 250→1200, cockpit 400→1000, docking bay 250→2000, engine
+  600→1600, life support 400→1000, stasis chamber 300→1200, thrusters 250→1200.
+  game-data §17 table (and the §16 "all 9 parts" → 16, Apollo 1000→1600 /
+  Manhattan 1250→1500 wonder rows) corrected with user consent; the
+  `test_win_conditions.gd` pin now covers the per-part costs too.
 - **A11. Globals** (`data/constants.json`): growth 12+8·pop → 20+2·pop
   `[decide→RESOLVED: adopt]`; `min_settlement_distance` 3 → 2
   `[decide→RESOLVED: adopt]`; heal rates → 20/15/10/5 (city/friendly/

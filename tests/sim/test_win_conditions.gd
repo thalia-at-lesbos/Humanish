@@ -108,11 +108,16 @@ func test_endgame_project_no_win_before_all_stages() -> void:
 
 func test_projects_carry_a10_reference_counts_and_costs() -> void:
 	# A10 data pass (audit §4): pin the reference spaceship part counts
-	# (casing x5, thrusters x5, engines x2) and the Apollo/Manhattan costs
-	# (1600/1500) so a regression back to the pre-parity numbers fails loudly.
-	# (Per-part reference costs are undocumented — the 250-600 costs are
-	# unchanged pending a design-doc sitting.)
+	# (casing x5, thrusters x5, engines x2), the per-part costs (verified against
+	# the reference 2026-07-11), and the Apollo/Manhattan costs (1600/1500) so a
+	# regression back to the pre-parity numbers fails loudly.
 	var gs = make_gs()
+	var part_costs := {"ss_casing": 1200, "ss_cockpit": 1000, "ss_docking_bay": 2000,
+		"ss_engine": 1600, "ss_life_support": 1000, "ss_stasis_chamber": 1200,
+		"ss_thrusters": 1200}
+	for pid in part_costs:
+		assert_eq(int(gs.db.projects[pid].get("cost", 0)), int(part_costs[pid]),
+			"'%s' carries the reference per-part cost" % pid)
 	assert_eq(int(gs.db.projects["ss_casing"].get("count_needed", 0)), 5,
 		"SS Casing needs 5 instances (reference)")
 	assert_eq(int(gs.db.projects["ss_thrusters"].get("count_needed", 0)), 5,

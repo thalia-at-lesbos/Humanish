@@ -1,9 +1,9 @@
 {
-  "ss_casing":         { "id": "ss_casing",         "name": "SS Casing",         "cost": 250, "tech_required": "composites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 1, "count_needed": 5 },
-  "ss_cockpit":        { "id": "ss_cockpit",        "name": "SS Cockpit",        "cost": 400, "tech_required": "fiber_optics",    "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 2, "count_needed": 1 },
-  "ss_docking_bay":    { "id": "ss_docking_bay",    "name": "SS Docking Bay",    "cost": 250, "tech_required": "satellites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 3, "count_needed": 1 },
-  "ss_engine":         { "id": "ss_engine",         "name": "SS Engine",         "cost": 600, "tech_required": "fusion",          "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 4, "count_needed": 2 },
-  "ss_life_support":   { "id": "ss_life_support",   "name": "SS Life Support",   "cost": 400, "tech_required": "ecology",         "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 5, "count_needed": 1 },
-  "ss_stasis_chamber": { "id": "ss_stasis_chamber", "name": "SS Stasis Chamber", "cost": 300, "tech_required": "genetics",        "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 6, "count_needed": 1 },
-  "ss_thrusters":      { "id": "ss_thrusters",      "name": "SS Thrusters",      "cost": 250, "tech_required": "superconductors", "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 7, "count_needed": 5 }
+  "ss_casing":         { "id": "ss_casing",         "name": "SS Casing",         "cost": 1200, "tech_required": "composites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 1, "count_needed": 5 },
+  "ss_cockpit":        { "id": "ss_cockpit",        "name": "SS Cockpit",        "cost": 1000, "tech_required": "fiber_optics",    "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 2, "count_needed": 1 },
+  "ss_docking_bay":    { "id": "ss_docking_bay",    "name": "SS Docking Bay",    "cost": 2000, "tech_required": "satellites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 3, "count_needed": 1 },
+  "ss_engine":         { "id": "ss_engine",         "name": "SS Engine",         "cost": 1600, "tech_required": "fusion",          "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 4, "count_needed": 2 },
+  "ss_life_support":   { "id": "ss_life_support",   "name": "SS Life Support",   "cost": 1000, "tech_required": "ecology",         "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 5, "count_needed": 1 },
+  "ss_stasis_chamber": { "id": "ss_stasis_chamber", "name": "SS Stasis Chamber", "cost": 1200, "tech_required": "genetics",        "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 6, "count_needed": 1 },
+  "ss_thrusters":      { "id": "ss_thrusters",      "name": "SS Thrusters",      "cost": 1200, "tech_required": "superconductors", "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 7, "count_needed": 5 }
 }

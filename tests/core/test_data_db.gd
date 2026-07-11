@@ -195,6 +195,21 @@ func test_globals_carry_a11_reference_values() -> void:
 	assert_false(db.constants.has("max_xp_from_barbarians"),
 		"Dead duplicate max_xp_from_barbarians is retired (live key: experience_vs_wild_cap)")
 
+func test_science_rows_and_spy_verified_against_reference() -> void:
+	# Economy-unblock pass (2026-07-11): the science% rows the A2 audit flagged
+	# "unverified" are now read straight from the reference's research commerce
+	# modifiers, and the spy specialist from its specialist table — all matched
+	# the shipped values, pinned here so they stay put.
+	var db = _db()
+	var science := {"library": 25, "university": 25, "observatory": 25,
+		"laboratory": 25, "academy": 50, "seowon": 35}
+	for sid in science:
+		assert_eq(int(db.get_structure(sid).get("science_bonus", 0)), int(science[sid]),
+			"'%s' carries the reference research modifier" % sid)
+	var spy: Dictionary = db.get_specialist("spy").get("output", {})
+	assert_eq(int(spy.get("espionage", 0)), 4, "Spy yields 4 espionage (reference)")
+	assert_eq(int(spy.get("science", 0)), 1, "Spy yields 1 research (reference)")
+
 func test_techs_carry_a13_reference_eras_and_cost() -> void:
 	# A13 data pass (audit §3): era moves + the future_tech cost. The AND/OR
 	# prereq-graph rewiring is D1, not pinned here.

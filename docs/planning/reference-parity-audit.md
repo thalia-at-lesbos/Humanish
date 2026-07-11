@@ -218,8 +218,16 @@ generic of each (reasonable merge).
 > happiness rows, granary health). The negative-health fix also uncovered and
 > retired a dead `effects.unhealthy` key (never read; the engine reads
 > `health_penalty`) on factory/industrial_park/coal_plant/shale_plant/ironworks.
-> Still diverging on purpose: the `science%` rows (library/seowon/academy —
-> CommerceModifiers unverified, see note below), military_academy cost 300
+> **Science% rows verified (2026-07-11, economy-unblock pass):** the reference's
+> research commerce-modifiers were read directly — library/university/
+> observatory/laboratory 25, academy 50, seowon 35 (its unique university
+> replacement). All six match the shipped `science_bonus` values, so the
+> "unverified" flag below is lifted with no data change; pinned in
+> `test_data_db.gd`. Wiring gap found: `science_bonus` is a dead key in the sim
+> (research income applies no per-city research% multiplier; only the PlayerAI
+> heuristic and the encyclopedia read it) — needs its own wiring sitting.
+>
+> Still diverging on purpose: military_academy cost 300
 > (reference "not city-buildable −1" is a buildability change, deferred),
 > three_gorges_dam `unhealthy_global` (dead key, global semantics — needs wiring),
 > Apollo/Manhattan + spaceship-part costs (A10). The table below is the original
@@ -275,12 +283,15 @@ islamic/buddhist cathedrals, `temple_of_artemis`↔`BUILDING_ARTEMIS`,
 > **Resolution note (2026-07-11, A10 — 8d6cf6d):** the part counts are the
 > reference's (casing/thrusters ×5, engines ×2) and Apollo/Manhattan cost
 > 1600/1500 (both stay buildings — the move to projects is a model change,
-> deferred). The per-part spaceship *costs* stay 250–600: the reference
-> per-part values were never recorded here (only the 1000–2000 range), so they
-> need a design-doc sitting before they can be adopted. Wiring gap found:
-> `count_needed` is a dead field — the space-race win reads only
-> `stages_required: 7`, counting every completed project as one stage.
-> The Internet/SDI remain missing (game-rules §15.7, a C-phase feature).
+> deferred). Wiring gap found: `count_needed` is a dead field — the space-race
+> win reads only `stages_required: 7`, counting every completed project as one
+> stage. The Internet/SDI remain missing (game-rules §15.7, a C-phase feature).
+>
+> **Closed (2026-07-11, economy-unblock pass):** the per-part costs were read
+> from the reference and adopted — casing 1200, cockpit 1000, docking bay 2000,
+> engine 1600, life support 1000, stasis chamber 1200, thrusters 1200
+> (previously 250–600; game-data §17 updated with user consent). Pinned in
+> `test_win_conditions.gd`.
 
 ---
 
@@ -366,7 +377,16 @@ build scale).
 > rows the audit carries (§1.5: town +1F+1P) are applied by **A6** (same commit),
 > plus workshop → −1F/+1P; the §1.5 flat-vs-conditional yield *model* stays.
 > (A same-commit village 0/0/3 edit was reverted 2026-07-11 — XML-sourced, not
-> documented by this audit or game-data, which keeps Village at +3C +1F.)
+> documented by this audit or game-data, which kept Village at +3C +1F.)
+>
+> **Village settled (2026-07-11, economy-unblock pass, user-authorized source):**
+> the reference's cottage line is pure commerce — cottage/hamlet/village/town
+> 1/2/3/4 with zero food/production at every tier. Village is 0F/3C after all;
+> the game-data Improvements table row (+3C +1F) was the artifact and is
+> corrected, so doc and data now agree. **Spy verified (same pass):** the
+> reference specialist table's spy is research 1 / espionage 4 — exactly the
+> shipped 4E+1R working-spy values; no data change. Both pinned
+> (`test_tile_output.gd`, `test_data_db.gd`).
 
 - **[value] Grassland 2F/1P ≠ reference 2F/0P** — every grassland tile produces
   a free hammer; biggest single yield deviation in the game.
