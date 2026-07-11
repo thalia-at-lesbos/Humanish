@@ -1,7 +1,9 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
 Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
-B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11. Date: 2026-07-07.
+B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 content
+cut done 2026-07-11 (its promotion-additions half stays blocked on a design-doc
+sitting). Date: 2026-07-07.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -390,6 +392,28 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   rendering for dangling ids; DataDB validators (`_validate_belief_refs`,
   `_validate_econ_org_refs`, …) will catch stragglers at load — run the full gate
   after each table's cut.
+  **CUT HALF DONE 2026-07-11** (3988c5a): all four tables cut, table by table with
+  green suites between — `anti_tank` (+ removed from artillery's `unlocks_units`);
+  the three orgs **plus their `corporation_hq` structures** (`merchant_guild_hq`/
+  `overseas_trading_co_hq`/`nationalist_mutual_hq`); the 10 invented promotion
+  entries (accuracy1/2, boarding1/2, escort, dogfighting1/2, air_supremacy,
+  evasion, withdrawal — 54 → 44 entries; reference interception1/2 and
+  navigation1/2 kept); `sun_faith`/`earth_covenant` + `temple_of_sun`/
+  `grove_sanctuary` (7 reference religions remain; the dangling-holy-sites
+  validator `_validate_belief_refs` and `test_belief_refs_resolve` stay). Test id
+  migrations only (no logic changes): `merchant_guild` → `civilized_jewelers`
+  (`test_econ_orgs.gd` ×6, `test_quests.gd` ×3), `sun_faith` → `buddhism`
+  (`test_beliefs.gd` ×1). Findings: no code fallbacks referenced any cut id
+  (`GreatPeople._act_found_corporation` picks the first *unfounded* org
+  generically; `pick_promotion` iterates data order — cut ids all sat behind
+  earlier same-class picks, so award order is unchanged); no `free_promotions`,
+  events/quests effects, leaders/traits, or `docs/user/` references existed;
+  full gate green (1462 unit + 11 integration, zero SCRIPT ERROR; count
+  unchanged — pure id swaps). The **additions half** (ace, ambush, charge,
+  leader, medic3, mobility, range1/2, tactics) remains blocked on the
+  design-doc sitting above. Design-doc mentions of the cut content (game-data.md
+  §§ unit/promotion/corporation tables and the §29-era notes) are left in place
+  pending a consented design-doc pass.
 
 ## Bug fixes (do now, independent of phases) — ALL DONE 2026-07-08
 
@@ -424,8 +448,9 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    additions are blocked on a design-doc sitting — see A8/D4 notes).**
 3. ~~B1–B3 (schema; unblock A1's prereq sets and A8's drill line).~~ **DONE
    2026-07-08 (B1 f77a574, B2 1d90307, B3 c10ecdf).**
-4. D4 content cut (independent of A; see migration notes) — can go before or after
-   the A passes, but before D1 so the graph pass doesn't have to carry dead ids.
+4. ~~D4 content cut (independent of A; see migration notes) — can go before or after
+   the A passes, but before D1 so the graph pass doesn't have to carry dead ids.~~
+   **DONE 2026-07-11 (3988c5a; the additions half stays blocked — see D4 note).**
 5. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
    here), then C4/C5 (+ the missiles-cannot-defend item)/C7, then C6.
 6. D1 tech graph + D2 border curve last among the big items (touch everything; do

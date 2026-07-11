@@ -33,9 +33,6 @@
   "flanking1": { "id": "flanking1", "name": "Flanking I",  "prereqs": ["combat1"],   "applies_to": "mounted", "withdrawal_chance_bonus": 10 },
   "flanking2": { "id": "flanking2", "name": "Flanking II", "prereqs": ["flanking1"], "applies_to": "mounted", "withdrawal_chance_bonus": 20 },
 
-  "accuracy1": { "id": "accuracy1", "name": "Accuracy I",  "prereqs": [],            "applies_to": "air", "attack_vs_settlement": 25 },
-  "accuracy2": { "id": "accuracy2", "name": "Accuracy II", "prereqs": ["accuracy1"], "applies_to": "air", "attack_vs_settlement": 25 },
-
   "barrage1": { "id": "barrage1", "name": "Barrage I",   "prereqs": ["combat1"],   "applies_to": "siege", "vs_fortified": 25 },
   "barrage2": { "id": "barrage2", "name": "Barrage II",  "prereqs": ["barrage1"],  "applies_to": "siege", "vs_fortified": 25 },
   "barrage3": { "id": "barrage3", "name": "Barrage III", "prereqs": ["barrage2"],  "applies_to": "siege", "vs_fortified": 25 },
@@ -51,18 +48,10 @@
   "blitz":      { "id": "blitz",      "name": "Blitz",      "prereqs": ["combat5"], "applies_to": "mounted","extra_attacks": 1 },
   "commando":   { "id": "commando",   "name": "Commando",   "prereqs": ["combat5"], "applies_to": "land",   "move_after_attack": true },
   "leadership": { "id": "leadership", "name": "Leadership", "prereqs": [],          "applies_to": "all",    "adjacent_xp_bonus": 100 },
-  "withdrawal": { "id": "withdrawal", "name": "Withdrawal", "prereqs": ["combat1"], "applies_to": "mounted","withdrawal_chance_bonus": 25 },
 
   "navigation1": { "id": "navigation1", "name": "Navigation I",  "prereqs": [],             "applies_to": "naval", "movement_bonus": 100 },
   "navigation2": { "id": "navigation2", "name": "Navigation II", "prereqs": ["navigation1"],"applies_to": "naval", "movement_bonus": 100 },
-  "boarding1":   { "id": "boarding1",   "name": "Boarding I",    "prereqs": [],             "applies_to": "naval", "vs_ships": 25 },
-  "boarding2":   { "id": "boarding2",   "name": "Boarding II",   "prereqs": ["boarding1"],  "applies_to": "naval", "vs_ships": 25 },
-  "escort":      { "id": "escort",      "name": "Escort",        "prereqs": [],             "applies_to": "naval", "escort_damage_reduction": 50 },
 
   "interception1": { "id": "interception1", "name": "Interception I",  "prereqs": [],               "applies_to": "air", "intercept_bonus": 10 },
-  "interception2": { "id": "interception2", "name": "Interception II", "prereqs": ["interception1"], "applies_to": "air", "intercept_bonus": 20 },
-  "dogfighting1":  { "id": "dogfighting1",  "name": "Dogfighting I",   "prereqs": [],               "applies_to": "air", "vs_fighters": 25 },
-  "dogfighting2":  { "id": "dogfighting2",  "name": "Dogfighting II",  "prereqs": ["dogfighting1"], "applies_to": "air", "vs_fighters": 25 },
-  "air_supremacy": { "id": "air_supremacy", "name": "Air Supremacy",   "prereqs": ["interception1"],"applies_to": "air", "intercept_bonus": 33, "reduce_enemy_intercept": 20 },
-  "evasion":       { "id": "evasion",       "name": "Evasion",         "prereqs": [],               "applies_to": "air", "evade_interception_chance": 50 }
+  "interception2": { "id": "interception2", "name": "Interception II", "prereqs": ["interception1"], "applies_to": "air", "intercept_bonus": 20 }
 }

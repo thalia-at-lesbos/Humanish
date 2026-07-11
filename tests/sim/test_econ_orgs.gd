@@ -27,11 +27,11 @@ func test_econ_org_spreads_to_adjacent_settlement() -> void:
 	gs.get_player(1).treasury = 1000
 	var s1 = make_settlement(gs, 1, 5, 5, 5)
 	var s2 = make_settlement(gs, 1, 6, 5, 5)
-	EconOrgs.found("merchant_guild", s1, gs)
+	EconOrgs.found("civilized_jewelers", s1, gs)
 	var spread := false
 	for _i in range(50):
 		EconOrgs.spread_all(gs, gs.rng)
-		if s2.econ_org_id == "merchant_guild":
+		if s2.econ_org_id == "civilized_jewelers":
 			spread = true
 			break
 	assert_true(spread, "An economic organization spreads to an adjacent settlement")
@@ -106,7 +106,7 @@ func test_maintenance_charged_per_member_city() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
-	EconOrgs.found("merchant_guild", s, gs)
+	EconOrgs.found("civilized_jewelers", s, gs)
 	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 3,
 		"A member city charges its corporation maintenance")
 	p.policies["economic"] = "free_market"  # -50% corporation maintenance
@@ -142,12 +142,12 @@ func test_executive_spread_costs_treasury_and_is_deterministic() -> void:
 	gs.current_player_id = 1
 	var s1 = make_settlement(gs, 1, 5, 5, 5)
 	var s2 = make_settlement(gs, 1, 10, 10, 5)
-	EconOrgs.found("merchant_guild", s1, gs)  # player now owns the corporation
+	EconOrgs.found("civilized_jewelers", s1, gs)  # player now owns the corporation
 	var exe = make_unit(gs, "executive", 1, 10, 10)
 	var f = bare_facade(gs)
 	var ok = f.apply_command(Commands.spread_corporation(1, exe.id, s2.id))
 	assert_true(ok, "Executive spreads the player's corporation to the city on its tile")
-	assert_eq(s2.econ_org_id, "merchant_guild", "The target city now hosts the corporation")
+	assert_eq(s2.econ_org_id, "civilized_jewelers", "The target city now hosts the corporation")
 	assert_eq(p.treasury, 100, "Spreading charges the executive spread cost")
 	assert_null(gs.get_unit(exe.id), "The executive is consumed on a successful spread")
 
@@ -159,7 +159,7 @@ func test_executive_spread_blocked_under_ban() -> void:
 	var s1 = make_settlement(gs, 1, 5, 5, 5)
 	var s2 = make_settlement(gs, 1, 10, 10, 5)
 	p.policies["economic"] = "state_property"
-	EconOrgs.found("merchant_guild", s1, gs)
+	EconOrgs.found("civilized_jewelers", s1, gs)
 	var exe = make_unit(gs, "executive", 1, 10, 10)
 	var f = bare_facade(gs)
 	var ok = f.apply_command(Commands.spread_corporation(1, exe.id, s2.id))
