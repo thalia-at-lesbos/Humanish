@@ -100,11 +100,14 @@ func test_unhealthy_city_grows_slower() -> void:
 	var healthy = make_settlement(gs, 1, 2, 2, 4)
 	healthy.worked_tiles = []
 	healthy.structures = ["hospital"]          # +3 health
-	healthy.food_store = 40
+	# Keep both boxes below the growth threshold (20 + 2·pop since A11) so
+	# neither city grows — growth resets the box to 50% of threshold and would
+	# erase the consumption difference this test measures.
+	healthy.food_store = 10
 	var sick = make_settlement(gs, 1, 8, 8, 4)
 	sick.worked_tiles = []
 	sick.structures = []                        # no health structures
-	sick.food_store = 40
+	sick.food_store = 10
 	TurnEngine._settlement_growth(gs, healthy, gs.get_player(1))
 	TurnEngine._settlement_growth(gs, sick, gs.get_player(1))
 	assert_lt(sick.food_store, healthy.food_store,

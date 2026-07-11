@@ -49,7 +49,7 @@ func test_stationary_unit_heals_in_neutral_territory() -> void:
 	var gs = make_gs()
 	var u = make_warrior(gs, 1, 5, 5)
 	u.health = 50
-	var rate: int = gs.db.get_constant("healing_neutral_territory", 5)
+	var rate: int = gs.db.get_constant("healing_neutral_territory", 10)
 	TurnEngine.player_step(gs, 1, hooks())
 	assert_eq(u.health, 50 + rate, "Stationary unit heals at the neutral-territory rate")
 
@@ -58,7 +58,7 @@ func test_unit_heals_faster_in_own_settlement() -> void:
 	make_settlement(gs, 1, 5, 5)
 	var u = make_warrior(gs, 1, 5, 5)
 	u.health = 40
-	var rate: int = gs.db.get_constant("healing_in_settlement", 30)
+	var rate: int = gs.db.get_constant("healing_in_settlement", 20)
 	TurnEngine.player_step(gs, 1, hooks())
 	assert_eq(u.health, 40 + rate, "Garrisoned unit heals at the settlement rate")
 

@@ -167,6 +167,49 @@ func test_traits_and_leaders_carry_a9_reference_values() -> void:
 	assert_eq(leaders["gilgamesh"].get("traits", []), ["creative", "protective"],
 		"Gilgamesh is creative+protective (reference)")
 
+func test_globals_carry_a11_reference_values() -> void:
+	# A11 data pass (audit §11): the reference global constants.
+	var db = _db()
+	assert_eq(db.get_constant("growth_threshold_base", 0), 20,
+		"Growth threshold base is 20 (reference BASE_CITY_GROWTH_THRESHOLD)")
+	assert_eq(db.get_constant("growth_threshold_per_pop", 0), 2,
+		"Growth threshold per pop is 2 (reference CITY_GROWTH_MULTIPLIER)")
+	assert_eq(db.get_constant("min_settlement_distance", 0), 2,
+		"Min settlement distance is 2 (reference MIN_CITY_RANGE)")
+	assert_eq(db.get_constant("healing_in_settlement", 0), 20,
+		"Heal rate in a city is 20 (reference)")
+	assert_eq(db.get_constant("healing_friendly_territory", 0), 15,
+		"Heal rate in friendly territory is 15 (reference)")
+	assert_eq(db.get_constant("healing_allied_territory", 0), 15,
+		"Allied territory heals at the reference friendly rate (no allied tier)")
+	assert_eq(db.get_constant("healing_neutral_territory", 0), 10,
+		"Heal rate in neutral territory is 10 (reference)")
+	assert_eq(db.get_constant("healing_hostile_territory", 0), 5,
+		"Heal rate in enemy territory is 5 (reference; the 0 extra is dropped)")
+	assert_eq(db.get_constant("experience_per_combat_cap", 0), 10,
+		"XP per combat caps at 10 (reference MAX_EXPERIENCE_PER_COMBAT)")
+	assert_eq(db.get_constant("experience_vs_wild_cap", 0), 10,
+		"XP vs wild forces caps at 10 (reference barbarian cap)")
+	assert_eq(db.get_constant("withdrawal_chance_max", 0), 90,
+		"Total withdrawal chance clamps at 90 (reference)")
+	assert_false(db.constants.has("max_xp_from_barbarians"),
+		"Dead duplicate max_xp_from_barbarians is retired (live key: experience_vs_wild_cap)")
+
+func test_techs_carry_a13_reference_eras_and_cost() -> void:
+	# A13 data pass (audit §3): era moves + the future_tech cost. The AND/OR
+	# prereq-graph rewiring is D1, not pinned here.
+	var db = _db()
+	assert_eq(str(db.get_technology("calendar").get("era", "")), "classical",
+		"Calendar is classical (reference)")
+	assert_eq(str(db.get_technology("iron_working").get("era", "")), "classical",
+		"Iron Working is classical (reference)")
+	assert_eq(str(db.get_technology("genetics").get("era", "")), "future",
+		"Genetics is future (reference)")
+	assert_eq(str(db.get_technology("stealth").get("era", "")), "future",
+		"Stealth is future (reference)")
+	assert_eq(int(db.get_technology("future_tech").get("cost", 0)), 10000,
+		"Future Tech costs 10000 (reference)")
+
 # ── Trait AI focus (§C1) ───────────────────────────────────────────────────────
 
 # Every trait must carry an `ai_focus` block over the four strategic axes, all

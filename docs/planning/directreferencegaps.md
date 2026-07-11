@@ -1,7 +1,7 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
 Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
-B1–B3 done 2026-07-08; A-phase passes through A10 done 2026-07-11. Date: 2026-07-07.
+B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11. Date: 2026-07-07.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -224,6 +224,23 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   ~~`animal_xp_lifetime_cap` 10 → 5 **and fix the cap-of-10 claim in game-rules
   §9.3 — the reference value is 5**~~ **DONE 2026-07-08** (2093ccb, constant + code
   fallback + doc together); max withdrawal clamp 90 (new).
+  **DONE 2026-07-11** (f6e4e20): all remaining items applied. Growth 20+2·pop;
+  min distance 2; heal keys retuned in place (`healing_in_settlement` 20,
+  `healing_friendly_territory` 15, `healing_neutral_territory` 10,
+  `healing_hostile_territory` 5; `healing_allied_territory` — a tier with no
+  reference analogue — aligned to friendly at 15); new
+  `experience_per_combat_cap: 10` clamps both sides' per-fight XP in
+  `Combat.resolve` (the min-5 clamp still applies below it); new
+  `withdrawal_chance_max: 90` clamps total unit+promotion withdrawal there too.
+  Finding: `max_xp_from_barbarians: 10` was a *dead duplicate* of
+  `experience_vs_wild_cap` (read nowhere) — retired. Code fallbacks updated in
+  step. Pins: `test_globals_carry_a11_reference_values` (`test_data_db.gd`),
+  `test_xp_per_combat_capped_at_ten` / `test_withdrawal_chance_clamped_at_max`
+  (`test_combat.gd`). One recalibration: `test_unhealthy_city_grows_slower` now
+  starts both cities below the lower threshold (growth resets the food box to
+  50% of threshold, which erased the measured difference). Note for a
+  design-doc sitting: game-rules §4.2/§5.6 and game-data still cite the old
+  growth curve, min distance 3, and the five-tier heal table.
 - **A12. Goody weights** (`data/goodies.json`): ~~give `settler`/`worker` the
   per-difficulty weights from game-data §29.7 (per-difficulty weighting already
   supported per §24). Tests: `tests/sim/test_goodies*.gd`.~~ **VERIFIED ALREADY
@@ -235,6 +252,12 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   calendar+iron_working → classical, genetics+stealth → future
   `[decide→RESOLVED: adopt]` (interacts with era-driven systems: wild spawns,
   `Eras.player_era`). Full rewiring is D1.
+  **DONE 2026-07-11** (f6e4e20): the era/cost pass is done — all four era
+  moves + future_tech 10000 applied; the AND/OR prereq-graph rewiring remains
+  **D1** (untouched here). No seeded recalibration turned out to be needed:
+  the era-driven suites (`test_eras`, `test_wild_*`, playthroughs) stayed
+  green because no test pinned these four techs' eras. Pin:
+  `test_techs_carry_a13_reference_eras_and_cost` (`test_data_db.gd`).
 
 ## Phase B — schema extensions (DataDB + sim reads; small, mechanical)
 
@@ -395,11 +418,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 ## Sequencing recommendation
 
 1. ~~Bug fixes + A12 (small, safe).~~ **DONE 2026-07-08.**
-2. ~~A-phase data passes behind the `[decide]` register.~~ **UNBLOCKED — all
-   decisions resolved "adopt reference" (see DECISIONS above). Next up: A1–A11, A13
-   data passes; ~~fold the new reference promotions (D4) into A8~~ (A8 done
-   2026-07-11; the D4 promotion additions are blocked on a design-doc sitting —
-   see A8/D4 notes).**
+2. ~~A-phase data passes behind the `[decide]` register.~~ **DONE 2026-07-11 —
+   all of A1–A13 shipped (A12 verified already present); ~~fold the new
+   reference promotions (D4) into A8~~ (A8 done 2026-07-11; the D4 promotion
+   additions are blocked on a design-doc sitting — see A8/D4 notes).**
 3. ~~B1–B3 (schema; unblock A1's prereq sets and A8's drill line).~~ **DONE
    2026-07-08 (B1 f77a574, B2 1d90307, B3 c10ecdf).**
 4. D4 content cut (independent of A; see migration notes) — can go before or after

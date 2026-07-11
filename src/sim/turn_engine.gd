@@ -426,8 +426,8 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	# Growth threshold (§4.2): the reference's pop-and-speed curve — an affine base +
 	# per-pop term (not strictly proportional), scaled by the game pace and the
 	# owner's era (later eras raise the food needed per growth; ages.json).
-	var t_base: int = db.get_constant("growth_threshold_base", 12)
-	var t_per_pop: int = db.get_constant("growth_threshold_per_pop", 8)
+	var t_base: int = db.get_constant("growth_threshold_base", 20)
+	var t_per_pop: int = db.get_constant("growth_threshold_per_pop", 2)
 	var pace: Dictionary = db.get_pace(gs.pace_id)
 	var pace_scale: int = int(pace.get("growth_scale", 100))
 	var era_scale: int = Eras.growth_threshold_scale(Eras.player_era(player, db), db)
@@ -1275,20 +1275,20 @@ static func _healing_rate(gs: GameState, u: Unit, player: Player) -> int:
 		for sid in settlement.structures:
 			if db.get_structure(sid).get("effects", {}).get("heals_units", false):
 				return 100
-		return db.get_constant("healing_in_settlement", 30)
+		return db.get_constant("healing_in_settlement", 20)
 	var tile: Tile = gs.map.get_tile(u.x, u.y)
 	if tile == null:
-		return db.get_constant("healing_neutral_territory", 5)
+		return db.get_constant("healing_neutral_territory", 10)
 	var owner: int = tile.owner_player_id
 	if owner == player.id:
-		return db.get_constant("healing_friendly_territory", 20)
+		return db.get_constant("healing_friendly_territory", 15)
 	if owner < 0:
-		return db.get_constant("healing_neutral_territory", 5)
+		return db.get_constant("healing_neutral_territory", 10)
 	if gs.are_at_war(player.id, owner):
-		return db.get_constant("healing_hostile_territory", 0)
+		return db.get_constant("healing_hostile_territory", 5)
 	var other: Player = gs.get_player(owner)
 	if other != null and other.alliance_id == player.alliance_id:
-		return db.get_constant("healing_friendly_territory", 20)
+		return db.get_constant("healing_friendly_territory", 15)
 	# Met but not hostile: peaceful/allied territory.
 	return db.get_constant("healing_allied_territory", 15)
 
