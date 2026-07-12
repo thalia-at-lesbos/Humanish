@@ -138,8 +138,11 @@ must never cross-apply.
 
 The Noble→Deity ramp is `0 / 10 / 20 / 35 / 50 / 70` (an accelerating
 +10/+10/+15/+15/+20 step). Sub-Noble difficulties (Settler/Chieftain/Warlord) keep
-`ai_bonus: 0` and instead lean on human-side advantages (`free_early_wins`,
-`combat_bonus_vs_wild`) — consistent with the "0 at Noble" baseline.
+`ai_bonus: 0` and instead lean on human-side advantages (`free_early_wins` and the
+city aids) — consistent with the "0 at Noble" baseline. (The related
+`wild_combat_modifier` column — successor to the retired `combat_bonus_vs_wild` —
+is a **barbarian-side** strength percent applied in `Combat.resolve` against human
+opponents, per the reference model; it ships 0 at every level.)
 
 ## §5  Brain — economy, research, civics, religion, diplomacy, assembly
 

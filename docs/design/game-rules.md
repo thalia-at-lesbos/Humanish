@@ -218,26 +218,27 @@ research does).
 **The two canonical handicap knobs (these supersede any earlier model):**
 
 * **Player research percent** (`handicap_research_percent`) scales the **player's own tech
-  cost** (§6.3): `settler 60` (techs 40% cheaper) … `noble 100` (baseline) … `deity 130`
-  (techs 30% dearer). This is the primary lever that makes harder levels harder, replacing
+  cost** (§6.3): `settler 60` (techs 40% cheaper) … `noble 100` (baseline) … `deity 135`
+  (techs 35% dearer). This is the primary lever that makes harder levels harder, replacing
   the previous approach of folding all difficulty into an AI-side beaker bonus.
 * **AI per-era cost modifier** (`ai_research_per_era`) makes the **AI's** research cheaper as
   the game progresses on the higher levels (e.g. `deity −5` per era), the reference's way of
   letting the AI keep pace late. This is distinct from the flat `ai_bonus` yield handicap.
 
-**Humanish city handicaps (additive extensions, applied to human cities only).** On top of
-the canonical knobs, each difficulty level also carries three integer city modifiers — magnitudes
-still subject to balancing (`TurnEngine._settlement_growth`, `_update_wellbeing`,
-`_update_contentment`, reading `data/difficulties.json`):
+**City handicaps (applied to human cities only).** On top of
+the canonical knobs, each difficulty level also carries three integer city modifiers
+(`TurnEngine._settlement_growth`, `_update_wellbeing`, `_update_contentment`, reading
+`data/difficulties.json`; values are the reference columns — see game-data §15.9):
 
-* **`growth_bonus`** (percent, e.g. `+25` Settler … `−20` Deity) scales the food-to-grow
+* **`growth_bonus`** (percent, `+25` Settler … `−20` Deity) scales the food-to-grow
   **threshold** inversely: the threshold is multiplied by `(100 − growth_bonus)`, so a
   positive bonus on easier levels lowers it (cities grow sooner) and a negative one on
   harder levels raises it. Applied on top of the pace and era threshold scaling (§4.2).
-* **`health_bonus`** (e.g. `+2` Settler … `−2` Deity) is added to each city's wellbeing
-  **positive** total (§4.6); a negative value lowers it and widens the deficit.
-* **`happiness_bonus`** (e.g. `+2` Settler … `−2` Deity) is added to each city's
-  contentment **positive** sentiment (§4.5).
+* **`health_bonus`** (`+4` Settler … `+2` Warlord and above) is added to each city's
+  wellbeing **positive** total (§4.6). Per the reference it **never goes negative** for
+  the human — the floor is +2 at every level.
+* **`happiness_bonus`** (`+6` Settler … `+4` Warlord and above) is added to each city's
+  contentment **positive** sentiment (§4.5); likewise floored at +4, never negative.
 
 ---
 
@@ -286,9 +287,9 @@ the built-in rule is skipped. This seam lets content packs replace any rule.
   rules: minimum spacing from existing settlements and valid landform/terrain. Founding
   consumes the unit and creates a size-one settlement that immediately claims its own
   tile and a small surrounding area of cultural influence.
-  *(⚠️ Provisional: a new settlement must be at least two empty squares away from
-  any existing settlement (Chebyshev distance ≥ 3). Enforced by
-  `min_settlement_distance = 3` in `data/constants.json`.)*
+  *(⚠️ Provisional: a new settlement may never be adjacent to an existing settlement
+  (Chebyshev distance ≥ 2 — at least one tile between cities). Enforced by
+  `min_settlement_distance = 2` in `data/constants.json`, the reference spacing.)*
 
 ### 4.2 Population growth
 Surplus sustenance accumulates in a "store" (food box) each turn:
@@ -308,8 +309,10 @@ Surplus sustenance accumulates in a "store" (food box) each turn:
   curve — a base scaled by population **and** by game speed (`GameSpeedInfo.getGrowthPercent`,
   e.g. Marathon 300 = ×3) and the starting age — and (for human players) by the difficulty's
   `growth_bonus` handicap (§2.2). Larger cities need a larger box. *(The engine currently
-  scales the threshold strictly linearly in population; the canonical curve is the
-  pop+speed table — align it for reference-faithful pacing.)*
+  scales the threshold strictly linearly in population — the reference base
+  `20 + 2×pop` (`growth_threshold_base` / `growth_threshold_per_pop`), then pace, era,
+  and difficulty scaling; the canonical curve is the pop+speed table — align it for
+  reference-faithful pacing.)*
 
 ### 4.3 Output & the economic split
 * A settlement's base output for each type is the sum of its worked tiles, assigned
@@ -818,7 +821,7 @@ settlement's generic economic output.
 
   ```
   cost = baseCost
-       × handicapResearchPercent / 100      # difficulty (§2.2): Settler 60 … Noble 100 … Deity 130
+       × handicapResearchPercent / 100      # difficulty (§2.2): Settler 60 … Noble 100 … Deity 135
        × worldResearchPercent    / 100      # map size (larger maps cost more)
        × speedResearchPercent    / 100      # pace: Quick 67 / Normal 100 / Epic 150 / Marathon 300
        × eraResearchPercent      / 100      # advanced-start era
@@ -826,9 +829,9 @@ settlement's generic economic output.
   cost = max(1, cost)
   ```
 
-  *(The engine currently applies only the speed scalar and folds difficulty into an AI
-  beaker bonus instead of a player-side handicap. Add the handicap/world/era/team factors to
-  match the reference; see §2.2.)*
+  *(The engine applies the full chain in `Research._effective_cost`: the human pays the
+  difficulty handicap, the AI instead pays the per-era `ai_research_per_era` modifier
+  (negative = cheaper per era), then world size, speed, era, and team factors; see §2.2.)*
 * **Humanish discounts (additive on top).** Beyond the canonical chain, this game also makes
   a tech **cheaper when prerequisites are held** and **cheaper per number of others who
   already know it** (a catch-up discount). These are intentional extensions, not part of the
@@ -1333,8 +1336,8 @@ New units are placed on random unowned, unoccupied land tiles kept at least
 `wild_spawn_min_distance` (reference `MIN_BARBARIAN_STARTING_DISTANCE`) from any civ unit or city, and
 spawn as the **strongest generic land unit** the leading player has unlocked (resources ignored,
 as in §9.1). A global ceiling of `total_unowned / divisor + 1` guards against many small areas
-each contributing their `+1`. (Naval raiders — `unowned_water_tiles_per_wild_unit`, Settler 3000
-→ Deity 1000 — are the sea counterpart; see §9.4.)
+each contributing their `+1`. (Naval raiders — `unowned_water_tiles_per_wild_unit`, Settler 750
+→ Deity 250 — are the sea counterpart; see §9.4.)
 
 Wild **cities** (raider camps, §9.1's muster points) spawn on their own, later schedule:
 
@@ -1394,7 +1397,7 @@ Naval raiders are wild units (`owner_player_id = -2`, `is_wild = true`) of a **s
 
 * **Spawning (`WildForces.spawn_naval`).** Gated identically to land raiders (the three §9.2
   gates), they fill each **contiguous water area** toward one raider per
-  `unowned_water_tiles_per_wild_unit` unowned sea tiles (Settler 3000 → Deity 1000 — far sparser
+  `unowned_water_tiles_per_wild_unit` unowned sea tiles (Settler 750 → Deity 250 — far sparser
   than land, so only real oceans see them), using the same `((unowned/divisor) − existing)/4 + 1`
   top-up and a global ceiling. The raider type is the **strongest generic sea unit any player has
   unlocked**, so the seas stay **empty until someone can sail** (no naval tech ⇒ no naval raiders).

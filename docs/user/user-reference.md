@@ -536,7 +536,7 @@ Each society's leader carries traits that provide passive combat, growth, or eco
 | American | Washington, Roosevelt, Lincoln | Young expansive republic of pioneers and industry |
 | Arabian | Saladin | Desert faithful with camel riders and scholars |
 | Aztec | Montezuma | Sun-worshipping warriors who feed the gods with conquest |
-| Babylonian | Hammurabi | Lawgivers of Mesopotamia, masters of ordered defence |
+| Babylonian | Hammurabi | Lawgivers of Mesopotamia whose armies march in strict order |
 | Byzantine | Justinian I | Heirs of Rome whose cataphracts guard a holy empire |
 | Carthaginian | Hannibal | Sea-trading financiers who muster mercenary cavalry |
 | Celtic | Brennus, Boudica | Forest tribes whose guerrilla warriors need no iron |
