@@ -1586,7 +1586,7 @@ Fields beyond the headline effects table in §6:
 | `era` | String | Era tag (used for availability gating alongside `tech_required`) |
 | `replaces` | String | Standard building ID this faction-unique structure replaces |
 | `unique_to` | String | Society/faction ID |
-| `upkeep` | int | Gold per turn maintenance |
+| `upkeep` | int | Gold per turn maintenance — **shipped structures carry none** (field dropped 2026-07-12 with C1 inflation, reference parity: buildings pay no gold upkeep); the read path remains for mods |
 | `output_delta` | Dict | Per-field output modifiers (food/production/commerce) added to the city each turn |
 | `effects` | Dict | Civic-style effect dictionary (read via `PolicyEffects` — same keys as §8 civic effects) |
 

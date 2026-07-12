@@ -406,8 +406,14 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   its phase item: naval rescale (A1), difficulty philosophy (A3), map grids/research %
   (A4), grassland hammer (A5), mountains workable (A5). Two engine follow-ups it
   held become work items:
-  - **Building upkeep retune** with C1 (inflation changes the economy's total load —
-    retune `upkeep`s when C1 lands).
+  - **Building upkeep retune** — **DONE 2026-07-12 (with C1).** Semantics change:
+    reference buildings pay **no** per-building gold upkeep (audit §1.6) — the
+    economy's drag is city maintenance + civic upkeep + inflation — so under the
+    blanket adopt-the-reference decision the `upkeep` field was **removed** from
+    every `structures.json` entry (was 0–3 gold each) rather than retuned. The
+    engine read path (`_settlement_upkeep`, encyclopedia display) stays intact
+    for mods; `test_data_db` pins the shipped table at zero. Own commit,
+    separately revertable.
   - **Missiles cannot defend** (reference): exclude `classification: "missile"` from
     `Stack.get_defender` (mirror the espionage-tag exclusion) and destroy missiles
     left stackless/cityless on capture — schedule with C5's nuke/interception work.

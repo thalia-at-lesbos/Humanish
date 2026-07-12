@@ -159,7 +159,7 @@ The tables and what they configure:
 | `improvements.json` | Tile improvement output delta, build time, tech gate, `allowed_landforms` (e.g. mine is hills-only) |
 | `transport.json` | Road/rail movement divisors, commerce bonus |
 | `units.json` | Domain, strength, movement, cost, upkeep, tags, first strikes, combat limit, `ocean_capable` (sea hulls cleared for deep-water crossing) |
-| `structures.json` | Settlement building costs, upkeep, output bonuses, specialist slots |
+| `structures.json` | Settlement building costs, output bonuses, specialist slots (no per-building gold upkeep — dropped for reference parity with C1; the `upkeep` read path remains for mods) |
 | `technologies.json` | Research cost, prereq graph (`prereqs_all`, `prereqs_any`), unlocks |
 | `policies.json` | Category, upkeep modifiers, slider constraints, anger modifier, transition turns, and a per-civic `effects` block of gameplay bonuses (read by `PolicyEffects`) |
 | `promotions.json` | Per-promotion combat bonuses, applies-to filter |
@@ -301,7 +301,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 - Culture: accumulate total culture → ring expansion → `Influence.spread()`
 - Beliefs: `Beliefs.spread_all()` on each turn
 - Specialist progress: at a city's threshold a Great Person unit of the dominant specialist type is born (`GreatPeople.birth_from_settlement`); with no typed specialists the legacy abstract bonus (instant tech / seeded org / gold) applies
-- Structure upkeep charged to treasury
+- Structure upkeep charged to treasury (`_settlement_upkeep` — a mod hook: shipped structures carry no `upkeep` field since the C1 building-upkeep retune)
 
 ### `Player`
 Per-player economic and research state. The four allocation rates (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100 — the `SET_SLIDERS` command carries only the three adjustable rates (research/culture/intel) and `SimFacade._cmd_set_sliders` derives `slider_finance` as the remainder (100 − the three), so the serialized fields and save format are unchanged. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the rates. Also holds: `state_religion` (§8.1 — the player's adopted belief, switching it triggers anarchy via the shared anarchy counter); `era` (§2.1 — a *cache* of the derived current era, recomputed by `Eras.refresh`; every rule reads it live through `Eras.player_era`); `intel_points` (§7.1 — espionage points accumulated per rival alliance, spent on missions); Golden Age state (`golden_age_turns` / `golden_age_count` / `pending_golden_age_gp`); and Great General accumulation (`great_general_points` / `great_general_threshold` / `great_generals_produced`). Also `society_id` (the player's society, set in `SimFacade.setup` from cfg or recovered from `leader_id`) and `used_city_names` (historical city names already assigned, so nameless foundings draw the next unused entry of the society's `city_names` list, capital first). All serialized.

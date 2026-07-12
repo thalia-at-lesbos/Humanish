@@ -43,6 +43,10 @@ looks accidental rather than a design choice.
    structure). Reference buildings have no gold upkeep (economy drag is city
    maintenance + civic upkeep + inflation). Humanish has city maintenance and civic
    upkeep too, so its economy is double-loaded relative to the reference.
+   → **Closed 2026-07-12 (with C1): the `upkeep` field is removed from every
+   `structures.json` entry — buildings now pay no gold upkeep, and the economy's
+   drag is city maintenance + civic upkeep + inflation, matching the reference.
+   The engine read path (`_settlement_upkeep`) stays intact for mods.**
 7. **[missing] Inflation is not modelled at all.** Reference: per-speed
    `iInflationPercent` (Quick 45 … Marathon 10) applied to costs over time.
    → **Closed 2026-07-12 (C1):** turn-based inflation on the gross expense total in
