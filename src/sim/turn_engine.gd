@@ -1308,9 +1308,30 @@ static func gold_income(gs: GameState, player: Player) -> int:
 	income += EconOrgs.hq_gold_for(gs, db, player)
 	return income
 
+# Inflation rate in percent for the current game turn (§15.1). Grows linearly
+# once the turn passes the pace's onset point (the negative `inflation_offset`
+# delays it), scaled by the difficulty's `inflation_percent` handicap:
+#   effective_turn = turn + offset (clamped at 0)
+#   rate % = effective_turn × pace % / 100 × handicap % / 100   (integer math)
+# Pace/difficulty columns are the reference values (game-data §29.5 / §29.10).
+# Pure read of the game turn — no serialized state, no RNG.
+static func inflation_rate(gs: GameState) -> int:
+	var db: DataDB = gs.db
+	var pace_pct: int = int(db.get_pace(gs.pace_id).get("inflation_percent", 0))
+	if pace_pct <= 0:
+		return 0
+	var eff_turn: int = gs.turn_number \
+		+ int(db.get_pace(gs.pace_id).get("inflation_offset", 0))
+	if eff_turn <= 0:
+		return 0
+	var handicap: int = int(db.get_difficulty(gs.difficulty_id).get(
+		"inflation_percent", 100))
+	return eff_turn * pace_pct / 100 * handicap / 100
+
 # Gross gold upkeep for a player this turn (unit + settlement + corporation
-# maintenance, after the policy upkeep modifier). Pure read — mirrors the cost
-# side of _update_treasury so the HUD rate never diverges from the applied delta.
+# maintenance, after the policy upkeep modifier, then turn-based inflation).
+# Pure read — mirrors the cost side of _update_treasury so the HUD rate never
+# diverges from the applied delta.
 static func gold_upkeep(gs: GameState, player: Player) -> int:
 	var db: DataDB = gs.db
 	# Vassalage waives unit upkeep for a number of units per city (§8). Count the
@@ -1360,6 +1381,11 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		policy_mod += int(pol.get("upkeep_modifier", 0))
 	if policy_mod != 0:
 		upkeep += Fixed.scale(upkeep, policy_mod)
+	# Turn-based inflation (§15.1): expenses × (100 + rate) / 100. The rate grows
+	# with the game turn per pace/difficulty — see inflation_rate() above.
+	var infl: int = inflation_rate(gs)
+	if infl != 0:
+		upkeep += Fixed.scale(upkeep, infl)
 	# Inflation modifier (§9 INFLATION): a signed percent on gross maintenance (e.g.
 	# the Federal Reserve event trims it with a negative value).
 	if player.inflation_pct != 0:

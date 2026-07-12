@@ -89,6 +89,11 @@ Adjust from the rate panel on the HUD. A **+** that would push the three rates o
 or a **−** that would drop a rate below 0 (or Science below a civic-imposed research
 minimum), is disabled.
 
+Your expenses (unit upkeep, city maintenance, civic upkeep) are subject to
+**inflation**: from a point in the game onward — later on slower paces, and reduced on
+lower difficulties — total expenses grow by a percentage that rises every turn. The
+Finance advisor shows the current inflation percentage in its breakdown.
+
 ---
 
 ## 3. Cities

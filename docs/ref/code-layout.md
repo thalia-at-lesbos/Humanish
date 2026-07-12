@@ -159,7 +159,7 @@ The tables and what they configure:
 | `improvements.json` | Tile improvement output delta, build time, tech gate, `allowed_landforms` (e.g. mine is hills-only) |
 | `transport.json` | Road/rail movement divisors, commerce bonus |
 | `units.json` | Domain, strength, movement, cost, upkeep, tags, first strikes, combat limit, `ocean_capable` (sea hulls cleared for deep-water crossing) |
-| `structures.json` | Settlement building costs, upkeep, output bonuses, specialist slots |
+| `structures.json` | Settlement building costs, output bonuses, specialist slots (no per-building gold upkeep — dropped for reference parity with C1; the `upkeep` read path remains for mods) |
 | `technologies.json` | Research cost, prereq graph (`prereqs_all`, `prereqs_any`), unlocks |
 | `policies.json` | Category, upkeep modifiers, slider constraints, anger modifier, transition turns, and a per-civic `effects` block of gameplay bonuses (read by `PolicyEffects`) |
 | `promotions.json` | Per-promotion combat bonuses, applies-to filter |
@@ -284,7 +284,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 **`player_step(gs, player_id, hooks)`** — runs when a player ends their turn:
 1. Pre-turn bookkeeping
 2. Auto-assign workers to tiles (`_auto_assign_workers`): the **city centre tile is always worked for free** (it does not consume a population worker slot), then `effective_workers()` population citizens work the highest-scoring locked/owned tiles in the culture ring. Without the free centre a fresh size-1 city worked a single off-centre tile and ran a zero food surplus, so it never grew (the §4.2 food box never filled)
-3. Treasury: income (finance slice of settlement commerce) − unit upkeep (civics waive free units / drop distance maintenance); insolvency handling (`_disband_for_insolvency`: past the grace period units are disbanded — structures are never sold; treasury clamps at 0)
+3. Treasury: income (finance slice of settlement commerce) − gross upkeep (unit + settlement + corporation maintenance; civics waive free units / drop distance maintenance; the total is then inflated by the §15.1 turn-based inflation rate — `inflation_rate`, per-pace percent/offset × per-difficulty multiplier); insolvency handling (`_disband_for_insolvency`: past the grace period units are disbanded — structures are never sold; treasury clamps at 0)
 4. Research: accumulate research slice of commerce (+ civic science effects) against current tech cost
 5. Intelligence accumulation (`_apply_intelligence` — §7.1 espionage points per rival, from the intel slice + structure `espionage` output scaled by `espionage_output`)
 6. Settlement steps (iterates `settlement_step` for all owned settlements), then §4.9 cultural revolt / city flipping (`CultureRevolt.process_player`, queued onto `gs.pending_flips`)
@@ -301,7 +301,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 - Culture: accumulate total culture → ring expansion → `Influence.spread()`
 - Beliefs: `Beliefs.spread_all()` on each turn
 - Specialist progress: at a city's threshold a Great Person unit of the dominant specialist type is born (`GreatPeople.birth_from_settlement`); with no typed specialists the legacy abstract bonus (instant tech / seeded org / gold) applies
-- Structure upkeep charged to treasury
+- Structure upkeep charged to treasury (`_settlement_upkeep` — a mod hook: shipped structures carry no `upkeep` field since the C1 building-upkeep retune)
 
 ### `Player`
 Per-player economic and research state. The four allocation rates (`slider_finance`, `slider_research`, `slider_culture`, `slider_intel`) sum to 100 — the `SET_SLIDERS` command carries only the three adjustable rates (research/culture/intel) and `SimFacade._cmd_set_sliders` derives `slider_finance` as the remainder (100 − the three), so the serialized fields and save format are unchanged. `split_commerce(total)` partitions a settlement's commerce output into `[finance, research, culture, intel]` according to the rates. Also holds: `state_religion` (§8.1 — the player's adopted belief, switching it triggers anarchy via the shared anarchy counter); `era` (§2.1 — a *cache* of the derived current era, recomputed by `Eras.refresh`; every rule reads it live through `Eras.player_era`); `intel_points` (§7.1 — espionage points accumulated per rival alliance, spent on missions); Golden Age state (`golden_age_turns` / `golden_age_count` / `pending_golden_age_gp`); and Great General accumulation (`great_general_points` / `great_general_threshold` / `great_generals_produced`). Also `society_id` (the player's society, set in `SimFacade.setup` from cfg or recovered from `leader_id`) and `used_city_names` (historical city names already assigned, so nameless foundings draw the next unused entry of the society's `city_names` list, capital first). All serialized.

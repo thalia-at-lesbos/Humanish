@@ -43,8 +43,15 @@ looks accidental rather than a design choice.
    structure). Reference buildings have no gold upkeep (economy drag is city
    maintenance + civic upkeep + inflation). Humanish has city maintenance and civic
    upkeep too, so its economy is double-loaded relative to the reference.
+   → **Closed 2026-07-12 (with C1): the `upkeep` field is removed from every
+   `structures.json` entry — buildings now pay no gold upkeep, and the economy's
+   drag is city maintenance + civic upkeep + inflation, matching the reference.
+   The engine read path (`_settlement_upkeep`) stays intact for mods.**
 7. **[missing] Inflation is not modelled at all.** Reference: per-speed
    `iInflationPercent` (Quick 45 … Marathon 10) applied to costs over time.
+   → **Closed 2026-07-12 (C1):** turn-based inflation on the gross expense total in
+   `TurnEngine.gold_upkeep` (per-pace percent/offset, per-difficulty multiplier —
+   game-rules §15.1).
 8. **[value] Trait "double production speed" became "free building".**
    Reference traits double build speed of specific buildings (Aggressive:
    barracks/drydock; Protective: walls/castle; Organized: lighthouse/courthouse;
@@ -348,9 +355,10 @@ several columns differ from the file:
 `growth/research/build 67/100/150/300` and total game turns **330/500/750/1500
 all match** the XML. Missing per-speed knobs: `iAnarchyPercent`,
 `iGoldenAgePercent` (golden-age length doesn't scale with pace; reference quick
-80 … marathon 200), `iInflationPercent` (no inflation at all), victory-delay
-percent, and the reference's separate `iBarbPercent` (marathon 400 ≠ reuse of
-build scale).
+80 … marathon 200), ~~`iInflationPercent` (no inflation at all)~~ — **closed
+2026-07-12 (C1): `inflation_percent`/`inflation_offset` now shipped per pace** —
+victory-delay percent, and the reference's separate `iBarbPercent` (marathon 400 ≠
+reuse of build scale).
 
 ## 8. Terrain / features / specialists / GP
 

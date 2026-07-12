@@ -81,6 +81,64 @@ func test_unowned_improvement_not_charged() -> void:
 	TurnEngine._tile_upkeep(gs)
 	assert_eq(gs.get_player(1).treasury, 10, "Unowned improvements charge nobody")
 
+# ── Inflation (§15.1) ────────────────────────────────────────────────────────
+
+func test_inflation_zero_at_game_start_on_every_pace() -> void:
+	var gs = make_gs(1)
+	gs.difficulty_id = "monarch"
+	for pace in ["quick", "normal", "epic", "marathon"]:
+		gs.pace_id = pace
+		gs.turn_number = 0
+		assert_eq(TurnEngine.inflation_rate(gs), 0,
+			"%s: no inflation at game start" % pace)
+	# The negative offset delays onset: still zero at the onset turn itself.
+	gs.pace_id = "normal"
+	gs.turn_number = 90
+	assert_eq(TurnEngine.inflation_rate(gs), 0,
+		"normal: onset delayed until past turn 90")
+
+func test_inflation_progression_at_fixed_turn_across_paces() -> void:
+	# Turn 300 at monarch (100% handicap): rate = (300 + offset) × pace% / 100.
+	var gs = make_gs(1)
+	gs.difficulty_id = "monarch"
+	gs.turn_number = 300
+	var expected = {"quick": 108, "normal": 63, "epic": 33, "marathon": 3}
+	for pace in expected:
+		gs.pace_id = pace
+		assert_eq(TurnEngine.inflation_rate(gs), expected[pace],
+			"%s: reference rate at turn 300" % pace)
+
+func test_inflation_difficulty_multiplier() -> void:
+	# Normal pace, turn 290 → effective turn 200 → base rate 60%, scaled by the
+	# per-difficulty handicap percent (§29.10).
+	var gs = make_gs(1)
+	gs.pace_id = "normal"
+	gs.turn_number = 290
+	var expected = {"settler": 36, "chieftain": 42, "warlord": 48, "noble": 54,
+		"prince": 57, "monarch": 60, "emperor": 60, "immortal": 60, "deity": 60}
+	for diff in expected:
+		gs.difficulty_id = diff
+		assert_eq(TurnEngine.inflation_rate(gs), expected[diff],
+			"%s: handicap-scaled rate" % diff)
+
+func test_inflation_inflates_gold_upkeep_and_treasury_delta() -> void:
+	var gs = make_gs(1)
+	gs.pace_id = "normal"
+	gs.difficulty_id = "monarch"
+	var p = gs.get_player(1)
+	for i in range(10):
+		make_unit(gs, "warrior", 1, i, 0)   # 10 gold base upkeep
+	gs.turn_number = 0
+	assert_eq(TurnEngine.gold_upkeep(gs, p), 10,
+		"base upkeep before inflation onset")
+	gs.turn_number = 290   # effective turn 200 → +60%
+	assert_eq(TurnEngine.gold_upkeep(gs, p), 16,
+		"expenses × (100 + 60) / 100, truncating")
+	p.treasury = 100
+	TurnEngine._update_treasury(gs, p)
+	assert_eq(p.treasury, 84,
+		"the applied treasury delta uses the inflated expense total")
+
 # ── Insolvency ───────────────────────────────────────────────────────────────
 
 func test_insolvency_clamps_treasury_to_zero() -> void:

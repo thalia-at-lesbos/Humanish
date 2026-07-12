@@ -162,6 +162,9 @@ static func _help_finance(player_id: int, gs: GameState, db: DataDB) -> String:
     result += "Treasury: " + str(p.treasury) + " gold\n"
     result += "Commerce income: +" + str(commerce_income) + "\n"
     result += "Unit upkeep: -" + str(unit_upkeep) + "\n"
+    var infl: int = TurnEngine.inflation_rate(gs)
+    if infl > 0:
+        result += "Inflation: +" + str(infl) + "% on expenses\n"
     result += "Net per turn: " + str(commerce_income - unit_upkeep) + "\n"
     result += "Finance slider: " + str(p.slider_finance) + "%\n"
     return result

@@ -1586,7 +1586,7 @@ Fields beyond the headline effects table in §6:
 | `era` | String | Era tag (used for availability gating alongside `tech_required`) |
 | `replaces` | String | Standard building ID this faction-unique structure replaces |
 | `unique_to` | String | Society/faction ID |
-| `upkeep` | int | Gold per turn maintenance |
+| `upkeep` | int | Gold per turn maintenance — **shipped structures carry none** (field dropped 2026-07-12 with C1 inflation, reference parity: buildings pay no gold upkeep); the read path remains for mods |
 | `output_delta` | Dict | Per-field output modifiers (food/production/commerce) added to the city each turn |
 | `effects` | Dict | Civic-style effect dictionary (read via `PolicyEffects` — same keys as §8 civic effects) |
 
@@ -2623,6 +2623,10 @@ Drill IV — +2 first strikes, +10% vs mounted, +20% collateral protection.
 Note `wild %` — the reference scales barbarian timing with its **own** column
 (marathon 400), where Humanish currently reuses the build scale (marathon 300).
 
+The `inflation %` / `inflation offset` columns are live shipped data as of C1
+(2026-07-12): `inflation_percent`/`inflation_offset` in `paces.json`, read by
+`TurnEngine.inflation_rate` (game-rules §15.1). The other columns remain candidates.
+
 ### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
 
 All: HQ +4 gold per franchise; spread factor 200; spread base cost 50; maintenance
@@ -2684,7 +2688,10 @@ Plus `NEW_HURRY_MODIFIER` 50 (+50% cost hurrying an item queued this turn).
 
 ### 29.10 Per-difficulty AI cost/growth handicaps (candidate `difficulties.json` fields)
 
-Reference columns Humanish currently folds into the single `ai_bonus` yield scaler:
+Reference columns Humanish currently folds into the single `ai_bonus` yield scaler.
+The `inflation %` column is live shipped data as of C1 (2026-07-12):
+`inflation_percent` in `difficulties.json`, the handicap multiplier in
+`TurnEngine.inflation_rate` (game-rules §15.1). The other columns remain candidates:
 
 | Difficulty | inflation % | AI train % | AI construct % | AI unit-cost % | AI growth % |
 |---|---|---|---|---|---|
