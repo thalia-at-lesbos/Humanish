@@ -326,6 +326,21 @@ func test_goody_unit_types_resolve() -> void:
 			assert_true(db.units.has(str(su)),
 				"goody '%s' spawn_unit '%s' must be a real unit" % [g.get("id", ""), su])
 
+func test_paces_and_difficulties_carry_inflation_columns() -> void:
+	# §15.1 inflation reads a per-pace percent/offset (§29.5) and a per-difficulty
+	# handicap percent (§29.10); every row must carry them explicitly.
+	var db = _db()
+	for pace_id in db.paces:
+		assert_true(db.paces[pace_id].has("inflation_percent"),
+			"pace '%s' has inflation_percent" % pace_id)
+		assert_true(db.paces[pace_id].has("inflation_offset"),
+			"pace '%s' has inflation_offset" % pace_id)
+		assert_true(int(db.paces[pace_id]["inflation_offset"]) <= 0,
+			"pace '%s' offset delays onset (≤ 0)" % pace_id)
+	for diff_id in db.difficulties:
+		assert_true(db.difficulties[diff_id].has("inflation_percent"),
+			"difficulty '%s' has inflation_percent" % diff_id)
+
 func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 	# §24: every difficulty carries a full goody_weights column — one entry per
 	# goody id, summing to 100 — so the per-difficulty reward mix is explicit.

@@ -353,11 +353,17 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 
 ## Phase C — new mechanics (each is a self-contained subsystem; specs in game-rules §15)
 
-- **C1. Inflation** (§15.1): apply in the §3 upkeep/treasury phase
-  (`turn_engine.gd:_update_treasury`); per-pace percent/offset (`paces.json` §29.5),
-  per-difficulty multiplier (`difficulties.json` §29.10). Tests: treasury progression
-  at fixed turns across paces. AI solvency sliders (`manage_economy`) must see the
-  inflated expense total.
+- **C1. Inflation** (§15.1) — **DONE 2026-07-12.** `TurnEngine.inflation_rate`
+  (rate = clamped `(turn + inflation_offset) × inflation_percent / 100 ×
+  difficulty inflation_percent / 100`, integer math) applied inside
+  `TurnEngine.gold_upkeep`, the single shared expense total — so `_update_treasury`,
+  the HUD gold rate (`get_player_gold_rate`) and the AI's solvency reads all see the
+  inflated figure; the finance-advisor breakdown gained an inflation line. Data:
+  `inflation_percent`/`inflation_offset` per pace (`paces.json`, §29.5 values) and
+  `inflation_percent` per difficulty (`difficulties.json`, §29.10 values). Tests:
+  progression at fixed turns across paces, difficulty multiplier, zero at game start,
+  treasury delta, AI finance shift, data-column presence. Companion building-upkeep
+  retune done with it — see D3.
 - **C2. Population rush** (§15.2, §29.8): new command (`Commands.rush_population`),
   `_cmd_rush_production` split gold/pop paths, Slavery civic gate via
   `PolicyEffects.has_flag("pop_rush")`, stacking timed anger on the settlement

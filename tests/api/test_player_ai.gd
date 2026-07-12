@@ -43,6 +43,35 @@ func test_economy_shifts_to_finance_when_broke() -> void:
 	assert_true(p.slider_finance > 0, "A broke AI redirects the economy toward finance")
 	assert_eq(p.get_slider_sum(), 100, "Sliders still sum to 100")
 
+func test_economy_reacts_to_inflated_expenses() -> void:
+	# The AI's solvency check reads the treasury the shared expense helper
+	# (TurnEngine.gold_upkeep → _update_treasury) drains, so late-game inflation
+	# (§15.1) must reach it: the same 10-gold base upkeep leaves the reserve at
+	# the solvency floor uninflated, but drains below it once inflated.
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	gs.current_player_id = 1
+	gs.difficulty_id = "monarch"
+	var p = gs.get_player(1)
+	for i in range(10):
+		make_unit(gs, "warrior", 1, i, 0)   # 10 gold base upkeep
+	# Early game: no inflation — the turn leaves exactly the solvency floor.
+	p.treasury = 50
+	gs.turn_number = 0
+	TurnEngine._update_treasury(gs, p)
+	assert_eq(p.treasury, 40, "base expenses leave the reserve at the floor")
+	PlayerAI.manage_economy(f, 1)
+	assert_eq(p.slider_research, 100, "at the floor the AI still researches")
+	# Late game: the same expenses +60% (effective turn 200) drain the reserve
+	# below the floor, and the AI redirects toward finance.
+	p.treasury = 50
+	gs.turn_number = 290
+	TurnEngine._update_treasury(gs, p)
+	assert_eq(p.treasury, 34, "inflation drains the reserve the AI reads")
+	PlayerAI.manage_economy(f, 1)
+	assert_true(p.slider_finance > 0,
+		"inflated expenses push the AI toward finance")
+
 # ── Research: cheapest researchable tech ───────────────────────────────────────
 
 func test_research_picks_cheapest_available() -> void:

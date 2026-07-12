@@ -43,7 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — inflation, whipping, pace scaling, culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — whipping, pace scaling, culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1 implemented 2026-07-12, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1541,7 +1541,7 @@ supplies the values they read. A faithful implementation must reproduce both.
 > tables: `game-data.md` §29. Remove each subsection's "unimplemented" marker (and move
 > it into the appropriate numbered section) as it lands.
 
-### 15.1 Inflation *(unimplemented)*
+### 15.1 Inflation
 
 Civilization-wide expenses (unit upkeep, settlement maintenance, civic upkeep) are
 multiplied by an inflation rate that grows linearly with the game turn:
@@ -1557,6 +1557,14 @@ normal 30 / −90, epic 20 / −135, marathon 10 / −270 (the negative offset d
 inflation starts once `current_turn` passes `−offset`). Per-difficulty multiplier
 (reference handicap `iInflationPercent`): settler 60, chieftain 70, warlord 80, noble 90,
 prince 95, monarch–deity 100.
+
+Implemented (2026-07-12): `TurnEngine.inflation_rate` computes the rate from the game
+turn (per-pace `inflation_percent`/`inflation_offset` in `paces.json`, per-difficulty
+`inflation_percent` in `difficulties.json`); `TurnEngine.gold_upkeep` applies it to the
+gross expense total (unit upkeep + settlement maintenance + corporation maintenance,
+after the civic upkeep modifier), so the HUD gold rate, the AI's solvency reads, and
+`_update_treasury` all see the same inflated figure. The §9 Federal Reserve event's
+signed `inflation_pct` modifier composes on top, unchanged.
 
 ### 15.2 Population rush ("whipping") *(unimplemented)*
 

@@ -6,6 +6,8 @@
     "research_scale": 67,
     "build_scale": 67,
     "event_timer_scale": 67,
+    "inflation_percent": 45,
+    "inflation_offset": -60,
     "max_turns": 330
   },
   "normal": {
@@ -15,6 +17,8 @@
     "research_scale": 100,
     "build_scale": 100,
     "event_timer_scale": 100,
+    "inflation_percent": 30,
+    "inflation_offset": -90,
     "max_turns": 500
   },
   "epic": {
@@ -24,6 +28,8 @@
     "research_scale": 150,
     "build_scale": 150,
     "event_timer_scale": 150,
+    "inflation_percent": 20,
+    "inflation_offset": -135,
     "max_turns": 750
   },
   "marathon": {
@@ -33,6 +39,8 @@
     "research_scale": 300,
     "build_scale": 300,
     "event_timer_scale": 300,
+    "inflation_percent": 10,
+    "inflation_offset": -270,
     "max_turns": 1500
   }
 }
