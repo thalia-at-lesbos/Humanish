@@ -351,6 +351,14 @@ func test_paces_and_difficulties_carry_inflation_columns() -> void:
 		assert_true(db.difficulties[diff_id].has("inflation_percent"),
 			"difficulty '%s' has inflation_percent" % diff_id)
 
+func test_paces_carry_hurry_scale_column() -> void:
+	# §15.2 population rush scales hammers-per-pop by the pace's hurry percent
+	# (§29.8); every pace row must carry the column explicitly.
+	var db = _db()
+	for pace_id in db.paces:
+		assert_true(int(db.paces[pace_id].get("hurry_scale", 0)) > 0,
+			"pace '%s' has a positive hurry_scale" % pace_id)
+
 func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 	# §24: every difficulty carries a full goody_weights column — one entry per
 	# goody id, summing to 100 — so the per-difficulty reward mix is explicit.

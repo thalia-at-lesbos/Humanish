@@ -340,6 +340,8 @@ func apply_command(cmd: Dictionary) -> bool:
 			return _cmd_make_peace(cmd)
 		IDs.CommandType.RUSH_PRODUCTION:
 			return _cmd_rush_production(cmd)
+		IDs.CommandType.RUSH_POPULATION:
+			return _cmd_rush_population(cmd)
 		IDs.CommandType.BUILD_IMPROVEMENT:
 			return _cmd_build_improvement(cmd)
 		IDs.CommandType.UNIT_WAKE, IDs.CommandType.UNIT_SLEEP, \
@@ -898,7 +900,25 @@ func _cmd_set_production(cmd: Dictionary) -> bool:
 	var s: Settlement = _gs.get_settlement(int(cmd["settlement_id"]))
 	if s == null or s.owner_player_id != int(cmd["player_id"]):
 		return false
-	s.production_queue = cmd.get("queue", []).duplicate(true)
+	var incoming: Array = cmd.get("queue", []).duplicate(true)
+	# Stamp each item with the turn it was queued (§15.2 NEW_HURRY_MODIFIER:
+	# whipping an item queued this turn costs extra). An item already in the
+	# old queue keeps its original stamp — matched by type+id, each old entry
+	# consumed at most once so duplicates pair off in order.
+	var used: Dictionary = {}
+	for item in incoming:
+		var stamp: int = _gs.turn_number
+		for j in range(s.production_queue.size()):
+			if used.has(j):
+				continue
+			var old: Dictionary = s.production_queue[j]
+			if str(old.get("type", "")) == str(item.get("type", "")) \
+					and str(old.get("id", "")) == str(item.get("id", "")):
+				stamp = int(old.get("queued_turn", _gs.turn_number))
+				used[j] = true
+				break
+		item["queued_turn"] = stamp
+	s.production_queue = incoming
 	s.produce_nothing = bool(cmd.get("produce_nothing", false))
 	if not s.production_queue.empty():
 		s.produce_nothing = false
@@ -1087,7 +1107,11 @@ func _cmd_propose_permanent_alliance(cmd: Dictionary) -> bool:
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	return true
 
+# Gold rush (hurry with treasury). The legacy method "population" delegates to
+# the dedicated population-rush handler (§15.2) so older callers keep working.
 func _cmd_rush_production(cmd: Dictionary) -> bool:
+	if str(cmd.get("method", "treasury")) == "population":
+		return _cmd_rush_population(cmd)
 	var p: Player = _gs.get_player(int(cmd["player_id"]))
 	if p == null:
 		return false
@@ -1096,31 +1120,72 @@ func _cmd_rush_production(cmd: Dictionary) -> bool:
 		return false
 	if s.production_queue.empty():
 		return false
-	var method: String = str(cmd.get("method", "treasury"))
 	var item: Dictionary = s.production_queue[0]
 	var pace: Dictionary = _db.get_pace(_gs.pace_id)
 	var cost: int = TurnEngine._item_cost(item, _db, p, pace)
 	var remaining: int = max(0, cost - s.production_store)
-	match method:
-		"treasury":
-			# Rushing with gold requires a civic that allows it (Universal Suffrage, §8).
-			if not PolicyEffects.has_flag(p, _db, "can_rush_with_gold"):
-				return false
-			if p.treasury < remaining:
-				return false
-			p.treasury -= remaining
-			s.production_store = cost
-		"population":
-			# Sacrificing population requires a civic that allows it (Slavery, §8).
-			if not PolicyEffects.has_flag(p, _db, "rush_by_pop"):
-				return false
-			if s.population <= 1:
-				return false
-			s.population -= 1
-			s.food_store = 0
-			s.production_store = cost
+	# Rushing with gold requires a civic that allows it (Universal Suffrage, §8).
+	if not PolicyEffects.has_flag(p, _db, "can_rush_with_gold"):
+		return false
+	if p.treasury < remaining:
+		return false
+	p.treasury -= remaining
+	s.production_store = cost
 	s.rush_anger_turns = 5
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
+
+# Population rush ("whipping", §15.2): sacrifice citizens to finish the head
+# production item. Gated on a civic carrying the `pop_rush` flag (Slavery, §8).
+# Each sacrificed citizen buys `TurnEngine.rush_hammers_per_pop` hammers; the
+# whip never takes more population than the remaining cost requires and must
+# leave at least `rush_min_population` citizens. Every whip stacks one timed
+# anger entry (−`rush_pop_anger` happiness for `rush_pop_anger_turns` turns) on
+# the settlement, reusing the §9 timed-happiness channel.
+func _cmd_rush_population(cmd: Dictionary) -> bool:
+	var p: Player = _gs.get_player(int(cmd["player_id"]))
+	if p == null:
+		return false
+	var s: Settlement = _gs.get_settlement(int(cmd["settlement_id"]))
+	if s == null or s.owner_player_id != p.id:
+		return false
+	if not PolicyEffects.has_flag(p, _db, "pop_rush"):
+		return false
+	var pop_cost: int = TurnEngine.rush_pop_cost(_gs, s, p)
+	if pop_cost <= 0:
+		return false
+	var min_pop: int = _db.get_constant("rush_min_population", 1)
+	if s.population - pop_cost < min_pop:
+		return false
+	var per_pop: int = TurnEngine.rush_hammers_per_pop(
+		_db, _db.get_pace(_gs.pace_id))
+	s.population -= pop_cost
+	s.production_store += pop_cost * per_pop
+	# A structure with the `halve_slavery_anger` effect (Aztec Sacrificial
+	# Altar) halves the whip-anger duration.
+	var anger_turns: int = _db.get_constant("rush_pop_anger_turns", 10)
+	for st in s.structures:
+		if bool(_db.get_structure(st).get("effects", {}).get(
+				"halve_slavery_anger", false)):
+			anger_turns = anger_turns / 2
+			break
+	s.timed_happiness.append({
+		"amount": -_db.get_constant("rush_pop_anger", 1),
+		"turns_left": anger_turns
+	})
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return true
+
+# Pure read for the city screen (§11): citizens a population rush of this
+# settlement's head queue item would sacrifice right now (0 = nothing to rush).
+func rush_population_cost(settlement_id: int) -> int:
+	var s: Settlement = _gs.get_settlement(settlement_id)
+	if s == null:
+		return 0
+	var p: Player = _gs.get_player(s.owner_player_id)
+	if p == null:
+		return 0
+	return TurnEngine.rush_pop_cost(_gs, s, p)
 
 # Shared legality predicate for a worker (unit_id) building improvement_id on its
 # current tile. Used by _cmd_build_improvement (defence-in-depth on the command),

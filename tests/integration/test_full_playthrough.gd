@@ -96,7 +96,7 @@ func test_playthrough_production_and_city_management() -> void:
 	assert_eq(gs.get_player(pid).policies.get("labor", ""), "slavery", "labor civic recorded")
 
 	var before = gs.units.size()
-	assert_true(f.apply_command(Commands.rush_production(pid, city.id, "population")),
+	assert_true(f.apply_command(Commands.rush_population(pid, city.id)),
 		"population rush permitted by Slavery")
 	# The rushed item completes during the owner's settlement step.
 	_end_turn(f, gs, pid)

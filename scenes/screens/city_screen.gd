@@ -192,6 +192,7 @@ func _build() -> void:
 	var can_rush_treasury: bool = false
 	var can_rush_pop: bool = false
 	var rush_gold_cost: int = 0
+	var rush_pop_cost: int = 0
 	if not s.production_queue.empty() and owner != null:
 		var pace2 = db.get_pace(gs.pace_id)
 		var item2 = s.production_queue[0]
@@ -202,17 +203,22 @@ func _build() -> void:
 		can_rush_treasury = rush_gold_cost > 0 \
 			and PolicyEffects.has_flag(owner, db, "can_rush_with_gold") \
 			and owner.treasury >= rush_gold_cost
-		can_rush_pop = PolicyEffects.has_flag(owner, db, "rush_by_pop") \
-			and s.population > 1
+		# Population rush (§15.2): needs a permitting civic (Slavery), a cost to
+		# cover, and enough citizens to keep the minimum city size afterwards.
+		rush_pop_cost = _facade.rush_population_cost(_city_id)
+		var min_pop: int = db.get_constant("rush_min_population", 1)
+		can_rush_pop = PolicyEffects.has_flag(owner, db, "pop_rush") \
+			and rush_pop_cost > 0 \
+			and s.population - rush_pop_cost >= min_pop
 	var rush_gold_btn := Button.new()
 	rush_gold_btn.text = "Hurry (Gold: " + str(rush_gold_cost) + ")"
 	rush_gold_btn.disabled = not can_rush_treasury
 	rush_gold_btn.connect("pressed", self, "_on_rush", ["treasury"])
 	action_row.add_child(rush_gold_btn)
 	var rush_pop_btn := Button.new()
-	rush_pop_btn.text = "Hurry (Pop)"
+	rush_pop_btn.text = "Hurry (Pop: " + str(rush_pop_cost) + ")"
 	rush_pop_btn.disabled = not can_rush_pop
-	rush_pop_btn.connect("pressed", self, "_on_rush", ["population"])
+	rush_pop_btn.connect("pressed", self, "_on_rush_pop")
 	action_row.add_child(rush_pop_btn)
 	var min_pop: int = db.get_constant("draft_min_population", 2)
 	var can_draft: bool = owner != null \
@@ -518,6 +524,14 @@ func _on_rush(method: String) -> void:
 	if s == null:
 		return
 	_facade.apply_command(Commands.rush_production(s.owner_player_id, _city_id, method))
+	rebuild()
+
+func _on_rush_pop() -> void:
+	var gs = _facade.get_state()
+	var s = gs.get_settlement(_city_id)
+	if s == null:
+		return
+	_facade.apply_command(Commands.rush_population(s.owner_player_id, _city_id))
 	rebuild()
 
 func _on_draft() -> void:

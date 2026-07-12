@@ -207,7 +207,14 @@ static func deserialize(d: Dictionary):
 	s.output_food = int(d.get("output_food", 0))
 	s.output_production = int(d.get("output_production", 0))
 	s.output_commerce = int(d.get("output_commerce", 0))
-	s.production_queue = d.get("production_queue", []).duplicate(true)
+	# Queue items may carry a `queued_turn` stamp (§15.2 new-hurry surcharge);
+	# coerce it back to int so post-load turn comparisons match (JSON float gotcha).
+	s.production_queue = []
+	for it in d.get("production_queue", []):
+		var qitem: Dictionary = it.duplicate(true)
+		if qitem.has("queued_turn"):
+			qitem["queued_turn"] = int(qitem["queued_turn"])
+		s.production_queue.append(qitem)
 	s.production_store = int(d.get("production_store", 0))
 	s.culture_total = int(d.get("culture_total", 0))
 	s.culture_ring = int(d.get("culture_ring", 1))

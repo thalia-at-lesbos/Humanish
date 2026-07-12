@@ -503,11 +503,11 @@ trait pairs differ from the reference leader table **[value]**:
 - Goody huts: all 12 reference outcomes present, but `settler` and `worker`
   rewards have **weight 0** (disabled; reference grants them on low
   difficulties) **[value/missing]**.
-- Civics: all 25 reference civics present in `policies.json` ✓, but `tribalism`,
-  `slavery`, `serfdom` carry **no effects** — in particular **population
-  rush ("whipping") is missing** (reference `HURRY_POP_ANGER`/slavery hurry);
-  Humanish rush is gold/GP only. Serfdom's +50% worker speed likewise unmodelled
-  (worker-speed effects don't exist).
+- Civics: all 25 reference civics present in `policies.json` ✓. Population
+  rush ("whipping") wired 2026-07-12 (C2, game-rules §15.2): slavery carries the
+  `pop_rush` flag driving the `RUSH_POPULATION` command (reference
+  `HURRY_POP_ANGER`/slavery hurry adopted). Serfdom's +50% worker speed is
+  carried as `worker_speed_bonus` and read by the build-turn math.
 - Culture: ring thresholds [10,30,60,…,550] vs reference culture levels
   10/100/500/5000/50000 (normal speed) — different curve, no per-speed scaling,
   and the reference's per-culture-level **city defence 20–100%** has no

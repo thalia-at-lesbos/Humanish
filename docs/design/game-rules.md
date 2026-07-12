@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1 implemented 2026-07-12, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2 implemented 2026-07-12, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1566,9 +1566,9 @@ after the civic upkeep modifier), so the HUD gold rate, the AI's solvency reads,
 `_update_treasury` all see the same inflated figure. The §9 Federal Reserve event's
 signed `inflation_pct` modifier composes on top, unchanged.
 
-### 15.2 Population rush ("whipping") *(unimplemented)*
+### 15.2 Population rush ("whipping")
 
-The reference has **two** hurry types; Humanish implements only the gold one:
+The reference has **two** hurry types:
 
 | Hurry type | Conversion | Side effect | Enabled by |
 |---|---|---|---|
@@ -1578,10 +1578,25 @@ The reference has **two** hurry types; Humanish implements only the gold one:
 Reference constants: `iProductionPerPopulation` 30, `iGoldPerProduction` 3,
 `HURRY_POP_ANGER` 1, `HURRY_ANGER_DIVISOR` 10 (anger duration in turns),
 `NEW_HURRY_MODIFIER` 50 (+50% cost when the item was queued this turn). Production per
-population scales with pace (`iUnitHurryPercent`: 67/100/150/300). The Slavery policy
-entry in `policies.json` currently has **no effects** — this is its missing headline
-effect. Sacrificed population must respect a minimum city size of 1 and cannot exceed
+population scales with pace (reference hurry percent: 67/100/150/300).
+Sacrificed population must respect a minimum city size of 1 and cannot exceed
 what the remaining cost requires.
+
+Implemented (2026-07-12): the `RUSH_POPULATION` command (`Commands.rush_population`,
+`SimFacade._cmd_rush_population`) whips the head production item — gated on a civic
+carrying the `pop_rush` flag (Slavery's headline effect in `policies.json`). Math in
+`TurnEngine.rush_pop_cost`/`rush_hammers_per_pop`/`rush_remaining_cost`:
+`rush_production_per_pop` 30 hammers per citizen scaled by the per-pace `hurry_scale`
+(67/100/150/300 in `paces.json`), pop cost = ceiling of the remaining hammers over
+that (never more than the remaining cost requires), minimum retained city size
+`rush_min_population` 1. An item queued this turn (`SET_PRODUCTION` stamps each queue
+entry's `queued_turn`) costs `new_hurry_modifier` +50%. Each whip stacks one timed
+anger entry (−`rush_pop_anger` 1 happiness for `rush_pop_anger_turns` 10 turns) on
+the settlement via the §9 timed-happiness channel; a structure with the
+`halve_slavery_anger` effect (Aztec Sacrificial Altar, previously inert shipped
+data) halves that duration. All constants in `data/constants.json`. The gold path is untouched and keeps its pre-existing Humanish
+tuning (1 gold per hammer, Universal Suffrage gate, flat 5-turn rush anger); its
+3-gold-per-hammer reference retune remains an open parity gap.
 
 ### 15.3 Pace scaling for anarchy, golden ages, and victory delay *(unimplemented)*
 
