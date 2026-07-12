@@ -107,12 +107,22 @@ static func propose_permanent_alliance(player_id: int,
 
 static func rush_production(player_id: int, settlement_id: int,
 		method: String) -> Dictionary:
-	# method: "treasury" or "population"
+	# method: "treasury" (gold rush). The legacy "population" method still
+	# routes to the population-rush handler; prefer rush_population().
 	return {
 		"type": IDs.CommandType.RUSH_PRODUCTION,
 		"player_id": player_id,
 		"settlement_id": settlement_id,
 		"method": method
+	}
+
+# Population rush ("whipping", §15.2): sacrifice citizens to finish the head
+# production item. Requires a civic carrying the `pop_rush` flag (Slavery).
+static func rush_population(player_id: int, settlement_id: int) -> Dictionary:
+	return {
+		"type": IDs.CommandType.RUSH_POPULATION,
+		"player_id": player_id,
+		"settlement_id": settlement_id
 	}
 
 static func build_improvement(player_id: int, unit_id: int,

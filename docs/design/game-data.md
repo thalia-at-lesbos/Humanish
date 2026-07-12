@@ -2675,12 +2675,19 @@ total). Settler/worker huts exist only through Prince/Warlord:
 
 Plus `NEW_HURRY_MODIFIER` 50 (+50% cost hurrying an item queued this turn).
 
-### 29.9 Labor civic reference effects (currently effect-less in `policies.json`)
+The population row is live shipped data as of C2 (2026-07-12, game-rules §15.2):
+`rush_production_per_pop` 30, `rush_pop_anger` 1, `rush_pop_anger_turns` 10,
+`new_hurry_modifier` 50, `rush_min_population` 1 in `constants.json`; the pace
+hurry percent is the `hurry_scale` column in `paces.json` (67/100/150/300). The
+gold row remains a Humanish-tuned path (1 gold per hammer, Universal Suffrage
+gate) — its reference retune is still open.
+
+### 29.9 Labor civic reference effects
 
 | Civic | Tech | Reference effects |
 |---|---|---|
 | tribalism | — | default; no effects (anarchy length 1 — matches) |
-| slavery | Bronze Working | enables population hurry (§29.8) |
+| slavery | Bronze Working | enables population hurry (§29.8) — **wired 2026-07-12** as the bare `pop_rush` flag in `policies.json` (tech gate still open) |
 | serfdom | Feudalism | +50% worker build speed |
 | emancipation | Democracy | +100% cottage-line upgrade rate; +anger in every civ **not** running it (per-adopter pressure, reference weight 400) |
 

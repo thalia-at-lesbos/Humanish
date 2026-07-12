@@ -122,7 +122,11 @@ Click a tile to lock or unlock it. Locked tiles are always worked first.
 **Specialists** — assign citizens to specialist slots in built structures (e.g. scientist, engineer, merchant, artist).
 Specialists generate Great Person points toward a Great Person of that type (see §10).
 
-**Rush production** — spend gold to instantly complete part or all of the current build queue item, if your civics allow it.
+**Rush production** — spend gold to instantly complete part or all of the current build queue item, if your civics allow it (Universal Suffrage).
+
+**Hurry with population ("whipping")** — under the **Slavery** civic the city screen's *Hurry (Pop: N)* button sacrifices N citizens to finish the current item (each citizen is worth 30 hammers at Normal pace, scaled by game pace).
+The whip never takes more citizens than the remaining cost requires and always leaves the city at least 1 population; an item queued this same turn costs 50% extra.
+Each whip leaves one extra angry citizen in that city for 10 turns — and repeated whips stack.
 
 ### Growth
 

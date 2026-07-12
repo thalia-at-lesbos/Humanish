@@ -30,14 +30,14 @@ func test_sum_int_aggregates_active_policies() -> void:
 func test_has_flag_reads_bare_and_nested() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
-	p.policies = {"labor": "slavery"}            # bare top-level rush_by_pop
-	assert_true(PolicyEffects.has_flag(p, gs.db, "rush_by_pop"),
+	p.policies = {"labor": "slavery"}            # bare top-level pop_rush
+	assert_true(PolicyEffects.has_flag(p, gs.db, "pop_rush"),
 		"has_flag reads a bare top-level boolean effect")
 	p.policies = {"government": "universal_suffrage"}  # nested can_rush_with_gold
 	assert_true(PolicyEffects.has_flag(p, gs.db, "can_rush_with_gold"),
 		"has_flag reads a nested effects-dictionary boolean")
 	p.policies = {}
-	assert_false(PolicyEffects.has_flag(p, gs.db, "rush_by_pop"),
+	assert_false(PolicyEffects.has_flag(p, gs.db, "pop_rush"),
 		"has_flag is false when no active civic carries the flag")
 
 func test_largest_city_ids_orders_by_population() -> void:
@@ -383,11 +383,18 @@ func test_gold_rush_requires_universal_suffrage() -> void:
 func test_pop_rush_requires_slavery() -> void:
 	var setup = _rush_setup()
 	var gs = setup[0]; var f = setup[1]
-	assert_false(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "population")),
+	assert_false(f.apply_command(Commands.rush_population(1, gs.settlements[0].id)),
 		"Population rush is rejected without a permitting civic")
 	gs.get_player(1).policies = {"labor": "slavery"}
-	assert_true(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "population")),
+	assert_true(f.apply_command(Commands.rush_population(1, gs.settlements[0].id)),
 		"Slavery permits a population rush")
+
+func test_pop_rush_legacy_method_string_still_routes() -> void:
+	var setup = _rush_setup()
+	var gs = setup[0]; var f = setup[1]
+	gs.get_player(1).policies = {"labor": "slavery"}
+	assert_true(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "population")),
+		"The legacy RUSH_PRODUCTION method=population still whips")
 
 # ── Worker speed ─────────────────────────────────────────────────────────────
 

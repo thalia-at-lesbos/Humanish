@@ -364,11 +364,29 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   progression at fixed turns across paces, difficulty multiplier, zero at game start,
   treasury delta, AI finance shift, data-column presence. Companion building-upkeep
   retune done with it — see D3.
-- **C2. Population rush** (§15.2, §29.8): new command (`Commands.rush_population`),
-  `_cmd_rush_production` split gold/pop paths, Slavery civic gate via
-  `PolicyEffects.has_flag("pop_rush")`, stacking timed anger on the settlement
-  (10-turn entries, like existing timed-anger events). Tests: `test_settlement*.gd`
-  hurry math, anger stacking/expiry, AI never whips below pop 1.
+- **C2. Population rush** (§15.2, §29.8) — **DONE 2026-07-12.** New
+  `RUSH_POPULATION` command (`Commands.rush_population` →
+  `SimFacade._cmd_rush_population`; the legacy `RUSH_PRODUCTION`
+  method="population" delegates to it, so `_cmd_rush_production` is now
+  gold-only). Slavery's shipped `rush_by_pop` flag renamed to `pop_rush` and
+  gated via `PolicyEffects.has_flag`. Math in `TurnEngine.rush_pop_cost`/
+  `rush_hammers_per_pop`: 30 hammers per citizen (`rush_production_per_pop`)
+  × per-pace `hurry_scale` (67/100/150/300, new `paces.json` column), pop cost
+  = ceiling of remaining hammers, never below `rush_min_population` 1 (also the
+  AI floor — the AI does not initiate whips; the handler enforces the floor for
+  every client). `new_hurry_modifier` +50% when the head item was queued this
+  turn (`SET_PRODUCTION` now stamps `queued_turn` per queue item; coerced to
+  int in `Settlement.deserialize`). Each whip stacks a −1 × 10-turn entry on
+  the settlement's §9 `timed_happiness` channel (replaces the old flat
+  `rush_anger_turns = 5` on the pop path; the gold path keeps it); the Aztec
+  Sacrificial Altar's previously inert `halve_slavery_anger` effect now halves
+  that duration. City screen
+  "Hurry (Pop: N)" button shows the cost via `facade.rush_population_cost`.
+  Tests: `test_settlement.gd` (hurry math, pace scaling, surcharge, stamp
+  preservation, pop floor, anger stacking/expiry, JSON int-key roundtrip),
+  `test_policy_effects.gd` (civic gate, legacy routing), `test_data_db.gd`
+  (`hurry_scale` column). Gold path tuning untouched — its 3-gold-per-hammer
+  reference retune and Slavery's Bronze-Working tech gate remain open gaps.
 - **C3. Pace scaling** for anarchy/golden ages/victory delay/wild timing (§15.3,
   §29.5): multiply policy `transition_turns`, `golden_age_base_turns`, cultural/time
   victory turn thresholds, and give wild spawning its own pace column (marathon 400).

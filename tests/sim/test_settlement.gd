@@ -713,3 +713,157 @@ func test_scientist_specialists_add_science_not_commerce() -> void:
 	assert_eq(Specialists.settlement_channel(gs.db, s, "science"),
 		2 * int(gs.db.get_specialist("scientist")["output"]["science"]),
 		"Scientist science is exposed on the science channel")
+
+# ── Population rush ("whipping", §15.2) ──────────────────────────────────────
+
+# A slavery player with one settlement and a 100-hammer unit queued directly
+# (no queued_turn stamp, so the new-hurry surcharge does not apply unless a
+# test opts in via the SET_PRODUCTION command).
+func _whip_setup(pop = 7):
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).policies = {"labor": "slavery"}
+	gs.db.units["whip_dummy"] = {"id": "whip_dummy", "name": "Whip Dummy",
+		"cost": 100, "base_strength": 5, "movement": 120}
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 1, 5, 5, pop)
+	s.production_queue = [{"type": "unit", "id": "whip_dummy"}]
+	return [gs, f, s]
+
+func test_whip_pop_cost_is_ceiling_of_remaining_over_per_pop() -> void:
+	var setup = _whip_setup()
+	var gs = setup[0]; var s = setup[2]
+	var p = gs.get_player(1)
+	assert_eq(TurnEngine.rush_pop_cost(gs, s, p), 4,
+		"100 hammers at 30/pop whips 4 citizens (ceiling)")
+	s.production_store = 10
+	assert_eq(TurnEngine.rush_pop_cost(gs, s, p), 3,
+		"90 remaining hammers at 30/pop whips 3 citizens")
+	s.production_store = 100
+	assert_eq(TurnEngine.rush_pop_cost(gs, s, p), 0,
+		"Nothing left to rush costs no population")
+
+func test_whip_hammers_per_pop_scales_with_pace() -> void:
+	var gs = make_gs(1)
+	assert_eq(TurnEngine.rush_hammers_per_pop(gs.db, gs.db.get_pace("quick")), 20,
+		"Quick pace: 30 scaled by hurry_scale 67")
+	assert_eq(TurnEngine.rush_hammers_per_pop(gs.db, gs.db.get_pace("normal")), 30,
+		"Normal pace: the reference 30 hammers per pop")
+	assert_eq(TurnEngine.rush_hammers_per_pop(gs.db, gs.db.get_pace("epic")), 45,
+		"Epic pace: 30 scaled by hurry_scale 150")
+	assert_eq(TurnEngine.rush_hammers_per_pop(gs.db, gs.db.get_pace("marathon")), 90,
+		"Marathon pace: 30 scaled by hurry_scale 300")
+
+func test_whip_command_spends_pop_and_fills_store() -> void:
+	var setup = _whip_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)),
+		"Whip accepted for a slavery player")
+	assert_eq(s.population, 3, "4 citizens sacrificed from pop 7")
+	assert_eq(s.production_store, 120, "4 pop x 30 hammers banked")
+
+func test_whip_new_hurry_surcharge_applies_to_items_queued_this_turn() -> void:
+	var setup = _whip_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	var p = gs.get_player(1)
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "unit", "id": "whip_dummy"}])), "queue set via command")
+	assert_eq(int(s.production_queue[0].get("queued_turn", -1)), gs.turn_number,
+		"SET_PRODUCTION stamps new items with the current turn")
+	assert_eq(TurnEngine.rush_pop_cost(gs, s, p), 5,
+		"Queued this turn: 100 + 50% = 150 hammers -> 5 citizens")
+	s.production_queue[0]["queued_turn"] = gs.turn_number - 1
+	assert_eq(TurnEngine.rush_pop_cost(gs, s, p), 4,
+		"Queued on an earlier turn: no surcharge, 4 citizens")
+
+func test_set_production_keeps_stamp_of_already_queued_items() -> void:
+	var setup = _whip_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "unit", "id": "whip_dummy"}])), "queue set via command")
+	gs.turn_number += 3
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "unit", "id": "whip_dummy"}, {"type": "unit", "id": "warrior"}])),
+		"queue extended via command")
+	assert_eq(int(s.production_queue[0].get("queued_turn", -1)), gs.turn_number - 3,
+		"A surviving item keeps its original queued-turn stamp")
+	assert_eq(int(s.production_queue[1].get("queued_turn", -1)), gs.turn_number,
+		"A newly added item is stamped with the current turn")
+
+func test_whip_refused_below_minimum_population() -> void:
+	var setup = _whip_setup(4)  # needs 4 pop, would leave 0 < minimum 1
+	var f = setup[1]; var s = setup[2]
+	assert_false(f.apply_command(Commands.rush_population(1, s.id)),
+		"Whip that would drop the city below pop 1 is rejected")
+	assert_eq(s.population, 4, "Population untouched by the rejected whip")
+	assert_eq(s.production_store, 0, "No hammers banked by the rejected whip")
+
+func test_whip_refused_with_nothing_to_rush() -> void:
+	var setup = _whip_setup()
+	var f = setup[1]; var s = setup[2]
+	s.production_store = 100
+	assert_false(f.apply_command(Commands.rush_population(1, s.id)),
+		"Whip rejected when the head item is already paid for")
+	s.production_queue = []
+	assert_false(f.apply_command(Commands.rush_population(1, s.id)),
+		"Whip rejected with an empty production queue")
+
+func test_whip_anger_stacks_per_rush() -> void:
+	var setup = _whip_setup(12)
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	var p = gs.get_player(1)
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "first whip")
+	s.production_store = 0
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "second whip")
+	assert_eq(s.timed_happiness.size(), 2, "Each whip stacks its own anger entry")
+	for tm in s.timed_happiness:
+		assert_eq(int(tm["amount"]), -1, "Each whip is worth one angry citizen")
+		assert_eq(int(tm["turns_left"]), 10, "Whip anger lasts 10 turns")
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var whipped_neg: int = s.negative_sentiment
+	s.timed_happiness = []
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(whipped_neg, s.negative_sentiment + 2,
+		"Two stacked whips add two discontented citizens")
+
+func test_whip_anger_expires_after_its_duration() -> void:
+	var setup = _whip_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	var p = gs.get_player(1)
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "whip accepted")
+	for _i in range(9):
+		TurnEngine._tick_states(gs, p)
+	assert_eq(s.timed_happiness.size(), 1, "Whip anger still active after 9 turns")
+	TurnEngine._tick_states(gs, p)
+	assert_eq(s.timed_happiness.size(), 0, "Whip anger expires after 10 turns")
+
+func test_whip_state_survives_json_roundtrip_with_int_keys() -> void:
+	# The queued_turn stamp and the stacked anger entries must come back as ints
+	# after a JSON save/load (the float-key gotcha), so post-load whip math and
+	# the state hash match the original.
+	var setup = _whip_setup(12)
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	var p = gs.get_player(1)
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "unit", "id": "whip_dummy"}])), "queue set via command")
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "whip accepted")
+	var parsed = JSON.parse(JSON.print(s.serialize()))
+	assert_eq(parsed.error, OK, "settlement JSON parses back")
+	var s2 = Settlement.deserialize(parsed.result)
+	assert_eq(typeof(s2.production_queue[0]["queued_turn"]), TYPE_INT,
+		"queued_turn is coerced back to int on deserialize")
+	assert_eq(int(s2.production_queue[0]["queued_turn"]), gs.turn_number,
+		"queued_turn value survives the roundtrip")
+	assert_eq(typeof(s2.timed_happiness[0]["amount"]), TYPE_INT,
+		"whip anger amount is coerced back to int on deserialize")
+	gs.settlements[0] = s2
+	assert_eq(TurnEngine.rush_pop_cost(gs, s2, p), TurnEngine.rush_pop_cost(gs, s, p),
+		"Post-load whip math matches the original")
+
+func test_whip_anger_duration_halved_by_sacrificial_altar() -> void:
+	var setup = _whip_setup()
+	var f = setup[1]; var s = setup[2]
+	s.structures = ["sacrificial_altar"]
+	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "whip accepted")
+	assert_eq(int(s.timed_happiness[0]["turns_left"]), 5,
+		"halve_slavery_anger (Sacrificial Altar) halves whip-anger duration")

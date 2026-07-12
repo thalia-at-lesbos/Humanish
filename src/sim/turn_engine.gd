@@ -781,6 +781,42 @@ static func _item_cost(item: Dictionary, db: DataDB, player: Player,
 			base = int(db.projects.get(iid, {}).get("cost", 500))
 	return Fixed.scale(base, pace_scale)
 
+# ── Population rush ("whipping", §15.2) ──────────────────────────────────────
+# Hammers one sacrificed citizen buys: `rush_production_per_pop` (reference 30)
+# scaled by the pace's `hurry_scale` (reference hurry percent 67/100/150/300),
+# so whip pop counts stay constant across paces (item costs scale the same way).
+static func rush_hammers_per_pop(db: DataDB, pace: Dictionary) -> int:
+	var per: int = Fixed.scale(db.get_constant("rush_production_per_pop", 30),
+		int(pace.get("hurry_scale", 100)))
+	return per if per > 0 else 1
+
+# Hammers a population rush must still cover for the head queue item. An item
+# queued this very turn costs `new_hurry_modifier` % extra (reference
+# NEW_HURRY_MODIFIER 50) — the surcharge for whipping a just-queued order.
+static func rush_remaining_cost(gs: GameState, s: Settlement,
+		player: Player) -> int:
+	if s.production_queue.empty():
+		return 0
+	var item: Dictionary = s.production_queue[0]
+	var pace: Dictionary = gs.db.get_pace(gs.pace_id)
+	var cost: int = _item_cost(item, gs.db, player, pace)
+	var remaining: int = cost - s.production_store
+	if remaining <= 0:
+		return 0
+	if int(item.get("queued_turn", -1)) == gs.turn_number:
+		remaining = Fixed.scale_up(remaining,
+			gs.db.get_constant("new_hurry_modifier", 50))
+	return remaining
+
+# Population a whip of the head queue item sacrifices: ceil(remaining/per_pop),
+# never more than the remaining cost requires (§15.2). 0 = nothing to rush.
+static func rush_pop_cost(gs: GameState, s: Settlement, player: Player) -> int:
+	var remaining: int = rush_remaining_cost(gs, s, player)
+	if remaining <= 0:
+		return 0
+	var per: int = rush_hammers_per_pop(gs.db, gs.db.get_pace(gs.pace_id))
+	return (remaining + per - 1) / per
+
 static func _complete_item(gs: GameState, s: Settlement,
 		player: Player, item: Dictionary) -> void:
 	var itype: String = item.get("type", "unit")

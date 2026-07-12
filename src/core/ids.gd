@@ -124,7 +124,10 @@ enum CommandType {
     CANCEL_OPEN_BORDERS = 65,
     # Spy-unit-on-tile espionage mission (§7.1): a spy standing on a foreign city
     # tile with full movement runs an espionage mission against that city.
-    SPY_MISSION = 66
+    SPY_MISSION = 66,
+    # Population rush ("whipping", §15.2): sacrifice citizens to finish the head
+    # production item. Gated on a civic with the `pop_rush` flag (Slavery).
+    RUSH_POPULATION = 67
 }
 
 # Win condition types

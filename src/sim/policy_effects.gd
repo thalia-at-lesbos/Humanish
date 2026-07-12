@@ -18,7 +18,7 @@ class_name PolicyEffects
 # An effect may live in one of two places on a policy record:
 #   • inside the per-civic `effects` dictionary (most civics), or
 #   • as a bare top-level key (a handful carry their lone effect there —
-#     `worker_speed_bonus`, `rush_by_pop`).
+#     `worker_speed_bonus`, `pop_rush`).
 # Both helpers below check both locations so callers never care which it is.
 
 # Sum a numeric effect across every active policy. Absent keys contribute 0.
