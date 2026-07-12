@@ -359,6 +359,27 @@ func test_paces_carry_hurry_scale_column() -> void:
 		assert_true(int(db.paces[pace_id].get("hurry_scale", 0)) > 0,
 			"pace '%s' has a positive hurry_scale" % pace_id)
 
+func test_paces_carry_c3_scaling_columns() -> void:
+	# §15.3 pace scaling (C3): every pace carries its own anarchy / golden-age /
+	# victory-delay / wild columns, pinned to the reference §29.5 table — note wild
+	# is its own curve (marathon 400), NOT a reuse of build_scale (marathon 300).
+	var expected := {
+		"quick":    {"anarchy_scale": 67,  "golden_age_scale": 80,
+			"victory_delay_scale": 67,  "wild_scale": 67},
+		"normal":   {"anarchy_scale": 100, "golden_age_scale": 100,
+			"victory_delay_scale": 100, "wild_scale": 100},
+		"epic":     {"anarchy_scale": 150, "golden_age_scale": 125,
+			"victory_delay_scale": 150, "wild_scale": 150},
+		"marathon": {"anarchy_scale": 200, "golden_age_scale": 200,
+			"victory_delay_scale": 300, "wild_scale": 400},
+	}
+	var db = _db()
+	for pace_id in expected:
+		assert_true(db.paces.has(pace_id), "pace '%s' exists" % pace_id)
+		for col in expected[pace_id]:
+			assert_eq(int(db.paces[pace_id].get(col, 0)), int(expected[pace_id][col]),
+				"pace '%s' %s matches the reference" % [pace_id, col])
+
 func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 	# §24: every difficulty carries a full goody_weights column — one entry per
 	# goody id, summing to 100 — so the per-difficulty reward mix is explicit.

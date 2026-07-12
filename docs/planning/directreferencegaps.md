@@ -388,8 +388,25 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   (`hurry_scale` column). Gold path tuning untouched — its 3-gold-per-hammer
   reference retune and Slavery's Bronze-Working tech gate remain open gaps.
 - **C3. Pace scaling** for anarchy/golden ages/victory delay/wild timing (§15.3,
-  §29.5): multiply policy `transition_turns`, `golden_age_base_turns`, cultural/time
-  victory turn thresholds, and give wild spawning its own pace column (marathon 400).
+  §29.5) — **DONE 2026-07-12.** Four new `paces.json` columns (`Fixed.scale`
+  truncation everywhere): `anarchy_scale` 67/100/150/200 — `SimFacade._anarchy_turns`
+  stretches civic `transition_turns` (`_cmd_set_policy`) and
+  `state_religion_anarchy_turns` (`_cmd_set_state_religion`), clamped to the
+  reference bounds `anarchy_min_turns` 1 / `anarchy_max_turns` 100 (new in
+  `constants.json`; espionage anarchy stays mission-priced, unscaled);
+  `golden_age_scale` 80/100/125/200 — `GreatPeople._golden_age_duration` (8 turns →
+  6/8/10/16), replacing its old `build_scale` read; `victory_delay_scale`
+  67/100/150/300 — `WinConditions._cultural` now checks each city's `culture_total`
+  against the top `culture_ring_thresholds` entry × the scale (368/550/825/1650;
+  identical to the old top-ring check at normal), while the Time victory keeps the
+  already-per-pace `max_turns` (no double scaling); `wild_scale` 67/100/150/**400** —
+  `WildForces._scaled_turns` (was `growth_scale`, i.e. marathon 300 → 400).
+  Tests: `test_data_db.gd` (full four-column table pin), `test_policies.gd` +
+  `test_state_religion.gd` (anarchy per pace incl. the quick-pace min-clamp),
+  `test_great_people.gd` (golden-age lengths), `test_win_conditions.gd` (cultural
+  threshold per pace; legacy tests moved from ring to culture_total),
+  `test_wild_forces.gd` (26/40/60/160 gate pins). All normal-pace behaviour —
+  and thus every seeded playthrough — is unchanged (all four scales are 100).
 - **C4. Culture-level city defence** (§15.4, §29.4): defence modifier from the
   settlement's culture tier in `Combat` city-defence math; bombard reduces it, heals
   5%/turn. `[decide→RESOLVED]` the border-expansion curve moves to the reference

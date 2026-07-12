@@ -153,6 +153,17 @@ func test_golden_age_boosts_worked_tiles() -> void:
 	assert_eq(s.output_food, base_food + s.worked_tiles.size() * bonus,
 		"each worked tile yields +1 food during a Golden Age")
 
+func test_golden_age_length_scales_with_game_pace() -> void:
+	# §15.3 (C3): Golden-Age length uses the pace's own golden_age_scale column
+	# (80/100/125/200), not build_scale — base 8 turns becomes 6/8/10/16.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var expected := {"quick": 6, "normal": 8, "epic": 10, "marathon": 16}
+	for pace_id in expected:
+		gs.pace_id = pace_id
+		assert_eq(GreatPeople._golden_age_duration(gs, p), expected[pace_id],
+			"Golden Age lasts %s turns on %s" % [expected[pace_id], pace_id])
+
 func test_tick_golden_age_counts_down_and_floors_at_zero() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)

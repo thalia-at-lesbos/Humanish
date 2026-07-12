@@ -109,12 +109,22 @@ static func _endgame_project(wc: Dictionary, game_state) -> int:
 			return aid
 	return -1
 
+# Cultural victory: `cities_at_max_culture` settlements must each accumulate the
+# legendary-culture threshold — the top culture_ring_thresholds entry stretched by
+# the per-pace victory_delay_scale (§15.3). At normal pace (100) this is exactly
+# the old "top border ring" check; slower paces demand proportionally more culture
+# (marathon ×3), faster paces less (quick ×0.67, which the ring alone cannot show).
 static func _cultural(wc: Dictionary, game_state) -> int:
 	var cities_req: int = int(wc.get("cities_at_max_culture", 5))
-	var max_ring: int = game_state.db.constants.get("culture_ring_thresholds", []).size()
+	var thresholds: Array = game_state.db.constants.get("culture_ring_thresholds", [])
+	if thresholds.empty():
+		return -1
+	var pace_scale: int = int(game_state.db.get_pace(game_state.pace_id) \
+		.get("victory_delay_scale", 100))
+	var need_culture: int = Fixed.scale(int(thresholds[thresholds.size() - 1]), pace_scale)
 	var by_alliance := {}
 	for s in game_state.settlements:
-		if s.culture_ring >= max_ring:
+		if s.culture_total >= need_culture:
 			var p: Player = game_state.get_player(s.owner_player_id)
 			if p != null:
 				var aid: int = p.alliance_id
@@ -124,6 +134,10 @@ static func _cultural(wc: Dictionary, game_state) -> int:
 			return aid
 	return -1
 
+# Time victory: highest score once the turn limit arrives. The turn threshold is
+# already pace-stretched — `max_turns` comes from the per-pace column in paces.json
+# (330/500/750/1500, matching the reference totals) — so victory_delay_scale is NOT
+# applied again here (§15.3).
 static func _time(game_state) -> int:
 	if game_state.turn_number < game_state.max_turns:
 		return -1

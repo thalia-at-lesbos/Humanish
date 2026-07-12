@@ -61,6 +61,21 @@ func test_switching_established_civic_causes_anarchy() -> void:
 	assert_gt(gs.get_player(1).transition_turns, 0,
 		"Replacing an established civic plunges the player into anarchy")
 
+func test_civic_anarchy_scales_with_game_pace() -> void:
+	# §15.3 (C3): the policy's transition_turns is stretched by the per-pace
+	# anarchy_scale — slavery's base 3 becomes 2/3/4/6 on quick/normal/epic/marathon
+	# (Fixed.scale truncation, floored at anarchy_min_turns 1).
+	var expected := {"quick": 2, "normal": 3, "epic": 4, "marathon": 6}
+	for pace_id in expected:
+		var gs = make_gs(1)
+		var f = bare_facade(gs)
+		gs.current_player_id = 1
+		gs.pace_id = pace_id
+		f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
+		assert_true(f.apply_command(Commands.set_policy(1, "labor", "slavery")))
+		assert_eq(gs.get_player(1).transition_turns, expected[pace_id],
+			"slavery switch costs %s anarchy turns on %s" % [expected[pace_id], pace_id])
+
 func test_spiritual_leader_switches_civic_without_anarchy() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
