@@ -117,8 +117,6 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 | Animal Husbandry | 100 | The Wheel | Pasture; reveals Horse resource |
 | Archery | 60 | Hunting | Archer; upgrades to Crossbowman/Longbowman path |
 | Bronze Working | 120 | Mining | Axeman; Slavery civic; forest chopping |
-| Calendar | 350 | Mysticism + Sailing | Plantation improvement; centers world map; obsoletes Stonehenge/Obelisk |
-| Iron Working | 200 | Bronze Working | Swordsman; reveals Iron; jungle clearing |
 | Masonry | 80 | Mining | Walls, Quarry; enables Pyramids, Great Wall, Stonehenge |
 | Meditation | 80 | Mysticism | Monastery; founds Buddhism |
 | Monotheism | 120 | Polytheism + Meditation | Organized Religion civic; founds Judaism |
@@ -134,12 +132,14 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 |------|------|---------------|---------|
 | Aesthetics | 300 | Literature + Polytheism | Parthenon, Statue of Zeus, Shwedagon Paya |
 | Alphabet | 300 | Writing | Technology trading between factions |
+| Calendar | 350 | Mysticism + Sailing | Plantation improvement; centers world map; obsoletes Stonehenge/Obelisk |
 | Code of Laws | 350 | Alphabet | Courthouse, Chichen Itza; Caste System civic; founds Confucianism |
 | Compass | 400 | Masonry + Sailing | Explorer unit, Harbor |
 | Construction | 350 | Masonry + Mathematics | War Elephant, Catapult, Colosseum; bridge crossing |
 | Currency | 400 | Metal Casting + Mathematics | Market, Grocer; +1 trade route; gold trading |
 | Drama | 300 | Aesthetics | Theatre, Globe Theatre national wonder; culture slider |
 | Horseback Riding | 250 | Animal Husbandry + The Wheel | Horse Archer, enables Knight/Cavalry line |
+| Iron Working | 200 | Bronze Working | Swordsman; reveals Iron; jungle clearing |
 | Literature | 200 | Alphabet | Heroic Epic, National Epic, Great Library |
 | Mathematics | 250 | Alphabet | Aqueduct, Hanging Gardens, Fort; +50% forest chopping |
 | Metal Casting | 450 | Bronze Working | Trireme, Forge, Colossus, Workshop improvement |
@@ -186,7 +186,7 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Artillery | 4000 | Rifling + Engineering | Artillery, Anti-Tank, Mobile Artillery units |
+| Artillery | 4000 | Rifling + Engineering | Artillery, Mobile Artillery units |
 | Assembly Line | 5000 | Industrialism + Electricity | Infantry, Factory, Coal Plant, Pentagon wonder |
 | Biology | 3600 | Scientific Method | Farm without irrigation; +1 Food from farms |
 | Combustion | 3600 | Steam Power + Physics | Transport, Destroyer, Submarine, Well improvement; obsoletes Whale |
@@ -212,7 +212,6 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 | Ecology | 5500 | Biology + Combustion | Recycling Center, SS Life Support; Environmentalism civic; fallout cleanup |
 | Fiber Optics | 7500 | Computers + Satellites | The Internet, SS Cockpit; obsoletes Kremlin |
 | Flight | 5000 | Combustion + Physics | Fighter, Bomber, Airport |
-| Genetics | 7000 | Medicine + Computers | SS Stasis Chamber; +1 Health in all cities |
 | Laser | 7000 | Composites + Plastics | Mobile Artillery, Mobile SAM, SDI |
 | Mass Media | 3600 | Radio + Electricity | Broadcast Tower, Hollywood wonder, United Nations wonder |
 | Plastics | 7000 | Chemistry + Combustion | Hydro Plant, Three Gorges Dam wonder, Offshore Platform; obsoletes Fur |
@@ -221,7 +220,6 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 | Robotics | 8000 | Computers + Laser | Mechanized Infantry, Stealth Bomber, Stealth Destroyer, Space Elevator wonder, SS Docking Bay |
 | Rocketry | 5000 | Flight + Physics | SAM Infantry, Gunship, Guided Missile, Tactical Nuke, ICBM, Apollo Program national wonder, SS Casing |
 | Satellites | 6000 | Rocketry + Computers | SS Docking Bay, Space Elevator wonder; reveals entire world map |
-| Stealth | 8000 | Computers + Fiber Optics | Stealth Bomber, Stealth Destroyer |
 | Superconductors | 6500 | Physics + Robotics | Laboratory, SS Thrusters |
 
 ### 2.8 Future Era
@@ -229,7 +227,7 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
 | Fusion | 8000 | Robotics + Superconductors | SS Engine; grants Great Engineer |
-| Future Tech | 8000 | Fusion + Genetics | +1 Health and +1 Happiness in all cities (repeatable) |
+| Future Tech | 10000 | Fusion + Genetics | +1 Health and +1 Happiness in all cities (repeatable) |
 | Genetics | 7000 | Medicine + Computers | SS Stasis Chamber; +1 Health in all cities |
 | Stealth | 8000 | Computers + Fiber Optics | Stealth Bomber, Stealth Destroyer |
 
@@ -296,11 +294,11 @@ The capital is **wherever the Palace is** (`TurnEngine._find_capital` returns th
 | Trait | Free Structures (−50% cost) | Unit Effect | City/Economy Effect |
 |-------|----------------------------|-------------|---------------------|
 | Aggressive | Barracks, Drydock | Free Combat I for all units | — |
-| Charismatic | — | +25% XP from combat; units need 25% less XP per promotion | +1 Happiness per city |
-| Creative | Library, Theatre, Colosseum | — | +2 Culture per city per turn |
+| Charismatic | — | Units need 25% less XP per promotion | +1 Happiness per city |
+| Creative | Theatre, Colosseum | — | +2 Culture per city per turn |
 | Expansive | Granary, Harbor | — | +2 Health in all cities |
 | Financial | — | — | +1 Commerce on any tile producing 2+ Commerce |
-| Imperialistic | Settler (50% cheaper) | +50% Great General emergence | — |
+| Imperialistic | Settler (50% cheaper) | +100% Great General emergence | — |
 | Industrious | Forge | — | +50% Wonder production speed |
 | Organized | Courthouse, Lighthouse | — | Civic upkeep reduced 50% |
 | Philosophical | — | — | +100% Great Person birth rate in all cities |
@@ -345,7 +343,7 @@ The capital is **wherever the Palace is** (`TurnEngine._find_capital` returns th
 | Leader | Faction | Trait 1 | Trait 2 | Notes |
 |--------|---------|---------|---------|-------|
 | Augustus Caesar | Roman | Organized | Imperialistic | Alternate Roman leader |
-| Brennus | Celtic | Creative | Spiritual | Primary Celtic leader |
+| Brennus | Celtic | Charismatic | Spiritual | Primary Celtic leader |
 | Churchill | English | Charismatic | Protective | Third English leader |
 | Hannibal | Carthaginian | Financial | Charismatic | Primary Carthaginian leader |
 | Mehmed II | Ottoman | Imperialistic | Organized | Primary Ottoman leader |
@@ -363,8 +361,8 @@ The capital is **wherever the Palace is** (`TurnEngine._find_capital` returns th
 | Charlemagne | Holy Roman | Protective | Imperialistic | Primary Holy Roman leader |
 | Darius I | Persian | Financial | Organized | Alternate Persian leader |
 | De Gaulle | French | Charismatic | Industrious | Third French leader |
-| Gilgamesh | Sumerian | Aggressive | Creative | Primary Sumerian leader |
-| Hammurabi | Babylonian | Organized | Protective | Primary Babylonian leader |
+| Gilgamesh | Sumerian | Creative | Protective | Primary Sumerian leader |
+| Hammurabi | Babylonian | Aggressive | Organized | Primary Babylonian leader |
 | Joao II | Portuguese | Imperialistic | Expansive | Primary Portuguese leader |
 | Justinian I | Byzantine | Spiritual | Imperialistic | Primary Byzantine leader |
 | Lincoln | American | Financial | Philosophical | Third American leader |
@@ -384,12 +382,12 @@ The capital is **wherever the Palace is** (`TurnEngine._find_capital` returns th
 
 | Unit | Move | Cost | Tech Req | Function |
 |------|------|------|----------|----------|
-| Settler | 1 | 100 | — | Founds new cities; consumed on use |
-| Worker | 1 | 30 | — | Builds tile improvements; 4 turns base per improvement |
-| Work Boat | 2 | 15 | Fishing | Builds Fishing Boats, Whaling Boats; consumed on use |
+| Settler | 2 | 100 | — | Founds new cities; consumed on use |
+| Worker | 2 | 60 | — | Builds tile improvements; 4 turns base per improvement |
+| Work Boat | 2 | 30 | Fishing | Builds Fishing Boats, Whaling Boats; consumed on use |
 | Missionary (×7) | 2 | 60 | Religion founded | Spreads state religion to cities |
-| Executive (×9) | 2 | 80 | Corporation founded | Spreads corporations to cities |
-| Spy | 1 | 60 | — | Espionage missions in foreign cities |
+| Executive (×7) | 2 | 80 | Corporation founded | Spreads corporations to cities |
+| Spy | 1 | 40 | Alphabet | Espionage missions in foreign cities |
 | Great Person (×7) | 2 | — | Specialist points | See Section 14 |
 
 ### 5.2 Land Combat Units
@@ -401,90 +399,89 @@ Strength is base combat strength. All land units start with 0 promotions unless 
 | Unit | Str | Move | Cost | Tech | Resource | Special | Upgrades From | Upgrades To |
 |------|-----|------|------|------|----------|---------|---------------|-------------|
 | Warrior | 2 | 1 | 15 | — | — | — | — | Axeman, Swordsman, Spearman |
-| Axeman | 5 | 1 | 35 | Bronze Working | Copper | — | Warrior | Maceman |
+| Axeman | 5 | 1 | 35 | Bronze Working | Copper or Iron | — | Warrior | Maceman |
 | Swordsman | 6 | 1 | 40 | Iron Working | Iron | — | Warrior | Maceman |
-| Pikeman | 6 | 1 | 60 | Engineering | — | +100% vs Mounted | Spearman | Musketman, Rifleman |
-| Maceman | 8 | 1 | 70 | Machinery + Civil Service | — | — | Axeman/Swordsman | Rifleman, Grenadier |
-| Grenadier | 11 | 1 | 100 | Military Science | Gunpowder | +50% vs cities | Maceman | Rifleman |
+| Pikeman | 6 | 1 | 60 | Engineering | Iron | +100% vs Mounted | Spearman | Musketman, Rifleman |
+| Maceman | 8 | 1 | 70 | Machinery + Civil Service | Copper or Iron | — | Axeman/Swordsman | Rifleman, Grenadier |
+| Grenadier | 12 | 1 | 100 | Military Science | — | +50% vs cities | Maceman | Rifleman |
 | Musketman | 9 | 1 | 80 | Gunpowder | — | — | Pikeman/Crossbowman | Rifleman |
 | Rifleman | 14 | 1 | 110 | Rifling | — | — | Musketman/Grenadier | Infantry |
-| Infantry | 20 | 1 | 130 | Assembly Line | — | — | Rifleman | Mechanized Infantry |
-| Paratrooper | 16 | 1 | 120 | Fascism | — | Can paradrop 5 tiles | Infantry | Mechanized Infantry |
-| Marine | 18 | 1 | 140 | Industrialism | — | Amphibious (no penalty) | Infantry | Mechanized Infantry |
-| Mechanized Infantry | 28 | 2 | 170 | Robotics | — | — | Infantry | — |
+| Infantry | 20 | 1 | 140 | Assembly Line | — | — | Rifleman | Mechanized Infantry |
+| Paratrooper | 24 | 1 | 160 | Fascism | — | Can paradrop 5 tiles | Infantry | Mechanized Infantry |
+| Marine | 24 | 1 | 160 | Industrialism | — | Amphibious (no penalty) | Infantry | Mechanized Infantry |
+| Mechanized Infantry | 32 | 2 | 200 | Robotics | — | — | Infantry | — |
 
 #### Spear / Anti-Mounted Line
 
 | Unit | Str | Move | Cost | Tech | Resource | Special | Upgrades To |
 |------|-----|------|------|------|----------|---------|-------------|
-| Spearman | 3 | 1 | 30 | Hunting | — | +100% vs Mounted | Pikeman, Maceman |
+| Spearman | 4 | 1 | 35 | Hunting | — | +100% vs Mounted | Pikeman, Maceman |
 
 #### Archery Line
 
 | Unit | Str | Move | Cost | Tech | Resource | Special | Upgrades To |
 |------|-----|------|------|------|----------|---------|-------------|
 | Archer | 3 | 1 | 25 | Archery | — | 1 First Strike | Crossbowman, Longbowman |
-| Longbowman | 6 | 1 | 60 | Feudalism | — | 2 First Strikes | Rifleman |
-| Crossbowman | 6 | 1 | 60 | Machinery + Archery | — | 1 First Strike | Musketman, Rifleman |
+| Longbowman | 6 | 1 | 50 | Feudalism | — | 1 First Strike | Rifleman |
+| Crossbowman | 6 | 1 | 60 | Machinery + Archery | Iron | 1 First Strike | Musketman, Rifleman |
 
 #### Mounted Line
 
 | Unit | Str | Move | Cost | Tech | Resource | Special | Upgrades To |
 |------|-----|------|------|------|----------|---------|-------------|
-| Chariot | 4 | 2 | 30 | The Wheel | Horse | First Strike Immunity | Knight |
-| Horse Archer | 6 | 2 | 50 | Horseback Riding | Horse | — | Cavalry |
+| Chariot | 4 | 2 | 30 | The Wheel | Horse | First Strike Immunity; 10% withdrawal | Knight |
+| Horse Archer | 6 | 2 | 50 | Horseback Riding | Horse | 20% withdrawal | Cavalry |
 | Knight | 10 | 2 | 90 | Guilds + Horseback Riding | Horse + Iron | — | Cavalry, Cuirassier |
-| Cuirassier | 12 | 2 | 110 | Military Tradition + Rifling | Horse | — | Cavalry |
-| Cavalry | 15 | 2 | 120 | Military Tradition | Horse | +10% withdrawal | Gunship, Tank |
-| Gunship | 20 | 4 | 160 | Advanced Flight | — | Air unit; anti-armor | — |
+| Cuirassier | 12 | 2 | 100 | Military Tradition + Rifling | Horse + Iron | 15% withdrawal | Cavalry |
+| Cavalry | 15 | 2 | 120 | Military Tradition | Horse | 30% withdrawal | Gunship, Tank |
+| Gunship | 24 | 4 | 160 | Advanced Flight | Oil | Air unit; anti-armor; 25% withdrawal | — |
 
 #### Siege Units
 
 | Unit | Str | Move | Cost | Tech | Special | Upgrades To |
 |------|-----|------|------|------|---------|-------------|
-| Catapult | 5 | 1 | 50 | Construction | Splash; cannot kill (leaves 1 HP); +200% vs cities | Trebuchet |
-| Trebuchet | 8 | 1 | 80 | Engineering | Splash; cannot kill; +200% vs cities | Cannon |
-| Cannon | 12 | 1 | 100 | Steel | Splash; cannot kill; +200% vs cities | Artillery |
-| Artillery | 16 | 1 | 120 | Artillery tech | Splash; cannot kill; +200% vs cities | Mobile Artillery |
-| Mobile Artillery | 16 | 2 | 165 | Laser | Splash; cannot kill; +200% vs cities | — |
-| Anti-Tank | 12 | 1 | 90 | Artillery tech | +100% vs Armored | Mobile SAM |
-| Mobile SAM | 20 | 2 | 150 | Laser | +100% vs Air units | — |
+| Catapult | 5 | 1 | 50 | Construction | Splash; cannot reduce a defender below 25 HP; +200% vs cities | Trebuchet |
+| Trebuchet | 4 | 1 | 80 | Engineering | Splash; cannot reduce a defender below 25 HP; +200% vs cities | Cannon |
+| Cannon | 12 | 1 | 100 | Steel | Splash; cannot reduce a defender below 20 HP; +200% vs cities | Artillery |
+| Artillery | 18 | 1 | 150 | Artillery tech | Splash; cannot reduce a defender below 15 HP; +200% vs cities | Mobile Artillery |
+| Mobile Artillery | 26 | 2 | 200 | Laser | Splash; cannot reduce a defender below 15 HP; +200% vs cities | — |
+| Mobile SAM | 22 | 2 | 220 | Laser | +100% vs Air units | — |
 
 #### Modern Ground
 
 | Unit | Str | Move | Cost | Tech | Resource | Special | Upgrades To |
 |------|-----|------|------|------|----------|---------|-------------|
 | Tank | 28 | 2 | 180 | Rifling + Industrialism | Oil | — | Modern Armor |
-| Modern Armor | 40 | 2 | 250 | Robotics + Composites | Oil | — | — |
-| SAM Infantry | 12 | 1 | 90 | Rocketry | — | +100% vs Air | — |
+| Modern Armor | 40 | 2 | 240 | Robotics + Composites | Oil + Aluminum | 1 First Strike | — |
+| SAM Infantry | 18 | 1 | 150 | Rocketry | — | +100% vs Air | — |
 
 #### Explorers
 
 | Unit | Str | Move | Cost | Tech | Special |
 |------|-----|------|------|------|---------|
 | Scout | 1 | 2 | 15 | Hunting | +50% hills defense bonus |
-| Explorer | 1 | 2 | 30 | Compass | Can move through all terrain |
+| Explorer | 4 | 2 | 40 | Compass | Can move through all terrain |
 
 ### 5.3 Naval Units
 
 | Unit | Str | Move | Cost | Tech | Cargo | Special | Upgrades To |
 |------|-----|------|------|------|-------|---------|-------------|
-| Galley | 2 | 2 | 30 | Sailing | 1 | Coastal only | Trireme, Caravel |
-| Trireme | 5 | 3 | 50 | Metal Casting | — | — | Caravel |
-| Caravel | 6 | 4 | 75 | Optics | — | Can cross ocean | Galleon, Frigate |
-| Galleon | 8 | 4 | 90 | Astronomy | 2 units | — | Transport |
-| Frigate | 18 | 4 | 130 | Chemistry | — | — | Destroyer |
-| Privateer | 10 | 5 | 80 | Chemistry | — | Can plunder trade | Destroyer |
-| Ship of the Line | 24 | 4 | 160 | Military Science | — | — | Destroyer |
-| Ironclad | 22 | 4 | 150 | Steam Power | — | Requires Coal | Destroyer |
-| Transport | 18 | 6 | 200 | Combustion | 4 units | — | — |
-| Destroyer | 30 | 7 | 200 | Combustion | — | — | Stealth Destroyer |
-| Submarine | 32 | 6 | 180 | Industrialism | — | Invisible to most units | Attack Submarine |
+| Galley | 2 | 2 | 50 | Sailing | 2 units | Coastal only | Trireme, Caravel |
+| Trireme | 2 | 2 | 50 | Metal Casting | — | — | Caravel |
+| Caravel | 3 | 3 | 60 | Optics | 1 unit | Can cross ocean | Galleon, Frigate |
+| Galleon | 4 | 4 | 80 | Astronomy | 3 units | — | Transport |
+| Frigate | 8 | 4 | 90 | Chemistry | — | — | Destroyer |
+| Privateer | 6 | 4 | 80 | Chemistry | — | Can plunder trade; hidden nationality | Destroyer |
+| Ship of the Line | 8 | 3 | 120 | Military Science | — | — | Destroyer |
+| Ironclad | 12 | 2 | 100 | Steam Power | — | Requires Coal + Iron | Destroyer |
+| Transport | 16 | 5 | 125 | Combustion | 4 units | — | — |
+| Destroyer | 30 | 8 | 200 | Combustion | — | — | Stealth Destroyer |
+| Submarine | 24 | 6 | 150 | Radio | 3 missiles | Invisible to most units; 50% withdrawal | Attack Submarine |
 | Battleship | 40 | 6 | 225 | Industrialism | — | Can bombard coast | — |
-| Carrier | 18 | 6 | 220 | Industrialism | 4 air units | — | — |
-| Attack Submarine | 40 | 6 | 250 | Rocketry | — | Invisible | — |
-| Stealth Destroyer | 50 | 7 | 300 | Stealth | — | — | — |
-| Missile Cruiser | 45 | 7 | 280 | Satellites | — | +100% vs Air | — |
+| Carrier | 16 | 5 | 175 | Flight | 3 air units | — | — |
+| Attack Submarine | 30 | 7 | 200 | Rocketry | 1 missile | Invisible; 50% withdrawal | — |
+| Stealth Destroyer | 30 | 8 | 220 | Stealth | — | 2 First Strikes | — |
+| Missile Cruiser | 40 | 7 | 260 | Robotics | 4 missiles | +100% vs Air | — |
 
 ### 5.4 Air Units
 
@@ -492,13 +489,14 @@ Air units are based in cities or carriers; they fly missions without moving perm
 
 | Unit | Str | Cost | Tech | Resource | Intercept Str | Special | Upgrades To |
 |------|-----|------|------|----------|---------------|---------|-------------|
-| Fighter | 12 | 100 | Flight | Oil | 35 | Intercepts enemy air | Jet Fighter |
-| Jet Fighter | 22 | 180 | Advanced Flight | Oil | 60 | — | — |
-| Bomber | 8 | 120 | Flight | Oil | — | Area bomb; 8 tiles range | Stealth Bomber |
-| Stealth Bomber | 24 | 250 | Stealth | Oil | — | Evades interception | — |
-| Guided Missile | 40 | 50 | Rocketry | — | — | 1-use; collateral damage | — |
-| Tactical Nuke | — | 250 | Fission | Uranium | — | 1-use; massive AoE | — |
-| ICBM | — | 350 | Rocketry + Fission | Uranium | — | 1-use; global range | — |
+| Airship | 4 | 80 | Physics | — | — | Recon/bomb; 8 tiles range | — |
+| Fighter | 12 | 100 | Flight | Oil | 35 | Intercepts enemy air; 6 tiles range | Jet Fighter |
+| Jet Fighter | 24 | 150 | Advanced Flight | Oil + Aluminum | 60 | 10 tiles range | — |
+| Bomber | 16 | 140 | Flight + Radio | Oil | — | Area bomb; 8 tiles range | Stealth Bomber |
+| Stealth Bomber | 20 | 200 | Robotics + Stealth | Oil | — | Evades interception; 12 tiles range | — |
+| Guided Missile | 40 | 60 | Rocketry | — | — | 1-use; collateral damage; 4 tiles range | — |
+| Tactical Nuke | — | 250 | Rocketry + Fission | Uranium | — | 1-use; massive AoE; 4 tiles range | — |
+| ICBM | — | 500 | Rocketry + Fission | Uranium | — | 1-use; global range | — |
 
 ### 5.5 Faction-Unique Units
 
@@ -506,40 +504,40 @@ Each faction's unique unit replaces a standard unit and is only available to tha
 
 | Faction | Unique Unit | Replaces | Str | Move | Cost | Special Advantages |
 |---------|-------------|----------|-----|------|------|--------------------|
-| American | Navy SEAL | Marine | 18 | 1 | 140 | Starts with March; 1–2 First Strikes; Amphibious |
-| Arabian | Camel Archer | Knight | 10 | 2 | 90 | No Horse required; First Strike Immunity; +50% vs Melee; desert movement |
-| Aztec | Jaguar | Swordsman | 5 | 2 | 35 | No Iron required; heals +10 HP after kills; forest/jungle move at normal cost |
-| Babylonian | Bowman | Archer | 4 | 1 | 30 | Starts with Drill I + City Garrison I |
-| Byzantine | Cataphract | Knight | 10 | 2 | 90 | Starts with Shock I; +25% vs Melee |
-| Carthaginian | Numidian Cavalry | Horse Archer | 6 | 2 | 50 | Starts with Flanking I; +25% withdrawal |
-| Celtic | Gallic Warrior | Swordsman | 8 | 1 | 60 | No Iron required; starts with Guerrilla I |
-| Chinese | Cho-Ko-Nu | Crossbowman | 6 | 1 | 60 | 2 First Strikes; 1 withdrawal chance |
-| Dutch | East Indiaman | Galleon | 8 | 5 | 100 | Carries 3 units; +1 trade route; +1 Food on sea tiles |
-| Egyptian | War Chariot | Chariot | 4 | 2 | 30 | No Horse required; First Strike Immunity |
+| American | Navy SEAL | Marine | 24 | 1 | 160 | Starts with March; 1 First Strike + 1 chance; Amphibious |
+| Arabian | Camel Archer | Knight | 10 | 2 | 90 | No Horse required; First Strike Immunity; +50% vs Melee; desert movement; 15% withdrawal |
+| Aztec | Jaguar | Swordsman | 5 | 1 | 35 | No Iron required; heals +10 HP after kills; forest/jungle move at normal cost |
+| Babylonian | Bowman | Archer | 3 | 1 | 25 | 1 First Strike; starts with Drill I + City Garrison I |
+| Byzantine | Cataphract | Knight | 12 | 2 | 90 | Starts with Shock I; +25% vs Melee |
+| Carthaginian | Numidian Cavalry | Horse Archer | 5 | 2 | 50 | Starts with Flanking I; 20% withdrawal |
+| Celtic | Gallic Warrior | Swordsman | 6 | 1 | 40 | No Iron required; starts with Guerrilla I |
+| Chinese | Cho-Ko-Nu | Crossbowman | 6 | 1 | 60 | 2 First Strikes |
+| Dutch | East Indiaman | Galleon | 6 | 4 | 80 | Carries 4 units; +1 trade route; +1 Food on sea tiles |
+| Egyptian | War Chariot | Chariot | 5 | 2 | 30 | No Horse required; First Strike Immunity; 10% withdrawal |
 | English | Redcoat | Rifleman | 14 | 1 | 110 | +25% vs units from other continents (amphibious attackers) |
-| Ethiopian | Oromo Warrior | Musketman | 10 | 1 | 80 | First Strike Immunity; starts with Drill I + Drill II |
-| French | Musketeer | Musketman | 9 | 1 | 80 | Starts with Woodsman I; +25% forest defense |
-| German | Panzer | Tank | 28 | 3 | 180 | 3 movement vs 2 for Tank; same strength |
-| Greek | Phalanx | Spearman | 4 | 1 | 30 | +25% vs Mounted (stacks with base +100%) |
-| Holy Roman | Landsknecht | Pikeman | 8 | 1 | 50 | Cheaper (50 vs 60 production); +100% vs Melee AND +100% vs Mounted |
+| Ethiopian | Oromo Warrior | Musketman | 9 | 1 | 80 | 1 First Strike; First Strike Immunity; starts with Drill I + Drill II |
+| French | Musketeer | Musketman | 9 | 2 | 80 | 2 movement; starts with Woodsman I; +25% forest defense |
+| German | Panzer | Tank | 28 | 2 | 180 | Replaces Tank (the reference +50% vs armor is not yet modelled) |
+| Greek | Phalanx | Spearman | 5 | 1 | 35 | +25% vs Mounted (stacks with base +100%) |
+| Holy Roman | Landsknecht | Pikeman | 6 | 1 | 60 | +100% vs Melee AND +100% vs Mounted |
 | Incan | Quechua | Warrior | 2 | 1 | 15 | +100% vs Archery units |
-| Indian | Fast Worker | Worker | 0 | 2 | 30 | 2 movement; builds improvements 50% faster |
-| Japanese | Samurai | Maceman | 8 | 1 | 70 | Bushido: fights at full strength regardless of current HP |
-| Khmer | Ballista Elephant | War Elephant | 8 | 2 | 70 | Can attack without moving the unit; can bombard city defenses |
-| Korean | Hwacha | Catapult | 6 | 1 | 50 | Starts with Cover I; stronger base |
-| Malinese | Skirmisher | Archer | 3 | 1 | 25 | No Archery tech required; +25% vs Mounted |
-| Mayan | Holkan | Spearman | 3 | 1 | 30 | First Strike Immunity; no Hunting required |
-| Mongolian | Keshik | Horse Archer | 6 | 3 | 50 | 3 movement; starts with Flanking I |
-| Native American | Dog Soldier | Axeman | 6 | 1 | 40 | +50% vs Mounted; no Copper or Iron required |
+| Indian | Fast Worker | Worker | 0 | 3 | 60 | 3 movement; builds improvements 50% faster |
+| Japanese | Samurai | Maceman | 8 | 1 | 70 | 2 First Strikes; Bushido: fights at full strength regardless of current HP |
+| Khmer | Ballista Elephant | War Elephant | 8 | 1 | 60 | Can attack without moving the unit; can bombard city defenses |
+| Korean | Hwacha | Catapult | 5 | 1 | 50 | Starts with Cover I |
+| Malinese | Skirmisher | Archer | 4 | 1 | 25 | No Archery tech required; 1 First Strike + 1 chance |
+| Mayan | Holkan | Spearman | 4 | 1 | 35 | First Strike Immunity; no Hunting required |
+| Mongolian | Keshik | Horse Archer | 6 | 2 | 50 | 1 First Strike; 20% withdrawal; starts with Flanking I |
+| Native American | Dog Soldier | Axeman | 4 | 1 | 35 | +50% vs Mounted; no Copper or Iron required |
 | Ottoman | Janissary | Musketman | 9 | 1 | 80 | Starts with Shock I + Cover; heals 10 HP after kills |
-| Persian | Immortal | Chariot | 4 | 2 | 30 | No Horse required; starts with Combat I; can cross rivers normally |
-| Portuguese | Carrack | Caravel | 6 | 5 | 80 | Can carry 1 unit; +1 trade route |
-| Roman | Praetorian | Swordsman | 8 | 1 | 40 | 8 Str vs 6 for Swordsman; same cost |
-| Russian | Cossack | Cavalry | 15 | 2 | 120 | Starts with Flanking I + II; attacks at full strength |
-| Spanish | Conquistador | Knight | 10 | 2 | 90 | Can found cities; treats all terrain as road for movement |
+| Persian | Immortal | Chariot | 4 | 2 | 30 | No Horse required; starts with Combat I; can cross rivers normally; 10% withdrawal |
+| Portuguese | Carrack | Caravel | 3 | 3 | 60 | Carries 2 units; +1 trade route |
+| Roman | Praetorian | Swordsman | 8 | 1 | 45 | 8 Str vs 6 for Swordsman |
+| Russian | Cossack | Cavalry | 15 | 2 | 120 | Starts with Flanking I + II; 30% withdrawal; attacks at full strength |
+| Spanish | Conquistador | Knight | 12 | 2 | 100 | Can found cities; treats all terrain as road for movement; 15% withdrawal |
 | Sumerian | Vulture | Axeman | 6 | 1 | 35 | +100% vs Melee; starts with Shock I; no Copper required |
 | Viking | Berserker | Maceman | 8 | 1 | 70 | Amphibious (no attack penalty from sea); can attack twice per turn |
-| Zulu | Impi | Spearman | 4 | 2 | 25 | 2 movement; +25% vs Mounted; cheaper (25 vs 30); flanking damage on victory |
+| Zulu | Impi | Spearman | 4 | 2 | 35 | 2 movement; +25% vs Mounted; flanking damage on victory |
 
 ---
 
@@ -550,7 +548,7 @@ Each faction's unique unit replaces a standard unit and is only available to tha
 | Building | Era | Tech Req | Resource Req | Cost | Effects |
 |----------|-----|----------|--------------|------|---------|
 | Monument | Ancient | Mysticism | — | 30 | +1 Culture/turn |
-| Barracks | Ancient | — | — | 60 | +3 XP to new land units |
+| Barracks | Ancient | — | — | 50 | +3 XP to new land units |
 | Granary | Ancient | Pottery | — | 60 | Stores 50% Food after city growth |
 | Library | Ancient | Writing | — | 90 | +25% Science output; +2 Culture |
 | Lighthouse | Ancient | Sailing | — | 60 | +1 Food on water tiles (coastal cities only) |
@@ -567,15 +565,15 @@ Each faction's unique unit replaces a standard unit and is only available to tha
 | Theatre | Classical | Drama | — | 50 | +3 Culture |
 | Bank | Medieval | Banking | — | 200 | +50% Commerce output (stacks with Market) |
 | Castle | Medieval | Engineering | — | 100 | +1 Culture; +25% Espionage; +50% Defense bonus |
-| Cathedral | Medieval | Music | — | 300 | +50% Culture; +2 Happiness (requires state religion) |
+| Cathedral | Medieval | Music | — | 300 | +50% Culture (flat Happiness 0 — the reference ties cathedral happiness to the culture rate, not yet modelled) |
 | Grocer | Medieval | Guilds + Currency | — | 150 | +25% Commerce; +1 Health per luxury resource |
 | Observatory | Renaissance | Astronomy | — | 150 | +25% Science (stacks with Library/University) |
 | University | Renaissance | Education | — | 200 | +25% Science; +3 Culture |
 | Jail | Renaissance | Constitution | — | 120 | +4 Espionage; +50% Espionage defense |
 | Customs House | Renaissance | Economics | — | 180 | +100% Commerce from intercontinental trade routes (coastal only) |
 | Security Bureau | Modern | Democracy | — | 220 | +8 Espionage; +50% Espionage defense |
-| Coal Plant | Industrial | Assembly Line | Coal | 150 | Provides Power (+25% Production when powered) |
-| Factory | Industrial | Assembly Line | — | 250 | +25% Production; +50% with Power |
+| Coal Plant | Industrial | Assembly Line | Coal | 150 | Provides Power (+25% Production when powered); +2 Unhealthiness |
+| Factory | Industrial | Assembly Line | — | 250 | +25% Production; +50% with Power; +1 Unhealthiness |
 | Hospital | Industrial | Medicine | — | 200 | +3 Health |
 | Industrial Park | Industrial | Industrialism | — | 200 | +2 Unhealthiness; +1 free Engineer specialist |
 | Intelligence Agency | Industrial | Communism | — | 180 | +8 Espionage; +50% Espionage output |
@@ -583,12 +581,12 @@ Each faction's unique unit replaces a standard unit and is only available to tha
 | Nuclear Plant | Industrial | Fission | Uranium | 250 | Provides clean Power |
 | Bomb Shelter | Industrial | Electricity | — | 100 | −50% Nuclear weapon damage |
 | Bunker | Industrial | Electricity | — | 100 | −50% Air unit damage |
-| Drydock | Industrial | Steel | — | 120 | +50% Naval unit production; +4 XP for Naval units |
+| Drydock | Industrial | Steel | — | 120 | +50% Naval unit production; +4 XP for Naval units; +1 Unhealthiness |
 | Public Transportation | Industrial | Combustion | — | 150 | +1 Health |
-| Airport | Modern | Flight | — | 250 | Airlift 1 unit/turn; +3 XP for air units |
+| Airport | Modern | Flight | — | 250 | Airlift 1 unit/turn; +3 XP for air units; +1 Unhealthiness |
 | Broadcast Tower | Modern | Mass Media | — | 175 | +50% Culture |
 | Hydro Plant | Modern | Plastics | — | 200 | Provides clean Power |
-| Laboratory | Modern | Superconductors | — | 250 | +25% Science; +50% Spaceship part production |
+| Laboratory | Modern | Superconductors | — | 250 | +25% Science; +50% Spaceship part production; +1 Unhealthiness |
 | Recycling Center | Modern | Ecology | — | 300 | Removes all building-caused Unhealthiness |
 | Supermarket | Modern | Refrigeration | — | 150 | +1 Food |
 
@@ -600,7 +598,7 @@ Each of the 7 religions has three tiers of buildings. Building names differ by r
 |------|-------------|----------|------|---------|
 | 1 | Temple | Priesthood | 80 | +1 Culture; +1 Happiness |
 | 2 | Monastery | Meditation | 60 | +10% Science; +2 Culture; trains Missionaries |
-| 3 | Cathedral | Music | 300 | +50% Culture; +2 Happiness (with state religion) |
+| 3 | Cathedral | Music | 300 | +50% Culture (flat Happiness 0 — culture-rate happiness not yet modelled) |
 
 Building names by religion:
 - **Buddhism**: Stupa (Temple), Monastery, Buddhist Cathedral
@@ -637,23 +635,23 @@ Building names by religion:
 | English | Stock Exchange | Bank | +15% Commerce above Bank base |
 | Ethiopian | Stele | Monument | +1 Culture; +25% Culture bonus |
 | French | Salon | Observatory | +25% Science; free Artist specialist slot |
-| German | Assembly Plant | Factory | Allows 4 Engineer specialist slots |
-| Greek | Odeon | Colosseum | +3 Culture; allows 2 Artist specialist slots |
+| German | Assembly Plant | Factory | Allows 4 Engineer specialist slots; +1 Unhealthiness |
+| Greek | Odeon | Colosseum | +2 Happiness; +3 Culture; allows 2 Artist specialist slots |
 | Holy Roman | Rathaus | Courthouse | −75% City Maintenance |
 | Incan | Terrace | Granary | Stores 50% Food; +2 Culture |
 | Indian | Mausoleum | Jail | +4 Espionage; +2 Happiness |
-| Japanese | Shale Plant | Coal Plant | Provides Power without requiring Coal resource |
+| Japanese | Shale Plant | Coal Plant | Provides Power without requiring Coal resource; +2 Unhealthiness |
 | Khmer | Baray | Aqueduct | +2 Health; +1 Food |
 | Korean | Seowon | University | +35% Science (vs +25%) |
-| Malinese | Mint | Forge | +10% Commerce (instead of +25% Production) |
-| Mayan | Ball Court | Colosseum | +2 Happiness (instead of +1) |
+| Malinese | Mint | Forge | +10% Commerce (instead of +25% Production); +1 Unhealthiness |
+| Mayan | Ball Court | Colosseum | +3 Happiness (instead of +1) |
 | Mongolian | Ger | Stable | +2 XP for Mounted units (same as Stable but cheaper) |
 | Native American | Totem Pole | Monument | +1 Culture; +3 XP to Archery units produced here |
 | Ottoman | Hammam | Aqueduct | +2 Health; +2 Happiness |
 | Persian | Apothecary | Grocer | +2 Health; +25% Commerce |
 | Portuguese | Feitoria | Customs House | +1 Commerce on all worked water tiles |
 | Roman | Forum | Market | +25% Great Person birth rate |
-| Russian | Research Institute | Laboratory | +25% Science; 2 free Scientist specialist slots |
+| Russian | Research Institute | Laboratory | +25% Science; 2 free Scientist specialist slots; +1 Unhealthiness |
 | Spanish | Citadel | Castle | +5 XP to Siege units produced here |
 | Sumerian | Ziggurat | Courthouse | Requires Priesthood instead of Code of Laws |
 | Viking | Trading Post | Lighthouse | Free Navigation I promotion for naval units built here |
@@ -685,7 +683,7 @@ One copy exists globally; only the first faction to complete it keeps it.
 | Statue of Zeus | Classical | Aesthetics + Monument | Ivory | 300 | +100% enemy war weariness in all your cities | — |
 | Angkor Wat | Medieval | Philosophy | Stone | 500 | +1 Production from Priest specialists; allows 3 Priest specialists | Computers |
 | Apostolic Palace | Medieval | Theology | — | 400 | Acts as religious assembly; allows elections; +2 Production for religious buildings | Mass Media |
-| Hagia Sophia | Medieval | Engineering + Theology | Marble | 550 | Workers build improvements 50% faster | Steam Power |
+| Hagia Sophia | Medieval | Theology | Marble | 500 | Workers build improvements 50% faster | Steam Power |
 | Notre Dame | Medieval | Engineering | Stone | 550 | +2 Happiness in all continental cities | — |
 | Sistine Chapel | Medieval | Music | Marble | 600 | +2 Culture per specialist in all cities; +5 Culture from state religion buildings | — |
 | Spiral Minaret | Medieval | Divine Right | Stone | 550 | +2 Gold from all state religion buildings | Computers |
@@ -702,7 +700,7 @@ One copy exists globally; only the first faction to complete it keeps it.
 | Rock 'n' Roll | Modern | Radio | — | 800 | +50% Culture; produces Hit Singles wonder resource | — |
 | Three Gorges Dam | Modern | Plastics | — | 1750 | Provides clean Power for all cities on same continent (+2 Unhealthiness globally) | — |
 | United Nations | Modern | Mass Media | — | 1000 | Triggers UN elections; guarantees voting eligibility | — |
-| Space Elevator | Modern | Satellites + Robotics | Aluminum | 2000 | +50% Spaceship part production in all cities | — |
+| Space Elevator | Modern | Robotics | Aluminum | 2000 | +50% Spaceship part production in all cities | — |
 
 ### 7.2 National Wonders
 
@@ -801,13 +799,6 @@ The first faction to research the founding technology founds that religion in on
 | Judaism | Monotheism | Jewish Temple | Jewish Monastery | Jewish Cathedral | Temple of Solomon |
 | Taoism | Philosophy | Taoist Temple | Taoist Monastery | Taoist Cathedral | Dai Miao |
 
-**Humanish extension religions** (not in the reference; keep-or-cut pending —
-`directreferencegaps.md` D4): **Sun Faith** (founding tech Calendar, holy site
-structure Temple of the Sun, +1 happiness) and **Earth Covenant** (founding tech
-Agriculture, holy site structure Grove Sanctuary, +1 health). They have no
-temple/monastery/cathedral building line; their holy-site structures mirror the
-Shrine (Great Prophet-built national wonder, +1 gold per adherent city).
-
 **Holy City effect:** +5 Culture/turn baseline; shrine built by Great Prophet yields +1 Gold per city worldwide that has adopted the religion.
 
 ---
@@ -882,8 +873,8 @@ Provide +1 Health city-wide when connected. All also provide additional Food yie
 |---------|------|------------|----------|-------|
 | Grassland | 2 | 0 | 0 | +1 Commerce adjacent to river |
 | Plains | 1 | 1 | 0 | +1 Commerce adjacent to river |
-| Desert | 0 | 0 | 0 | Improvements take 25% longer; requires water for most |
-| Tundra | 1 | 0 | 0 | Improvements take 25% longer |
+| Desert | 0 | 0 | 0 | Improvements take 25% longer; requires water for most; +1 Commerce adjacent to river |
+| Tundra | 1 | 0 | 0 | Improvements take 25% longer; +1 Commerce adjacent to river |
 | Snow | 0 | 0 | 0 | No improvements possible |
 | Coast | 1 | 0 | 2 | Water; +10% defense |
 | Ocean | 1 | 0 | 1 | Water; deep-water; restricted early access |
@@ -908,7 +899,7 @@ the terminal); water terrains are never targeted.
 |---------|------|------------|----------|-----------|---------|-------|
 | Forest | 0 | +1 | 0 | +1 | +50% | Can be chopped for +20 prod (more with Math); `growth_probability` > 0 → counts as forest cover that defends against global warming (§11 game-rules) |
 | Jungle | −1 | 0 | 0 | +1 | +50% | Removed before most improvements; disease risk; `growth_probability` > 0 → defends against global warming (§11 game-rules) |
-| Flood Plains | +3 | 0 | 0 | 0 | −33% | Only on Desert tiles adjacent to rivers |
+| Flood Plains | +3 | 0 | 0 | 0 | 0 | Only on Desert tiles adjacent to rivers |
 | Oasis | +3 | 0 | +2 | 0 | 0 | Only in Desert; cannot be improved |
 | Fallout | −3 | −3 | −3 | +1 | 0 | Nuclear contamination; can be cleaned by Workers |
 | Ice | — | — | — | Impassable | — | No units or improvements |
@@ -953,8 +944,10 @@ Build times are base turns for a standard Worker. Workers with the Industrious f
 
 ### 13.1 General Land Unit Promotions
 
-Available to most land combat units. Each promotion costs experience equal to: 5 × (2^current_level) XP.
-Thresholds: first promotion at 5 XP, second at 10, third at 20, etc.
+Available to most land combat units. Promotion levels are reached at the cumulative XP
+thresholds in `data/constants.json` `experience_thresholds`: 10, 30, 60, 100, 150, 210 XP
+(first promotion at 10 XP, second at 30, and so on). The Charismatic trait reduces each
+threshold by 25% (`promotion_xp_reduction`, §4.1).
 
 **Combat Line** (available to all land units):
 
@@ -1030,13 +1023,6 @@ Attach to Unit action, §14.)
 | Flanking I | Combat I | +10% withdrawal chance |
 | Flanking II | Flanking I | +20% withdrawal chance |
 
-**Accuracy Line** (bombers and air units):
-
-| Promotion | Prerequisite | Effect |
-|-----------|-------------|--------|
-| Accuracy I | — | +25% vs cities |
-| Accuracy II | Accuracy I | +25% vs cities |
-
 **Barrage Line** (siege weapons):
 
 | Promotion | Prerequisite | Effect |
@@ -1065,7 +1051,6 @@ Attach to Unit action, §14.)
 | Leader | — (granted by a Great General's Attach to Unit action; never earned from XP) | Any | Upgrades cost −100%; prerequisite for the General-only promotions below |
 | Leadership | Leader | Any | Adjacent friendly units gain +100% XP |
 | Tactics | Leader | Any | +30% withdrawal chance |
-| Withdrawal | Combat I | Mounted | Can attempt to withdraw from combat (loses fight but survives) |
 
 **Naval Promotions:**
 
@@ -1073,9 +1058,6 @@ Attach to Unit action, §14.)
 |-----------|-------------|--------|
 | Navigation I | — | +1 Movement |
 | Navigation II | Navigation I | +1 Movement |
-| Boarding I | — | +25% attacking ships |
-| Boarding II | Boarding I | +25% attacking ships |
-| Escort | — | Accompanying unit takes −50% damage |
 
 **Air Unit Promotions:**
 
@@ -1086,10 +1068,6 @@ Attach to Unit action, §14.)
 | Range I | Combat II | +1 air range |
 | Range II | Range I | +1 air range |
 | Ace | Combat III | +25% chance to evade interception |
-| Dogfighting I | — | +25% vs fighters |
-| Dogfighting II | Dogfighting I | +25% vs fighters |
-| Air Supremacy | Interception I | +33% Interception; reduces enemy intercept by 20% |
-| Evasion | — | 50% chance to evade interception |
 
 ---
 
@@ -1101,19 +1079,19 @@ Great People are produced by accumulating Great Person Points (GPP) in cities vi
 
 | Great Person | Generated By | Per-Specialist Output | Actions |
 |-------------|-------------|----------------------|---------|
-| Great Artist | Artist specialist | +3 Culture/turn | **Great Work** — instantly adds 4000 Culture to the city (can flip nearby cultural borders). **Join City** — adds a permanent +3 Culture/turn super-specialist. **Start Golden Age** — consumes this unit to contribute to a Golden Age (see §14.4). |
-| Great Engineer | Engineer specialist | +2 Production/turn | **Hurry Production** — instantly contributes 500+ Hammers to the current build queue item. **Build Ironworks** — constructs the Ironworks national wonder. **Join City** — adds a permanent +2 Production/turn super-specialist. **Start Golden Age**. |
-| Great Merchant | Merchant specialist | +3 Commerce/turn | **Trade Mission** — visit a distant foreign city to gain 2000+ Gold. **Found Corporation** — establishes a corporation in a city (see §14.6). **Join City** — adds a permanent +3 Commerce/turn super-specialist. **Start Golden Age**. |
-| Great Prophet | Priest specialist | +2 Culture/turn | **Found Religion** — founds a religion if any remain unfounded. **Build Shrine** — constructs the religion's shrine as a national wonder in the holy city; shrine yields +1 Gold per city worldwide that follows that religion. **Join City** — adds a permanent +2 Culture/turn super-specialist. **Start Golden Age**. |
-| Great Scientist | Scientist specialist | +3 Science/turn | **Discover Technology** — instantly researches a currently available technology. **Build Academy** — constructs an Academy building (+50% Science in that city). **Join City** — adds a permanent +3 Science/turn super-specialist. **Start Golden Age**. |
-| Great Spy | Spy specialist | +3 Espionage/turn | **Infiltration** — visit a foreign city to gain +3000 Espionage Points against that faction. **Join City** — adds a permanent +3 Espionage/turn super-specialist. *(Cannot start a Golden Age.)* |
+| Great Artist | Artist specialist | +4 Culture, +1 Science/turn | **Great Work** — instantly adds 4000 Culture to the city (can flip nearby cultural borders). **Join City** — adds a permanent +3 Commerce, +12 Culture/turn super-specialist. **Start Golden Age** — consumes this unit to contribute to a Golden Age (see §14.4). |
+| Great Engineer | Engineer specialist | +2 Production/turn | **Hurry Production** — instantly contributes 500+ Hammers to the current build queue item. **Build Ironworks** — constructs the Ironworks national wonder. **Join City** — adds a permanent +3 Production, +3 Science/turn super-specialist. **Start Golden Age**. |
+| Great Merchant | Merchant specialist | +3 Commerce/turn | **Trade Mission** — visit a distant foreign city to gain 2000+ Gold. **Found Corporation** — establishes a corporation in a city (see §14.6). **Join City** — adds a permanent +1 Food, +6 Commerce/turn super-specialist. **Start Golden Age**. |
+| Great Prophet | Priest specialist | +1 Production, +1 Commerce/turn | **Found Religion** — founds a religion if any remain unfounded. **Build Shrine** — constructs the religion's shrine as a national wonder in the holy city; shrine yields +1 Gold per city worldwide that follows that religion. **Join City** — adds a permanent +2 Production, +5 Commerce/turn super-specialist. **Start Golden Age**. |
+| Great Scientist | Scientist specialist | +3 Science/turn | **Discover Technology** — instantly researches a currently available technology. **Build Academy** — constructs an Academy building (+50% Science in that city). **Join City** — adds a permanent +1 Production, +6 Science/turn super-specialist. **Start Golden Age**. |
+| Great Spy | Spy specialist | +4 Espionage, +1 Science/turn | **Infiltration** — visit a foreign city to gain +3000 Espionage Points against that faction. **Join City** — adds a permanent +3 Science, +12 Espionage/turn super-specialist. *(Cannot start a Golden Age.)* |
 | Great General | Combat XP accumulation | +2 Production/turn (if settled) | **Attach to Unit** — the General follows one military unit; all friendly units in the same tile gain the Leadership promotion. **Build Military Academy** — constructs the Military Academy national wonder. **Join City** — adds a permanent +2 Production/turn super-specialist. *(Cannot start a Golden Age.)* |
 
 ### 14.2 Great General — Special Generation Rules
 
 The Great General is not produced by specialists. Instead, it accumulates from **combat experience**:
 - Each combat victory contributes a fractional amount of points toward a Great General.
-- The Imperialistic trait grants **+50% Great General emergence rate**.
+- The Imperialistic trait grants **+100% Great General emergence rate**.
 - The Great Wall wonder grants **+100% Great General emergence rate**.
 - The first Great General costs 30 points; subsequent ones cost progressively more.
 - Great Generals are produced directly in the field (at the location of the victorious unit), not in a city.
@@ -1124,8 +1102,12 @@ The Great General is not produced by specialists. Instead, it accumulates from *
 Each city maintains a separate **GP pool** per type, based on which specialists are assigned there. When total accumulated GPP in a city reaches the threshold, a Great Person of the dominant type is born there.
 
 ```
-Threshold for Nth Great Person = 100 × N × (1 + 0.15 × (N − 1))   [approximate formula]
-  (e.g., 1st GP ≈ 100 pts; 2nd ≈ 230 pts; 3rd ≈ 390 pts; ...)
+1st Great Person threshold = 100                       (gp_threshold_base)
+After each birth the threshold rises by 50% of the base (gp_threshold_increase_percent),
+and the increment itself accelerates: it is multiplied by (births ÷ 10 + 1), integer math.
+  births 1–9  add +50 each  → 100, 150, 200, … 550
+  births 10–19 add +100 each → 650, 750, …
+(reference GREAT_PEOPLE_THRESHOLD / _INCREASE progression)
 
 Type born = whichever specialist type has contributed the most accumulated GPP in that city.
 If multiple types are tied, one is chosen at random.
@@ -1162,10 +1144,10 @@ Cities have limited specialist slots by default. Extra slots come from buildings
 |-----------|--------------|--------------------------|
 | Artist | 1 | Theatre (+1), Globe Theatre (+3), Hermitage (+1) |
 | Engineer | 1 | Forge (+1), Factory (+1), Ironworks (+3), Industrial Park (+1), Assembly Plant (+4) |
-| Merchant | 1 | Market (+1), Bank (+1), Wall Street (+3) |
+| Merchant | 1 | Market (+2), Bank (+1), Wall Street (+3) |
 | Priest | 1 | Temple (+1), Angkor Wat (+3), Madrassa (+2), Obelisk (+2) |
-| Scientist | 1 | Library (+1), University (+1), Oxford University (+3), Laboratory (+1), Research Institute (+2) |
-| Spy | 1 | Intelligence Agency (+1) |
+| Scientist | 1 | Library (+2), University (+1), Oxford University (+3), Laboratory (+1), Research Institute (+2) |
+| Spy | 1 | Intelligence Agency (+1), Kremlin (+2) |
 | Citizen | Unlimited | — (assigned to work no tile) |
 
 ### 14.6 Corporations
@@ -1191,8 +1173,6 @@ spread cost, the resource-count scaling, and per-city maintenance — close thes
 | Sid's Sushi | Crab, Clam, Fish | +2 Food |
 | Civilized Jewelers | Gems, Gold, Silver | +4 Commerce |
 | Standard Ethanol | Sugar, Corn, Wheat | +1 Food, +1 Commerce |
-| Overseas Trading Co. | Silk, Dye, Spice | +4 Commerce |
-| Nationalist Mutual | Oil, Coal | +3 Commerce |
 
 ---
 
@@ -1231,11 +1211,12 @@ Max HP = 100 (all units)
 | Min damage per hit | 1 HP | Floor on hit damage |
 | First-strike advantage | 1 round per strike | Defender cannot deal damage during attacker's first strikes |
 | Withdrawal base chance | 0% | Added by promotions or unit type |
-| Max XP from barbarians | 10 XP per fight | Capped to prevent farming |
-| XP from kill | 4–7 XP | Based on relative strength ratio |
-| Flanking damage | 20% of stack (capped) | Mounted units hitting adjacent stacked units |
+| Withdrawal chance cap (`withdrawal_chance_max`) | 90% | Total unit + promotion withdrawal is clamped here |
+| Max XP from barbarians (`experience_vs_wild_cap`) | 10 XP per fight | Capped to prevent farming |
+| XP from kill | 5–10 XP | Scaled by relative strength ratio; min 5 (`experience_per_kill_min`), capped at 10 per fight (`experience_per_combat_cap`) |
+| Flanking damage (`flanking_damage_fraction`) | 25% | Fast units hitting adjacent stacked units on victory |
 | Collateral/spillover cap | 35 HP | Siege units cannot reduce any target below 35 HP |
-| Entrenchment bonus | +20% per turn | Capped at +40% (2 turns stationary) |
+| Entrenchment bonus | +5% per turn | Capped at +25% (`entrenchment_per_turn` / `entrenchment_cap`) |
 | River-crossing penalty | −25% attack strength | Waived by Amphibious promotion |
 | Amphibious attack penalty | −50% attack strength | Waived by Amphibious promotion |
 
@@ -1256,7 +1237,9 @@ At threshold: population +1; keep granary carry-over, spill the rest. If store <
 
 > **Supersede note.** Consumption excludes **angry** citizens and folds net unhealthiness in
 > as a food drain (not a separate after-the-fact `wellbeing_deficit`); the growth threshold
-> follows the reference's pop-and-speed curve rather than the flat `18 + 2×pop`.
+> follows the reference's pop-and-speed curve. The engine's linear base is the reference
+> `20 + 2×pop` (`growth_threshold_base` / `growth_threshold_per_pop`, replacing the earlier
+> `12 + 8×pop`), scaled by pace, era, and the difficulty `growth_bonus`.
 
 | Constant | Value |
 |----------|-------|
@@ -1284,7 +1267,7 @@ At threshold: population +1; keep granary carry-over, spill the rest. If store <
 ```
 # Canonical reference percent chain (integer, floored at 1):
 Research cost = base_cost
-              × handicap_research_percent / 100   # difficulty: Settler 60 … Noble 100 … Deity 130
+              × handicap_research_percent / 100   # difficulty: Settler 60 … Noble 100 … Deity 135
               × world_research_percent    / 100   # map size
               × speed_research_percent    / 100   # Quick 67 / Normal 100 / Epic 150 / Marathon 300
               × era_research_percent       / 100   # advanced-start era
@@ -1295,9 +1278,10 @@ Trading discount     = 5% per other faction that already knows this tech (capped
 Prerequisite discount = 10% per held prerequisite of this tech
 ```
 
-> **Supersede note.** The authoritative cost is the percent chain above. The engine currently
-> applies only the speed scalar and folds difficulty into an AI beaker bonus; add the
-> handicap/world/era/team factors. The two discounts remain as this game's extensions.
+> **Supersede note.** The authoritative cost is the percent chain above, and the engine
+> applies it in full (`Research._effective_cost`): handicap (human side; the AI instead pays
+> the per-era `ai_research_per_era` modifier), world size, speed, era, and team factors.
+> The two discounts remain as this game's extensions.
 
 ### 15.5 Espionage
 
@@ -1328,38 +1312,42 @@ A unit does not heal on any turn it moves or fights.
 
 ### 15.8 World Sizes
 
-| Map Size | Dimensions (approx.) | Recommended Players |
-|----------|-----------------------|---------------------|
-| Duel | 40×24 | 2 |
-| Tiny | 56×36 | 3 |
-| Small | 72×44 | 4 |
-| Standard | 96×60 | 6 |
-| Large | 128×80 | 8 |
-| Huge | 160×100 | 10+ |
+Grids, suggested player counts, and the per-size research % (a factor in the §15.4 tech-cost
+chain — larger maps cost more) are the reference values (`data/world_sizes.json`):
+
+| Map Size | Dimensions | Recommended Players | Research % |
+|----------|------------|---------------------|:----------:|
+| Duel | 40×24 | 2 | 100 |
+| Tiny | 52×32 | 3 | 110 |
+| Small | 64×40 | 5 | 120 |
+| Standard | 84×52 | 7 | 130 |
+| Large | 104×64 | 9 | 140 |
+| Huge | 128×80 | 11 | 150 |
 
 ### 15.9 Difficulty Levels
 
 The two **canonical** knobs (reference-grounded) are the **player research %**
 (`handicap_research_percent`, scaling the player's own tech cost, §15.4) and the **AI per-era
-research modifier** (`ai_research_per_era`, making AI techs cheaper as the game advances).
-`noble` is the balanced baseline (research 100, every bonus 0). The `ai_bonus` (flat AI yield
-handicap) and the human-only city aids (`growth_bonus`/`health_bonus`/`happiness_bonus`) are
-this game's additional levers. All apply to human players only except the AI knobs.
+research modifier** (`ai_research_per_era`, negative = AI techs get cheaper as the game
+advances). `noble` is the research-neutral baseline (research 100). The `ai_bonus` (flat AI
+yield handicap), the **free early wins** against wild/raider forces, and the human-only city
+aids (`growth_bonus`/`health_bonus`/`happiness_bonus`) are the other levers. All apply to
+human players only except the AI knobs. Per the reference, the city aids **never go negative**
+for the human — every level keeps at least health +2 / happiness +4; harder levels instead
+raise the growth threshold (negative `growth_bonus`). All values are the reference table,
+shipped in `data/difficulties.json`:
 
-| Level | Player research % | AI per-era modifier | AI yield bonus | City aids (human only) |
-|-------|:----------------:|:-------------------:|----------------|------------------------|
-| Settler | 60 | 0 | None | Large (+growth/health/happiness) |
-| Chieftain | ~70 | 0 | None | Some |
-| Warlord | ~85 | 0 | Slight | Slight |
-| Noble (baseline) | 100 | 0 | Balanced | None |
-| Prince | ~110 | 0 | Minor | None |
-| Monarch | ~115 | −1 | Moderate | None |
-| Emperor | ~120 | −2 | Large | None |
-| Immortal | ~125 | −3 | Very large | None |
-| Deity | 130 | −5 | Maximum | None |
-
-*(Settler/Noble/Deity research % and the Deity per-era −5 are the reference anchors; the
-intermediate rows are interpolated targets to balance.)*
+| Level | Player research % | AI per-era modifier | AI yield bonus % | Free early wins | Growth bonus | Health | Happiness |
+|-------|:----------------:|:-------------------:|:----------------:|:---------------:|:------------:|:------:|:---------:|
+| Settler | 60 | 0 | 0 | 5 | +25 | +4 | +6 |
+| Chieftain | 75 | 0 | 0 | 4 | +10 | +3 | +5 |
+| Warlord | 90 | 0 | 0 | 3 | 0 | +2 | +4 |
+| Noble (baseline) | 100 | 0 | 0 | 2 | 0 | +2 | +4 |
+| Prince | 110 | −1 | 10 | 1 | 0 | +2 | +4 |
+| Monarch | 115 | −2 | 20 | 0 | −5 | +2 | +4 |
+| Emperor | 120 | −3 | 35 | 0 | −10 | +2 | +4 |
+| Immortal | 125 | −4 | 50 | 0 | −15 | +2 | +4 |
+| Deity | 135 | −5 | 70 | 0 | −20 | +2 | +4 |
 
 ### 15.10 Wild-forces spawn tables (provisional)
 
@@ -1371,7 +1359,7 @@ intermediate rows are interpolated targets to balance.)*
 | Field | Settler | Chieftain | Warlord | Noble | Prince | Monarch | Emperor | Immortal | Deity |
 |-------|--------:|----------:|--------:|------:|-------:|--------:|--------:|---------:|------:|
 | `unowned_tiles_per_wild_unit` | 150 | 100 | 80 | 60 | 50 | 40 | 35 | 30 | 25 |
-| `unowned_water_tiles_per_wild_unit` (§9.4) | 3000 | 2400 | 2200 | 2000 | 1800 | 1600 | 1400 | 1200 | 1000 |
+| `unowned_water_tiles_per_wild_unit` (§9.4) | 750 | 600 | 550 | 500 | 450 | 400 | 350 | 300 | 250 |
 | `unowned_tiles_per_wild_city` | 160 | 150 | 140 | 130 | 120 | 110 | 100 | 90 | 80 |
 | `wild_creation_turns_elapsed` ‡ | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 | 10 |
 | `wild_city_creation_turns_elapsed` ‡ | 55 | 50 | 45 | 40 | 35 | 30 | 25 | 20 | 15 |
@@ -1383,7 +1371,7 @@ intermediate rows are interpolated targets to balance.)*
 Epic ×1.5, Marathon ×3.0.
 
 Animal globals (`data/constants.json`, §9.3): `animal_land_per_unit` (60, density fallback),
-`animal_detect_radius` (2, hunt range), `animal_spawn_per_turn` (2), `animal_xp_lifetime_cap` (10,
+`animal_detect_radius` (2, hunt range), `animal_spawn_per_turn` (2), `animal_xp_lifetime_cap` (5,
 max XP a unit ever banks from animals), and `unit_sight` (2) / `city_sight` (3) — the fog radii the
 spawner reuses to keep animals in the dark. Animal unit types are `data/units.json` entries with
 `"classification": "animal"` (Wolf, Panther, Bear).
@@ -1658,10 +1646,7 @@ and related combat code (§5.3):
 | `move_discount` | Terrain movement-cost reduction in points (no engine reader yet) |
 | `upgrade_discount` | Percent discount on unit upgrade cost (no engine reader yet) |
 | `granted_only` | Never offered as an XP pick; only appended by an effect (Great-General attach) |
-| `reduce_enemy_intercept` | Reduces the enemy's interception chance |
-| `hit_damage_reduction` | Percent damage reduction per hit received |
 | `siege_bombard_damage_reduction` | Specific reduction against siege splash damage |
-| `escort_damage_reduction` | Absorbs a share of damage directed at a carried unit |
 | `extra_attacks` | Number of additional attacks per turn (e.g. Blitz) |
 | `move_after_attack` | Unit retains remaining movement after attacking |
 | `heal_while_active` | Unit heals even while moving (March) |
@@ -2083,13 +2068,13 @@ companion to §14.5 (specialist slots and sources).
 
 | Type | Output | GP type | GPP/turn | Births | Default slots |
 |------|--------|---------|:--------:|--------|:-------------:|
-| `citizen` | — | — | 0 | — | unlimited (`-1`) |
-| `priest` | +1 production, +1 commerce | priest | 1 | `great_prophet` | 1 |
-| `artist` | +3 culture | artist | 1 | `great_artist` | 1 |
-| `scientist` | +3 science | scientist | 1 | `great_scientist` | 1 |
-| `merchant` | +3 commerce | merchant | 1 | `great_merchant` | 1 |
-| `engineer` | +2 production | engineer | 1 | `great_engineer` | 1 |
-| `spy` | +3 espionage | spy | 1 | `great_spy` | 1 |
+| `citizen` | +1 production | — | 0 | — | unlimited (`-1`) |
+| `priest` | +1 production, +1 commerce | priest | 3 | `great_prophet` | 1 |
+| `artist` | +4 culture, +1 science | artist | 3 | `great_artist` | 1 |
+| `scientist` | +3 science | scientist | 3 | `great_scientist` | 1 |
+| `merchant` | +3 commerce | merchant | 3 | `great_merchant` | 1 |
+| `engineer` | +2 production | engineer | 3 | `great_engineer` | 1 |
+| `spy` | +4 espionage, +1 science | spy | 3 | `great_spy` | 1 |
 
 ### 22.2 Settled Great People (super-specialists)
 
@@ -2098,16 +2083,18 @@ bank no further GPP — they are the settled reward form).
 
 | Type | Output | GP type |
 |------|--------|---------|
-| `great_priest` (Settled Great Prophet) | +2 culture | priest |
-| `great_artist` | +3 culture | artist |
-| `great_scientist` | +3 science | scientist |
-| `great_merchant` | +3 commerce | merchant |
-| `great_engineer` | +2 production | engineer |
+| `great_priest` (Settled Great Prophet) | +2 production, +5 commerce | priest |
+| `great_artist` | +3 commerce, +12 culture | artist |
+| `great_scientist` | +1 production, +6 science | scientist |
+| `great_merchant` | +1 food, +6 commerce | merchant |
+| `great_engineer` | +3 production, +3 science | engineer |
 | `great_general` | +2 production | engineer |
-| `great_spy` | +3 espionage | spy |
+| `great_spy` | +3 science, +12 espionage | spy |
 
-> The engine currently collapses settled Great People into their working specialist type;
-> the `great_*` records are kept for parity/validation and city-screen display.
+> Both settle sites (`GreatPeople._act_join_city` and the events SGP verb) add the `great_*`
+> record itself, so settled Great People yield these reference values and bank no further GPP.
+> The settled Great General keeps +2 production as a stand-in until the reference's
+> military-instructor (+XP to units built) model exists.
 
 **Slots** = `default_slots` (available without buildings; `-1` = unlimited, for `citizen`)
 + per-structure `specialist_slots` + the Caste System civic's `unlimited_specialists`.
@@ -2121,13 +2108,13 @@ types (`CITIZEN … GREAT_SPY`). ✅ **Complete.**
 
 `data/econ_orgs.json`. Player-foundable economic organisations that spread between cities
 via an executive unit, consuming input resources for a per-city yield. This is the
-data-side companion to §14.6. The project ships **10** corporations (the reference defines
-7); each carries the full reference model — HQ building, executive spreader, input set,
-per-city maintenance, and an HQ gold share.
+data-side companion to §14.6. The project ships the reference's **7** corporations (the
+three former Humanish-only orgs were cut, D4 2026-07-11); each carries the full reference
+model — HQ building, executive spreader, input set, per-city maintenance, and an HQ gold
+share.
 
 | Corp | Input resources | Per-city output | HQ structure |
 |------|-----------------|-----------------|--------------|
-| `merchant_guild` | gold | +4 commerce | `merchant_guild_hq` |
 | `cereal_mills` | wheat, rice, corn | +1 food per distinct input present | `cereal_mills_hq` |
 | `creative_constructions` | marble, stone | +2 production | `creative_constructions_hq` |
 | `aluminum_co` | aluminum | +3 production | `aluminum_co_hq` |
@@ -2135,8 +2122,6 @@ per-city maintenance, and an HQ gold share.
 | `sids_sushi` | crab, clam, fish | +2 food | `sids_sushi_hq` |
 | `civilized_jewelers` | gems, gold, silver | +4 commerce | `civilized_jewelers_hq` |
 | `standard_ethanol` | sugar, corn, wheat | +1 food, +1 commerce | `standard_ethanol_hq` |
-| `overseas_trading_co` | silk, dye, spices | +4 commerce | `overseas_trading_co_hq` |
-| `nationalist_mutual` | oil, coal | +3 commerce | `nationalist_mutual_hq` |
 
 Output is either a flat `output_delta` per city, or an `output_per_input_resource` scaled
 by the count of distinct input resources reachable by that city (`cereal_mills`,
@@ -2152,8 +2137,8 @@ by the count of distinct input resources reachable by that city (`cereal_mills`,
 
 **Reference parity:** the reference's `GameCorporationInfo.xml` defines 7 corporations,
 each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project ships
-10 with the full HQ/executive/maintenance model. ✅ **Complete** (exceeds the reference
-count).
+the same 7 with the full HQ/executive/maintenance model (per-resource output *scaling* is
+B6; see §29.6 for the remaining input/output diffs).
 
 ---
 
@@ -2653,9 +2638,9 @@ All: HQ +4 gold per franchise; spread factor 200; spread base cost 50; maintenan
 | Corporation 6 | aluminum_co | coal (only) | +3 research | **Aluminum** |
 | Corporation 7 | civilized_jewelers | gold, silver, gems | +1 gold, +4 culture | — |
 
-Bold inputs are ones the current `econ_orgs.json` dropped/changed. `merchant_guild`,
-`overseas_trading_co`, `nationalist_mutual` are Humanish inventions with no reference
-row (keep or cut — decision item).
+Bold inputs are ones the current `econ_orgs.json` dropped/changed. The former
+`merchant_guild`, `overseas_trading_co`, `nationalist_mutual` — Humanish inventions with
+no reference row — were **cut** (D4, 2026-07-11).
 
 ### 29.7 Per-difficulty goody rosters (selection weights)
 
@@ -2715,9 +2700,12 @@ Reference columns Humanish currently folds into the single `ai_bonus` yield scal
 
 ### 29.11 Key reference globals for retunes (for the plan's Phase A)
 
-Growth threshold **20 + 2·pop** (Humanish 12 + 8·pop); min city spacing **2**
-(Humanish 3); heal rates city **20** / friendly **15** / neutral **10** / enemy **5**
-(Humanish 30/20/15/5/0); max XP per combat **10**; barbarian lifetime XP cap **10**;
-animal lifetime XP cap **5** (Humanish uses 10 and mis-cites the reference); max
-withdrawal probability **90**; occupation turns = **50%** of population (base 3);
+Growth threshold **20 + 2·pop** (adopted 2026-07-11; formerly 12 + 8·pop); min city
+spacing **2** (adopted; formerly 3); heal rates city **20** / friendly **15** / neutral
+**10** / enemy **5** (adopted, dropping the former 30/20/15/5/0 five-tier extras; the
+allied tier — no reference analogue — is aligned to friendly at 15); max XP per combat
+**10** (adopted, `experience_per_combat_cap`); barbarian lifetime XP cap **10** (the
+engine's `experience_vs_wild_cap` 10 is per-fight; no lifetime tracker); animal lifetime
+XP cap **5** (adopted 2026-07-08); max withdrawal probability **90** (adopted,
+`withdrawal_chance_max`); occupation turns = **50%** of population (base 3);
 conscription minimum city size **5**; nuke magnitudes in `game-rules.md` §15.7.

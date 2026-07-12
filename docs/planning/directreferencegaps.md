@@ -114,9 +114,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   grids, research % 100–150, players_suggested 2/3/5/7/9/11.
   **DONE 2026-07-08** (a3d1078): all three columns to reference (standard now 84×52
   at 130% research); research-cost chain tests recalibrated (default "standard"
-  gs now scales ×130). Follow-up for a design-doc sitting: game-data §15.8/§15.9
+  gs now scales ×130). ~~Follow-up for a design-doc sitting: game-data §15.8/§15.9
   tables and ai-design §4's `combat_bonus_vs_wild` mention still show the old
-  values/name (docs/design/ needs user consent).
+  values/name (docs/design/ needs user consent).~~ **Addressed 2026-07-11**
+  (design-doc value-sync pass, user-consented).
 - **A5. Terrain & features** (`data/terrains.json`, `features.json`; tests
   `tests/world/*`, `tests/sim/test_settlement*`): `[decide→RESOLVED: adopt reference
   on all]` grassland 2/1/0 → 2/0/0 (largest single economic change — expect broad
@@ -275,9 +276,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   `test_xp_per_combat_capped_at_ten` / `test_withdrawal_chance_clamped_at_max`
   (`test_combat.gd`). One recalibration: `test_unhealthy_city_grows_slower` now
   starts both cities below the lower threshold (growth resets the food box to
-  50% of threshold, which erased the measured difference). Note for a
+  50% of threshold, which erased the measured difference). ~~Note for a
   design-doc sitting: game-rules §4.2/§5.6 and game-data still cite the old
-  growth curve, min distance 3, and the five-tier heal table.
+  growth curve, min distance 3, and the five-tier heal table.~~ **Addressed
+  2026-07-11** (design-doc value-sync pass; game-data §15.7 was already current).
 - **A12. Goody weights** (`data/goodies.json`): ~~give `settler`/`worker` the
   per-difficulty weights from game-data §29.7 (per-difficulty weighting already
   supported per §24). Tests: `tests/sim/test_goodies*.gd`.~~ **VERIFIED ALREADY
@@ -481,9 +483,11 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   `test_list_applies_to_matches_class_or_domain`,
   `test_vs_armor_and_vs_siege_promotions_apply_against_mapped_class`,
   `test_tactics_withdrawal_bonus_live` (`test_combat.gd`); attach test extended
-  (`test_great_people.gd`). Design-doc mentions of the cut content (game-data.md
+  (`test_great_people.gd`). ~~Design-doc mentions of the cut content (game-data.md
   §§ unit/promotion/corporation tables and the §29-era notes) are left in place
-  pending a consented design-doc pass.
+  pending a consented design-doc pass.~~ **Addressed 2026-07-11** (design-doc
+  value-sync pass: anti_tank/promotion/corporation/religion rows removed,
+  §23/§29.6 notes updated to record the cut).
 
 ## Bug fixes (do now, independent of phases) — ALL DONE 2026-07-08
 
