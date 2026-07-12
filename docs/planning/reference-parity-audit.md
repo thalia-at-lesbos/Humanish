@@ -353,12 +353,15 @@ several columns differ from the file:
 ## 7. Paces
 
 `growth/research/build 67/100/150/300` and total game turns **330/500/750/1500
-all match** the XML. Missing per-speed knobs: `iAnarchyPercent`,
+all match** the XML. ~~Missing per-speed knobs: `iAnarchyPercent`,
 `iGoldenAgePercent` (golden-age length doesn't scale with pace; reference quick
-80 … marathon 200), ~~`iInflationPercent` (no inflation at all)~~ — **closed
-2026-07-12 (C1): `inflation_percent`/`inflation_offset` now shipped per pace** —
+80 … marathon 200), `iInflationPercent` (no inflation at all),
 victory-delay percent, and the reference's separate `iBarbPercent` (marathon 400 ≠
-reuse of build scale).
+reuse of build scale).~~ **All closed:** 2026-07-12 (C1) shipped
+`inflation_percent`/`inflation_offset` per pace; 2026-07-12 (C3) shipped
+`anarchy_scale` 67/100/150/200, `golden_age_scale` 80/100/125/200,
+`victory_delay_scale` 67/100/150/300, and `wild_scale` 67/100/150/400
+(no longer a build-scale reuse) — see game-rules §15.3 / game-data §29.5.
 
 ## 8. Terrain / features / specialists / GP
 

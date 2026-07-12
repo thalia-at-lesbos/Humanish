@@ -59,10 +59,21 @@ func test_no_wild_units_before_creation_turn_gate() -> void:
 func test_creation_turn_gate_scales_with_game_pace() -> void:
 	var gs = make_gs(2, 7)
 	_open_unit_gates(gs)
-	gs.pace_id = "marathon"  # 40-turn gate becomes 40 * 300/100 = 120
+	gs.pace_id = "marathon"  # 40-turn gate becomes 40 * 400/100 = 160 (wild_scale, §15.3)
 	gs.turn_number = 60      # past the normal gate, well short of the marathon one
 	WildForces.spawn_turn(gs, gs.rng)
 	assert_eq(_wild_count(gs), 0, "Marathon stretches the turn gate; turn 60 is too early")
+
+func test_wild_turn_scaling_uses_its_own_pace_column() -> void:
+	# §15.3 (C3): wild timing scales by the pace's own wild_scale column, not the
+	# build/growth scale — a 40-turn gate is 26/40/60/160 on quick/normal/epic/
+	# marathon (the reference's separate barb percent: marathon 400, not 300).
+	var gs = make_gs(2, 7)
+	var expected := {"quick": 26, "normal": 40, "epic": 60, "marathon": 160}
+	for pace_id in expected:
+		gs.pace_id = pace_id
+		assert_eq(WildForces._scaled_turns(gs, 40), expected[pace_id],
+			"a 40-turn wild gate is %s turns on %s" % [expected[pace_id], pace_id])
 
 func test_era_gate_suppresses_wild_units_in_starting_era() -> void:
 	var gs = make_gs(2, 7)

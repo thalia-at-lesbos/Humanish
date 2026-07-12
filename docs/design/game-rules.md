@@ -43,7 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — whipping, pace scaling, culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2 implemented 2026-07-12, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1598,22 +1598,42 @@ data) halves that duration. All constants in `data/constants.json`. The gold pat
 tuning (1 gold per hammer, Universal Suffrage gate, flat 5-turn rush anger); its
 3-gold-per-hammer reference retune remains an open parity gap.
 
-### 15.3 Pace scaling for anarchy, golden ages, and victory delay *(unimplemented)*
+### 15.3 Pace scaling for anarchy, golden ages, victory delay, and wild timing
 
-Three per-pace multipliers the reference applies and Humanish ignores:
+Four per-pace multipliers the reference applies (Humanish previously ignored the
+first three and folded the fourth into the build scale):
 
-| Pace | anarchy % | golden-age % | victory-delay % |
-|---|---|---|---|
-| quick | 67 | 80 | 67 |
-| normal | 100 | 100 | 100 |
-| epic | 150 | 125 | 150 |
-| marathon | 200 | 200 | 300 |
+| Pace | anarchy % | golden-age % | victory-delay % | wild % |
+|---|---|---|---|---|
+| quick | 67 | 80 | 67 | 67 |
+| normal | 100 | 100 | 100 | 100 |
+| epic | 150 | 125 | 150 | 150 |
+| marathon | 200 | 200 | 300 | 400 |
 
 Applied to: policy/state-belief transition turns (`iAnarchyPercent`, with reference
 bounds `BASE_CIVIC_ANARCHY_LENGTH` 1, `BASE_RELIGION_ANARCHY_LENGTH` 1,
 `MAX_ANARCHY_TURNS` 100); Golden-Age length (`GOLDEN_AGE_LENGTH` 8 ×
-`iGoldenAgePercent`; Humanish `golden_age_base_turns` 8 is currently pace-blind); and
-turn-count victory checks (cultural/time thresholds stretched by victory-delay %).
+`iGoldenAgePercent`; `golden_age_base_turns` 8 was previously scaled by the build
+percent); turn-count victory checks (the cultural legendary-culture threshold
+stretched by victory-delay %); and wild-forces spawn timing (the reference's own
+`iBarbPercent` column — marathon 400, not a reuse of the 300 build scale).
+
+Implemented (2026-07-12): four per-pace columns in `paces.json` (`anarchy_scale`,
+`golden_age_scale`, `victory_delay_scale`, `wild_scale`, table above; `Fixed.scale`
+truncation throughout). **Anarchy** — `SimFacade._anarchy_turns` stretches both a
+civic switch's `transition_turns` (`_cmd_set_policy`) and a religion switch's
+`state_religion_anarchy_turns` (`_cmd_set_state_religion`), clamped to
+`anarchy_min_turns` 1 / `anarchy_max_turns` 100 (`constants.json`) so quick-pace
+truncation never erases a real switch cost; espionage-induced anarchy (§7.1) is
+mission-priced and stays unscaled. **Golden ages** — `GreatPeople._golden_age_duration`
+reads `golden_age_scale` (8 turns → 6/8/10/16), replacing its old `build_scale` read.
+**Victory delay** — `WinConditions._cultural` requires each city's `culture_total` to
+reach the top `culture_ring_thresholds` entry (550) × `victory_delay_scale`
+(368/550/825/1650); at normal pace this is exactly the old top-border-ring check.
+The **Time** victory turn limit is *not* additionally scaled: `max_turns` in
+`paces.json` (330/500/750/1500) already carries the reference per-pace game lengths.
+**Wild timing** — `WildForces._scaled_turns` reads `wild_scale` (a 40-turn gate →
+26/40/60/160), replacing its old `growth_scale` read.
 
 ### 15.4 Culture-level city defence *(unimplemented)*
 

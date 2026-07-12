@@ -143,11 +143,12 @@ static func tick_golden_age(player: Player) -> void:
 	if player.golden_age_turns > 0:
 		player.golden_age_turns -= 1
 
-# Base Golden Age duration in turns: data base, scaled by pace, +Mausoleum bonus.
+# Base Golden Age duration in turns: data base, scaled by the pace's own golden-age
+# percent (§15.3 — quick 80 / normal 100 / epic 125 / marathon 200), +Mausoleum bonus.
 static func _golden_age_duration(gs: GameState, player: Player) -> int:
 	var db: DataDB = gs.db
 	var turns: int = db.get_constant("golden_age_base_turns", 8)
-	var pace_scale: int = int(db.get_pace(gs.pace_id).get("build_scale", 100))
+	var pace_scale: int = int(db.get_pace(gs.pace_id).get("golden_age_scale", 100))
 	turns = Fixed.scale(turns, pace_scale)
 	if _player_has_structure(gs, player, "mausoleum"):
 		turns = Fixed.scale_up(turns, db.get_constant("mausoleum_golden_age_pct", 50))

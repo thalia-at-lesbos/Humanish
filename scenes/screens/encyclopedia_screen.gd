@@ -706,7 +706,7 @@ func _detail_civic(vbox: VBoxContainer, d: Dictionary) -> void:
 		_lbl(vbox, "Anger modifier: " + _sign_int(anger))
 	var transition = int(d.get("transition_turns", 0))
 	if transition > 0:
-		_lbl(vbox, "Anarchy on switch: %d turns" % [transition])
+		_lbl(vbox, "Anarchy on switch: %d turns (at Normal pace)" % [transition])
 	else:
 		_lbl(vbox, "Anarchy on switch: none")
 	var slider_min = int(d.get("slider_min_research", 0))
@@ -1063,7 +1063,8 @@ func _guide_sections() -> Array:
 			"",
 			"Transition",
 			"When you switch policies in a category, your empire enters anarchy for the",
-			"number of turns shown. Plan switches carefully — nothing accumulates during it.",
+			"number of turns shown (scaled by game pace; always at least one turn).",
+			"Plan switches carefully — nothing accumulates during it.",
 		]],
 		["Diplomacy", [
 			"Diplomacy Screen  (F4)",
@@ -1119,7 +1120,8 @@ func _guide_sections() -> Array:
 			"",
 			"Golden Age",
 			"Certain Great Person actions (and accumulating several of them) trigger a Golden Age:",
-			"a fixed number of turns where all worked tiles produce extra output.",
+			"a set number of turns (8 at Normal pace; scaled by game pace) where all",
+			"worked tiles produce extra output.",
 			"War fatigue is frozen during a Golden Age.",
 		]],
 		["Eras", [
@@ -1197,7 +1199,8 @@ func _guide_sections() -> Array:
 			"Hold at least 66% of all land tiles and 66% of total population simultaneously.",
 			"",
 			"Cultural",
-			"Bring three of your cities to Legendary culture (50,000 points each).",
+			"Bring three of your cities to Legendary culture (550 points each at",
+			"Normal pace; the requirement scales with game pace).",
 			"The three cities do not need to reach Legendary simultaneously.",
 			"",
 			"Score",

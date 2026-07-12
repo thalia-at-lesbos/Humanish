@@ -346,7 +346,7 @@ The Civics screen shows the description and known effects of every policy.
 
 ### Transition
 
-When you switch policies in a category, your empire enters **anarchy** for a number of turns (set by the policy). During anarchy no research, culture, or production accumulates. Plan switches carefully.
+When you switch policies in a category, your empire enters **anarchy** for a number of turns (set by the policy and scaled by game pace — shorter at Quick, longer at Epic, always at least one turn). During anarchy no research, culture, or production accumulates. Plan switches carefully.
 
 ---
 
@@ -407,7 +407,7 @@ Every Great Person can also permanently **join a city** as a super-specialist, a
 
 ### Golden Age
 
-Certain Great Person actions (and accumulating a set number of them) trigger a **Golden Age** — a fixed number of turns where all worked tiles produce extra output. War weariness is frozen during a Golden Age.
+Certain Great Person actions (and accumulating a set number of them) trigger a **Golden Age** — a set number of turns (8 at Normal pace; 6 at Quick, 10 at Epic) where all worked tiles produce extra output. War weariness is frozen during a Golden Age.
 
 ---
 
@@ -595,7 +595,7 @@ Hold at least **66 %** of all land tiles *and* **66 %** of total population simu
 
 ### Cultural
 
-Bring **three** of your cities to **Legendary culture** (50,000 culture points accumulated in each city). The three cities can be any combination; they do not need to reach Legendary simultaneously.
+Bring **three** of your cities to **Legendary culture** (**550** culture points accumulated in each city at Normal pace — the requirement scales with game pace: about a third less at Quick, half again more at Epic). The three cities can be any combination; they do not need to reach Legendary simultaneously.
 
 ### Score
 

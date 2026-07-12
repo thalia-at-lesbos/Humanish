@@ -151,24 +151,46 @@ func test_completing_a_project_advances_the_stage_count() -> void:
 func test_cultural_win_with_enough_legendary_cities() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["cultural"]
-	var max_ring: int = gs.db.constants.get("culture_ring_thresholds", []).size()
+	var thresholds: Array = gs.db.constants.get("culture_ring_thresholds", [])
+	var legendary: int = int(thresholds[thresholds.size() - 1])
 	var need: int = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
 	for i in range(need):
 		var s = make_settlement(gs, 1, 2 + i, 2, 4)
-		s.culture_ring = max_ring
+		s.culture_total = legendary   # normal pace: victory_delay_scale 100 = the raw top threshold
 	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
-		"The required number of top-ring cities wins the cultural condition")
+		"The required number of legendary-culture cities wins the cultural condition")
 
 func test_cultural_no_win_one_city_short() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["cultural"]
-	var max_ring: int = gs.db.constants.get("culture_ring_thresholds", []).size()
+	var thresholds: Array = gs.db.constants.get("culture_ring_thresholds", [])
+	var legendary: int = int(thresholds[thresholds.size() - 1])
 	var need: int = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
 	for i in range(need - 1):         # one shy of the requirement
 		var s = make_settlement(gs, 1, 2 + i, 2, 4)
-		s.culture_ring = max_ring
+		s.culture_total = legendary
 	assert_eq(WinConditions.check_all(gs), -1,
 		"One city short of the cultural requirement is not a win")
+
+func test_cultural_threshold_scales_with_game_pace() -> void:
+	# §15.3 (C3): the legendary-culture requirement is the top ring threshold (550)
+	# stretched by the per-pace victory_delay_scale — 368/550/825/1650 culture on
+	# quick/normal/epic/marathon (Fixed.scale truncation).
+	var cases := {"quick": 368, "normal": 550, "epic": 825, "marathon": 1650}
+	for pace_id in cases:
+		var gs = make_gs(2)
+		gs.enabled_win_conditions = ["cultural"]
+		gs.pace_id = pace_id
+		var need: int = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
+		for i in range(need):
+			var s = make_settlement(gs, 1, 2 + i, 2, 4)
+			s.culture_total = cases[pace_id] - 1
+		assert_eq(WinConditions.check_all(gs), -1,
+			"%s culture is one short of legendary on %s" % [cases[pace_id] - 1, pace_id])
+		for s2 in gs.settlements:
+			s2.culture_total = cases[pace_id]
+		assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
+			"%s culture per city wins the cultural condition on %s" % [cases[pace_id], pace_id])
 
 func test_accumulated_culture_reaches_the_top_ring() -> void:
 	# Reachability: enough culture pushes a settlement's ring to the maximum that

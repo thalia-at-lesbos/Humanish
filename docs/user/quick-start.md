@@ -35,7 +35,7 @@ Saves are stored in your user data folder:
 3. Set world options:
    - **World size** — Duel (40×24) through Huge (128×80). Larger maps mean longer games.
    - **Map type** — Continents is a safe starting choice. See the [User Reference](user-reference.md) for the full list.
-   - **Pace** — Quick, Normal, or Epic. Normal is balanced; Epic extends research, build times, and the turn limit.
+   - **Pace** — Quick, Normal, or Epic. Normal is balanced; Epic extends research, build times, the turn limit, Golden Ages, anarchy, the cultural-victory requirement, and how late barbarians appear (Quick shortens the same).
    - **Difficulty** — Settler, Warlord, Prince, or Emperor. Warlord (the default) suits new players; higher settings strengthen the AI and the raiders.
    - **Aggressive raiders** — optional: longer raider waves with shorter lulls between them.
    - **Permanent alliances** — optional: lets players at peace form unbreakable alliances through diplomacy.

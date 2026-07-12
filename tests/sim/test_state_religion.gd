@@ -65,6 +65,19 @@ func test_switching_to_none_triggers_anarchy() -> void:
 	assert_eq(p.state_religion, "", "State religion cleared")
 	assert_gt(p.transition_turns, 0, "Abandoning a state religion also causes anarchy")
 
+func test_religion_anarchy_scales_with_pace_and_keeps_the_minimum() -> void:
+	# §15.3 (C3): religion-switch anarchy (base state_religion_anarchy_turns 1) is
+	# stretched by the per-pace anarchy_scale — marathon (200) doubles it to 2, and
+	# on quick (67) truncation to 0 is caught by the anarchy_min_turns 1 floor.
+	var expected := {"quick": 1, "normal": 1, "epic": 1, "marathon": 2}
+	for pace_id in expected:
+		var f = _facade_with_religion()
+		f.get_state().pace_id = pace_id
+		f.apply_command(Commands.set_state_religion(1, "buddhism"))
+		f.apply_command(Commands.set_state_religion(1, ""))
+		assert_eq(f.get_state().get_player(1).transition_turns, expected[pace_id],
+			"religion switch costs %s anarchy turns on %s" % [expected[pace_id], pace_id])
+
 func test_spiritual_leader_switches_without_anarchy() -> void:
 	var f = _facade_with_religion("buddhism", true)
 	var gs = f.get_state()

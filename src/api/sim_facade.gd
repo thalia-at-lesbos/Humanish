@@ -982,11 +982,11 @@ func _cmd_set_policy(cmd: Dictionary) -> bool:
 	if prev == pol_id:
 		return false  # no change
 	# Anarchy on a real switch only: replacing an established civic costs the
-	# policy's transition turns, but the first government chosen in a category (from
-	# none) is free, as is any switch for a Spiritual leader (§8).
+	# policy's transition turns (pace-scaled, §15.3), but the first government chosen
+	# in a category (from none) is free, as is any switch for a Spiritual leader (§8).
 	var transition: int = int(pol.get("transition_turns", 0))
 	if transition > 0 and prev != "" and not ("spiritual" in p.traits):
-		p.transition_turns = transition
+		p.transition_turns = _anarchy_turns(transition)
 	p.policies[cat] = pol_id
 	_add_notification(p.name + " adopted " + str(pol.get("name", pol_id)) + ".", "major")
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
@@ -1016,8 +1016,9 @@ func _cmd_set_state_religion(cmd: Dictionary) -> bool:
 		if not present:
 			return false
 	# Anarchy on a real switch (not the first adoption), unless the leader is Spiritual.
+	# Pace-scaled like a civic switch (§15.3).
 	if p.state_religion != "" and not ("spiritual" in p.traits):
-		p.transition_turns = _db.get_constant("state_religion_anarchy_turns", 1)
+		p.transition_turns = _anarchy_turns(_db.get_constant("state_religion_anarchy_turns", 1))
 	p.state_religion = belief_id
 	if belief_id == "":
 		_add_notification(p.name + " abandoned their state religion.", "major")
@@ -1027,6 +1028,20 @@ func _cmd_set_state_religion(cmd: Dictionary) -> bool:
 	_dirty.set_dirty(IDs.DirtyRegion.FULL_SCREENS)
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 	return true
+
+# Anarchy length for a civic/state-religion switch, stretched by the per-pace
+# anarchy_scale (§15.3) and clamped to the reference bounds (anarchy_min_turns 1,
+# anarchy_max_turns 100) so quick-pace truncation never erases a real switch cost.
+func _anarchy_turns(base: int) -> int:
+	var scaled: int = Fixed.scale(base,
+		int(_db.get_pace(_gs.pace_id).get("anarchy_scale", 100)))
+	var lo: int = _db.get_constant("anarchy_min_turns", 1)
+	var hi: int = _db.get_constant("anarchy_max_turns", 100)
+	if scaled < lo:
+		scaled = lo
+	if scaled > hi:
+		scaled = hi
+	return scaled
 
 func _cmd_declare_war(cmd: Dictionary) -> bool:
 	var p: Player = _gs.get_player(int(cmd["player_id"]))

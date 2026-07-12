@@ -75,6 +75,8 @@
   "overcrowding_anger_per_pop": 3,
   "policy_largest_cities_count": 5,
   "state_religion_anarchy_turns": 1,
+  "anarchy_min_turns": 1,
+  "anarchy_max_turns": 100,
   "fresh_water_health": 2,
   "upkeep_distance_scale": 1,
   "upkeep_size_scale": 1,

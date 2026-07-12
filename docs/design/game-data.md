@@ -1299,6 +1299,11 @@ Base EP accumulation = espionage_slider_output per turn against a specific facti
 | Normal | 100% | 100% | 100% | Standard |
 | Quick | 67% | 67% | 67% | Short |
 
+Further per-pace columns in `paces.json`: `hurry_scale` (§29.8), `event_timer_scale`,
+`inflation_percent`/`inflation_offset` (game-rules §15.1), and the C3 quartet
+`anarchy_scale` / `golden_age_scale` / `victory_delay_scale` / `wild_scale`
+(game-rules §15.3, table in §29.5), plus `max_turns`.
+
 ### 15.7 Healing Rates
 
 | Location | HP healed per turn |
@@ -1367,8 +1372,8 @@ shipped in `data/difficulties.json`:
 | `unowned_tiles_per_animal` (§9.3) | 100 | 80 | 60 | 50 | 40 | 35 | 30 | 25 | 20 |
 | `animals_enter_borders` (§9.3) | no | no | no | no | no | no | yes | yes | yes |
 
-‡ Turn gates are **scaled by game pace** (`paces.json` `growth_scale`): Quick ×0.67, Normal ×1.0,
-Epic ×1.5, Marathon ×3.0.
+‡ Turn gates are **scaled by game pace** (`paces.json` `wild_scale`, the reference's own
+barb-percent column — §15.3/§29.5): Quick ×0.67, Normal ×1.0, Epic ×1.5, Marathon ×4.0.
 
 Animal globals (`data/constants.json`, §9.3): `animal_land_per_unit` (60, density fallback),
 `animal_detect_radius` (2, hunt range), `animal_spawn_per_turn` (2), `animal_xp_lifetime_cap` (5,
@@ -2621,11 +2626,19 @@ Drill IV — +2 first strikes, +10% vs mounted, +20% collateral protection.
 | marathon | 200 | 200 | 10 | −270 | 300 | 400 | 300 | 300 |
 
 Note `wild %` — the reference scales barbarian timing with its **own** column
-(marathon 400), where Humanish currently reuses the build scale (marathon 300).
+(marathon 400), where Humanish previously reused the build scale (marathon 300).
 
 The `inflation %` / `inflation offset` columns are live shipped data as of C1
 (2026-07-12): `inflation_percent`/`inflation_offset` in `paces.json`, read by
-`TurnEngine.inflation_rate` (game-rules §15.1). The other columns remain candidates.
+`TurnEngine.inflation_rate` (game-rules §15.1). The `hurry %` column is live as of
+C2 (2026-07-12): `hurry_scale`, read by `TurnEngine.rush_hammers_per_pop`
+(game-rules §15.2). The `anarchy %` / `golden-age %` / `victory-delay %` / `wild %`
+columns are live as of C3 (2026-07-12): `anarchy_scale` (SimFacade anarchy on
+civic/religion switches, bounds `anarchy_min_turns` 1 / `anarchy_max_turns` 100 in
+`constants.json`), `golden_age_scale` (`GreatPeople._golden_age_duration`),
+`victory_delay_scale` (`WinConditions._cultural` legendary-culture threshold),
+and `wild_scale` (`WildForces._scaled_turns`) — see game-rules §15.3. Only the
+`feature-production %` column remains a candidate.
 
 ### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
 

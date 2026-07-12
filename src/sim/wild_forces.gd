@@ -18,7 +18,8 @@ class_name WildForces
 # The model has three gates and a per-area density target:
 #
 #   * Turn gate    — nothing spawns until `wild_creation_turns_elapsed` turns have
-#                    passed (scaled by game pace), the reference iBarbarianCreationTurnsElapsed.
+#                    passed (scaled by the pace's own `wild_scale` column, §15.3),
+#                    the reference iBarbarianCreationTurnsElapsed.
 #   * Era gate     — organised wild units only appear once the game's current era
 #                    clears the `no_wild_units` flag (reference bNoBarbUnits / the "quiet
 #                    animal phase"; this engine has no fauna yet, so the early era is
@@ -503,11 +504,12 @@ static func _pick_city_tile(game_state, area: Dictionary, min_dist: int, rng: RN
 
 # ── Gate helpers ────────────────────────────────────────────────────────────────
 
-# Turn count scaled by game pace: a 40-turn gate becomes ~60 on Epic, ~120 on
-# Marathon, ~27 on Quick (mirrors the reference's game-speed barb-percent scaling).
+# Turn count scaled by the pace's own wild percent (§15.3 — the reference's
+# game-speed barb-percent column, distinct from growth/build): a 40-turn gate
+# becomes ~26 on Quick, 60 on Epic, and 160 on Marathon (wild_scale 400).
 static func _scaled_turns(game_state, base: int) -> int:
 	var pace: Dictionary = game_state.db.get_pace(game_state.pace_id)
-	var scale: int = int(pace.get("growth_scale", 100))
+	var scale: int = int(pace.get("wild_scale", 100))
 	if scale < 1:
 		scale = 100
 	return base * scale / 100
