@@ -6,7 +6,7 @@
       "free_promotions": [
         "combat1"
       ],
-      "free_structures": [
+      "double_production_structures": [
         "barracks",
         "drydock"
       ],
@@ -33,7 +33,7 @@
       "id": "creative",
       "name": "Creative",
       "culture_per_city": 2,
-      "free_structures": [
+      "double_production_structures": [
         "theatre",
         "colosseum"
       ],
@@ -48,10 +48,13 @@
       "id": "expansive",
       "name": "Expansive",
       "health_bonus": 2,
-      "free_structures": [
+      "double_production_structures": [
         "granary",
         "harbor"
       ],
+      "unit_production_modifiers": {
+        "worker": 25
+      },
       "ai_focus": {
         "expand": 2,
         "military": 0,
@@ -75,7 +78,9 @@
       "id": "imperialistic",
       "name": "Imperialistic",
       "great_general_rate_bonus": 100,
-      "settler_cost_reduction": 50,
+      "unit_production_modifiers": {
+        "settler": 50
+      },
       "ai_focus": {
         "expand": 3,
         "military": 0,
@@ -87,7 +92,7 @@
       "id": "industrious",
       "name": "Industrious",
       "wonder_production_bonus": 50,
-      "free_structures": [
+      "double_production_structures": [
         "forge"
       ],
       "ai_focus": {
@@ -101,7 +106,7 @@
       "id": "organized",
       "name": "Organized",
       "civic_upkeep_reduction": 50,
-      "free_structures": [
+      "double_production_structures": [
         "courthouse",
         "lighthouse"
       ],
@@ -130,7 +135,7 @@
         "drill1",
         "city_garrison1"
       ],
-      "free_structures": [
+      "double_production_structures": [
         "walls",
         "castle"
       ],

@@ -693,11 +693,14 @@ static func _settlement_production(gs: GameState, s: Settlement,
 # `power_production_bonus`, and the Factory's `powered_production_bonus` once the
 # city has power. Military builds additionally collect the structure
 # `military_production_city` (Heroic Epic / Military Academy) and the civic
-# `military_production` (Police State). All are summed so they stack additively
-# and the caller applies them once via Fixed.apply_stacked_bonus.
+# `military_production` (Police State). Leader traits add their build-speed
+# modifiers for the item (B4: `double_production_structures` /
+# `unit_production_modifiers` via TraitEffects — Aggressive doubles barracks,
+# Imperialistic trains settlers +50%, …). All are summed so they stack
+# additively and the caller applies them once via Fixed.apply_stacked_bonus.
 static func _production_percent_mods(gs: GameState, s: Settlement,
 		player: Player, db: DataDB, item: Dictionary) -> int:
-	var pct: int = 0
+	var pct: int = TraitEffects.production_pct(player, db, item)
 	var powered: bool = _settlement_has_power(s, db)
 	for sid in s.structures:
 		if not _structure_effect_active(db, sid, s, player):

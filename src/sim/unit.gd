@@ -175,6 +175,8 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 # Non-combatants — civilians (settler/worker/spy/missionary/…) and any unit with no
 # base strength — cannot attack: a right-click on a hostile tile with only such a
 # unit selected must be a no-op rather than a wasted, strength-0 "assault" (§5.3).
+# A unit whose data carries `defensive_only: true` (B5, the Machine Gun class)
+# may fight only when attacked — it can never initiate combat either.
 # This is the single sim-side gate, consulted by both the move command and the
 # UI's can_stack_move so the input model and the rules agree.
 func can_attack(db: DataDB) -> bool:
@@ -184,6 +186,8 @@ func can_attack(db: DataDB) -> bool:
 	if event_no_attack_turns > 0:
 		return false
 	var data: Dictionary = db.get_unit(unit_type_id)
+	if bool(data.get("defensive_only", false)):
+		return false
 	return str(data.get("classification", "")) != "civilian"
 
 # Whether this unit may fortify / entrench (Issue 3). Only *land combat units* may

@@ -235,6 +235,11 @@ _global_script_classes=[ {
 "path": "res://src/world/tile_output.gd"
 }, {
 "base": "Reference",
+"class": "TraitEffects",
+"language": "GDScript",
+"path": "res://src/sim/trait_effects.gd"
+}, {
+"base": "Reference",
 "class": "TurnEngine",
 "language": "GDScript",
 "path": "res://src/sim/turn_engine.gd"
@@ -337,6 +342,7 @@ _global_script_class_icons={
 "TextGen": "",
 "Tile": "",
 "TileOutput": "",
+"TraitEffects": "",
 "TurnEngine": "",
 "Unit": "",
 "Vassalage": "",
