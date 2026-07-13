@@ -506,9 +506,10 @@ func test_can_stack_move_warrior_can_attack_wild_city() -> void:
 		"A warrior can attack an adjacent wild city")
 
 func test_defensive_only_unit_cannot_attack_at_command_layer() -> void:
-	# B5: a `defensive_only` unit (the Machine Gun class, C7) can never initiate
-	# combat — the UI legality probe and the move command both refuse the attack.
-	# No shipped unit carries the flag yet, so a synthetic entry pins the gate.
+	# B5: a `defensive_only` unit can never initiate combat — the UI legality
+	# probe and the move command both refuse the attack. A synthetic entry pins
+	# that the flag alone drives the gate (the shipped carrier is machine_gun,
+	# covered by the C7 test below).
 	var facade = setup_facade(142, "small",
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
 	var gs = facade.get_state()
@@ -529,6 +530,26 @@ func test_defensive_only_unit_cannot_attack_at_command_layer() -> void:
 		"The move command rejects a defensive_only unit's attack order")
 	assert_true(facade.can_stack_move(4, 4, 3, 4, [mg.id]),
 		"The same unit may still move onto an open tile (only attacking is barred)")
+
+func test_machine_gun_cannot_attack_at_command_layer() -> void:
+	# C7: the shipped Machine Gun (§29.1) carries defensive_only — the real data
+	# entry is refused an attack order end-to-end through the command layer.
+	var facade = setup_facade(143, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(4, 4).terrain_id = "grassland"
+	gs.map.get_tile(5, 4).terrain_id = "grassland"
+	gs.map.get_tile(3, 4).terrain_id = "grassland"
+	var mg = make_unit(gs, "machine_gun", pid, 4, 4)
+	make_settlement(gs, -2, 5, 4, 1)   # wild camp (owner -2)
+	assert_false(facade.can_stack_move(4, 4, 5, 4, [mg.id]),
+		"can_stack_move refuses a Machine Gun attack order")
+	assert_false(facade.apply_command(Commands.move_stack(pid, 4, 4, 5, 4, [mg.id])),
+		"The move command rejects the shipped Machine Gun's attack order")
+	assert_true(facade.can_stack_move(4, 4, 3, 4, [mg.id]),
+		"The Machine Gun may still move onto an open tile")
 
 func test_attacking_undefended_wild_camp_razes_it_immediately() -> void:
 	# Regression (savefile pt-a-7): a warrior right-clicking an undefended barbarian

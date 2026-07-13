@@ -196,7 +196,9 @@ systematically lost their withdrawal chances (chariot/horse archer/knight-line/
 gunship) — plausibly **[bug?]** since Flanking promotions still exist.
 
 **[missing] Units:** Machine Gun (`UNIT_MACHINE_GUN`), War Elephant
-(`UNIT_WAR_ELEPHANT`), Lion (animal). **[added]:** `anti_tank` (no reference
+(`UNIT_WAR_ELEPHANT`), Lion (animal) — **SHIPPED 2026-07-12 (C7)**, all three
+at the reference values (game-data §29.1); `ballista_elephant` now `replaces`
+the war_elephant. **[added]:** `anti_tank` (no reference
 counterpart) — **CUT 2026-07-11 (D4, 3988c5a)**. Missionaries/executives:
 reference has 7 typed each; Humanish one
 generic of each (reasonable merge).
@@ -556,7 +558,8 @@ model at all, collected here for completeness:
 3. **Golden-age length pace scaling** (`iGoldenAgePercent`).
 4. **Culture-level city defence** (20–100%).
 5. **The Internet & SDI projects** (and nuke interception %).
-6. **Machine Gun / War Elephant / Lion** units.
+6. **Machine Gun / War Elephant / Lion** units. → **Closed 2026-07-12 (C7):**
+   all three ship in `units.json` at the reference values (game-data §29.1).
 7. **Chance first strikes** as a stat anywhere in the model.
 8. **AND-tech / AND+OR-resource unit prereqs** (schema).
 9. **Per-resource corporation output scaling**.

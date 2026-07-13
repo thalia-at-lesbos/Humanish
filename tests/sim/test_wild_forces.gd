@@ -275,3 +275,19 @@ func test_wild_units_are_capped_over_many_turns() -> void:
 	var cap = land / int(gs.db.constants.get("wild_land_per_unit", 80))
 	assert_true(wild <= cap + 1,
 		"Wild raiders (%d) must stay near the land-based cap (%d), not flood" % [wild, cap])
+
+func test_raider_stock_never_picks_a_defensive_only_unit() -> void:
+	# C7/B5: the Machine Gun (str 18, Railroad) would top the raider-stock pick
+	# in its era, but a defensive_only unit can never initiate combat, so both
+	# strongest-unit pickers (spawn stock and camp waves) skip it and fall back
+	# to the strongest unit that may actually raid.
+	var gs = make_gs(2, 77)
+	gs.get_player(1).technologies = ["railroad"]
+	var pick_spawn: String = WildForces._strongest_wild_unit_type(gs)
+	var pick_wave: String = WildAI._strongest_wild_unit_type(gs)
+	assert_ne(pick_spawn, "machine_gun", "spawn stock skips the defensive_only Machine Gun")
+	assert_ne(pick_wave, "machine_gun", "camp-wave stock skips the defensive_only Machine Gun")
+	assert_false(bool(gs.db.get_unit(pick_spawn).get("defensive_only", false)),
+		"the spawn pick can initiate combat")
+	assert_false(bool(gs.db.get_unit(pick_wave).get("defensive_only", false)),
+		"the wave pick can initiate combat")
