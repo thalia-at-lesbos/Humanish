@@ -783,6 +783,13 @@ static func _threats_near(gs, s, player_id: int) -> bool:
 # it advances on the nearest threat (consolidating toward the front) or, with none
 # in range, fortifies. Deliberately conservative — no long-range invasions in v1.
 static func _manage_free_military(facade, gs, u, player_id: int) -> void:
+	# A unit that may never initiate combat (B5 `defensive_only`, or an event
+	# no-attack state) skips the whole offense playbook: both the adjacent attack
+	# and the advance-on-threat (whose final step onto the enemy tile the move
+	# command would refuse) — it digs in where it stands instead.
+	if not u.can_attack(gs.db):
+		facade.apply_command(Commands.unit_fortify(player_id, u.id))
+		return
 	var target = _adjacent_attack_target(gs, u, player_id)
 	if target != null:
 		facade.apply_command(Commands.mission_move_to(player_id, u.id, int(target["x"]), int(target["y"])))

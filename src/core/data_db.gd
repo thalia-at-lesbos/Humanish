@@ -274,6 +274,23 @@ func _validate() -> void:
 	_validate_espionage_mission_refs()
 	_validate_diplomacy_refs()
 	_validate_belief_refs()
+	_validate_trait_refs()
+
+# Every structure a trait grants free (`free_structures`) or builds at double
+# speed (`double_production_structures`, B4) must exist in the structures table,
+# and every `unit_production_modifiers` key (B4: per-unit +% build speed, e.g.
+# Imperialistic settler) must name a real unit — a dangling id would silently
+# grant nothing.
+func _validate_trait_refs() -> void:
+	for tid in leaders_traits.get("traits", {}):
+		var t: Dictionary = leaders_traits["traits"][tid]
+		for key in ["free_structures", "double_production_structures"]:
+			for sid in t.get(key, []):
+				if not structures.has(str(sid)):
+					_errors.append("Trait '%s' %s '%s' not in structures table" % [tid, key, sid])
+		for uid in t.get("unit_production_modifiers", {}):
+			if not units.has(str(uid)):
+				_errors.append("Trait '%s' unit_production_modifiers '%s' not in units table" % [tid, uid])
 
 # Every structure id a belief references (temple/monastery/cathedral tiers and the
 # holy_site_structure) must exist in the structures table, and a non-null

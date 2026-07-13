@@ -61,6 +61,18 @@ looks accidental rather than a design choice.
    (not in reference), Imperialistic GG rate 50 vs reference 100 **[value]**,
    Charismatic `-25% XP to level` became `xp_bonus 25` + `promotion_cost_reduction
    25` (split/approximation).
+   → **Closed 2026-07-12 (B4)** (GG rate and Charismatic were already A9): the
+   six structure lists moved to `double_production_structures` (+100% via
+   `TraitEffects` → `_production_percent_mods`); settler is per the reference
+   **+50%, not double** (XML-sourced: UNIT_SETTLER/TRAIT_IMPERIALIST 50), carried
+   with the audit-missed expansive worker **+25** (UNIT_WORKER/TRAIT_EXPANSIVE
+   25) in the sibling `unit_production_modifiers` dict. `free_structures` turned
+   out to be a **dead key** (no engine read site — the "much stronger" grant
+   never actually happened in play). Corrections to this entry from the XML,
+   recorded but not adopted (see plan B4): the expansion rules also tag
+   creative→library (so "not in reference" above was base-game-only),
+   organized→factory, philosophical→university, spiritual→Cristo Redentor, and
+   unique-building variants of each listed base.
 9. **[value] Movement scale.** `movement` = 60 per move point (fine), but several
    units have different move counts than the XML — see §2 table (settler/worker
    1 vs 2 is the most gameplay-visible).

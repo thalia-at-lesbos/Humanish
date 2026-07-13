@@ -570,6 +570,31 @@ func test_holds_against_strong_adjacent_enemy() -> void:
 	assert_false(a.has_attacked, "Without a clear power edge the unit holds")
 	assert_not_null(gs.get_unit(strong.id), "The strong enemy is left alone")
 
+func test_defensive_only_unit_never_attacks() -> void:
+	# B5: a `defensive_only` unit (Machine Gun class, C7) is excluded from the
+	# AI's offense pass even against a trivially weak neighbour — it digs in
+	# instead. Synthetic unit via the db-override pattern (none shipped yet).
+	var gs = make_gs(1)
+	var f = ai_facade(gs)
+	f._hooks = hooks()
+	gs.current_player_id = 1
+	gs.db.units["test_mg"] = {
+		"id": "test_mg", "base_strength": 18, "movement": 60,
+		"classification": "gunpowder", "domain": "land",
+		"defensive_only": true, "cost": 50
+	}
+	var mg = make_unit(gs, "test_mg", 1, 5, 5)      # strength 18
+	var weak = make_unit(gs, "wolf", -2, 6, 5)      # wild, strength 2
+
+	PlayerAI.manage_units(f, 1)
+
+	var m = gs.get_unit(mg.id)
+	assert_not_null(m, "The defensive_only unit is intact")
+	assert_false(m.has_attacked,
+		"A defensive_only unit never attacks, even out-powering its neighbour")
+	assert_not_null(gs.get_unit(weak.id), "The weak neighbour is untouched")
+	assert_true(m.is_fortified, "The defensive_only unit fortifies in place")
+
 # ── §C2 Focus profile ──────────────────────────────────────────────────────────
 
 func test_focus_profile_sums_two_traits() -> void:

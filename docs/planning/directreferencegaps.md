@@ -340,9 +340,51 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   replacing `free_structures` for the seven reference traits; keep `free_structures`
   as a mechanism for any genuinely-free grants. Files: `leaders_traits.json`,
   production math in `turn_engine.gd`, `PolicyEffects`-style reader or trait reader.
+  **DONE 2026-07-12**: six traits' lists moved to `double_production_structures`
+  (magnitude = `trait_double_production_pct` constant, 100), read by the new
+  `TraitEffects` module (`src/sim/trait_effects.gd`, the `PolicyEffects` analogue
+  for traits) and summed into `TurnEngine._production_percent_mods` — trait
+  modifiers stack additively with the §4.3 chain. **Settler decision**: the
+  reference tags production traits per-item with a percent, and settler is **+50,
+  not double** (XML-sourced this session: UNIT_SETTLER/TRAIT_IMPERIALIST 50); so
+  units use a sibling magnitude-carrying dict `unit_production_modifiers:
+  {unit_id: +%}` — imperialistic `{settler: 50}` (its dead
+  `settler_cost_reduction` key retired), plus the audit-missed expansive
+  `{worker: 25}` (XML: UNIT_WORKER/TRAIT_EXPANSIVE 25). **Key finding:
+  `free_structures` was a DEAD key** — no engine read site ever existed, so the
+  seven traits gained nothing from it in play and the swap is a buff from
+  nothing → reference speed, not a nerf (no seeded recalibration was needed; the
+  full gate passed untouched). The free-grant *mechanism* therefore still does
+  not exist in the engine; `free_structures` remains a validated (see below)
+  vacant schema slot should a genuinely-free grant ever ship.
+  `DataDB._validate_trait_refs` (new) checks `free_structures` /
+  `double_production_structures` members against the structures table and
+  `unit_production_modifiers` keys against the units table. **XML notes for
+  later decisions** (recorded, NOT adopted — outside the audit's seven lists):
+  the reference's expansion rules also tag creative→library, organized→factory,
+  philosophical→university, spiritual→Cristo Redentor, and every unique-building
+  variant of a listed base (ikhanda, terrace, cothon, …) with the same +100;
+  A9's "creative drops library (not in reference)" was true of the base game
+  only. Pins: `test_traits_carry_b4_double_production_model` +2 validation tests
+  (`test_data_db.gd`), 4 production-math pins (`test_settlement.gd`, incl. the
+  half-the-turns double and the +125 additive stack with a Forge), new suite
+  `tests/sim/test_trait_effects.gd`.
 - **B5. `defensive_only` unit flag** (for Machine Gun): reject attack orders in
   `_cmd_unit_command`/`can_stack_move` targeting logic; AI must not select it for
   attack passes (`player_ai.gd` attack pass filter).
+  **DONE 2026-07-12**: wired into `Unit.can_attack` — the documented single
+  sim-side gate already consulted by `can_stack_move`, `_cmd_move_stack`, and the
+  per-unit `MISSION_MOVE_TO` (which delegates to `_cmd_move_stack`), so the UI
+  legality probe and every attack-order path refuse it at once. AI:
+  `PlayerAI._manage_free_military` early-outs through the same `can_attack`
+  gate — a defensive-only unit skips both the adjacent-attack and the
+  advance-on-threat passes (whose final step the move command would refuse) and
+  fortifies in place; garrison assignment (pass 2) still uses it as a defender.
+  No shipped unit carries the flag yet (Machine Gun arrives with C7); synthetic
+  db-override pins: `test_defensive_only_unit_cannot_initiate_combat`
+  (`test_units.gd`), `test_defensive_only_unit_cannot_attack_at_command_layer`
+  (`test_facade.gd`), `test_defensive_only_unit_never_attacks`
+  (`test_player_ai.gd`).
 - **B6. Per-resource corporation outputs** (game-rules §15.10, game-data §29.6):
   outputs scale with accessible input-resource count (×1/100 fixed math); optional
   `produces_resource` (Oil/Aluminum) granted to the org's cities' owner; maintenance

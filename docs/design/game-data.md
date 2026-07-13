@@ -291,19 +291,27 @@ The capital is **wherever the Palace is** (`TurnEngine._find_capital` returns th
 
 ### 4.1 Traits (11 total)
 
-| Trait | Free Structures (−50% cost) | Unit Effect | City/Economy Effect |
-|-------|----------------------------|-------------|---------------------|
+| Trait | Double Production Speed | Unit Effect | City/Economy Effect |
+|-------|------------------------|-------------|---------------------|
 | Aggressive | Barracks, Drydock | Free Combat I for all units | — |
 | Charismatic | — | Units need 25% less XP per promotion | +1 Happiness per city |
 | Creative | Theatre, Colosseum | — | +2 Culture per city per turn |
-| Expansive | Granary, Harbor | — | +2 Health in all cities |
+| Expansive | Granary, Harbor; Worker (+25% production) | — | +2 Health in all cities |
 | Financial | — | — | +1 Commerce on any tile producing 2+ Commerce |
-| Imperialistic | Settler (50% cheaper) | +100% Great General emergence | — |
+| Imperialistic | Settler (+50% production) | +100% Great General emergence | — |
 | Industrious | Forge | — | +50% Wonder production speed |
 | Organized | Courthouse, Lighthouse | — | Civic upkeep reduced 50% |
 | Philosophical | — | — | +100% Great Person birth rate in all cities |
 | Protective | Walls, Castle | Free Drill I + City Garrison I for all units | — |
 | Spiritual | — | — | No anarchy when switching civics or state religion |
+
+Trait build-speed modifiers (B4, the reference model) live on the trait record as
+`double_production_structures` (listed structures build at double speed —
+`trait_double_production_pct`, +100%) and `unit_production_modifiers` (per-unit
++%: Imperialistic settler +50, Expansive worker +25). They join the §4.3
+production percent chain additively via `TraitEffects.production_pct`. The
+`free_structures` key is retired from every shipped trait (the free grant was a
+far stronger model than the reference's double build speed).
 
 ### 4.2 Leaders
 
@@ -1556,6 +1564,7 @@ appear in `units.json` and are read by the engine:
 | `intercept_strength` | int | Effectiveness as an air interceptor (fighter units) |
 | `withdrawal_chance` | int | Percent chance (0–100) the unit retreats instead of dying |
 | `combat_limit` | int | Maximum damage this unit can deal to a defending unit per combat (siege collateral cap) |
+| `defensive_only` | bool | Unit may never initiate combat (B5): attack orders are refused and the AI never selects it for offense; it fights only when attacked. Carried by the Machine Gun class (§29.1, arrives with C7) |
 | `free_promotions` | Array | Promotion IDs granted when the unit is built or drafted |
 | `replaces` | String | The standard unit ID this faction-unique unit replaces |
 | `unique_to` | String | Society/faction ID; restricts availability to that faction |

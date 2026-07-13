@@ -147,11 +147,11 @@ func test_traits_and_leaders_carry_a9_reference_values() -> void:
 		"Imperialistic GG emergence rate is +100% (reference)")
 	assert_eq(db.get_constant("imperialistic_great_general_pct", 0), 100,
 		"The live imperialistic GG constant matches the trait (reference 100)")
-	assert_false("library" in traits["creative"].get("free_structures", []),
-		"Creative's building list drops the library (reference)")
-	assert_true("theatre" in traits["creative"].get("free_structures", []),
+	assert_false("library" in traits["creative"].get("double_production_structures", []),
+		"Creative's building list drops the library (audit §1.8; B4 note records the BtS add)")
+	assert_true("theatre" in traits["creative"].get("double_production_structures", []),
 		"Creative keeps the theatre")
-	assert_true("colosseum" in traits["creative"].get("free_structures", []),
+	assert_true("colosseum" in traits["creative"].get("double_production_structures", []),
 		"Creative keeps the colosseum")
 	assert_eq(int(traits["charismatic"].get("promotion_xp_reduction", 0)), 25,
 		"Charismatic is the reference -25%-XP-needed model")
@@ -166,6 +166,66 @@ func test_traits_and_leaders_carry_a9_reference_values() -> void:
 		"Brennus is charismatic+spiritual (reference)")
 	assert_eq(leaders["gilgamesh"].get("traits", []), ["creative", "protective"],
 		"Gilgamesh is creative+protective (reference)")
+
+# B4 data pass (audit §1.8): the reference model is double BUILD SPEED of the
+# listed structures, not a free grant — the seven traits' lists live under
+# `double_production_structures` and no shipped trait grants free buildings any
+# more. Per-unit build-speed percents (a UNIT, so a sibling dict key) come from
+# the reference production-trait tags: Imperialistic settler +50, Expansive
+# worker +25.
+func test_traits_carry_b4_double_production_model() -> void:
+	var db = _db()
+	var traits: Dictionary = db.leaders_traits.get("traits", {})
+	var expected := {
+		"aggressive": ["barracks", "drydock"],
+		"protective": ["walls", "castle"],
+		"organized": ["courthouse", "lighthouse"],
+		"expansive": ["granary", "harbor"],
+		"industrious": ["forge"],
+		"creative": ["theatre", "colosseum"],
+	}
+	for tid in expected:
+		var listed: Array = traits[tid].get("double_production_structures", [])
+		for sid in expected[tid]:
+			assert_true(sid in listed,
+				"%s doubles production of %s (reference)" % [tid, sid])
+		assert_eq(listed.size(), expected[tid].size(),
+			"%s doubles exactly the reference structures" % tid)
+	for tid in traits:
+		assert_false(traits[tid].has("free_structures"),
+			"No shipped trait grants free structures any more (B4: '%s')" % tid)
+	assert_eq(int(traits["imperialistic"].get("unit_production_modifiers", {}) \
+		.get("settler", 0)), 50,
+		"Imperialistic trains settlers +50% (reference production trait)")
+	assert_false(traits["imperialistic"].has("settler_cost_reduction"),
+		"Imperialistic's dead settler_cost_reduction approximation is retired")
+	assert_eq(int(traits["expansive"].get("unit_production_modifiers", {}) \
+		.get("worker", 0)), 25,
+		"Expansive trains workers +25% (reference production trait)")
+	assert_eq(db.get_constant("trait_double_production_pct", 0), 100,
+		"The double-production magnitude constant is +100%")
+
+func test_trait_bad_structure_ref_fails_validation() -> void:
+	var db = _db()
+	db.leaders_traits["traits"]["bogus_trait"] = {"id": "bogus_trait",
+		"double_production_structures": ["no_such_structure"]}
+	db._validate_trait_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_trait" in err and "no_such_structure" in err:
+			found = true
+	assert_true(found, "an unknown structure in double_production_structures is reported")
+
+func test_trait_bad_unit_modifier_ref_fails_validation() -> void:
+	var db = _db()
+	db.leaders_traits["traits"]["bogus_trait"] = {"id": "bogus_trait",
+		"unit_production_modifiers": {"no_such_unit": 50}}
+	db._validate_trait_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_trait" in err and "no_such_unit" in err:
+			found = true
+	assert_true(found, "an unknown unit id in unit_production_modifiers is reported")
 
 func test_globals_carry_a11_reference_values() -> void:
 	# A11 data pass (audit §11): the reference global constants.

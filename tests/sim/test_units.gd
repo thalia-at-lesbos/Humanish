@@ -330,3 +330,21 @@ func test_unit_can_fortify_predicate() -> void:
 	assert_false(make_unit(gs, "settler", 1, 3, 3).can_fortify(db), "settler (civilian) cannot fortify")
 	assert_false(make_unit(gs, "galley", 1, 4, 4).can_fortify(db), "galley (naval) cannot fortify")
 	assert_false(make_unit(gs, "fighter", 1, 5, 5).can_fortify(db), "fighter (air) cannot fortify")
+
+# ── defensive_only flag (B5) ─────────────────────────────────────────────────
+
+func test_defensive_only_unit_cannot_initiate_combat() -> void:
+	# The B5 flag on the unit data bars the unit from ever attacking (the Machine
+	# Gun class, C7). No shipped unit carries it yet, so pin the gate with a
+	# synthetic entry via the db-override pattern.
+	var gs = make_gs(1)
+	gs.db.units["test_mg"] = {
+		"id": "test_mg", "base_strength": 18, "movement": 60,
+		"classification": "gunpowder", "domain": "land",
+		"defensive_only": true, "cost": 50
+	}
+	var mg = make_unit(gs, "test_mg", 1, 5, 5)
+	assert_false(mg.can_attack(gs.db),
+		"A defensive_only unit can never initiate combat")
+	assert_true(mg.can_fortify(gs.db),
+		"A defensive_only land unit still fortifies (it only defends)")

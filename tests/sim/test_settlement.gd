@@ -406,6 +406,81 @@ func test_structure_percent_production_applies_multiplicatively() -> void:
 	assert_eq(s.production_store, expected,
 		"Forge's +25% applies multiplicatively on base production, not as a flat add")
 
+# ── Trait production-speed modifiers (B4, audit §1.8) ──────────────────────────
+
+func test_trait_doubles_listed_structure_production() -> void:
+	# The reference trait model: Aggressive builds barracks at DOUBLE speed
+	# (+100% production toward it), so the listed structure completes in half the
+	# turns — it is not granted free.
+	var gs = make_gs(2)
+	var trait_holder = gs.get_player(1)
+	trait_holder.traits = ["aggressive"]
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.production_queue = [{"type": "structure", "id": "barracks"}]
+	s.production_store = 0
+	var plain = make_settlement(gs, 2, 10, 10, 3)
+	plain.output_production = 8
+	plain.production_queue = [{"type": "structure", "id": "barracks"}]
+	plain.production_store = 0
+	TurnEngine._settlement_production(gs, s, trait_holder)
+	TurnEngine._settlement_production(gs, plain, gs.get_player(2))
+	assert_eq(s.production_store, plain.production_store * 2,
+		"An Aggressive player's barracks accrues exactly double the hammers per turn")
+
+func test_trait_double_production_ignores_unlisted_items() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.traits = ["aggressive"]
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.production_queue = [{"type": "structure", "id": "library"}]
+	s.production_store = 0
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	TurnEngine._settlement_production(gs, s, p)
+	assert_eq(s.production_store, Fixed.scale(8, build_scale),
+		"A structure outside the trait's list gets no trait speed bonus")
+
+func test_imperialistic_trains_settlers_half_again_faster() -> void:
+	# Imperialistic carries the reference per-unit modifier: settlers build +50%
+	# faster (unit_production_modifiers — a unit, so the sibling dict key).
+	var gs = make_gs(2)
+	var imp = gs.get_player(1)
+	imp.traits = ["imperialistic"]
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	s.production_store = 0
+	var plain = make_settlement(gs, 2, 10, 10, 3)
+	plain.output_production = 8
+	plain.production_queue = [{"type": "unit", "id": "settler"}]
+	plain.production_store = 0
+	TurnEngine._settlement_production(gs, s, imp)
+	TurnEngine._settlement_production(gs, plain, gs.get_player(2))
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	assert_eq(s.production_store,
+		Fixed.apply_stacked_bonus(Fixed.scale(8, build_scale), 50),
+		"An Imperialistic player's settler accrues +50% hammers per turn")
+	assert_eq(plain.production_store, Fixed.scale(8, build_scale),
+		"A traitless player's settler accrues the unmodified base")
+
+func test_trait_and_structure_percent_mods_stack_additively() -> void:
+	# §4.3: the trait's +100 joins the same additive percent chain as the Forge's
+	# +25 (one multiplicative application on the base), mirroring the reference.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.traits = ["aggressive"]
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.structures = ["forge"]                       # production_bonus: 25
+	s.production_queue = [{"type": "structure", "id": "barracks"}]
+	s.production_store = 0
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	TurnEngine._settlement_production(gs, s, p)
+	assert_eq(s.production_store,
+		Fixed.apply_stacked_bonus(Fixed.scale(8, build_scale), 125),
+		"Trait +100 and Forge +25 sum to +125 applied once on the base")
+
 # ── Compound unit prerequisites — the production gate (§15.12) ─────────────────
 #
 # The build gate every chooser shares (city screen offers, PlayerAI's queue,

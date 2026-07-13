@@ -505,6 +505,31 @@ func test_can_stack_move_warrior_can_attack_wild_city() -> void:
 	assert_true(facade.can_stack_move(4, 4, 5, 4, [warrior.id]),
 		"A warrior can attack an adjacent wild city")
 
+func test_defensive_only_unit_cannot_attack_at_command_layer() -> void:
+	# B5: a `defensive_only` unit (the Machine Gun class, C7) can never initiate
+	# combat — the UI legality probe and the move command both refuse the attack.
+	# No shipped unit carries the flag yet, so a synthetic entry pins the gate.
+	var facade = setup_facade(142, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(4, 4).terrain_id = "grassland"
+	gs.map.get_tile(5, 4).terrain_id = "grassland"
+	gs.map.get_tile(3, 4).terrain_id = "grassland"
+	gs.db.units["test_mg"] = {
+		"id": "test_mg", "base_strength": 18, "movement": 60,
+		"classification": "gunpowder", "defensive_only": true, "cost": 50
+	}
+	var mg = make_unit(gs, "test_mg", pid, 4, 4)
+	make_settlement(gs, -2, 5, 4, 1)   # wild camp (owner -2)
+	assert_false(facade.can_stack_move(4, 4, 5, 4, [mg.id]),
+		"can_stack_move refuses a defensive_only-only selection targeting a hostile tile")
+	assert_false(facade.apply_command(Commands.move_stack(pid, 4, 4, 5, 4, [mg.id])),
+		"The move command rejects a defensive_only unit's attack order")
+	assert_true(facade.can_stack_move(4, 4, 3, 4, [mg.id]),
+		"The same unit may still move onto an open tile (only attacking is barred)")
+
 func test_attacking_undefended_wild_camp_razes_it_immediately() -> void:
 	# Regression (savefile pt-a-7): a warrior right-clicking an undefended barbarian
 	# camp used to silently chip its siege HP for many turns ("nothing happens").
