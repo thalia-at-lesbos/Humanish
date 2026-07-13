@@ -108,3 +108,28 @@ func test_resource_ok_all_plus_any_combined() -> void:
 		"an alternative alone is not enough without the fixed resource")
 	assert_true(UnitPrereqs.resource_ok(req, {"horse": true, "iron": true}),
 		"fixed + one alternative → ok")
+
+# ── C7 shipped compound-prereq unit: War Elephant (§29.1) ───────────────────────
+
+func test_war_elephant_prereqs_gate_on_both_techs_and_ivory() -> void:
+	# The shipped War Elephant needs Construction AND Horseback Riding (list
+	# form) plus connected Ivory — the first regular unit using the B1 compound
+	# tech form together with a luxury resource.
+	var gs = make_gs(1)
+	var we: Dictionary = gs.db.get_unit("war_elephant")
+	var p = gs.get_player(1)
+	p.technologies = ["construction"]
+	assert_false(UnitPrereqs.tech_ok(we.get("tech_required", null), p),
+		"Construction alone does not unlock the War Elephant")
+	p.technologies = ["horseback_riding"]
+	assert_false(UnitPrereqs.tech_ok(we.get("tech_required", null), p),
+		"Horseback Riding alone does not unlock the War Elephant")
+	p.technologies = ["construction", "horseback_riding"]
+	assert_true(UnitPrereqs.tech_ok(we.get("tech_required", null), p),
+		"Both techs together unlock the War Elephant")
+	assert_false(UnitPrereqs.resource_ok(we.get("resource_required", null), {}),
+		"No ivory connected blocks the War Elephant")
+	assert_false(UnitPrereqs.resource_ok(we.get("resource_required", null), {"horse": true}),
+		"A horse is not an elephant")
+	assert_true(UnitPrereqs.resource_ok(we.get("resource_required", null), {"ivory": true}),
+		"Connected ivory satisfies the resource gate")

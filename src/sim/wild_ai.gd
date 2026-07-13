@@ -544,6 +544,8 @@ static func _strongest_wild_unit_type(game_state) -> String:
 			continue  # wildlife is never raider stock (§9.3)
 		if str(ud.get("unique_to", "")) != "":
 			continue  # society-specific uniques are not generic raider stock
+		if bool(ud.get("defensive_only", false)):
+			continue  # a unit barred from attacking (B5) cannot raid
 		var bs: int = int(ud.get("base_strength", 0))
 		if bs <= 0:
 			continue  # civilians / non-combatants

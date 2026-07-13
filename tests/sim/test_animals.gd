@@ -49,6 +49,25 @@ func test_animals_spawn_in_the_dark_and_on_unowned_land() -> void:
 		assert_eq(gs.map.get_tile(u.x, u.y).owner_player_id, -1,
 			"animals spawn only on unowned land")
 
+func test_lion_is_in_the_animal_spawn_roster() -> void:
+	# C7 (§29.1): the Lion joins the wild-animal roster. The spawn picker draws
+	# uniformly (through the shared gs.rng) from every classification-"animal"
+	# unit, so enough seeded spawns surface all four species and nothing else.
+	var gs = make_gs(2, 18)
+	for _i in range(40):
+		WildForces._spawn_animal_unit(5, 5, gs, gs.rng)
+	var seen = {}
+	for u in gs.units:
+		if not u.is_animal:
+			continue
+		seen[u.unit_type_id] = true
+		assert_eq(u.owner_player_id, -2, "a spawned animal belongs to the wild faction")
+		assert_true(u.is_wild, "a spawned animal is a wild unit")
+	assert_true(seen.has("lion"), "the lion spawns from the animal roster")
+	assert_true(seen.has("wolf") and seen.has("panther") and seen.has("bear"),
+		"the existing three animals still spawn")
+	assert_eq(seen.size(), 4, "the roster is exactly the four animal species")
+
 func test_animals_yield_to_raiders_once_gates_open() -> void:
 	var gs = make_gs(2, 12)
 	_make_animal(gs, "wolf", 4, 4)

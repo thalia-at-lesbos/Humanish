@@ -458,6 +458,57 @@ func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 			total += int(gw[k])
 		assert_eq(total, 100, "difficulty '%s' goody_weights sum to 100" % diff_id)
 
+# C7 data pass (game-data §29.1, reference values): the three units the audit
+# flagged missing now ship. Machine Gun is the first data-carried `defensive_only`
+# unit (B5); War Elephant is a compound-prereq mounted unit (§15.12); Lion joins
+# the wild-animal roster (§9.3).
+func test_units_carry_c7_missing_unit_stats() -> void:
+	var db = _db()
+	var mg: Dictionary = db.get_unit("machine_gun")
+	assert_false(mg.empty(), "machine_gun ships (C7)")
+	assert_eq(int(mg.get("base_strength", 0)), 18, "Machine Gun strength 18 (§29.1)")
+	assert_eq(int(mg.get("movement", 0)), 60, "Machine Gun has 1 move (§29.1)")
+	assert_eq(int(mg.get("cost", 0)), 125, "Machine Gun cost 125 (§29.1)")
+	assert_eq(str(mg.get("tech_required", "")), "railroad", "Machine Gun needs Railroad (§29.1)")
+	assert_eq(mg.get("resource_required"), null, "Machine Gun needs no resource (§29.1)")
+	assert_true(bool(mg.get("defensive_only", false)), "Machine Gun carries the B5 defensive_only flag")
+	assert_eq(int(mg.get("first_strikes", 0)), 1, "Machine Gun has 1 first strike (§29.1)")
+	assert_eq(int(mg.get("combat_limit", -1)), 0,
+		"Machine Gun has no damage floor — reference combat limit 100 = can kill (§29.1)")
+	assert_eq(str(mg.get("classification", "")), "siege", "Machine Gun is siege-class (§29.1)")
+	assert_false("siege" in mg.get("tags", []),
+		"Machine Gun deals no collateral splash (no siege tag) — it cannot even attack")
+	assert_eq(str(mg.get("upgrades_to", "")), "mechanized_infantry",
+		"Machine Gun upgrades to Mechanized Infantry (§29.1)")
+	assert_true("machine_gun" in db.get_technology("railroad").get("unlocks_units", []),
+		"Railroad lists machine_gun in unlocks_units")
+
+	var we: Dictionary = db.get_unit("war_elephant")
+	assert_false(we.empty(), "war_elephant ships (C7)")
+	assert_eq(int(we.get("base_strength", 0)), 8, "War Elephant strength 8 (§29.1)")
+	assert_eq(int(we.get("movement", 0)), 60, "War Elephant has 1 move (§29.1)")
+	assert_eq(int(we.get("cost", 0)), 60, "War Elephant cost 60 (§29.1)")
+	assert_eq(UnitPrereqs.tech_list(we.get("tech_required", null)),
+		["construction", "horseback_riding"],
+		"War Elephant needs Construction AND Horseback Riding (§29.1, B1 compound form)")
+	assert_eq(str(we.get("resource_required", "")), "ivory", "War Elephant needs Ivory (§29.1)")
+	assert_eq(str(we.get("classification", "")), "mounted", "War Elephant is mounted (§29.1)")
+	assert_eq(str(we.get("upgrades_to", "")), "cuirassier",
+		"War Elephant upgrades to Cuirassier (§29.1)")
+	assert_true("war_elephant" in db.get_technology("construction").get("unlocks_units", []),
+		"Construction lists war_elephant in unlocks_units")
+	assert_eq(str(db.get_unit("ballista_elephant").get("replaces", "")), "war_elephant",
+		"Ballista Elephant is the Khmer unique replacement for the War Elephant (reference)")
+
+	var lion: Dictionary = db.get_unit("lion")
+	assert_false(lion.empty(), "lion ships (C7)")
+	assert_eq(int(lion.get("base_strength", 0)), 2, "Lion strength 2 (§29.1)")
+	assert_eq(int(lion.get("movement", 0)), 60, "Lion has 1 move (§29.1)")
+	assert_eq(int(lion.get("cost", 0)), 0, "Lion is never built")
+	assert_eq(lion.get("tech_required"), null, "Lion needs no tech")
+	assert_eq(str(lion.get("classification", "")), "animal", "Lion is a wild animal (§9.3)")
+	assert_true("animal" in lion.get("tags", []), "Lion carries the animal tag")
+
 func test_first_strike_fields_are_non_negative_ints() -> void:
 	# §15.5: first_strikes / chance_first_strikes on units and the promotion
 	# bonus forms must be non-negative integers wherever present — a negative

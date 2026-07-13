@@ -380,7 +380,7 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   gate — a defensive-only unit skips both the adjacent-attack and the
   advance-on-threat passes (whose final step the move command would refuse) and
   fortifies in place; garrison assignment (pass 2) still uses it as a defender.
-  No shipped unit carries the flag yet (Machine Gun arrives with C7); synthetic
+  The shipped carrier is the Machine Gun (C7, 2026-07-12); flag-only synthetic
   db-override pins: `test_defensive_only_unit_cannot_initiate_combat`
   (`test_units.gd`), `test_defensive_only_unit_cannot_attack_at_command_layer`
   (`test_facade.gd`), `test_defensive_only_unit_never_attacks`
@@ -462,6 +462,25 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   anger (contentment penalty scaled by adopter share).
 - **C7. Missing units** (§29.1): Machine Gun (needs B5), War Elephant (needs B1),
   Lion (animal roster in `WildForces.spawn_animals` between wolf/panther weights).
+  **DONE 2026-07-12**: pure data pass — all three §29.1 rows verified against the
+  reference and added to `units.json`; `railroad`/`construction` gained the
+  `unlocks_units` entries. Machine Gun is the first shipped `defensive_only`
+  carrier (B5 gate re-pinned on the real unit at sim + command layer); War
+  Elephant is a compound-prereq mounted unit (B1 AND-techs + ivory; the Khmer
+  `ballista_elephant`'s descriptive `replaces` now points at it per the
+  reference); Lion joins the uniform animal spawn roster (str 2 / 1 move —
+  `_spawn_animal_unit` draws equally from every classification-"animal" unit
+  through the shared `gs.rng`, so no weight table was needed). One wiring find:
+  both wild raider-stock pickers (`WildForces`/`WildAI._strongest_wild_unit_type`)
+  would have picked the Machine Gun as the strongest land unit in its era, but
+  raiders initiate combat, which B5 bars — both now skip `defensive_only` units.
+  Everything else (encyclopedia, AI production/garrison, draft, upgrade,
+  `Eras.era_of_unit`) reads `units.json` generically. Tests:
+  `test_units_carry_c7_missing_unit_stats` (data pins),
+  `test_machine_gun_is_defensive_only` / `test_machine_gun_cannot_attack_at_command_layer`,
+  `test_war_elephant_prereqs_gate_on_both_techs_and_ivory`,
+  `test_lion_is_in_the_animal_spawn_roster`,
+  `test_raider_stock_never_picks_a_defensive_only_unit`.
 - **C8. War-weariness deepening** (§15.8) — *optional*: keep the 2-constant model or
   adopt per-event weights; if adopted, wire into `CombatApply` outcomes. Low priority.
 

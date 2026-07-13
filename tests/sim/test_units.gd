@@ -334,9 +334,9 @@ func test_unit_can_fortify_predicate() -> void:
 # ── defensive_only flag (B5) ─────────────────────────────────────────────────
 
 func test_defensive_only_unit_cannot_initiate_combat() -> void:
-	# The B5 flag on the unit data bars the unit from ever attacking (the Machine
-	# Gun class, C7). No shipped unit carries it yet, so pin the gate with a
-	# synthetic entry via the db-override pattern.
+	# The B5 flag on the unit data bars the unit from ever attacking. A synthetic
+	# entry via the db-override pattern pins that the *flag* drives the gate,
+	# independent of any shipped unit's other fields.
 	var gs = make_gs(1)
 	gs.db.units["test_mg"] = {
 		"id": "test_mg", "base_strength": 18, "movement": 60,
@@ -348,3 +348,13 @@ func test_defensive_only_unit_cannot_initiate_combat() -> void:
 		"A defensive_only unit can never initiate combat")
 	assert_true(mg.can_fortify(gs.db),
 		"A defensive_only land unit still fortifies (it only defends)")
+
+func test_machine_gun_is_defensive_only() -> void:
+	# C7: the shipped Machine Gun (§29.1) carries the B5 flag — the real data
+	# entry, not a synthetic override, is barred from initiating combat.
+	var gs = make_gs(1)
+	var mg = make_unit(gs, "machine_gun", 1, 5, 5)
+	assert_false(mg.can_attack(gs.db),
+		"The shipped Machine Gun can never initiate combat (defensive_only)")
+	assert_true(mg.can_fortify(gs.db),
+		"The shipped Machine Gun still fortifies to defend")

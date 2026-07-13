@@ -1564,7 +1564,7 @@ appear in `units.json` and are read by the engine:
 | `intercept_strength` | int | Effectiveness as an air interceptor (fighter units) |
 | `withdrawal_chance` | int | Percent chance (0–100) the unit retreats instead of dying |
 | `combat_limit` | int | Maximum damage this unit can deal to a defending unit per combat (siege collateral cap) |
-| `defensive_only` | bool | Unit may never initiate combat (B5): attack orders are refused and the AI never selects it for offense; it fights only when attacked. Carried by the Machine Gun class (§29.1, arrives with C7) |
+| `defensive_only` | bool | Unit may never initiate combat (B5): attack orders are refused and the AI never selects it for offense; it fights only when attacked. Carried by the Machine Gun (§29.1, shipped with C7 2026-07-12); also excluded from wild raider-stock picks |
 | `free_promotions` | Array | Promotion IDs granted when the unit is built or drafted |
 | `replaces` | String | The standard unit ID this faction-unique unit replaces |
 | `unique_to` | String | Society/faction ID; restricts availability to that faction |
@@ -2596,6 +2596,18 @@ from the shared map RNG in fixed start order, keeping generation deterministic.
 
 Machine Gun needs one new unit capability: a `defensive_only` flag (unit may never be
 the attacker). War Elephant needs compound prereqs (game-rules §15.12).
+
+All three rows are live shipped data as of C7 (2026-07-12), re-verified against
+the reference: `machine_gun` / `war_elephant` / `lion` in `units.json`
+(reference combat limit 100 = "can kill" is the Humanish `combat_limit: 0` = no
+damage floor, per §1.4 of the audit; the reference upgrade target is Mechanized
+Infantry; Machine Gun carries no collateral `siege` tag — it cannot attack at
+all). Railroad and Construction carry the `unlocks_units` entries; the Khmer
+`ballista_elephant` now records `replaces: war_elephant` (reference unique-unit
+mapping). The Lion spawns from the uniform `WildForces._spawn_animal_unit`
+roster (every classification-"animal" unit, equal weight); `defensive_only`
+units are excluded from the wild raider-stock pickers since raiders must be
+able to initiate combat (B5).
 
 ### 29.2 Missing projects
 
