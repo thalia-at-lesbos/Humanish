@@ -1359,7 +1359,7 @@ most-advanced living player rather than a distinct game-era track.
 
 Animals are a **subset of wild units** (`owner_player_id = -2`, `is_wild = true`, plus
 `is_animal = true`) defined by data — `data/units.json` entries with `"classification": "animal"`
-(Wolf, Panther, Bear). They are the **quiet-phase** population: spawning fills the early game,
+(Wolf, Lion, Panther, Bear). They are the **quiet-phase** population: spawning fills the early game,
 *before* the §9.2 gates open, and hands off to raiders once they do.
 
 * **Spawning (`WildForces.spawn_animals`).** While the §9.2 wild-*unit* gates are **not** yet
