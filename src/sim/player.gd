@@ -42,6 +42,11 @@ var research_store: int = 0     # accumulated research points
 # Technologies known
 var technologies: Array = []    # Array of tech IDs
 
+# Completed effects projects (§15.7 C5: "sdi", "the_internet"). Spaceship stages
+# are NOT listed here — they stay in gs.endgame_project_stages. Read through
+# Projects.effect_int/has_project. Serialized (string IDs).
+var projects: Array = []        # Array of project IDs
+
 # Current era index (§1), a *cache* of the highest era among researched techs.
 # Recomputed by Eras.refresh whenever techs change; mechanics read the era live via
 # Eras.player_era, so this only exists to detect advancement for the notification.
@@ -170,6 +175,7 @@ func serialize() -> Dictionary:
 		"current_research_id": current_research_id,
 		"research_store": research_store,
 		"technologies": technologies.duplicate(),
+		"projects": projects.duplicate(),
 		"era": era,
 		"intel_points": intel_points.duplicate(),
 		"counter_espionage": counter_espionage.duplicate(),
@@ -215,6 +221,11 @@ static func deserialize(d: Dictionary):
 	p.current_research_id = str(d.get("current_research_id", ""))
 	p.research_store = int(d.get("research_store", 0))
 	p.technologies = d.get("technologies", []).duplicate()
+	# Project IDs are strings; coerce per element so a load never yields a
+	# non-string entry (same discipline as the int-ID coercion rule).
+	p.projects = []
+	for prj in d.get("projects", []):
+		p.projects.append(str(prj))
 	p.era = int(d.get("era", 0))
 	# intel_points is keyed by alliance_id (int). JSON turns every dict key into a
 	# string on save, so coerce back to int on load — otherwise the loaded "2" key

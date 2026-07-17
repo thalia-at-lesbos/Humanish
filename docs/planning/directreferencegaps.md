@@ -63,9 +63,11 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   - ~~`guided_missile` strength 0 vs reference 40 — verify missile combat path, then fix.~~
     **DONE 2026-07-08** (d933a61): strength 40; verification found the `one_use` tag was
     read nowhere — the air-bombard path now consumes one-use weapons on strike or
-    interception (`SimFacade._consume_one_use`). Follow-up for the D3/C5 sitting:
+    interception (`SimFacade._consume_one_use`). ~~Follow-up for the D3/C5 sitting:
     `Stack.get_defender` has no missile/air exclusion, so a garrisoned guided missile
-    can be selected as a city's best defender at 40 (reference missiles cannot defend).
+    can be selected as a city's best defender at 40 (reference missiles cannot defend).~~
+    **Resolved 2026-07-17 (C5/D3 sitting):** missiles are excluded from
+    `Stack.get_defender` and stranded missiles die on capture — see the D3 item.
   - ~~settler/worker moves 1 → 2, fast worker 2 → 3, musketeer 1 → 2 (reference).~~
     **DONE 2026-07-08** (ca79f8a).
 - **A2. Building/wonder values** (`data/structures.json`; test `test_settlement*.gd`):
@@ -457,6 +459,31 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   entries (non-spaceship projects with effects — small `projects` model extension),
   interception roll in the nuke-strike path (`src/sim/nuclear.gd`), tech-share check
   in the research phase. Also retune §5.7 nuke magnitudes to the reference block.
+  **DONE 2026-07-17** (with the D3 missiles-cannot-defend item): `sdi` /
+  `the_internet` ship as **effects projects** — entries without
+  `win_condition: "endgame_project"`, carrying `instances` ("player"/"world"),
+  `requires_wonder_any` and an `effects` dict. Completion records them on the new
+  serialized `Player.projects` (spaceship stages keep the alliance stage tally);
+  the new `Projects` reader (`src/sim/projects.gd`, the PolicyEffects analogue)
+  is the single effects read path, and `can_build` gates the SET_PRODUCTION
+  queue (endgame stages stay ungated as before). SDI: `Nuclear.try_intercept`
+  now assembles ONE chance per strike — the best of the existing in-range
+  anti-air roll and any target-side owner's `nuke_interception` (75) — rolled at
+  the same pre-detonation point, drawing nothing when no source exists. The
+  Internet: `TurnEngine._apply_tech_share` runs in the PLAYER_RESEARCH phase
+  right after `_apply_research` (no RNG; techs scanned in data order; a shared
+  tech that was under research completes for free). §5.7 magnitudes retuned to
+  the reference block (`constants.json`): unit damage 30+rand(50)+rand(50)
+  rolled per unit with combat units floored at 1 health and **non-combatants
+  killed at the 60 threshold** (new), population death 30+rand(20)+rand(20) %,
+  **building destruction 40% per structure** (new roll), fallout 50% /
+  gw_nuclear_ratio 50 (already matched); the old flat
+  `nuke_blast_unit_damage_pct`/`nuke_population_loss_pct` placeholders are
+  removed. Tests: `test_projects.gd` (new suite — data pins, reader, gating,
+  completion, tech-share, save/load hash), `test_nuclear.gd` (SDI interception:
+  forced/never/attacker-own/determinism + both outcomes across seeds at the real
+  75%; threshold kills; building rolls; population band),
+  `test_data_db.gd` magnitude pins, `test_conquest.gd` missile-defender block.
 - **C6. Serfdom & emancipation effects** (§15.9, §29.9): worker speed (needs B7),
   cottage upgrade-rate % (generalize `faster_cottage_growth`), emancipation-pressure
   anger (contentment penalty scaled by adopter share).
@@ -513,6 +540,21 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   - **Missiles cannot defend** (reference): exclude `classification: "missile"` from
     `Stack.get_defender` (mirror the espionage-tag exclusion) and destroy missiles
     left stackless/cityless on capture — schedule with C5's nuke/interception work.
+    **DONE 2026-07-17 (with C5).** `Stack.get_defender` skips missiles (the A1
+    guided-missile-defends-at-40 quirk is a regression test now); the new
+    `CombatApply.destroy_stranded_missiles(gs, x, y, captor_pid)` removes hostile
+    missiles from a tile with no surviving defender when it is taken — called
+    after a victorious advance (`apply_unit_result`), on city capture and raze
+    (`SimFacade._capture_city`/`_raze_city` — a voluntary self-disband spares
+    them via the hostility check), on a wild raze advance (`WildAI`), and when a
+    stack walks onto a lone missile's tile (`_cmd_move_stack` step loop; a
+    missile-only tile has no defender so entry is a move, not an attack).
+    Not covered (noted, out of scope): a culture-flipped city leaves the old
+    owner's missiles standing — the flip transform is peaceful and
+    `destroy_stranded_missiles` only fires on hostile takeovers.
+    Tests: `test_conquest.gd` §15.7/D3 block (defender pick, missile-only city
+    falls + missile dies, stack-wipe strand, defender-still-alive survival,
+    walk-on destruction).
 - **D4. Humanish-only content** — **DECIDED: cut it all.** Remove: `anti_tank` unit;
   `merchant_guild`/`overseas_trading_co`/`nationalist_mutual` orgs; invented
   promotions (accuracy I/II, boarding, dogfighting, air supremacy, escort, evasion,

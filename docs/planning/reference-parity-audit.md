@@ -295,7 +295,10 @@ islamic/buddhist cathedrals, `temple_of_artemis`↔`BUILDING_ARTEMIS`,
   per-religion ones (reference has only per-religion).
 - **Moved**: Apollo Program (1000 ≠ project 1600 **[value]**) and Manhattan
   Project (1250 ≠ 1500 **[value]**) are buildings here, projects in the reference.
-- **[missing] Projects: The Internet, SDI** — no Humanish counterpart anywhere.
+- ~~**[missing] Projects: The Internet, SDI** — no Humanish counterpart anywhere.~~
+  **Closed 2026-07-17 (C5):** both ship in `projects.json` as effects projects at
+  the reference values (SDI 1000/Laser/75% interception, The Internet
+  2000/Computers/tech-share 2 — game-data §29.2, game-rules §15.7).
 - Spaceship parts (see §12 of game-data): Humanish costs 250–600 vs reference
   1000–2000 **[value]**; counts casing×3/thrusters×2/engine×1 vs reference
   casing×5/thrusters×5/engine×2 **[value]**; docking bay tech satellites ≠
@@ -557,7 +560,9 @@ model at all, collected here for completeness:
 2. **Population rush / whipping** under Slavery; **serfdom worker speed**.
 3. **Golden-age length pace scaling** (`iGoldenAgePercent`).
 4. **Culture-level city defence** (20–100%).
-5. **The Internet & SDI projects** (and nuke interception %).
+5. **The Internet & SDI projects** (and nuke interception %). → **Closed
+   2026-07-17 (C5):** both projects + the SDI interception roll and the §15.7
+   reference nuke magnitudes are implemented.
 6. **Machine Gun / War Elephant / Lion** units. → **Closed 2026-07-12 (C7):**
    all three ship in `units.json` at the reference values (game-data §29.1).
 7. **Chance first strikes** as a stat anywhere in the model.

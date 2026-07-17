@@ -214,6 +214,130 @@ func test_meltdown_quiet_without_plant():
 	assert_eq(Nuclear.meltdown_tick(gs, gs.rng).size(), 0,
 		"no plant, no meltdown")
 
+# ── §15.7 SDI interception + reference magnitudes (C5) ───────────────────────
+
+func test_sdi_intercepts_at_full_chance():
+	var gs = make_gs(2)
+	# Force the roll: SDI's per-project chance is read from data; override to 100.
+	gs.db.projects["sdi"]["effects"]["nuke_interception"] = 100
+	gs.get_player(2).projects.append("sdi")
+	make_settlement(gs, 2, 8, 8, 5)
+	var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	assert_true(Nuclear.try_intercept(gs, nuke, 8, 8, gs.rng),
+		"the target owner's SDI intercepts the strike (no anti-air unit needed)")
+
+func test_no_sdi_no_antiair_never_rolls():
+	var gs = make_gs(2)
+	make_settlement(gs, 2, 8, 8, 5)
+	var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	var before: String = str(gs.rng.get_state())
+	assert_false(Nuclear.try_intercept(gs, nuke, 8, 8, gs.rng),
+		"no interception source: never intercepted")
+	assert_eq(str(gs.rng.get_state()), before,
+		"no interception source: the rng stream is untouched")
+
+func test_sdi_ignores_the_attackers_own_project():
+	var gs = make_gs(2)
+	gs.db.projects["sdi"]["effects"]["nuke_interception"] = 100
+	gs.get_player(1).projects.append("sdi")   # the ATTACKER owns SDI
+	make_settlement(gs, 2, 8, 8, 5)
+	var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	assert_false(Nuclear.try_intercept(gs, nuke, 8, 8, gs.rng),
+		"the attacker's own SDI never intercepts their strike")
+
+func test_sdi_interception_deterministic_and_both_outcomes_reachable():
+	# At the reference 75% both outcomes must appear across seeds, and the same
+	# seed must reproduce the same outcome (one roll per strike).
+	var intercepted: int = 0
+	var detonated: int = 0
+	for sv in range(30):
+		var outcomes := []
+		for _rep in range(2):
+			var gs = make_gs(2, 1000 + sv)
+			gs.get_player(2).projects.append("sdi")   # data value: 75
+			make_settlement(gs, 2, 8, 8, 5)
+			var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+			outcomes.append(Nuclear.try_intercept(gs, nuke, 8, 8, gs.rng))
+		assert_eq(outcomes[0], outcomes[1], "same seed, same interception outcome")
+		if outcomes[0]:
+			intercepted += 1
+		else:
+			detonated += 1
+	assert_true(intercepted > 0, "75% SDI intercepts some strikes across seeds")
+	assert_true(detonated > 0, "75% SDI lets some strikes through across seeds")
+
+func test_facade_strike_intercepted_by_sdi_project():
+	var gs = make_gs(2)
+	gs.db.projects["sdi"]["effects"]["nuke_interception"] = 100
+	_enable_nukes(gs, 1)
+	gs.get_player(2).projects.append("sdi")
+	var target_city = make_settlement(gs, 2, 8, 8, 6)
+	target_city.peak_population = 6
+	gs.current_player_id = 1
+	var f = bare_facade(gs)
+	var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	assert_true(f.apply_command(Commands.nuclear_strike(1, nuke.id, 8, 8)),
+		"intercepted strike still consumes the missile")
+	assert_null(gs.get_unit(nuke.id), "missile consumed")
+	assert_eq(target_city.population, 6, "an intercepted strike never detonates")
+
+func test_noncombatant_dies_at_death_threshold():
+	var gs = make_gs(2)
+	# Deterministic damage: base 60, no random parts — exactly the threshold.
+	gs.db.constants["nuke_unit_damage_base"] = 60
+	gs.db.constants["nuke_unit_damage_rand1"] = 0
+	gs.db.constants["nuke_unit_damage_rand2"] = 0
+	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
+	var worker = make_unit(gs, "worker", 2, 8, 8)
+	var soldier = make_warrior(gs, 2, 8, 8)
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_null(gs.get_unit(worker.id),
+		"a non-combatant is killed outright at the death threshold (60)")
+	assert_not_null(gs.get_unit(soldier.id), "a combat unit is never killed by the blast")
+	assert_eq(soldier.health, 40, "the combat unit took the flat 60 damage")
+
+func test_noncombatant_survives_below_death_threshold():
+	var gs = make_gs(2)
+	gs.db.constants["nuke_unit_damage_base"] = 59
+	gs.db.constants["nuke_unit_damage_rand1"] = 0
+	gs.db.constants["nuke_unit_damage_rand2"] = 0
+	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
+	var worker = make_unit(gs, "worker", 2, 8, 8)
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_not_null(gs.get_unit(worker.id),
+		"below the threshold a non-combatant is untouched, not damaged")
+
+func test_buildings_destroyed_per_structure_roll():
+	var gs = make_gs(2)
+	gs.db.constants["nuke_building_destroy_pct"] = 100
+	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
+	var city = make_settlement(gs, 2, 8, 8, 10)
+	city.peak_population = 10
+	city.structures = ["granary", "library", "market"]
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_eq(city.structures.size(), 0,
+		"at 100% every structure in a struck city is destroyed")
+
+func test_buildings_survive_at_zero_destroy_chance():
+	var gs = make_gs(2)
+	gs.db.constants["nuke_building_destroy_pct"] = 0
+	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
+	var city = make_settlement(gs, 2, 8, 8, 10)
+	city.peak_population = 10
+	city.structures = ["granary", "library", "market"]
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_eq(city.structures.size(), 3, "at 0% no structure is destroyed")
+
+func test_population_death_within_reference_band():
+	# base 30 + rand(20) + rand(20): a size-10 city loses 3..6 pop (30..68 %).
+	var gs = make_gs(2)
+	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
+	var city = make_settlement(gs, 2, 8, 8, 10)
+	city.peak_population = 10
+	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
+	assert_true(city.population <= 7, "at least the 30% base population dies")
+	assert_true(city.population >= 4, "never more than the 68% roll cap dies")
+
 func test_strike_determinism_same_seed():
 	var a = make_gs(2, 99)
 	var b = make_gs(2, 99)

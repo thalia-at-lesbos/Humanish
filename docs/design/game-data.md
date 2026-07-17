@@ -2616,6 +2616,13 @@ able to initiate combat (B5).
 | SDI | 1000 | Laser | 1 per player; requires Manhattan Project completed by anyone | 75% chance to intercept each nuke targeting the owner |
 | The Internet | 2000 | Computers | 1 per game | Owner auto-acquires any tech known by ≥ 2 other players |
 
+Both rows are live shipped data as of C5 (2026-07-17): `sdi` / `the_internet` in
+`projects.json` as **effects projects** — entries without
+`win_condition: "endgame_project"`, carrying `instances` ("player"/"world"),
+`requires_wonder_any` and an `effects` dictionary (`nuke_interception` 75,
+`tech_share` 2) read through `Projects.effect_int`. Completion is recorded on
+`Player.projects` (serialized); see game-rules §15.7 for the mechanics.
+
 ### 29.3 Chance first strikes (reference values)
 
 Units: Navy SEAL 1 + 1 chance; Skirmisher 1 + 1 chance (all other first-strike units

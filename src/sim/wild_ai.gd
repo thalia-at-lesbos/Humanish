@@ -200,11 +200,13 @@ static func _move_along(game_state, rng: RNG, u: Unit, tx: int, ty: int) -> void
 			_assault_city(game_state, u, city)
 			u.has_attacked = true
 			u.movement_left = 0
-			# The razed city's tile is now empty land — advance onto it.
+			# The razed city's tile is now empty land — advance onto it. Missiles
+			# based there die with the city (§15.7 / D3: they cannot defend).
 			if game_state.get_settlement_at(sx, sy) == null:
 				u.x = sx; u.y = sy
 				u.stationary_turns = 0
 				u.entrenchment = 0
+				CombatApply.destroy_stranded_missiles(game_state, sx, sy, -2)
 			u.goto_x = -1; u.goto_y = -1
 			return
 

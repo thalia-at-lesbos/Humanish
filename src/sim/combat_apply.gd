@@ -68,6 +68,12 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 				if u.health <= 0:
 					Stack.remove_unit(gs.units, u.id)
 
+	# Missiles cannot defend (§15.7 / D3): a victorious attacker advancing onto
+	# the defender's tile destroys any hostile missiles stranded there without a
+	# surviving defender.
+	if advance and result["attacker_survived"] and not result["defender_survived"]:
+		destroy_stranded_missiles(gs, attacker.x, attacker.y, attacker.owner_player_id)
+
 	# Great General accrues from combat victories (§14.2): the surviving victor's
 	# owner gains points and may produce a Great General in the field.
 	if result["attacker_survived"] != result["defender_survived"]:
@@ -79,6 +85,28 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 			GreatPeople.award_combat_points(gs,
 				gs.get_player(defender.owner_player_id),
 				defender.x, defender.y, int(result["defender_xp_gain"]))
+
+# Missiles cannot defend (§15.7 / D3), so a missile left with no surviving
+# defender on a tile taken by an enemy — a captured/razed city, or open ground an
+# attacker advanced onto — is destroyed, not captured. Hostile means at war with
+# the captor (or either side wild). No-op while any combat defender still stands
+# there. Returns the removed unit ids so callers can surface them.
+static func destroy_stranded_missiles(gs, x: int, y: int, captor_pid: int) -> Array:
+	var removed: Array = []
+	if Stack.get_defender(gs.units, x, y, captor_pid, gs) != null:
+		return removed
+	for u in Stack.at(gs.units, x, y):
+		if u.owner_player_id == captor_pid:
+			continue
+		if str(gs.db.get_unit(u.unit_type_id).get("classification", "")) != "missile":
+			continue
+		if u.owner_player_id != -2 and captor_pid != -2 \
+				and not gs.are_at_war(captor_pid, u.owner_player_id):
+			continue
+		removed.append(u.id)
+	for uid in removed:
+		Stack.remove_unit(gs.units, uid)
+	return removed
 
 # Grant promotions for each experience level newly reached (§5.5). Levels are the
 # data-defined experience_thresholds; each new level awards one eligible promotion.

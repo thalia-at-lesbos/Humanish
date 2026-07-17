@@ -756,3 +756,26 @@ func test_unit_resource_unknown_key_fails_validation() -> void:
 		if "bogus_unit" in err and "anyy" in err:
 			found = true
 	assert_true(found, "a typoed all/any key cannot silently drop a resource gate")
+
+# §15.7 reference nuke magnitudes (C5 retune): the constants table carries the
+# reference block — unit damage 30+rand(50)+rand(50) with a non-combatant death
+# threshold of 60, population death 30+rand(20)+rand(20) %, building destruction
+# 40% per structure, fallout 50% per blast tile, global-warming nuke weight 50.
+func test_constants_carry_c5_reference_nuke_magnitudes() -> void:
+	var db = _db()
+	assert_eq(db.get_constant("nuke_unit_damage_base", 0), 30, "unit damage base 30")
+	assert_eq(db.get_constant("nuke_unit_damage_rand1", 0), 50, "unit damage rand1 50")
+	assert_eq(db.get_constant("nuke_unit_damage_rand2", 0), 50, "unit damage rand2 50")
+	assert_eq(db.get_constant("nuke_noncombat_death_threshold", 0), 60,
+		"non-combatant death threshold 60")
+	assert_eq(db.get_constant("nuke_population_death_base", 0), 30, "population base 30")
+	assert_eq(db.get_constant("nuke_population_death_rand1", 0), 20, "population rand1 20")
+	assert_eq(db.get_constant("nuke_population_death_rand2", 0), 20, "population rand2 20")
+	assert_eq(db.get_constant("nuke_building_destroy_pct", 0), 40,
+		"building destruction 40% per structure")
+	assert_eq(db.get_constant("nuke_fallout_chance", 0), 50, "fallout 50% per blast tile")
+	assert_eq(db.get_constant("gw_nuclear_ratio", 0), 50, "global-warming nuke weight 50")
+	assert_eq(db.constants.has("nuke_blast_unit_damage_pct"), false,
+		"the old flat unit-damage placeholder is gone")
+	assert_eq(db.constants.has("nuke_population_loss_pct"), false,
+		"the old flat population-loss placeholder is gone")

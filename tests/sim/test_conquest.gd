@@ -165,3 +165,73 @@ func test_city_health_regenerates_toward_max() -> void:
 	TurnEngine._city_health_regen(gs, city)
 	assert_true(city.health > 1, "Siege HP recovers between assaults")
 	assert_true(city.health <= maxh, "…but never past the maximum")
+
+# ── Missiles cannot defend (§15.7 / D3) ───────────────────────────────────────
+
+func test_garrisoned_missile_is_never_the_defender() -> void:
+	# A1 regression: a garrisoned guided missile (strength 40) must never be
+	# picked over a real defender — and alone it is no defender at all.
+	var gs = make_gs(2)
+	_at_war(gs)
+	make_settlement(gs, 2, 5, 5, 4)
+	var missile = make_unit(gs, "guided_missile", 2, 5, 5)
+	var guard = make_warrior(gs, 2, 5, 5)   # strength 10 < the missile's 40
+	assert_eq(Stack.get_defender(gs.units, 5, 5, 1, gs).id, guard.id,
+		"the weaker warrior defends; the stronger missile is skipped")
+	Stack.remove_unit(gs.units, guard.id)
+	assert_null(Stack.get_defender(gs.units, 5, 5, 1, gs),
+		"a missile-only garrison leaves the city undefended")
+	assert_not_null(gs.get_unit(missile.id), "merely asking picks no fight")
+
+func test_missile_only_city_falls_and_missile_dies() -> void:
+	var gs = make_gs(2)
+	_at_war(gs)
+	var city = make_settlement(gs, 2, 5, 5, 4)
+	city.peak_population = 4
+	var missile = make_unit(gs, "guided_missile", 2, 5, 5)
+	var atk = make_warrior(gs, 1, 5, 6)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
+	assert_eq(city.owner_player_id, 1,
+		"a city garrisoned only by a missile is undefended and falls at once")
+	assert_null(gs.get_unit(missile.id),
+		"the stranded missile is destroyed with the captured city, not inherited")
+	assert_eq([atk.x, atk.y], [5, 5], "the attacker advances into the city")
+
+func test_stack_wipe_destroys_stranded_missile() -> void:
+	var gs = make_gs(2)
+	_at_war(gs)
+	var guard = make_warrior(gs, 2, 5, 5)
+	var missile = make_unit(gs, "guided_missile", 2, 5, 5)
+	var atk = make_warrior(gs, 1, 5, 6)
+	atk.base_strength = 1000   # wins the fight outright
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
+	assert_null(gs.get_unit(guard.id), "the defender died")
+	assert_eq([atk.x, atk.y], [5, 5], "the attacker advanced onto the tile")
+	assert_null(gs.get_unit(missile.id),
+		"the missile left with no surviving defender dies on the captured tile")
+
+func test_missile_survives_while_a_defender_still_stands() -> void:
+	var gs = make_gs(2)
+	_at_war(gs)
+	var missile = make_unit(gs, "guided_missile", 2, 5, 5)
+	make_warrior(gs, 2, 5, 5)
+	CombatApply.destroy_stranded_missiles(gs, 5, 5, 1)
+	assert_not_null(gs.get_unit(missile.id),
+		"a missile behind a live defender is not stranded")
+
+func test_walking_onto_lone_missile_tile_destroys_it() -> void:
+	var gs = make_gs(2)
+	_at_war(gs)
+	var missile = make_unit(gs, "guided_missile", 2, 5, 5)
+	var atk = make_warrior(gs, 1, 5, 6)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
+	assert_eq([atk.x, atk.y], [5, 5],
+		"a lone hostile missile cannot contest the tile (missiles cannot defend)")
+	assert_null(gs.get_unit(missile.id), "entering its tile destroys the missile")
+	assert_eq(atk.health, 100, "no combat was fought over the missile")

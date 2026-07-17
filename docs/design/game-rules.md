@@ -43,13 +43,13 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, SDI/Internet, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
   - "§4.10 Tile maturation — cottage upgrade rates"
   - "§4.11 Feature clearing & chopping — base chop yield, tech bonus, and border scaling placeholder"
-  - "§5.7  Nuclear weapons — all blast/radiation magnitudes placeholder"
+  - "§5.7  Nuclear weapons — blast/population/building magnitudes reference-tuned (§15.7, 2026-07-17); interception range, fallout-ring chance and meltdown chance still placeholder"
   - "§5.8  Naval blockade"
   - "§6.6  Conscription / draft"
   - "§6.7  Trade routes — yields placeholder"
@@ -687,7 +687,15 @@ Outcomes and side effects:
   triggering a celebration age, or seeding an economic organization).
 
 ### 5.7 Nuclear weapons & radiation (provisional)
-> **⚠️ Provisional — implemented, magnitudes unverified.** This subsection models the
+> **⚠️ Provisional — implemented; core magnitudes reference-tuned (C5, 2026-07-17).**
+> The damage block now carries the §15.7 reference values: unit damage
+> 30 + rand(50) + rand(50) with a non-combatant death threshold of 60 (combat units are
+> floored at 1 health; non-combatants either die at the threshold or are untouched),
+> population death 30 + rand(20) + rand(20) %, building destruction 40% per structure,
+> fallout 50% per blast tile, global-warming nuke weight 50, SDI interception 75%
+> (`data/constants.json` `nuke_*`, `data/projects.json` `sdi`). Still placeholder:
+> the anti-air interception chance/range, the fallout ring chance, the meltdown
+> chance, and the per-unit blast radii. This subsection models the
 > **nuclear-weapon** units (`tactical_nuke`, `icbm`) and the **radioactive fallout** they
 > leave behind. The data scaffolding exists — the units, the `nuke`/`one_use`/`global_range`
 > tags, the `fission` tech, the **Manhattan Project** national wonder (`enable_nukes_global`),
@@ -695,10 +703,10 @@ Outcomes and side effects:
 > **Non-Proliferation** assembly resolution and the `no_nuclear` standing effect (§7.2) — and
 > the detonation/radiation rules below are now **implemented** in `sim/nuclear.gd` (launch via
 > the `NUCLEAR_STRIKE` command; meltdowns tick in the world step; fallout is scrubbed by the
-> `MISSION_CLEAN_FALLOUT` worker action). The behaviour has **not** been checked against the
-> reference game: every blast radius, damage figure, radiation chance, and the listed
-> constants are **placeholders** to be verified and tuned (`data/constants.json` `nuke_*` /
-> `nuclear_meltdown_chance`; per-unit `blast_radius`). All quantities are integer math per the
+> `MISSION_CLEAN_FALLOUT` worker action). The core damage magnitudes are now the §15.7
+> reference values (see the banner above); the anti-air interception chance/range, the
+> fallout-ring chance, the meltdown chance and the per-unit `blast_radius` remain
+> **placeholders** to be verified and tuned. All quantities are integer math per the
 > engine invariants; chances are integer percentages, and every stochastic step draws from the
 > shared `gs.rng` in a fixed tile order so replays reproduce the same craters and fallout.
 
@@ -712,22 +720,29 @@ A **nuclear strike** is a one-use area-effect attack, distinct from the round-by
   and may target **any** tile on the map. Both require the **Uranium** resource to build and a
   player who has either completed the **Manhattan Project** or for whom nukes are globally
   enabled. The unit is **consumed** on launch whether or not it is intercepted.
-* **Interception.** Before detonation, an enemy with an in-range anti-air/SDI capability
-  (placeholder: SAM Infantry, Missile Cruiser, or a future "SDI" defensive structure within
-  range of the target) rolls a fixed **interception chance** (placeholder, tunable). A
+* **Interception.** Before detonation, one interception chance is assembled from two
+  sources: an enemy **anti-air unit** (SAM Infantry, Missile Cruiser — the `anti_air` tag)
+  within `nuke_interception_range` contributes `nuke_interception_chance` (placeholder),
+  and the **SDI project** (§15.7) contributes its `nuke_interception` effect (reference 75%)
+  for any target-side owner — a player, other than the attacker, with a settlement or unit
+  on the target tile. The **best** available chance is rolled **once** per strike; a
   successful interception destroys the missile **with no effect on the target** (the launching
   player is still notified). This roll is drawn from the shared generator in pipeline order.
 * **Blast & damage.** On detonation the engine resolves an **area effect** centred on the target
   tile out to a **blast radius** (placeholder: Tactical Nuke = the single target tile only
   ("0", point strike); ICBM = the target tile plus all adjacent tiles, "radius 1"):
-  * **Units** in the blast take heavy, **non-lethal-floored** damage — each affected unit is
-    reduced by a large percentage of max health but a strike alone does **not** wipe a stack to
-    zero (placeholder: leave each unit at ≥ 1 health, mirroring the §5.4 combat-limit idea), so
-    nukes **soften** defenders rather than auto-killing them. Damage applies to **all** owners in
-    the area, **including the attacker's own** units — there is no friendly-fire exemption.
-  * **Settlements** in the blast lose a share of current **population** (placeholder) and have
-    their accumulated **defensive/garrison bonus** and stored production reduced; a settlement is
-    **never destroyed outright** by a strike (it can still be taken only by capture, §4.8).
+  * **Units** in the blast each roll damage 30 + rand(50) + rand(50) (reference values,
+    each part uniform 0..n−1; two draws per unit in blast-scan order). A **combat unit**
+    (base strength > 0) takes the damage **non-lethal-floored** at ≥ 1 health — a strike
+    alone never wipes a stack, it **softens** defenders. A **non-combatant** is instead
+    **killed outright** when its roll reaches the death threshold (60) and untouched
+    otherwise. Damage applies to **all** owners in the area, **including the attacker's
+    own** units — there is no friendly-fire exemption.
+  * **Settlements** in the blast lose 30 + rand(20) + rand(20) % of current **population**
+    (reference values), each standing **structure is destroyed with 40% probability**
+    (per-structure roll in list order), and the accumulated **defensive/garrison bonus**
+    and stored production are reduced; a settlement is **never destroyed outright** by a
+    strike (it can still be taken only by capture, §4.8).
   * **Bomb Shelter** in a struck settlement reduces the population loss and unit damage there by
     its `nuke_damage_reduction` (data, placeholder 50%).
   * **Tile improvements & features** in the blast are **pillaged/stripped** (improvements
@@ -1678,7 +1693,7 @@ stores the per-unit defender-health floor (catapult/trebuchet/hwacha 25, cannon 
 artillery/mobile artillery 15; 0 = no cap), replacing the old universal 1-HP floor
 that made all siege drastically stronger than the reference.
 
-### 15.7 Nuke interception & the two missing projects *(unimplemented)*
+### 15.7 Nuke interception & the two missing projects
 
 - **SDI** (project; tech Laser; cost 1000; requires the Manhattan Project completed by
   anyone; one per player): gives its owner **75%** interception chance against each
@@ -1687,10 +1702,29 @@ that made all siege drastically stronger than the reference.
 - **The Internet** (project; tech Computers; cost 2000; one per game): its owner
   automatically acquires any technology already known by **2** other players
   (`iTechShare` 2), checked each turn.
-- Reference nuke magnitudes, for retuning §5.7's placeholders: building destruction
+- Reference nuke magnitudes, retuning §5.7's placeholders: building destruction
   40% per structure, population death 30 + rand(20) + rand(20) %, unit damage
   30 + rand(50) + rand(50) (kill threshold for non-combatants 60), fallout chance 50%
   per blast tile, global-warming nuke weight 50.
+- **Missiles cannot defend** (D3 companion): a `classification: "missile"` unit is
+  never selected as a stack/city defender, and a missile left with no surviving
+  defender on a tile taken by an enemy (captured/razed city, or ground an attacker
+  advanced onto) is destroyed rather than captured.
+
+Implemented (2026-07-17): both projects ship in `data/projects.json` as **effects
+projects** — a project without `win_condition: "endgame_project"` is recorded on
+`Player.projects` when completed (`TurnEngine._complete_item`) and its `effects`
+dictionary is read through `Projects.effect_int` (the project analogue of
+`PolicyEffects`). Instance limits (`instances: "player"|"world"`), the tech gate and
+`requires_wonder_any` are enforced at the SET_PRODUCTION queue and re-checked at
+completion (a world-unique project finished second grants nothing). SDI feeds
+`Nuclear.try_intercept` — one rng roll per strike at the best available chance among
+an in-range anti-air unit and any target-side owner's `nuke_interception` effect. The
+Internet's `tech_share` runs in the PLAYER_RESEARCH phase right after normal research
+(`TurnEngine._apply_tech_share`, no RNG, techs scanned in data order). The §5.7
+magnitudes above are live in `Nuclear.detonate` (`data/constants.json` `nuke_*`);
+missiles are excluded in `Stack.get_defender` and destroyed by
+`CombatApply.destroy_stranded_missiles`.
 
 ### 15.8 War weariness — reference event weights *(partially implemented)*
 
