@@ -440,6 +440,30 @@ func test_paces_carry_c3_scaling_columns() -> void:
 			assert_eq(int(db.paces[pace_id].get(col, 0)), int(expected[pace_id][col]),
 				"pace '%s' %s matches the reference" % [pace_id, col])
 
+func test_labor_civics_carry_b7_c6_reference_values() -> void:
+	# §15.9 / §29.9 (B7 + C6): labor-civic tech gates and effects, plus the
+	# sister worker-speed sources — every value confirmed against the reference.
+	var db = _db()
+	var pols: Dictionary = db.policies.get("policies", {})
+	assert_eq(str(pols["slavery"].get("tech_required", "")), "bronze_working",
+		"Slavery is gated on Bronze Working")
+	assert_eq(str(pols["serfdom"].get("tech_required", "")), "feudalism",
+		"Serfdom is gated on Feudalism")
+	assert_eq(int(pols["serfdom"].get("effects", {}).get("worker_speed_modifier", 0)),
+		50, "Serfdom carries +50%% worker speed")
+	var em: Dictionary = pols["emancipation"].get("effects", {})
+	assert_eq(int(em.get("improvement_upgrade_rate_modifier", 0)), 100,
+		"Emancipation carries +100%% improvement upgrade rate")
+	assert_eq(int(em.get("civic_percent_anger", 0)), 400,
+		"Emancipation carries the reference pressure weight 400")
+	assert_eq(db.get_constant("civic_percent_anger_divisor", 0), 1000,
+		"The pressure divisor is the reference PERCENT_ANGER_DIVISOR 1000")
+	assert_eq(int(db.get_structure("hagia_sophia").get("effects", {}) \
+		.get("worker_speed_modifier", 0)), 50,
+		"Hagia Sophia carries +50%% worker speed")
+	assert_eq(int(db.get_unit("fast_worker").get("work_rate", 0)), 100,
+		"The reference Fast Worker work rate is 100 — its edge is movement")
+
 func test_goody_weight_overrides_are_full_normalised_tables() -> void:
 	# §24: every difficulty carries a full goody_weights column — one entry per
 	# goody id, summing to 100 — so the per-difficulty reward mix is explicit.

@@ -609,6 +609,11 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 		var pol: Dictionary = db.policies.get("policies", {}).get(pol_id, {})
 		neg_anger += int(pol.get("anger_modifier", 0))
 
+	# Civic-pressure anger (§15.9): rivals running a `civic_percent_anger` civic
+	# (Emancipation) anger this player's cities while the player does not run it,
+	# scaled by the adopter share. No RNG; see PolicyEffects.civic_pressure_anger.
+	neg_anger += PolicyEffects.civic_pressure_anger(gs, player, db)
+
 	# Rush penalty
 	if s.rush_anger_turns > 0:
 		neg_anger += 20
@@ -952,12 +957,14 @@ static func _grant_free_promotions(gs: GameState, u: Unit, s: Settlement) -> voi
 			if pick != "":
 				u.promotions.append(pick)
 
-# Cottage-line maturation (§8): each worked tile carrying an improvement with an
-# `upgrades_to` ages a step per turn (Emancipation's `faster_cottage_growth`
-# doubles the rate); on reaching `upgrade_turns` it advances to the next stage
-# (cottage → hamlet → village → town). Only worked tiles grow, mirroring the
-# reference model. Pure age bookkeeping on the tile; output is gated by tech in
-# TileOutput as usual.
+# Cottage-line maturation (§8, §15.9): each worked tile carrying an improvement
+# with an `upgrades_to` ages one step per turn; on reaching the (modifier-scaled)
+# `upgrade_turns` it advances to the next stage (cottage → hamlet → village →
+# town). A civic `improvement_upgrade_rate_modifier` percentage (Emancipation
+# +100, the reference value) shortens the threshold: turns × 100 / (100 + mod),
+# truncating, never below 1. Only worked tiles grow, mirroring the reference
+# model. Pure age bookkeeping on the tile; output is gated by tech in TileOutput
+# as usual.
 # Trade-route commerce for a city (§8). A city runs `trade_routes_base` plus the
 # civic `trade_route_per_city` (Free Market) routes, each to a distinct other city;
 # Mercantilism's `no_foreign_trade_routes` restricts them to the player's own
@@ -1043,7 +1050,9 @@ static func _is_coastal(gs: GameState, x: int, y: int) -> bool:
 
 static func _grow_cottages(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db
-	var per_turn: int = 2 if PolicyEffects.has_flag(player, db, "faster_cottage_growth") else 1
+	var rate: int = 100 + PolicyEffects.sum_int(player, db, "improvement_upgrade_rate_modifier")
+	if rate < 1:
+		rate = 1
 	for s in gs.settlements:
 		if s.owner_player_id != player.id:
 			continue
@@ -1055,11 +1064,47 @@ static func _grow_cottages(gs: GameState, player: Player) -> void:
 			var next_id: String = str(imp.get("upgrades_to", ""))
 			if next_id == "":
 				continue
-			t.improvement_age += per_turn
+			t.improvement_age += 1
 			var need: int = int(imp.get("upgrade_turns", 0))
-			if need > 0 and t.improvement_age >= need:
-				t.improvement_id = next_id
-				t.improvement_age = 0
+			if need > 0:
+				var scaled: int = (need * 100) / rate
+				if scaled < 1:
+					scaled = 1
+				if t.improvement_age >= scaled:
+					t.improvement_id = next_id
+					t.improvement_age = 0
+
+# Worker-speed percentage modifiers (§15.9): the number of turns a worker order
+# (improvement, road, chop/clear) takes is the base turns scaled by the summed
+# percentage bonus, truncating, never below 1: turns × 100 / (100 + Σmod).
+# Sources (all reference-confirmed values):
+#   • civics carrying `worker_speed_modifier` in `effects` (Serfdom +50),
+#   • the player's standing structures carrying `worker_speed_modifier` in
+#     `effects` (Hagia Sophia +50; summed per instance like every structure
+#     effect — a world wonder exists once, so it never stacks in practice),
+#   • the unit's `work_rate` (default 100; the reference Fast Worker is ALSO
+#     100 — its edge is movement — so the key ships as pure mechanism).
+# The reference has NO golden-age worker effect, so none is applied here. The
+# reference Steam Power tech (+50, which obsoletes Hagia Sophia) is not wired:
+# structure obsolescence is unmodelled, and adding the tech without it would
+# double up. This helper is the single site of the math; every place that seeds
+# `build_turns_left` (SimFacade improvement/road/clear handlers) calls it.
+static func worker_build_turns(gs: GameState, u: Unit, base_turns: int) -> int:
+	var db: DataDB = gs.db
+	var mod: int = int(db.get_unit(u.unit_type_id).get("work_rate", 100)) - 100
+	var player: Player = gs.get_player(u.owner_player_id)
+	if player != null:
+		mod += PolicyEffects.sum_int(player, db, "worker_speed_modifier")
+		for s in gs.settlements:
+			if s.owner_player_id != player.id:
+				continue
+			for sid in s.structures:
+				mod += int(db.get_structure(sid).get("effects", {}) \
+					.get("worker_speed_modifier", 0))
+	if mod < -99:
+		mod = -99  # keep the divisor positive; a build never stalls forever
+	var turns: int = (base_turns * 100) / (100 + mod)
+	return turns if turns >= 1 else 1
 
 # Advance a worker's in-progress improvement build by one turn. When the build
 # completes, the improvement is placed on the worker's tile and the build state

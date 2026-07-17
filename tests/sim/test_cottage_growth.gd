@@ -50,11 +50,28 @@ func test_emancipation_doubles_growth():
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	_cottage_city(gs)
-	p.policies = {"labor": "emancipation"}  # faster_cottage_growth
+	p.policies = {"labor": "emancipation"}  # improvement_upgrade_rate_modifier 100
 	for _i in range(5):
 		TurnEngine._grow_cottages(gs, p)
 	assert_eq(gs.map.get_tile(6, 5).improvement_id, "hamlet",
-		"Emancipation matures a cottage to a hamlet in half the time")
+		"Emancipation (+100%% upgrade rate) matures a cottage in 10×100/200 = 5 turns")
+
+func test_upgrade_rate_modifier_truncates():
+	# §15.9 pin: a synthetic +50%% rate scales the 10-turn cottage threshold to
+	# 10×100/150 = 6 (truncating) — not ready at 6 ticks minus one, done at 6.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_cottage_city(gs)
+	gs.db.policies["policies"]["emancipation"]["effects"] \
+		["improvement_upgrade_rate_modifier"] = 50
+	p.policies = {"labor": "emancipation"}
+	for _i in range(5):
+		TurnEngine._grow_cottages(gs, p)
+	assert_eq(gs.map.get_tile(6, 5).improvement_id, "cottage",
+		"+50%% rate: still a cottage after 5 turns (threshold 6)")
+	TurnEngine._grow_cottages(gs, p)
+	assert_eq(gs.map.get_tile(6, 5).improvement_id, "hamlet",
+		"+50%% rate: upgrades on turn 6 (10×100/150 = 6, truncating)")
 
 func test_town_is_terminal():
 	var gs = make_gs(1)

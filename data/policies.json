@@ -138,8 +138,9 @@
     },
     "slavery": {
       "id": "slavery",
+      "name": "Slavery",
       "category": "labor",
-      "tech_required": null,
+      "tech_required": "bronze_working",
       "upkeep_modifier": 0,
       "pop_rush": true,
       "anger_modifier": 5,
@@ -147,12 +148,13 @@
     },
     "serfdom": {
       "id": "serfdom",
+      "name": "Serfdom",
       "category": "labor",
-      "tech_required": null,
+      "tech_required": "feudalism",
       "upkeep_modifier": 0,
-      "worker_speed_bonus": 50,
       "anger_modifier": 0,
-      "transition_turns": 3
+      "transition_turns": 3,
+      "effects": { "worker_speed_modifier": 50 }
     },
     "caste_system": {
       "id": "caste_system",
@@ -174,7 +176,7 @@
       "slider_increment": 10,
       "anger_modifier": 0,
       "transition_turns": 3,
-      "effects": { "faster_cottage_growth": true }
+      "effects": { "improvement_upgrade_rate_modifier": 100, "civic_percent_anger": 400 }
     },
 
     "decentralization": {

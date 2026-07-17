@@ -341,6 +341,14 @@ Each policy carries passive effects that apply every turn — modifiers to:
 - Production bonuses for certain build types
 - Specialist and Great Person generation rates
 - Combat bonuses
+- Worker build speed and cottage growth rates (e.g. **Serfdom** speeds every
+  worker order by 50%; **Emancipation** doubles how fast cottages mature)
+
+Some policies require a technology before they can be adopted (e.g. **Slavery**
+needs Bronze Working, **Serfdom** needs Feudalism) — the Civics screen and the
+Encyclopedia show each requirement. Beware **Emancipation** pressure: once rival
+civilizations adopt Emancipation, every empire *not* running it suffers growing
+unhappiness in its cities, scaling with how many rivals have adopted it.
 
 The Civics screen shows the description and known effects of every policy.
 

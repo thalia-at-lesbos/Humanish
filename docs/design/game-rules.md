@@ -43,7 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, civic effects, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.10 implemented 2026-07-17, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.9/15.10 implemented 2026-07-17, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -518,8 +518,10 @@ than the last.
 
 * **Only worked tiles grow.** A tile advances only on a turn its settlement actually works it;
   an unworked or abandoned improvement holds its current stage.
-* **Labor civics accelerate growth.** A civic carrying `faster_cottage_growth` (Emancipation)
-  speeds maturation (the engine doubles the per-turn rate).
+* **Labor civics accelerate growth.** A civic carrying an
+  `improvement_upgrade_rate_modifier` percentage (Emancipation, +100 — the reference
+  value, §15.9) shortens the maturation threshold: `upgrade_turns × 100 / (100 + mod)`,
+  truncating, never below 1.
 * Each stage's output is still gated by the owning player's technology in the normal way, so an
   advanced stage reached before its enabling tech yields its lower, tech-gated output until the
   tech is researched.
@@ -1748,20 +1750,37 @@ Multiplier `BASE_WAR_WEARINESS_MULTIPLIER` 2; decay in peace: −1/turn and −1
 total per turn (`WW_DECAY_RATE` −1, `WW_DECAY_PEACE_PERCENT` 99); a war you were forced
 into (declared on you) accrues at −50%.
 
-### 15.9 Worker-speed and improvement-upgrade civic effects *(unimplemented)*
+### 15.9 Worker-speed and improvement-upgrade civic effects
 
-Two labor civics in `policies.json` currently carry no effects; their reference
-headline effects require two new effect keys with engine wiring:
+Implemented (2026-07-17, B7 + C6). Worker orders and cottage-line maturation honour
+percentage modifiers, and Emancipation exerts diplomatic pressure:
 
-- **Serfdom** (tech Feudalism): `worker_speed_modifier: 50` — worker build actions
-  complete 50% faster. Requires build-turn math to honour a percentage modifier
-  (also needed for the Fast Worker retune and golden-age worker effects).
+- **Worker speed.** Every worker order that seeds `build_turns_left` (improvement,
+  road, chop/clear — the three `SimFacade` handlers) runs through the single
+  `TurnEngine.worker_build_turns` site: `turns × 100 / (100 + Σmod)`, truncating,
+  never below 1. Sources of Σmod (all reference-confirmed): civics carrying
+  `worker_speed_modifier` in `effects` (**Serfdom** +50, now gated on its reference
+  tech **Feudalism**); the player's standing structures carrying
+  `worker_speed_modifier` in `effects` (**Hagia Sophia** +50, per instance); the
+  unit's `work_rate` key (default 100). The reference **Fast Worker's work rate is
+  100** — its edge is movement, already modelled — so `work_rate` ships as pure
+  mechanism with no shipped carrier above 100. The reference has **no golden-age
+  worker effect**. The reference Steam Power tech (+50, which obsoletes Hagia
+  Sophia) is *not* wired: structure obsolescence is unmodelled, and adding the tech
+  source without it would double up — an open gap tied to obsolescence.
 - **Emancipation** (tech Democracy): `improvement_upgrade_rate_modifier: 100` —
-  cottage-line maturation twice as fast (the existing `faster_cottage_growth` flag
-  should become this percentage), **plus** the emancipation-pressure anger: +anger in
-  the cities of every player *not* running Emancipation once any rival runs it
-  (reference `iCivicPercentAnger` 400, i.e. 4 anger-percent per non-adopter — model as
-  a contentment penalty scaling with the share of civs on Emancipation).
+  the cottage-line `upgrade_turns` threshold becomes `turns × 100 / (100 + mod)`,
+  truncating, min 1 (twice as fast at 100; replaces the old `faster_cottage_growth`
+  flag), **plus** the emancipation-pressure anger via `civic_percent_anger: 400`
+  (the reference `iCivicPercentAnger`): in the contentment phase every player *not*
+  running a pressure civic takes `weight × adopters × 100 / (possible × 1000)`
+  anger percentage points (`civic_percent_anger_divisor` 1000 = the reference
+  `PERCENT_ANGER_DIVISOR`; truncating; no RNG), where `adopters`/`possible` count
+  living rivals outside the player's own alliance — e.g. all rivals adopted →
+  40% of population unhappy. Adopters are exempt. Read via
+  `PolicyEffects.civic_pressure_anger`.
+- **Slavery** additionally gained its reference tech gate (**Bronze Working**),
+  closing the gap noted at C2.
 
 ### 15.10 Per-resource corporation outputs
 

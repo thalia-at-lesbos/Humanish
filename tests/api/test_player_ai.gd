@@ -109,10 +109,11 @@ func test_civics_adopts_latest_with_no_tech() -> void:
 
 	PlayerAI.manage_civics(f, 1)
 
-	# With no techs, the latest unlocked labor policy is serfdom (tribalism →
-	# slavery → serfdom are the tech-free ones, in that order).
-	assert_eq(p.policies.get("labor", ""), "serfdom",
-		"Latest tech-free labor policy is serfdom")
+	# With no techs, the only unlocked labor policy is tribalism — slavery and
+	# serfdom now carry their reference tech gates (Bronze Working / Feudalism,
+	# §29.9).
+	assert_eq(p.policies.get("labor", ""), "tribalism",
+		"Only tech-free labor policy is tribalism")
 	assert_eq(p.policies.get("government", ""), "despotism",
 		"Only unlocked government policy is despotism")
 
