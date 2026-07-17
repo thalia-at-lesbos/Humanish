@@ -769,14 +769,28 @@ func _detail_belief_org(vbox: VBoxContainer, d: Dictionary) -> void:
 			_lbl(vbox, "Input resources: " + _join(inputs))
 		_lbl(vbox, "Spread cost: %d gold" % [d.get("spread_cost", 0)])
 		_lbl(vbox, "Base spread chance: %d%%" % [d.get("spread_chance_base", 0)])
-		var delta = d.get("output_delta", {}) as Dictionary
+		var per = d.get("output_per_resource", {}) as Dictionary
 		var bonuses = PoolStringArray()
-		for k in ["food", "production", "commerce"]:
-			if int(delta.get(k, 0)) != 0:
-				bonuses.append(_sign_int(int(delta[k])) + " " + k)
+		for k in ["food", "production", "commerce", "gold", "research", "culture"]:
+			if int(per.get(k, 0)) != 0:
+				bonuses.append("+" + _org_rate(int(per[k])) + " " + k)
 		if not bonuses.empty():
 			_sep(vbox)
-			_lbl(vbox, "Per-city output: " + bonuses.join(", "))
+			_lbl(vbox, "Output per input resource: " + bonuses.join(", "))
+		var produced = str(d.get("produces_resource", ""))
+		if produced != "":
+			_lbl(vbox, "Provides resource: " + _fmt(produced))
+		var maint = int(d.get("maintenance_per_resource", 0))
+		if maint != 0:
+			_lbl(vbox, "Maintenance: " + _org_rate(maint) + " gold per resource per city")
+
+# Render a ×100 fixed corporation rate as a decimal string (75 → "0.75", 200 → "2").
+func _org_rate(v: int) -> String:
+	if v % 100 == 0:
+		return str(v / 100)
+	if v % 10 == 0:
+		return "%d.%d" % [v / 100, (v % 100) / 10]
+	return "%d.%02d" % [v / 100, v % 100]
 
 func _detail_society(vbox: VBoxContainer, d: Dictionary) -> void:
 	_lbl(vbox, _fmt_name(d))

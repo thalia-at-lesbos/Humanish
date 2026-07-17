@@ -36,20 +36,27 @@ func _populate(vbox) -> void:
 		_add_line(vbox, "%s — founded by %s — %d cities" % [name, founder_name, spread])
 		var inputs = org.get("input_resources", [])
 		_add_line(vbox, "    inputs: " + (", ".join(inputs) if not inputs.empty() else "none"))
-		_add_line(vbox, "    output: " + _output_text(org) + "  /  maintenance: %d/city" % int(
-			org.get("maintenance", db.get_constant("corporation_maintenance", 0))))
+		_add_line(vbox, "    output: " + _output_text(org) + "  /  maintenance: " +
+			_rate_text(int(org.get("maintenance_per_resource", 0))) + " gold/resource/city")
 
-# Human-readable per-city output, distinguishing flat from per-input-resource scaling.
+# Human-readable per-city output: ×1/100 per-resource rates (§15.10) plus any
+# produced strategic resource.
 func _output_text(org) -> String:
 	var parts = []
-	var flat = org.get("output_delta", {})
-	for ch in ["food", "production", "commerce"]:
-		var v = int(flat.get(ch, 0))
-		if v != 0:
-			parts.append("+%d %s" % [v, ch])
-	var per = org.get("output_per_input_resource", {})
-	for ch in ["food", "production", "commerce"]:
+	var per = org.get("output_per_resource", {})
+	for ch in ["food", "production", "commerce", "gold", "research", "culture"]:
 		var v = int(per.get(ch, 0))
 		if v != 0:
-			parts.append("+%d %s/input" % [v, ch])
+			parts.append("+%s %s/resource" % [_rate_text(v), ch])
+	var produced = str(org.get("produces_resource", ""))
+	if produced != "":
+		parts.append("provides " + produced)
 	return ", ".join(parts) if not parts.empty() else "—"
+
+# Render a ×100 fixed rate as a decimal string (75 → "0.75", 200 → "2").
+func _rate_text(v: int) -> String:
+	if v % 100 == 0:
+		return str(v / 100)
+	if v % 10 == 0:
+		return "%d.%d" % [v / 100, (v % 100) / 10]
+	return "%d.%02d" % [v / 100, v % 100]

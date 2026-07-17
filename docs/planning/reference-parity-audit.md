@@ -518,6 +518,10 @@ trait pairs differ from the reference leader table **[value]**:
   formula). **[added]** merchant_guild, overseas_trading_co, nationalist_mutual
   (10 vs 7) — **all three CUT 2026-07-11 (D4, 3988c5a), with their
   `corporation_hq` structures; 7 vs 7 now**.
+  **RESOLVED 2026-07-17 (B6)**: reference input sets, ×1/100 per-resource-instance
+  outputs, produced resources (Oil/Aluminum), per-instance maintenance (100) and
+  HQ +4/franchise all adopted (game-rules §15.10 / game-data §29.6); only the
+  spread mechanic stays Humanish-tuned.
 - Espionage: 18/18 missions covered ✓ (already tracked as closed in
   designgaps §5.1).
 - Goody huts: all 12 reference outcomes present, but `settler` and `worker`

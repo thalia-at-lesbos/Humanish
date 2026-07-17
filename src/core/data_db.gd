@@ -420,6 +420,13 @@ func _validate_econ_org_refs() -> void:
 		for res_id in org.get("input_resources", []):
 			if not resources.has(res_id):
 				_errors.append("Corporation '%s' input_resource '%s' not in resources table" % [org_id, res_id])
+		var produced = str(org.get("produces_resource", ""))
+		if produced != "" and not resources.has(produced):
+			_errors.append("Corporation '%s' produces_resource '%s' not in resources table" % [org_id, produced])
+		var channels := ["food", "production", "commerce", "gold", "research", "culture"]
+		for ch in org.get("output_per_resource", {}):
+			if not (str(ch) in channels):
+				_errors.append("Corporation '%s' output_per_resource channel '%s' unknown" % [org_id, ch])
 
 # Every espionage mission (§7.1) must carry an id and an effect verb the engine
 # knows. Active records need a positive cost_multiplier (they are paid for and

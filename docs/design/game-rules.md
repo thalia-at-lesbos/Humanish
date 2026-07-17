@@ -43,7 +43,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, civic effects, per-resource corporations, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, civic effects, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -62,7 +62,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.10 implemented 2026-07-17, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1159,7 +1159,7 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
   costs treasury. Competing organizations cannot coexist in the same settlement. The reference
   models these as a full **corporation** subsystem — **7 corporations**, each with:
   * a **headquarters structure** (`BUILDING_CORPORATION_n`) built once, in the founding city,
-    which earns the founder a share of gold per resource the corporation consumes worldwide;
+    which earns the founder gold per franchise (member city) worldwide;
   * an **executive unit** (`EXECUTIVE_n`, the corporate analogue of a missionary) that spreads
     the corporation to a new city for a treasury cost;
   * a set of **input resources** the corporation consumes in each member city to produce a
@@ -1169,9 +1169,9 @@ body-dependent and computed in code (`Assembly._pass_share_for`).
     corporations that compete for the same inputs), plus interactions with civics (e.g. a
     state-property economy bans corporations).
 
-  *(The engine's `econ_orgs` is a lighter version of this; to reach reference parity, add the
-  HQ-building/executive-unit/input-resource-count model and the per-city maintenance, keyed off
-  a `data/corporations.json`-style table. Magnitudes live in `data/constants.json`.)*
+  *(Implemented in `econ_orgs.gd` / `data/econ_orgs.json`: the HQ building, executive unit,
+  per-resource-instance output/maintenance scaling, produced strategic resources, and civic
+  bans — see §15.10 for the shipped model and §29.6 in `game-data.md` for the rates.)*
 
 ### 8.1 State religion (provisional)
 
@@ -1763,16 +1763,32 @@ headline effects require two new effect keys with engine wiring:
   (reference `iCivicPercentAnger` 400, i.e. 4 anger-percent per non-adopter — model as
   a contentment penalty scaling with the share of civs on Emancipation).
 
-### 15.10 Per-resource corporation outputs *(unimplemented — model correction)*
+### 15.10 Per-resource corporation outputs
 
 Reference corporation output scales with the **number of input resource instances
 accessible** to the city (each counted once per copy, all values ×1/100 per resource):
 see `game-data.md` §29.6 for the full seven-corporation table (e.g. Sushi: +0.5 food and
 +2 culture per seafood/rice resource; Ethanol and the aluminum corp **produce a
-strategic resource** — Oil / Aluminum — instead of tile yields). Humanish's flat
-per-organization `output_delta` ignores resource counts and cannot produce resources.
-Maintenance likewise scales per resource consumed (reference `iMaintenance` 100 =
-1 gpt per resource instance per franchise, before modifiers) versus Humanish's flat 3.
+strategic resource** — Oil / Aluminum — instead of tile yields). Maintenance likewise
+scales per resource consumed (reference `iMaintenance` 100 = 1 gpt per resource
+instance per franchise, before modifiers), and the HQ earns the founder a flat +4 gold
+per franchise.
+
+Implemented (2026-07-17): `EconOrgs.accessible_resource_counts` counts a player's
+accessible instances — one per owned connected tile (tech/improvement gated), one per
+active recurring deal supplying the resource, and one per operating corporation with
+`produces_resource` the player hosts (any member city, owner not banning corporations;
+the grant also satisfies the §15.12 unit resource gate and feeds other corporations'
+input counts). `EconOrgs.accessible_input_instances` sums those counts over an org's
+`input_resources`; every per-city channel is then `output_per_resource[channel] ×
+instances / 100` (×1/100 fixed integer math, truncating). Food/production fold into
+the city yield (`get_output_delta`); culture accrues in `_settlement_culture`, research
+in `_apply_research`, and gold in `gold_income` (all outside the commerce split, like
+specialist channels) via `EconOrgs.settlement_channel`. `maintenance_for` charges
+`maintenance_per_resource × instances / 100` per member city (Free Market's
+`corporation_maintenance_reduction` still applies); `hq_gold_for` pays
+`hq_gold_per_franchise` (4) per member city worldwide. All rates in
+`data/econ_orgs.json` (§29.6 values, confirmed against the reference XML).
 
 ### 15.11 Settler & worker discovery-site rewards *(disabled)*
 
