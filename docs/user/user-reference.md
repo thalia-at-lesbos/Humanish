@@ -385,7 +385,7 @@ Adopting a **state religion** (in your Civics) gives passive bonuses; changing i
 
 ### Economic Organisations
 
-Founded by a Great Merchant or specific Great Person action. Like beliefs, organisations spread and provide per-city economic bonuses. Maintaining an organisation costs treasury each turn.
+Founded by a Great Merchant or specific Great Person action. Like beliefs, organisations spread and provide per-city economic bonuses. Each organisation consumes a set of **input resources**: its per-city output (food, production, gold, research, or culture) scales with how many copies of those resources you can access — every connected tile and every trade-deal import counts. Some organisations also **provide a strategic resource** (Standard Ethanol supplies Oil; Aluminum Co. supplies Aluminum) to any player hosting them. Maintaining an organisation costs treasury each turn, also scaling with the resources consumed; the founder's headquarters earns gold for every member city worldwide.
 
 ---
 

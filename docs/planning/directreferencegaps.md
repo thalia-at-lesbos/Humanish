@@ -392,6 +392,23 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   `produces_resource` (Oil/Aluminum) granted to the org's cities' owner; maintenance
   per resource instance. Files: `econ_orgs.json`, `src/sim/econ_orgs.gd`, tests
   `test_econ_orgs.gd`.
+  **DONE 2026-07-17**: full §29.6 table adopted (inputs, ×1/100 rates, produced
+  resources, `maintenance_per_resource` 100, HQ `hq_gold_per_franchise` 4 — all
+  confirmed against the reference XML; spread columns deliberately left
+  Humanish-tuned). `EconOrgs.accessible_resource_counts` counts instances (one
+  per connected tile copy, per supplying deal, per operating `produces_resource`
+  org — the grant also feeds the §15.12 unit resource gate and other orgs'
+  inputs); channels route food/production into the city yield, culture into
+  `_settlement_culture`, research into `_apply_research`, gold into
+  `gold_income`, all `rate × instances / 100` truncating. New DataDB validation
+  (`produces_resource` resolves, `output_per_resource` channels known); the
+  corporation advisor + encyclopedia render the new schema. PlayerAI untouched
+  (it reads only `accessible_resources`, whose presence-set contract held).
+  Tests: instance scaling 0/1/N + duplicate-copy and truncation pins, traded
+  instance, research/culture/gold channel routing, produced-resource
+  grant/lapse/ban and cross-org instance feed, per-instance maintenance ×
+  franchises + Free Market halving, HQ per-franchise — `test_econ_orgs.gd`
+  (15 tests); recalibrations in `test_data_db.gd`/`test_quests.gd`.
 - **B7. Worker-speed % modifiers** (serfdom, fast worker, golden ages): build-turn
   math honours a percentage; read from civic effects + unit tag. Prereq for C6.
 

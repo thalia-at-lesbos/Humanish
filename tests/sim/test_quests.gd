@@ -378,16 +378,17 @@ func test_spread_corp_diffs_against_arming_baseline() -> void:
 func test_own_corp_resources_completes_when_all_inputs_accessible() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
-	_grant_tech(gs, 1, "masonry")       # marble/stone connection tech (+ a quarry)
+	_grant_tech(gs, 1, "mining")        # gold/silver/gems connection tech (+ a mine)
 	var hq = make_settlement(gs, 1, 5, 5)
-	# creative_constructions needs marble + stone (both gated by masonry tech + a quarry).
-	EconOrgs.found("creative_constructions", hq, gs)
+	# civilized_jewelers needs gold + silver + gems (all gated by mining tech + a mine).
+	EconOrgs.found("civilized_jewelers", hq, gs)
 	var aim = {"kind": "own_corp_resources"}
 	assert_false(Quests._aim_complete(aim, {}, p, gs), "missing corp inputs → not complete")
-	# Own a connected marble tile and stone tile (tech + quarry improvement).
-	var tm = gs.map.get_tile(4, 4); tm.owner_player_id = 1; tm.resource_id = "marble"; tm.improvement_id = "quarry"
-	assert_false(Quests._aim_complete(aim, {}, p, gs), "only one of two corp inputs → still incomplete")
-	var ts = gs.map.get_tile(6, 6); ts.owner_player_id = 1; ts.resource_id = "stone"; ts.improvement_id = "quarry"
+	# Own connected gold and silver tiles (tech + mine improvement).
+	var tg = gs.map.get_tile(4, 4); tg.owner_player_id = 1; tg.resource_id = "gold"; tg.improvement_id = "mine"
+	var tv = gs.map.get_tile(6, 6); tv.owner_player_id = 1; tv.resource_id = "silver"; tv.improvement_id = "mine"
+	assert_false(Quests._aim_complete(aim, {}, p, gs), "two of three corp inputs → still incomplete")
+	var tj = gs.map.get_tile(7, 7); tj.owner_player_id = 1; tj.resource_id = "gems"; tj.improvement_id = "mine"
 	assert_true(Quests._aim_complete(aim, {}, p, gs), "owning every corp input completes Hostile Takeover")
 
 func test_control_named_tile_detects_settlement_on_match() -> void:

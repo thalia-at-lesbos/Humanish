@@ -59,76 +59,167 @@ func test_found_corporation_erects_hq_structure() -> void:
 	assert_true(s.has_structure("cereal_mills_hq"),
 		"Founding a corporation erects its HQ structure in the founding city")
 
-func test_output_scales_with_accessible_input_count() -> void:
+func test_output_scales_with_accessible_input_instances() -> void:
+	# §15.10: output = rate × input-resource INSTANCES / 100 (cereal_mills: food 75).
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5, 5)
-	EconOrgs.found("cereal_mills", s, gs)  # +1 food per accessible input type
+	EconOrgs.found("cereal_mills", s, gs)
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
 		"No accessible inputs yields no corporation output")
 	_give_resource(gs, 1, 1, 1, "wheat")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
+		"One instance truncates: 75 × 1 / 100 = 0 food (integer math)")
 	_give_resource(gs, 1, 2, 1, "rice")
-	assert_eq(EconOrgs.get_output_delta(gs, s), [2, 0, 0],
-		"Output scales +1 food per distinct accessible input resource")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [1, 0, 0],
+		"Two instances: 75 × 2 / 100 = 1 food")
 	_give_resource(gs, 1, 3, 1, "corn")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [2, 0, 0],
+		"Three instances: 75 × 3 / 100 = 2 food")
+	_give_resource(gs, 1, 4, 1, "wheat")  # a SECOND wheat copy
 	assert_eq(EconOrgs.get_output_delta(gs, s), [3, 0, 0],
-		"A third accessible input raises the per-city output again")
+		"Every connected copy counts — instances, not distinct resources")
 
 func test_traded_resource_counts_as_accessible_input() -> void:
 	# §7 deal plumbing: a resource received through an active recurring deal counts
-	# as an accessible corporation input, exactly like one connected at home.
+	# as an accessible corporation input instance, exactly like one connected at home.
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5, 5)
-	EconOrgs.found("cereal_mills", s, gs)  # +1 food per accessible input type
+	EconOrgs.found("mining_inc", s, gs)  # production 100 per input instance
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
 		"no inputs yet, so no corporation output")
-	# Player 2 supplies wheat to player 1 (the city owner / accepter) via a deal.
+	# Player 2 supplies iron to player 1 (the city owner / accepter) via a deal.
 	gs.deals.append({
 		"id": 1, "a_alliance": 1, "b_alliance": 2,
 		"proposer_player_id": 2, "accepter_player_id": 1,
-		"recurring": {"give": {"resources": ["wheat"]}, "receive": {}},
+		"recurring": {"give": {"resources": ["iron"]}, "receive": {}},
 		"start_turn": 0, "min_duration": 10
 	})
-	assert_eq(EconOrgs.get_output_delta(gs, s), [1, 0, 0],
-		"a traded-in resource counts as an accessible input")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 1, 0],
+		"a traded-in resource counts as an accessible input instance")
 	# Ending the deal removes the access again.
 	gs.deals.clear()
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
 		"access lapses with the deal")
 
-func test_flat_output_ignores_input_count() -> void:
+func test_research_channel_scales_with_instances() -> void:
+	# aluminum_co: research 300 per coal instance, routed via settlement_channel.
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5, 5)
-	EconOrgs.found("aluminum_co", s, gs)  # flat +3 production, no per-input scaling
-	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 3, 0],
-		"A flat-output corporation pays its bonus without any inputs")
+	EconOrgs.found("aluminum_co", s, gs)
+	assert_eq(EconOrgs.settlement_channel(gs, s, "research"), 0,
+		"no coal, no research output")
+	_give_resource(gs, 1, 1, 1, "coal")
+	assert_eq(EconOrgs.settlement_channel(gs, s, "research"), 3,
+		"one coal instance: 300 × 1 / 100 = 3 research")
+	_give_resource(gs, 1, 2, 1, "coal")
+	assert_eq(EconOrgs.settlement_channel(gs, s, "research"), 6,
+		"two coal instances: 300 × 2 / 100 = 6 research")
 
-func test_maintenance_charged_per_member_city() -> void:
+func test_culture_channel_feeds_settlement_culture() -> void:
+	# sids_sushi: food 50 + culture 200 per seafood/rice instance.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	EconOrgs.found("sids_sushi", s, gs)
+	_give_resource(gs, 1, 1, 1, "fish")
+	_give_resource(gs, 1, 2, 1, "rice")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [1, 0, 0],
+		"two instances: 50 × 2 / 100 = 1 food (culture is not a yield column)")
+	assert_eq(EconOrgs.settlement_channel(gs, s, "culture"), 4,
+		"two instances: 200 × 2 / 100 = 4 culture")
+	var before: int = s.culture_total
+	TurnEngine._settlement_culture(gs, s, p)
+	assert_eq(s.culture_total - before, 4,
+		"the corporation culture channel accrues in _settlement_culture")
+
+func test_gold_channel_flows_into_gold_income() -> void:
+	# civilized_jewelers: gold 100 per instance — raw gold, outside the commerce split.
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
 	EconOrgs.found("civilized_jewelers", s, gs)
-	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 3,
-		"A member city charges its corporation maintenance")
-	p.policies["economic"] = "free_market"  # -50% corporation maintenance
-	assert_true(EconOrgs.maintenance_for(gs, gs.db, p) < 3,
-		"Free Market reduces corporation maintenance")
+	_give_resource(gs, 1, 1, 1, "gold")
+	_give_resource(gs, 1, 2, 1, "silver")
+	_give_resource(gs, 1, 3, 1, "gems")
+	assert_eq(EconOrgs.settlement_channel(gs, s, "gold"), 3,
+		"three instances: 100 × 3 / 100 = 3 gold")
+	# gold_income = jewelers gold channel (3) + HQ gold (4 per franchise × 1 city).
+	assert_eq(TurnEngine.gold_income(gs, p), 7,
+		"corporation gold and HQ franchise gold both land in gold_income")
 
-func test_hq_pays_founder_per_input_consumed() -> void:
+func test_produced_resource_granted_while_org_operates() -> void:
+	# §15.10: standard_ethanol provides Oil to the owner of any member city.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	assert_false(EconOrgs.accessible_resources(gs, 1).has("oil"),
+		"no oil access before the corporation exists")
+	EconOrgs.found("standard_ethanol", s, gs)
+	assert_true(EconOrgs.accessible_resources(gs, 1).has("oil"),
+		"a member city's owner gains the produced resource")
+	p.policies["economic"] = "state_property"  # corporations_disabled
+	assert_false(EconOrgs.accessible_resources(gs, 1).has("oil"),
+		"a banning civic suspends the produced-resource grant")
+	p.policies.erase("economic")
+	s.econ_org_id = ""
+	assert_false(EconOrgs.accessible_resources(gs, 1).has("oil"),
+		"the grant disappears with the last member city")
+
+func test_produced_resource_counts_as_input_instance() -> void:
+	# aluminum_co's produced Aluminum feeds creative_constructions' input list.
+	var gs = make_gs()
+	var s1 = make_settlement(gs, 1, 5, 5, 5)
+	var s2 = make_settlement(gs, 1, 9, 9, 5)
+	EconOrgs.found("aluminum_co", s1, gs)          # produces aluminum
+	EconOrgs.found("creative_constructions", s2, gs)
+	_give_resource(gs, 1, 1, 1, "stone")
+	# creative_constructions sees 2 instances: the stone tile + the produced aluminum.
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 1, 0],
+		"produced aluminum counts as an input instance: production 50 × 2 / 100 = 1")
+	assert_eq(EconOrgs.settlement_channel(gs, s2, "culture"), 6,
+		"culture 300 × 2 / 100 = 6")
+
+func test_maintenance_scales_per_resource_instance() -> void:
+	# §15.10: maintenance_per_resource 100 = 1 gold per input instance per franchise.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	EconOrgs.found("civilized_jewelers", s, gs)
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 0,
+		"no accessible inputs, no maintenance")
+	_give_resource(gs, 1, 1, 1, "gold")
+	_give_resource(gs, 1, 2, 1, "silver")
+	_give_resource(gs, 1, 3, 1, "gems")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 3,
+		"one franchise × 3 instances × 100 / 100 = 3 gold")
+	var s2 = make_settlement(gs, 1, 9, 9, 5)
+	EconOrgs.spread_to("civilized_jewelers", s2, gs)
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 6,
+		"a second franchise doubles the charge")
+	p.policies["economic"] = "free_market"  # -50% corporation maintenance
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 3,
+		"Free Market halves corporation maintenance")
+
+func test_hq_pays_founder_per_franchise() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
 	EconOrgs.found("cereal_mills", s, gs)
-	_give_resource(gs, 1, 1, 1, "wheat")
-	_give_resource(gs, 1, 2, 1, "rice")
-	# 2 accessible inputs in the one member city × hq_gold_per_input (2) = 4.
 	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 4,
-		"The HQ pays the founder per unit of input consumed worldwide")
+		"The HQ pays the founder 4 gold per franchise, inputs or none")
+	var s2 = make_settlement(gs, 1, 9, 9, 5)
+	EconOrgs.spread_to("cereal_mills", s2, gs)
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 8,
+		"Every member city worldwide is a paying franchise")
 
 func test_banning_civic_disables_corporations() -> void:
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
-	EconOrgs.found("aluminum_co", s, gs)
+	EconOrgs.found("mining_inc", s, gs)
+	_give_resource(gs, 1, 1, 1, "iron")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 1, 0],
+		"the corporation produces before the ban")
 	p.policies["economic"] = "state_property"  # corporations_disabled
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
 		"A state-property economy yields no corporation output")

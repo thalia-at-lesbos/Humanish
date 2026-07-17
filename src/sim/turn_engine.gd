@@ -1223,6 +1223,9 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 	# Persistent per-structure event culture bonuses (§9 STRUCT_YIELD, e.g. +2 culture
 	# for the colosseum) — direct yield, applied only while the structure stands.
 	culture_out += s.structure_yield("culture")
+	# Corporation culture channel (§15.10): per-resource rate × accessible input
+	# instances — direct yield, outside the commerce split, like specialists.
+	culture_out += EconOrgs.settlement_channel(gs, s, "culture")
 	s.culture_total += culture_out
 
 	# Ring expansion
@@ -1351,9 +1354,13 @@ static func gold_income(gs: GameState, player: Player) -> int:
 			continue
 		var split: Array = player.split_commerce(s.output_commerce)
 		income += split[0]  # finance
+		# Corporation gold channel (§15.10): per-resource rate × accessible input
+		# instances — raw gold, outside the commerce split (like the reference's
+		# commerce-gold, untouched by the sliders).
+		income += EconOrgs.settlement_channel(gs, s, "gold")
 
-	# Corporation HQ gold: the founder earns a share per unit of input consumed in
-	# every member city worldwide (§14.6).
+	# Corporation HQ gold: the founder earns gold per member city (franchise)
+	# worldwide (§14.6, §15.10).
 	income += EconOrgs.hq_gold_for(gs, db, player)
 	return income
 
@@ -1557,6 +1564,9 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		# Persistent per-structure event research bonuses (§9 STRUCT_YIELD, e.g. +1
 		# research for the library) — direct science yield while the structure stands.
 		research_income += s.structure_yield("research")
+		# Corporation research channel (§15.10): per-resource rate × accessible
+		# input instances — direct science yield, outside the commerce split.
+		research_income += EconOrgs.settlement_channel(gs, s, "research")
 		scientists += int(s.specialists.get("scientist", 0))
 
 	# Representation: scientist specialists yield extra science directly (§8).

@@ -608,8 +608,12 @@ func test_corporations_table_is_well_formed() -> void:
 		assert_false(org.get("input_resources", []).empty(),
 			"corporation '%s' must list input resources" % org_id)
 		assert_true(org.has("hq_structure"), "corporation '%s' must name an HQ structure" % org_id)
-		assert_true(org.has("maintenance"), "corporation '%s' must set per-city maintenance" % org_id)
-		assert_true(org.has("hq_gold_per_input"), "corporation '%s' must set HQ gold rate" % org_id)
+		assert_true(org.has("output_per_resource"),
+			"corporation '%s' must set per-resource output rates (§15.10)" % org_id)
+		assert_true(org.has("maintenance_per_resource"),
+			"corporation '%s' must set per-resource maintenance" % org_id)
+		assert_true(org.has("hq_gold_per_franchise"),
+			"corporation '%s' must set the HQ per-franchise gold rate" % org_id)
 
 func test_corporation_refs_resolve() -> void:
 	# The loader cross-checks HQ structure / executive unit / input resources; assert
@@ -626,6 +630,10 @@ func test_corporation_refs_resolve() -> void:
 		for res_id in org.get("input_resources", []):
 			assert_true(db.resources.has(res_id),
 				"corporation '%s' input resource '%s' must exist" % [org_id, res_id])
+		var produced = str(org.get("produces_resource", ""))
+		if produced != "":
+			assert_true(db.resources.has(produced),
+				"corporation '%s' produced resource '%s' must exist" % [org_id, produced])
 
 # ── Espionage missions (§7.1) ──────────────────────────────────────────────────
 

@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Unimplemented reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters, hurry types, labor civic effects, retune globals"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects, retune globals"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1162,25 +1162,26 @@ Cities have limited specialist slots by default. Extra slots come from buildings
 
 Each corporation is founded by a Great Merchant and spreads like a religion, but consumes input resources to produce output. Competing corporations cannot coexist in the same city.
 
-**Full corporation model (reference parity).** Each corporation should carry, in a
-`data/corporations.json`-style table: a **headquarters structure** built once in the founding
-city (earning the founder gold per unit of input consumed worldwide), an **executive unit**
-that spreads the corporation to a new city for a treasury cost (the corporate missionary), the
-**input-resource set** whose access **count** scales the per-city output, a **per-city
-maintenance** cost, and civic interactions (e.g. a state-property economy bans corporations).
-The output scales with the **number of distinct/total input resources** the owner can access,
-not a flat amount. *(The current `econ_orgs` model omits the HQ-gold share, the executive-unit
-spread cost, the resource-count scaling, and per-city maintenance — close these for parity.)*
+**Full corporation model (reference parity, shipped).** Each corporation carries, in
+`data/econ_orgs.json`: a **headquarters structure** built once in the founding city
+(earning the founder +4 gold per franchise worldwide), an **executive unit** that spreads
+the corporation to a new city for a treasury cost (the corporate missionary), the
+**input-resource set** whose accessible **instance count** scales the per-city output
+(every connected copy counts — owned connected tiles, deal imports, and
+corporation-produced resources), a **per-resource-instance maintenance** cost, an optional
+**produced strategic resource**, and civic interactions (e.g. a state-property economy
+bans corporations). Output rates are ×1/100 fixed integers per instance (game-rules
+§15.10, implemented 2026-07-17); the full rate table is §29.6.
 
-| Corporation | Input Resources | Output per City |
-|-------------|-----------------|-----------------|
-| Cereal Mills | Wheat, Rice, Corn | +1 Food per resource type |
-| Creative Constructions | Marble, Stone | +2 Production |
-| Aluminum Co. | Aluminum | +3 Production |
-| Mining Inc. | Iron, Copper, Coal | +2 Production per type |
-| Sid's Sushi | Crab, Clam, Fish | +2 Food |
-| Civilized Jewelers | Gems, Gold, Silver | +4 Commerce |
-| Standard Ethanol | Sugar, Corn, Wheat | +1 Food, +1 Commerce |
+| Corporation | Input Resources | Output per resource instance | Produces |
+|-------------|-----------------|------------------------------|----------|
+| Cereal Mills | Wheat, Corn, Rice | +0.75 Food | — |
+| Sid's Sushi | Crab, Clam, Fish, Rice | +0.5 Food, +2 Culture | — |
+| Standard Ethanol | Corn, Sugar, Rice | +2 Research | Oil |
+| Creative Constructions | Iron, Copper, Marble, Stone, Aluminum | +0.5 Production, +3 Culture | — |
+| Mining Inc. | Coal, Iron, Copper, Gold, Silver | +1 Production | — |
+| Aluminum Co. | Coal | +3 Research | Aluminum |
+| Civilized Jewelers | Gold, Silver, Gems | +1 Gold, +4 Culture | — |
 
 ---
 
@@ -2124,35 +2125,37 @@ types (`CITIZEN … GREAT_SPY`). ✅ **Complete.**
 via an executive unit, consuming input resources for a per-city yield. This is the
 data-side companion to §14.6. The project ships the reference's **7** corporations (the
 three former Humanish-only orgs were cut, D4 2026-07-11); each carries the full reference
-model — HQ building, executive spreader, input set, per-city maintenance, and an HQ gold
-share.
+model — HQ building, executive spreader, input set, per-resource-instance output and
+maintenance, optional produced resource, and an HQ gold share (§15.10, 2026-07-17).
 
-| Corp | Input resources | Per-city output | HQ structure |
-|------|-----------------|-----------------|--------------|
-| `cereal_mills` | wheat, rice, corn | +1 food per distinct input present | `cereal_mills_hq` |
-| `creative_constructions` | marble, stone | +2 production | `creative_constructions_hq` |
-| `aluminum_co` | aluminum | +3 production | `aluminum_co_hq` |
-| `mining_inc` | iron, copper, coal | +2 production per distinct input present | `mining_inc_hq` |
-| `sids_sushi` | crab, clam, fish | +2 food | `sids_sushi_hq` |
-| `civilized_jewelers` | gems, gold, silver | +4 commerce | `civilized_jewelers_hq` |
-| `standard_ethanol` | sugar, corn, wheat | +1 food, +1 commerce | `standard_ethanol_hq` |
+| Corp | Input resources | `output_per_resource` (×1/100) | Produces | HQ structure |
+|------|-----------------|--------------------------------|----------|--------------|
+| `cereal_mills` | wheat, corn, rice | food 75 | — | `cereal_mills_hq` |
+| `sids_sushi` | crab, clam, fish, rice | food 50, culture 200 | — | `sids_sushi_hq` |
+| `standard_ethanol` | corn, sugar, rice | research 200 | `oil` | `standard_ethanol_hq` |
+| `creative_constructions` | iron, copper, marble, stone, aluminum | production 50, culture 300 | — | `creative_constructions_hq` |
+| `mining_inc` | coal, iron, copper, gold, silver | production 100 | — | `mining_inc_hq` |
+| `aluminum_co` | coal | research 300 | `aluminum` | `aluminum_co_hq` |
+| `civilized_jewelers` | gold, silver, gems | gold 100, culture 400 | — | `civilized_jewelers_hq` |
 
-Output is either a flat `output_delta` per city, or an `output_per_input_resource` scaled
-by the count of distinct input resources reachable by that city (`cereal_mills`,
-`mining_inc`). Shared fields on every corporation:
+Every per-city channel (food / production / commerce / gold / research / culture) is
+`rate × accessible input-resource instances / 100`, truncating integer math — every
+connected copy counts (owned connected tiles, deal imports, corporation-produced
+resources). Shared fields on every corporation:
 
 | Field | Value | Meaning |
 |-------|:-----:|---------|
 | `executive_unit` | `executive` | The spreader unit that establishes the corp in a new city. |
-| `maintenance` | 3 | Gold/turn per city the corp operates in. |
-| `hq_gold_per_input` | 2 | Gold to the HQ city per input resource the corp consumes. |
+| `maintenance_per_resource` | 100 | ×1/100 gold/turn per input instance per member city (= 1 gpt each). |
+| `hq_gold_per_franchise` | 4 | Gold to the founder per member city worldwide. |
 | `spread_cost` | 200 | Production/gold cost for an executive to spread the corp. |
 | `spread_chance_base` | 15 | Base % chance an AI/auto spread succeeds. |
 
 **Reference parity:** the reference's `GameCorporationInfo.xml` defines 7 corporations,
-each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project ships
-the same 7 with the full HQ/executive/maintenance model (per-resource output *scaling* is
-B6; see §29.6 for the remaining input/output diffs).
+each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project
+ships the same 7 with the full per-resource model (§29.6 rates, confirmed against the
+reference XML). The reference's spread factor 200 / spread base cost 50 remain Humanish-tuned
+(`spread_cost` 200 / `spread_chance_base` 15) — the spread mechanic itself differs.
 
 ---
 
@@ -2683,9 +2686,17 @@ All: HQ +4 gold per franchise; spread factor 200; spread base cost 50; maintenan
 | Corporation 6 | aluminum_co | coal (only) | +3 research | **Aluminum** |
 | Corporation 7 | civilized_jewelers | gold, silver, gems | +1 gold, +4 culture | — |
 
-Bold inputs are ones the current `econ_orgs.json` dropped/changed. The former
+Bold inputs are ones the pre-B6 `econ_orgs.json` had dropped/changed. The former
 `merchant_guild`, `overseas_trading_co`, `nationalist_mutual` — Humanish inventions with
 no reference row — were **cut** (D4, 2026-07-11).
+
+This table is **live shipped data as of B6 (2026-07-17**, game-rules §15.10; every value
+above confirmed against the reference XML): the input lists and ×1/100 rates are
+`input_resources`/`output_per_resource` in `econ_orgs.json`, maintenance 100 is
+`maintenance_per_resource`, HQ +4/franchise is `hq_gold_per_franchise`, and the produced
+resources are `produces_resource` (granted to a member city's owner while the corporation
+operates). Only the spread columns (factor 200 / base cost 50) remain unadopted — the
+Humanish spread mechanic keeps `spread_cost` 200 / `spread_chance_base` 15.
 
 ### 29.7 Per-difficulty goody rosters (selection weights)
 
