@@ -4,7 +4,22 @@ Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B item
 B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 content
 cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
 2026-07-11 (values adopted from the reference under a user-authorized sourcing
-session — see A8/D4 notes). Date: 2026-07-07.
+session — see A8/D4 notes); C1–C3 (economy trio) done 2026-07-12; B4/B5, C7,
+C5 (+ D3 missiles-cannot-defend), and B6 done 2026-07-17. Date: 2026-07-07.
+
+**REMAINING (handoff for the next session):** B7 (worker-speed % modifiers —
+prereq for C6), C6 (serfdom & emancipation effects), C4 + D2 together (culture-
+level city defence keys off the reference geometric border curve — see the C4
+entry's dependency note), C8 (optional, low priority), then D1 (tech-graph
+parity) last. Also parked along the way, each recorded in its item's note:
+per-city `science_bonus` wiring (A2 note), three_gorges_dam `unhealthy_global`
++ hippodrome `happiness_with_horse` dead keys (A2), panzer's missing +50% vs
+armor (A1), settler food-box build model (A1), gold-rush 3-gold/hammer retune +
+Slavery's Bronze-Working tech gate (C2 note), culture%-slider happiness for
+cathedrals (A2), the dead promotion keys awaiting subsystems (A8/D4 notes), and
+projects `count_needed` stage-model wiring (A10 note). The reference-XML
+sourcing authorization was **session-scoped and has ended** — future sessions
+source values from these docs only.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -694,10 +709,14 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    the A passes, but before D1 so the graph pass doesn't have to carry dead ids.~~
    **DONE 2026-07-11 (cut 3988c5a; additions half done later the same day in the
    promotions-unblock pass — see D4 note).**
-5. C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
-   here), then C4/C5 (+ the missiles-cannot-defend item)/C7, then C6.
+5. ~~C1–C3 (economy trio: inflation, whipping, pace scaling — retune building upkeep
+   here)~~ **DONE 2026-07-12 (C1 f08abc2, C2 ea59121, C3 7badc5b)**, ~~then C4/C5
+   (+ the missiles-cannot-defend item)/C7~~ **C5+missiles 0e4b578 and C7 c1c5798
+   done 2026-07-17 (B4/B5 44becde and B6 79fa8e0 landed alongside); C4 remains —
+   do it WITH D2 (its defence tiers key off the D2 curve), then C6 (needs B7)**.
 6. D1 tech graph + D2 border curve last among the big items (touch everything; do
-   when A/C are green).
+   when A/C are green). Suggested remaining order: B7 → C6 → D2+C4 → C8
+   (optional) → D1.
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
 save/load determinism tests must pass after every schema change (int-coercion rule for
