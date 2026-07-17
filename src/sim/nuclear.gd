@@ -21,7 +21,10 @@ class_name Nuclear
 # from the shared `gs.rng` in a fixed tile order so replays reproduce the craters.
 #
 # All quantities are integer math; chances are integer percentages. The magnitudes
-# live in data/constants.json and are placeholders to be tuned (see §5.7).
+# live in data/constants.json, retuned to the §15.7 reference block (C5): unit
+# damage 30+rand(50)+rand(50) with a non-combatant death threshold of 60,
+# population death 30+rand(20)+rand(20) %, building destruction 40% per
+# structure, fallout 50% per blast tile, SDI interception 75%.
 
 # True when this unit is a nuclear weapon (carries the `nuke` tag).
 static func is_nuke(db: DataDB, u: Unit) -> bool:
@@ -44,14 +47,21 @@ static func blast_radius(db: DataDB, u: Unit) -> int:
 		return int(ud["blast_radius"])
 	return 1 if "global_range" in ud.get("tags", []) else 0
 
-# True when the strike at (tx, ty) would be shot down before detonating: an enemy
-# anti-air unit (SAM / Missile Cruiser, the `anti_air` tag) within interception
-# range rolls the interception chance. The rng is only drawn when an interceptor
-# actually exists, so a strike with no defender nearby never perturbs the stream.
+# True when the strike at (tx, ty) would be shot down before detonating. Two
+# interception sources feed ONE chance (§15.7):
+#   • an enemy anti-air unit (SAM / Missile Cruiser, the `anti_air` tag) within
+#     interception range contributes `nuke_interception_chance`;
+#   • the SDI project (per-project `effects.nuke_interception`, reference 75)
+#     contributes for any TARGET-side owner — a player, other than the attacker,
+#     with a settlement or unit on the target tile.
+# The best available chance is rolled ONCE per strike, at this single point in
+# the strike sequence (after the launch consumes the weapon, before detonate).
+# The rng is only drawn when a source actually exists, so a strike with no
+# defence nearby never perturbs the stream.
 static func try_intercept(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> bool:
 	var db: DataDB = gs.db
 	var reach: int = db.get_constant("nuke_interception_range", 4)
-	var has_interceptor: bool = false
+	var chance: int = 0
 	for u in gs.units:
 		if u.owner_player_id == attacker.owner_player_id:
 			continue
@@ -60,11 +70,36 @@ static func try_intercept(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> boo
 		if u.owner_player_id != -2 and not gs.are_at_war(attacker.owner_player_id, u.owner_player_id):
 			continue
 		if gs.map.distance(tx, ty, u.x, u.y) <= reach:
-			has_interceptor = true
+			chance = db.get_constant("nuke_interception_chance", 50)
 			break
-	if not has_interceptor:
+	var sdi: int = _best_sdi_chance(gs, attacker, tx, ty)
+	if sdi > chance:
+		chance = sdi
+	if chance <= 0:
 		return false
-	return rng.rand_bool_percent(db.get_constant("nuke_interception_chance", 50))
+	return rng.rand_bool_percent(chance)
+
+# The strongest `nuke_interception` project effect (SDI, §15.7) among the
+# target's owners: every player other than the attacker's with a settlement or a
+# unit on the target tile. 0 when no such player owns the project.
+static func _best_sdi_chance(gs, attacker: Unit, tx: int, ty: int) -> int:
+	var best: int = 0
+	var s = gs.get_settlement_at(tx, ty)
+	if s != null and s.owner_player_id != attacker.owner_player_id:
+		var v: int = Projects.effect_int(
+			gs.get_player(s.owner_player_id), gs.db, "nuke_interception")
+		if v > best:
+			best = v
+	for u in gs.units:
+		if u.x != tx or u.y != ty:
+			continue
+		if u.owner_player_id == attacker.owner_player_id:
+			continue
+		var uv: int = Projects.effect_int(
+			gs.get_player(u.owner_player_id), gs.db, "nuke_interception")
+		if uv > best:
+			best = uv
+	return best
 
 # Detonate a strike centred on (tx, ty), mutating GameState, and return a result
 # dict for the caller to surface:
@@ -87,35 +122,59 @@ static func detonate(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> Dictiona
 	gs.nukes_exploded += 1
 
 	var blast: Array = _area_tiles(gs, tx, ty, radius)
-	var dmg_pct: int = db.get_constant("nuke_blast_unit_damage_pct", 60)
-	var pop_pct: int = db.get_constant("nuke_population_loss_pct", 50)
+	var dmg_base: int = db.get_constant("nuke_unit_damage_base", 30)
+	var dmg_r1: int = db.get_constant("nuke_unit_damage_rand1", 50)
+	var dmg_r2: int = db.get_constant("nuke_unit_damage_rand2", 50)
+	var nc_death: int = db.get_constant("nuke_noncombat_death_threshold", 60)
+	var pop_base: int = db.get_constant("nuke_population_death_base", 30)
+	var pop_r1: int = db.get_constant("nuke_population_death_rand1", 20)
+	var pop_r2: int = db.get_constant("nuke_population_death_rand2", 20)
+	var bld_pct: int = db.get_constant("nuke_building_destroy_pct", 40)
 	var prod_pct: int = db.get_constant("nuke_production_loss_pct", 50)
 	var def_pct: int = db.get_constant("nuke_defence_loss_pct", 50)
 	var victims: Dictionary = {}  # alliance_id -> true
 
-	# 1. Soften every unit in the blast (all owners, including the attacker's own).
+	# 1. Units in the blast (all owners, including the attacker's own). Damage is
+	#    the reference roll base + rand(r1) + rand(r2) (each 0..n−1, two rng draws
+	#    PER UNIT in blast-scan order, §15.7). A combat unit (base strength > 0)
+	#    is softened but floored at 1 health; a non-combatant is killed outright
+	#    when its roll reaches the death threshold, and untouched otherwise.
 	for cell in blast:
 		var shelter: int = _shelter_reduction(gs, cell[0], cell[1], db)
-		var dmg: int = dmg_pct - (dmg_pct * shelter) / 100
+		var killed: Array = []
 		for u in gs.units:
 			if u.x != cell[0] or u.y != cell[1]:
 				continue
-			u.health = 1 if u.health - dmg < 1 else u.health - dmg
-			u.entrenchment = 0
+			var dmg: int = dmg_base + _rand_part(rng, dmg_r1) + _rand_part(rng, dmg_r2)
+			dmg -= (dmg * shelter) / 100
 			result["units_hit"].append(u.id)
 			_note_victim(gs, u.owner_player_id, victims)
+			if int(gs.db.get_unit(u.unit_type_id).get("base_strength", 0)) > 0:
+				u.health = 1 if u.health - dmg < 1 else u.health - dmg
+				u.entrenchment = 0
+			elif dmg >= nc_death:
+				killed.append(u.id)
+		for uid in killed:
+			Stack.remove_unit(gs.units, uid)
 
-	# 2. Damage any settlement in the blast (never destroyed by a strike).
+	# 2. Damage any settlement in the blast (never destroyed by a strike): the
+	#    population death roll base + rand(r1) + rand(r2) % (two rng draws per
+	#    settlement), then a `nuke_building_destroy_pct` roll per standing
+	#    structure in list order (§15.7 reference magnitudes).
 	for cell in blast:
 		var s: Settlement = gs.get_settlement_at(cell[0], cell[1])
 		if s == null:
 			continue
 		var shelter2: int = _nuke_damage_reduction(s, db)
-		var eff_pop: int = pop_pct - (pop_pct * shelter2) / 100
+		var eff_pop: int = pop_base + _rand_part(rng, pop_r1) + _rand_part(rng, pop_r2)
+		eff_pop -= (eff_pop * shelter2) / 100
 		var loss: int = (s.population * eff_pop) / 100
 		s.population = 1 if s.population - loss < 1 else s.population - loss
 		if s.peak_population > s.population and s.population < 1:
 			s.population = 1
+		for sid in s.structures.duplicate():
+			if rng.rand_bool_percent(bld_pct):
+				s.structures.erase(sid)
 		s.production_store -= (s.production_store * prod_pct) / 100
 		if s.production_store < 0:
 			s.production_store = 0
@@ -188,6 +247,14 @@ static func meltdown_tick(gs, rng: RNG) -> Array:
 	return contaminated
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+# One reference-style random part: uniform 0..n−1 (matching the reference's
+# rand(n) in the §15.7 damage rows). Draws nothing for n <= 1, so a zeroed
+# constant keeps the stream untouched.
+static func _rand_part(rng: RNG, n: int) -> int:
+	if n <= 1:
+		return 0
+	return rng.randi_range(0, n - 1)
 
 # Chebyshev-radius tiles around (cx, cy), in a fixed scan order, on the map.
 static func _area_tiles(gs, cx: int, cy: int, radius: int) -> Array:

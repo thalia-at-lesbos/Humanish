@@ -638,6 +638,11 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 				if carried != null:
 					carried.x = sx; carried.y = sy
 
+		# Missiles cannot defend (§15.7 / D3): a hostile missile alone on this
+		# tile could not contest the entry (Stack.get_defender skips missiles),
+		# so walking onto its tile destroys it.
+		CombatApply.destroy_stranded_missiles(_gs, sx, sy, player_id)
+
 		# Exploration: the first unit to enter a goody hut / discovery site claims
 		# its reward, then the site is consumed (§9). A "unit" reward spawns a free
 		# unit for the discoverer (Events appends it to gs.units); surface it with the
@@ -760,6 +765,9 @@ func _capture_city(city: Settlement, captor_pid: int) -> void:
 	city.revolt_turns = _db.get_constant("revolt_base_turns", 3) + city.population / 2
 	city.health = TurnEngine.city_max_health(city, _db)
 	city.in_disorder = true
+	# Missiles cannot defend (§15.7 / D3): the loser's garrisoned missiles are
+	# destroyed with the city, never inherited or left in the captor's streets.
+	CombatApply.destroy_stranded_missiles(_gs, city.x, city.y, captor_pid)
 	_add_notification(city.name + " captured!", "major")
 	emit_signal("city_conquered", city.id, captor_pid)
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
@@ -775,6 +783,9 @@ func _raze_city(city: Settlement, by_pid: int) -> void:
 	if by_pid >= 0 and by_pid != former_owner:
 		Diplomacy.record(_gs, _db, former_owner, by_pid, "razed_city")
 	_gs.settlements.erase(city)
+	# Missiles cannot defend (§15.7 / D3): missiles based in the razed city die
+	# with it (skipped for a voluntary self-disband — not hostile to the owner).
+	CombatApply.destroy_stranded_missiles(_gs, city.x, city.y, by_pid)
 	if _selection != null and _selection.head_city() == sid:
 		_selection.clear()
 	_add_notification(city.name + " was razed.", "major")
@@ -901,7 +912,17 @@ func _cmd_set_production(cmd: Dictionary) -> bool:
 	if s == null or s.owner_player_id != int(cmd["player_id"]):
 		return false
 	var incoming: Array = cmd.get("queue", []).duplicate(true)
-	# Stamp each item with the turn it was queued (§15.2 NEW_HURRY_MODIFIER:
+	# Effects projects (§15.7 C5: SDI / The Internet) are gated at the queue:
+	# tech researched, instance limit not exhausted, prerequisite wonder built.
+	# (Spaceship stages keep their pre-C5 ungated queue behaviour.)
+	var qp: Player = _gs.get_player(int(cmd["player_id"]))
+	for it in incoming:
+		if str(it.get("type", "")) != "project":
+			continue
+		var pj: Dictionary = _db.projects.get(str(it.get("id", "")), {})
+		if not Projects.is_endgame(pj) \
+				and not Projects.can_build(_gs, qp, str(it.get("id", ""))):
+			return false
 	# whipping an item queued this turn costs extra). An item already in the
 	# old queue keeps its original stamp — matched by type+id, each old entry
 	# consumed at most once so duplicates pair off in order.

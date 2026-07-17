@@ -119,9 +119,13 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 	if not hooks.run(IDs.Phase.PLAYER_TREASURY, gs, {"player_id": player_id}):
 		_update_treasury(gs, player)
 
-	# 4. Apply research progress
+	# 4. Apply research progress; then The Internet's tech-share (§15.7): the
+	# project owner absorbs any tech already known widely enough, checked every
+	# research phase (after normal completion, same hook — overriding
+	# PLAYER_RESEARCH suppresses both).
 	if not hooks.run(IDs.Phase.PLAYER_RESEARCH, gs, {"player_id": player_id}):
 		_apply_research(gs, player)
+		_apply_tech_share(gs, player)
 
 	# 5. Intelligence accumulation
 	if not hooks.run(IDs.Phase.PLAYER_INTELLIGENCE, gs, {"player_id": player_id}):
@@ -874,10 +878,16 @@ static func _complete_item(gs: GameState, s: Settlement,
 				})
 		"project":
 			var proj: Dictionary = gs.db.projects.get(iid, {})
-			var alliance_id: int = player.alliance_id
-			if not gs.endgame_project_stages.has(alliance_id):
-				gs.endgame_project_stages[alliance_id] = 0
-			gs.endgame_project_stages[alliance_id] += 1
+			if Projects.is_endgame(proj):
+				var alliance_id: int = player.alliance_id
+				if not gs.endgame_project_stages.has(alliance_id):
+					gs.endgame_project_stages[alliance_id] = 0
+				gs.endgame_project_stages[alliance_id] += 1
+			elif not proj.empty() and Projects.grantable(gs, player, iid):
+				# §15.7 effects project (SDI / The Internet): record it on the
+				# player so Projects.effect_int sees it. A world-unique project
+				# already claimed by a rival grants nothing (hammers lost).
+				player.projects.append(iid)
 			gs.pending_productions.append({
 				"player_id": player.id,
 				"settlement_name": s.name,
@@ -1608,6 +1618,33 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		player.technologies.append(tech_id)
 		player.current_research_id = ""
 		gs.pending_tech_completions.append({"player_id": player.id, "tech_id": tech_id})
+
+# The Internet's tech-share (§15.7, C5): the owner of a `tech_share: K` effects
+# project automatically acquires every technology already known by at least K
+# other (non-eliminated) players. Runs in the PLAYER_RESEARCH phase right after
+# _apply_research; no RNG. Techs are scanned in data order (JSON insertion
+# order), so grants are deterministic. A shared tech that was the player's
+# current research is completed for free (accumulated beakers are kept for the
+# next choice, like any completion overflow).
+static func _apply_tech_share(gs: GameState, player: Player) -> void:
+	var k: int = Projects.effect_int(player, gs.db, "tech_share")
+	if k <= 0:
+		return
+	for tech_id in gs.db.technologies:
+		if player.has_tech(tech_id):
+			continue
+		var known: int = 0
+		for other in gs.players:
+			if other.id == player.id or other.is_eliminated:
+				continue
+			if other.has_tech(tech_id):
+				known += 1
+		if known >= k:
+			player.technologies.append(tech_id)
+			if player.current_research_id == tech_id:
+				player.current_research_id = ""
+			gs.pending_tech_completions.append(
+				{"player_id": player.id, "tech_id": tech_id})
 
 static func _apply_intelligence(gs: GameState, player: Player) -> void:
 	# Each turn a player's espionage output is accumulated as intel points,

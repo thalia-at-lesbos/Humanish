@@ -38,7 +38,13 @@ static func get_defender(units: Array, x: int, y: int, attacker_player_id: int,
 			continue
 		# Spies cannot be attacked (§7.1): an espionage unit is never a valid combat
 		# target, so a tile holding only spies has no defender and is not hostile.
-		if db.get_unit(u.unit_type_id).get("tags", []).has("espionage"):
+		var ud: Dictionary = db.get_unit(u.unit_type_id)
+		if ud.get("tags", []).has("espionage"):
+			continue
+		# Missiles cannot defend (§15.7 / D3): a garrisoned guided missile is never
+		# picked as best defender — it is destroyed instead when its tile falls
+		# (see CombatApply.destroy_stranded_missiles).
+		if str(ud.get("classification", "")) == "missile":
 			continue
 		var str_val: int = u.effective_strength(db, false, ter, feat, "")
 		if str_val > best_str:
