@@ -530,8 +530,16 @@ trait pairs differ from the reference leader table **[value]**:
 - Civics: all 25 reference civics present in `policies.json` ✓. Population
   rush ("whipping") wired 2026-07-12 (C2, game-rules §15.2): slavery carries the
   `pop_rush` flag driving the `RUSH_POPULATION` command (reference
-  `HURRY_POP_ANGER`/slavery hurry adopted). Serfdom's +50% worker speed is
-  carried as `worker_speed_bonus` and read by the build-turn math.
+  `HURRY_POP_ANGER`/slavery hurry adopted).
+  **CLOSED 2026-07-17 (B7 + C6, game-rules §15.9)**: Serfdom's +50% worker
+  speed is `effects.worker_speed_modifier` read by the single
+  `TurnEngine.worker_build_turns` site (with Hagia Sophia's +50 and per-unit
+  `work_rate`); Emancipation ships `improvement_upgrade_rate_modifier` 100 and
+  the `civic_percent_anger` 400 pressure anger; the Slavery (Bronze Working)
+  and Serfdom (Feudalism) tech gates are wired. Reference findings: the Fast
+  Worker's work rate is 100 (movement is its edge) and no golden-age worker
+  effect exists; Steam Power's +50 stays open (structure obsolescence
+  unmodelled).
 - Culture: ring thresholds [10,30,60,…,550] vs reference culture levels
   10/100/500/5000/50000 (normal speed) — different curve, no per-speed scaling,
   and the reference's per-culture-level **city defence 20–100%** has no
@@ -561,7 +569,8 @@ engine-side stubs; the following are *reference* mechanics with no Humanish
 model at all, collected here for completeness:
 
 1. **Inflation** (per-speed + handicap) — no model.
-2. **Population rush / whipping** under Slavery; **serfdom worker speed**.
+2. **Population rush / whipping** under Slavery (→ closed 2026-07-12, C2);
+   **serfdom worker speed** → **Closed 2026-07-17 (B7/C6):** game-rules §15.9.
 3. **Golden-age length pace scaling** (`iGoldenAgePercent`).
 4. **Culture-level city defence** (20–100%).
 5. **The Internet & SDI projects** (and nuke interception %). → **Closed

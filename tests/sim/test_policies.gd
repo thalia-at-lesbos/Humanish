@@ -36,10 +36,39 @@ func test_set_policy_applies() -> void:
 	var gs = facade.get_state()
 	var pid = gs.players[0].id
 	gs.current_player_id = pid
+	gs.players[0].technologies.append("feudalism")  # serfdom's civic tech gate (§15.9)
 	assert_true(facade.apply_command(Commands.set_policy(pid, "labor", "serfdom")),
 		"Selecting the serfdom labor civic should be accepted")
 	assert_eq(gs.players[0].policies.get("labor", ""), "serfdom",
 		"The labor category should now hold serfdom")
+
+# ── Civic tech gates (§15.9 / §29.9) ─────────────────────────────────────────
+
+# Grant the labor-civic gate techs (slavery: Bronze Working, serfdom: Feudalism)
+# so switch-mechanics tests can adopt them freely.
+func _grant_labor_techs(gs) -> void:
+	gs.get_player(1).technologies.append("bronze_working")
+	gs.get_player(1).technologies.append("feudalism")
+
+func test_slavery_requires_bronze_working() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(f.apply_command(Commands.set_policy(1, "labor", "slavery")),
+		"Slavery is rejected without Bronze Working (reference tech gate)")
+	gs.get_player(1).technologies.append("bronze_working")
+	assert_true(f.apply_command(Commands.set_policy(1, "labor", "slavery")),
+		"Slavery is accepted once Bronze Working is researched")
+
+func test_serfdom_requires_feudalism() -> void:
+	var gs = make_gs(1)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	assert_false(f.apply_command(Commands.set_policy(1, "labor", "serfdom")),
+		"Serfdom is rejected without Feudalism (reference tech gate)")
+	gs.get_player(1).technologies.append("feudalism")
+	assert_true(f.apply_command(Commands.set_policy(1, "labor", "serfdom")),
+		"Serfdom is accepted once Feudalism is researched")
 
 # ── Anarchy on civic switches (§8) ─────────────────────────────────────────────
 
@@ -47,6 +76,7 @@ func test_first_civic_in_category_is_free() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
+	_grant_labor_techs(gs)
 	# serfdom carries transition_turns 3, but it is the first labor civic chosen.
 	assert_true(f.apply_command(Commands.set_policy(1, "labor", "serfdom")))
 	assert_eq(gs.get_player(1).transition_turns, 0,
@@ -56,6 +86,7 @@ func test_switching_established_civic_causes_anarchy() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
+	_grant_labor_techs(gs)
 	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
 	assert_true(f.apply_command(Commands.set_policy(1, "labor", "slavery")))
 	assert_gt(gs.get_player(1).transition_turns, 0,
@@ -71,6 +102,7 @@ func test_civic_anarchy_scales_with_game_pace() -> void:
 		var f = bare_facade(gs)
 		gs.current_player_id = 1
 		gs.pace_id = pace_id
+		_grant_labor_techs(gs)
 		f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
 		assert_true(f.apply_command(Commands.set_policy(1, "labor", "slavery")))
 		assert_eq(gs.get_player(1).transition_turns, expected[pace_id],
@@ -81,6 +113,7 @@ func test_spiritual_leader_switches_civic_without_anarchy() -> void:
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 	gs.get_player(1).traits = ["spiritual"]
+	_grant_labor_techs(gs)
 	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
 	f.apply_command(Commands.set_policy(1, "labor", "slavery"))
 	assert_eq(gs.get_player(1).transition_turns, 0,
@@ -90,6 +123,7 @@ func test_reselecting_current_civic_is_noop() -> void:
 	var gs = make_gs(1)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
+	_grant_labor_techs(gs)
 	f.apply_command(Commands.set_policy(1, "labor", "serfdom"))
 	assert_false(f.apply_command(Commands.set_policy(1, "labor", "serfdom")),
 		"Re-selecting the current civic is a no-op")

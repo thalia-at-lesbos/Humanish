@@ -1317,14 +1317,9 @@ func _cmd_build_improvement(cmd: Dictionary) -> bool:
 		_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 		_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
 		return true
-	# Serfdom speeds improvement construction (§8): fewer build turns.
-	var bt: int = int(imp.get("build_turns", 5))
-	var worker_speed: int = PolicyEffects.sum_int(p, _db, "worker_speed_bonus")
-	if worker_speed > 0:
-		bt = (bt * 100) / (100 + worker_speed)
-		if bt < 1:
-			bt = 1
-	u.build_turns_left = bt
+	# Worker-speed modifiers (§15.9) shorten the build: Serfdom, Hagia Sophia,
+	# the unit's work_rate — all folded in TurnEngine.worker_build_turns.
+	u.build_turns_left = TurnEngine.worker_build_turns(_gs, u, int(imp.get("build_turns", 5)))
 	u.has_moved = true
 	u.movement_left = 0
 	return true
@@ -3042,7 +3037,9 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			if road.empty():
 				return false
 			u.building_improvement = "road"
-			u.build_turns_left = int(road.get("build_turns", 3))
+			# Worker-speed modifiers (§15.9) apply to road orders too.
+			u.build_turns_left = TurnEngine.worker_build_turns(_gs, u,
+				int(road.get("build_turns", 3)))
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.MISSION_PILLAGE:
@@ -3134,8 +3131,10 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 			if not bool(cfeat.get("removable", false)):
 				return false
 			u.clearing_feature = ctile.feature_id
-			u.build_turns_left = int(cfeat.get("clear_turns",
-				_db.get_constant("chop_default_turns", 4)))
+			# Worker-speed modifiers (§15.9) apply to chop/clear orders too.
+			u.build_turns_left = TurnEngine.worker_build_turns(_gs, u,
+				int(cfeat.get("clear_turns",
+					_db.get_constant("chop_default_turns", 4))))
 			u.has_moved = true
 			u.movement_left = 0
 		IDs.CommandType.MISSION_SLEEP_UNTIL_HEALED:

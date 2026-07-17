@@ -88,9 +88,11 @@ func test_playthrough_production_and_city_management() -> void:
 	var pid = 1
 	var city = make_settlement(gs, pid, 8, 8, 4)
 
-	# Queue a unit, then enable Slavery (needs no tech) and population-rush it.
+	# Queue a unit, then enable Slavery (gated on Bronze Working, §29.9) and
+	# population-rush it.
 	assert_true(f.apply_command(Commands.set_production(pid, city.id,
 		[{"type": "unit", "id": "warrior"}])), "production queue set")
+	gs.get_player(pid).technologies.append("bronze_working")
 	assert_true(f.apply_command(Commands.set_policy(pid, "labor", "slavery")),
 		"Slavery civic adopted")
 	assert_eq(gs.get_player(pid).policies.get("labor", ""), "slavery", "labor civic recorded")

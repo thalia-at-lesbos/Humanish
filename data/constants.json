@@ -171,6 +171,7 @@
   "rush_pop_anger": 1,
   "rush_pop_anger_turns": 10,
   "new_hurry_modifier": 50,
+  "civic_percent_anger_divisor": 1000,
   "blockade_range": 2,
   "blockade_commerce_penalty": 50,
   "trade_routes_base": 0,

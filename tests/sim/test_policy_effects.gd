@@ -407,13 +407,134 @@ func test_serfdom_speeds_worker_builds() -> void:
 	var f = bare_facade(gs)
 	var w = make_unit(gs, "worker", 1, 5, 5)
 	f.apply_command(Commands.build_improvement(1, w.id, "mine"))  # build_turns 5
-	var base_turns = w.build_turns_left
+	assert_eq(w.build_turns_left, 5, "Unmodified mine build takes the base 5 turns")
 	w.movement_left = w.movement_total
 	w.has_moved = false
-	gs.get_player(1).policies = {"labor": "serfdom"}  # worker_speed_bonus: 50
+	gs.get_player(1).policies = {"labor": "serfdom"}  # worker_speed_modifier: 50
 	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
-	assert_true(w.build_turns_left < base_turns,
-		"Serfdom shortens worker build time")
+	assert_eq(w.build_turns_left, 3,
+		"Serfdom +50%% scales the 5-turn mine to 5×100/150 = 3 (truncating)")
+
+func test_unit_work_rate_scales_build_turns() -> void:
+	# §15.9: a unit `work_rate` above the default 100 shortens builds — synthetic
+	# db override (no shipped unit carries a bonus rate; the reference Fast
+	# Worker is 100 too, its edge is movement).
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining"]
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	gs.db.units["worker"]["work_rate"] = 150
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, 3,
+		"work_rate 150 scales the 5-turn mine to 5×100/150 = 3 (truncating)")
+
+func test_hagia_sophia_speeds_worker_builds() -> void:
+	# §15.9: a standing structure carrying effects.worker_speed_modifier (Hagia
+	# Sophia +50) speeds every worker of the owning player, empire-wide.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining"]
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var s = make_settlement(gs, 1, 10, 10, 2)
+	s.structures.append("hagia_sophia")
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, 3,
+		"Hagia Sophia +50%% scales the 5-turn mine to 3, even far from the city")
+
+func test_worker_speed_sources_stack_additively() -> void:
+	# Serfdom 50 + Hagia Sophia 50 → 5×100/200 = 2.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining"]
+	gs.get_player(1).policies = {"labor": "serfdom"}
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var s = make_settlement(gs, 1, 10, 10, 2)
+	s.structures.append("hagia_sophia")
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, 2,
+		"Serfdom and Hagia Sophia stack additively: 5×100/(100+50+50) = 2")
+
+func test_worker_build_turns_never_below_one() -> void:
+	var gs = make_gs(1)
+	gs.db.units["worker"]["work_rate"] = 600  # 5×100/600 = 0 → clamped
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	assert_eq(TurnEngine.worker_build_turns(gs, w, 5), 1,
+		"A scaled build never drops below 1 turn")
+
+func test_worker_speed_applies_to_road_and_clear_missions() -> void:
+	# §15.9: the modifier covers every worker order — roads (build_turns 2) and
+	# feature clearing (forest clear_turns 4), not just improvements.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).policies = {"labor": "serfdom"}
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.mission_build_road(1, w.id))
+	assert_eq(w.build_turns_left, 1,
+		"Serfdom scales the 2-turn road to 2×100/150 = 1")
+	var w2 = make_unit(gs, "worker", 1, 6, 6)
+	gs.map.get_tile(6, 6).feature_id = "forest"
+	f.apply_command(Commands.mission_clear_feature(1, w2.id))
+	assert_eq(w2.build_turns_left, 2,
+		"Serfdom scales the 4-turn forest clear to 4×100/150 = 2")
+
+# ── Emancipation pressure (§15.9) ────────────────────────────────────────────
+
+func test_civic_pressure_zero_without_adopters() -> void:
+	var gs = make_gs(3)
+	assert_eq(PolicyEffects.civic_pressure_anger(gs, gs.get_player(1), gs.db), 0,
+		"No rival on Emancipation means no pressure anger")
+
+func test_civic_pressure_scales_with_adopter_share() -> void:
+	var gs = make_gs(4)
+	gs.get_player(2).policies = {"labor": "emancipation"}
+	assert_eq(PolicyEffects.civic_pressure_anger(gs, gs.get_player(1), gs.db), 13,
+		"1 of 3 rivals adopted: 400×1×100/(3×1000) = 13 anger points (truncating)")
+	gs.get_player(3).policies = {"labor": "emancipation"}
+	gs.get_player(4).policies = {"labor": "emancipation"}
+	assert_eq(PolicyEffects.civic_pressure_anger(gs, gs.get_player(1), gs.db), 40,
+		"All 3 rivals adopted: 400×3×100/(3×1000) = 40 anger points")
+
+func test_civic_pressure_adopter_is_exempt() -> void:
+	var gs = make_gs(3)
+	gs.get_player(1).policies = {"labor": "emancipation"}
+	gs.get_player(2).policies = {"labor": "emancipation"}
+	gs.get_player(3).policies = {"labor": "emancipation"}
+	assert_eq(PolicyEffects.civic_pressure_anger(gs, gs.get_player(1), gs.db), 0,
+		"A player running Emancipation feels no pressure from it")
+
+func test_civic_pressure_ignores_teammates_and_eliminated() -> void:
+	var gs = make_gs(4)
+	gs.get_player(2).policies = {"labor": "emancipation"}
+	gs.get_player(3).policies = {"labor": "emancipation"}
+	# Player 2 shares player 1's alliance; player 3 is eliminated. Only player 4
+	# (a living, unallied non-adopter) remains countable.
+	gs.get_player(1).alliance_id = 7
+	gs.get_player(2).alliance_id = 7
+	gs.get_player(3).is_eliminated = true
+	assert_eq(PolicyEffects.civic_pressure_anger(gs, gs.get_player(1), gs.db), 0,
+		"Teammates and eliminated players are excluded from both counts")
+
+func test_emancipation_pressure_raises_city_anger() -> void:
+	# End-to-end through the contentment phase: 3 rivals all on Emancipation add
+	# 40 anger points, so a pop-10 city gains 10×40/100 = 4 unhappy citizens.
+	var gs = make_gs(4)
+	for pid in [2, 3, 4]:
+		gs.get_player(pid).policies = {"labor": "emancipation"}
+	var s = make_settlement(gs, 1, 5, 5, 10)
+	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
+	var without = s.negative_sentiment
+	assert_eq(without, 5, "Pop 10: overcrowding 12%% + pressure 40%% → 5 unhappy")
+	gs.get_player(1).policies = {"labor": "emancipation"}
+	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
+	assert_eq(s.negative_sentiment, 1,
+		"Adopting Emancipation drops the pressure share (overcrowding 12%% stays)")
 
 # ── New-unit experience ──────────────────────────────────────────────────────
 

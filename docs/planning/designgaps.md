@@ -91,9 +91,10 @@ dictionaries are read too, through the single helper `sim/policy_effects.gd`
   `science_per_scientist`, `science_output`, `espionage`.
 - **Treasury** (`_update_treasury`): `free_units_per_city`,
   `no_distance_maintenance`.
-- **Commands** (`sim_facade`): `can_rush_with_gold` and the bare `rush_by_pop`
-  gate the two rush methods in `_cmd_rush_production`; the bare
-  `worker_speed_bonus` shortens build time in `_cmd_build_improvement`.
+- **Commands** (`sim_facade`): `can_rush_with_gold` and the bare `pop_rush`
+  gate the two rush paths (`_cmd_rush_production` / `_cmd_rush_population`);
+  `worker_speed_modifier` (Serfdom, §15.9) shortens every worker order
+  (improvement/road/clear) via the shared `TurnEngine.worker_build_turns`.
 - **Unit/GP** (`_complete_item` / `_special_person_progress`): `new_unit_xp` and
   `state_religion_unit_xp` set a new military unit's starting experience;
   `great_person_rate` scales Great-Person point accrual.
@@ -106,9 +107,11 @@ Covered by `tests/sim/test_policy_effects.gd` and `tests/api/test_facade.gd`.
 
 **Still inert — blocked on an unbuilt subsystem, not on the wiring:**
 
-- Emancipation's cross-faction unhappiness is not modelled (the cottage→hamlet→
-  village→town upgrading it speeds *is* now modelled — see below;
-  `faster_cottage_growth` is wired in `TurnEngine._grow_cottages`).
+- ~~Emancipation's cross-faction unhappiness is not modelled~~ **wired 2026-07-17
+  (C6, game-rules §15.9)**: `civic_percent_anger` drives
+  `PolicyEffects.civic_pressure_anger` in `_update_contentment`, and the old
+  `faster_cottage_growth` flag became the `improvement_upgrade_rate_modifier`
+  percentage in `TurnEngine._grow_cottages`.
 - `trade_route_per_city` (Free Market) and `no_foreign_trade_routes`
   (Mercantilism) are now wired: cities run trade routes (`TurnEngine._trade_route_commerce`,
   base count `trade_routes_base` default 0, so routes appear only under a granting

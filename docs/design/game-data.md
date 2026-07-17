@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects, retune globals"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects (shipped, 29.9), retune globals"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -770,6 +770,10 @@ Five categories; each faction chooses one civic per category at any time. Switch
 | Serfdom | Feudalism | Low | Workers build improvements 50% faster |
 | Caste System | Code of Laws | Medium | Unlimited specialist slots; +1 Production from Workshop improvements |
 | Emancipation | Democracy | Low | Cottages grow to Hamlet/Village/Town faster; other factions without Emancipation gain unhappiness |
+
+*(The Labor column is fully shipped as of B7/C6, 2026-07-17 — tech gates,
+Serfdom's worker speed, Emancipation's upgrade rate and pressure anger; values
+and formulas in §29.9 and game-rules §15.9.)*
 
 ### Economy
 
@@ -2739,11 +2743,25 @@ gate) — its reference retune is still open.
 | Civic | Tech | Reference effects |
 |---|---|---|
 | tribalism | — | default; no effects (anarchy length 1 — matches) |
-| slavery | Bronze Working | enables population hurry (§29.8) — **wired 2026-07-12** as the bare `pop_rush` flag in `policies.json` (tech gate still open) |
-| serfdom | Feudalism | +50% worker build speed |
-| emancipation | Democracy | +100% cottage-line upgrade rate; +anger in every civ **not** running it (per-adopter pressure, reference weight 400) |
+| slavery | Bronze Working | enables population hurry (§29.8) — **wired 2026-07-12** as the bare `pop_rush` flag in `policies.json`; **tech gate wired 2026-07-17** (C6) |
+| serfdom | Feudalism | +50% worker build speed — **wired 2026-07-17** (B7) as `effects.worker_speed_modifier: 50` with the Feudalism gate |
+| emancipation | Democracy | +100% cottage-line upgrade rate; +anger in every civ **not** running it (per-adopter pressure, reference weight 400) — **wired 2026-07-17** (C6) as `effects.improvement_upgrade_rate_modifier: 100` + `effects.civic_percent_anger: 400` |
 
 (`caste_system`'s unlimited-specialists and workshop bonus are already wired.)
+
+The table is live shipped data as of B7/C6 (2026-07-17, game-rules §15.9); all
+values confirmed against the reference XML (`iWorkerSpeedModifier` 50,
+`iImprovementUpgradeRateModifier` 100, `iCivicPercentAnger` 400, tech prereqs
+Bronze Working / Feudalism / Democracy). Sister worker-speed sources, likewise
+reference-confirmed: Hagia Sophia `effects.worker_speed_modifier: 50`
+(`structures.json`), per-unit `work_rate` (default 100 — the reference Fast
+Worker is **also 100**; its edge is 3 moves vs 2, so the old "builds 50% faster"
+Humanish text was cut from `units.json`). The contentment-phase pressure formula
+uses `civic_percent_anger_divisor` 1000 (`constants.json`, the reference
+`PERCENT_ANGER_DIVISOR`). The reference Steam Power tech's +50 worker speed is
+**not** wired (structure obsolescence — which retires Hagia Sophia's +50 at the
+same tech — is unmodelled; wiring one without the other would double up). The
+reference has no golden-age worker effect.
 
 ### 29.10 Per-difficulty AI cost/growth handicaps (candidate `difficulties.json` fields)
 

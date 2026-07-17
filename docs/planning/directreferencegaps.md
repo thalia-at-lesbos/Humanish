@@ -5,21 +5,22 @@ B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 co
 cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
 2026-07-11 (values adopted from the reference under a user-authorized sourcing
 session — see A8/D4 notes); C1–C3 (economy trio) done 2026-07-12; B4/B5, C7,
-C5 (+ D3 missiles-cannot-defend), and B6 done 2026-07-17. Date: 2026-07-07.
+C5 (+ D3 missiles-cannot-defend), B6, and B7 + C6 (worker speed, serfdom &
+emancipation, labor tech gates) done 2026-07-17. Date: 2026-07-07.
 
-**REMAINING (handoff for the next session):** B7 (worker-speed % modifiers —
-prereq for C6), C6 (serfdom & emancipation effects), C4 + D2 together (culture-
+**REMAINING (handoff for the next session):** C4 + D2 together (culture-
 level city defence keys off the reference geometric border curve — see the C4
 entry's dependency note), C8 (optional, low priority), then D1 (tech-graph
 parity) last. Also parked along the way, each recorded in its item's note:
 per-city `science_bonus` wiring (A2 note), three_gorges_dam `unhealthy_global`
 + hippodrome `happiness_with_horse` dead keys (A2), panzer's missing +50% vs
-armor (A1), settler food-box build model (A1), gold-rush 3-gold/hammer retune +
-Slavery's Bronze-Working tech gate (C2 note), culture%-slider happiness for
-cathedrals (A2), the dead promotion keys awaiting subsystems (A8/D4 notes), and
-projects `count_needed` stage-model wiring (A10 note). The reference-XML
-sourcing authorization was **session-scoped and has ended** — future sessions
-source values from these docs only.
+armor (A1), settler food-box build model (A1), gold-rush 3-gold/hammer retune
+(C2 note; Slavery's Bronze-Working tech gate closed with C6), culture%-slider
+happiness for cathedrals (A2), the dead promotion keys awaiting subsystems
+(A8/D4 notes), projects `count_needed` stage-model wiring (A10 note), and Steam
+Power's +50% worker speed — blocked on unmodelled structure obsolescence (B7
+note). The reference-XML sourcing authorization was **session-scoped and has
+ended** — future sessions source values from these docs only.
 
 **DECISIONS (user, 2026-07-08) — the step-2 review is settled with one blanket rule:
 everything adopts the reference value/model, and ALL Humanish-only content is
@@ -426,6 +427,24 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   (15 tests); recalibrations in `test_data_db.gd`/`test_quests.gd`.
 - **B7. Worker-speed % modifiers** (serfdom, fast worker, golden ages): build-turn
   math honours a percentage; read from civic effects + unit tag. Prereq for C6.
+  **DONE 2026-07-17** (with C6): every worker order that seeds `build_turns_left`
+  (improvement / road / chop-clear, the three `SimFacade` handlers) runs through
+  the single `TurnEngine.worker_build_turns` site — `turns × 100 / (100 + Σmod)`,
+  truncating, min 1. Σmod sources, all reference-confirmed: civic
+  `effects.worker_speed_modifier` (Serfdom 50, via `PolicyEffects.sum_int`),
+  standing-structure `effects.worker_speed_modifier` (Hagia Sophia 50 — the key
+  existed in `structures.json` but was inert; renamed from `worker_speed` and
+  wired), and per-unit `work_rate` (default 100). Two reference findings
+  reversed this item's assumptions: the reference **Fast Worker's work rate is
+  100** (its edge is 3 moves vs 2 — already modelled by movement 180 vs 120), so
+  its Humanish-only "builds 50% faster" text + inert `fast_build` tag were cut
+  and `work_rate: 100` pinned; and the reference has **no golden-age worker
+  effect** (nothing in GlobalDefines/civics/buildings/traits), so none was
+  added. Steam Power's +50 (which obsoletes Hagia Sophia at the same tech) is
+  NOT wired — structure obsolescence is unmodelled and wiring the tech without
+  it would double up; parked. Tests: exact-turn pins for civic/unit/structure
+  sources, additive stacking, truncation, the min-1 clamp, and the road + clear
+  mission paths (`test_policy_effects.gd`); data pins in `test_data_db.gd`.
 
 ## Phase C — new mechanics (each is a self-contained subsystem; specs in game-rules §15)
 
@@ -519,6 +538,27 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
 - **C6. Serfdom & emancipation effects** (§15.9, §29.9): worker speed (needs B7),
   cottage upgrade-rate % (generalize `faster_cottage_growth`), emancipation-pressure
   anger (contentment penalty scaled by adopter share).
+  **DONE 2026-07-17** (with B7): Serfdom ships `effects.worker_speed_modifier: 50`
+  + its reference Feudalism tech gate (read by the B7 site). Emancipation's
+  `faster_cottage_growth` flag became `effects.improvement_upgrade_rate_modifier:
+  100` — `_grow_cottages` scales the `upgrade_turns` threshold `× 100 / (100 +
+  mod)`, truncating, min 1 (identical observable behaviour at 100; ages stay in
+  plain turn units, no save-format change). Emancipation pressure:
+  `effects.civic_percent_anger: 400` + `civic_percent_anger_divisor` 1000
+  (`constants.json`, the reference `PERCENT_ANGER_DIVISOR`) drive the new
+  `PolicyEffects.civic_pressure_anger` — in `_update_contentment`, a player NOT
+  running a pressure civic takes `weight × adopters × 100 / (possible × 1000)`
+  anger points, counting living rivals outside the player's alliance (adopters
+  exempt; no RNG). Slavery's open Bronze-Working tech gate (C2 note) closed in
+  the same pass — `_cmd_set_policy` already enforced `tech_required`, so both
+  gates were pure data. AI unaffected structurally (`manage_civics` already
+  tech-gates; with no techs it now stays on tribalism). Tests: pressure share
+  scaling/exemption/teammate+eliminated exclusion, contentment integration,
+  cottage truncation pin, both tech gates (`test_policy_effects.gd`,
+  `test_cottage_growth.gd`, `test_policies.gd`); recalibrated
+  `test_player_ai.gd` (tech-free labor civic is now tribalism) and the
+  integration playthrough (grants bronze_working before whipping). No seeded
+  playthrough shifts — all suites passed without hash recalibration.
 - **C7. Missing units** (§29.1): Machine Gun (needs B5), War Elephant (needs B1),
   Lion (animal roster in `WildForces.spawn_animals` between wolf/panther weights).
   **DONE 2026-07-12**: pure data pass — all three §29.1 rows verified against the
@@ -713,9 +753,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    here)~~ **DONE 2026-07-12 (C1 f08abc2, C2 ea59121, C3 7badc5b)**, ~~then C4/C5
    (+ the missiles-cannot-defend item)/C7~~ **C5+missiles 0e4b578 and C7 c1c5798
    done 2026-07-17 (B4/B5 44becde and B6 79fa8e0 landed alongside); C4 remains —
-   do it WITH D2 (its defence tiers key off the D2 curve), then C6 (needs B7)**.
+   do it WITH D2 (its defence tiers key off the D2 curve)~~; **B7 + C6 done
+   2026-07-17 — C4 remains, WITH D2**.
 6. D1 tech graph + D2 border curve last among the big items (touch everything; do
-   when A/C are green). Suggested remaining order: B7 → C6 → D2+C4 → C8
+   when A/C are green). Suggested remaining order: D2+C4 → C8
    (optional) → D1.
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
