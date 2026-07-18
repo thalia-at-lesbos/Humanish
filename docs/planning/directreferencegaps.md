@@ -4,6 +4,8 @@ Status: **COMPLETE 2026-07-18** — every work item in this plan has shipped. Th
 final item, **D1 (tech-graph parity), landed 2026-07-18** (see the D1 note); the
 only leftovers are the small parked follow-ups recorded in their items' notes
 below (dead keys, unmodelled subsystems) — none is a parity gap in shipped data.
+The parked follow-ups now have a successor plan:
+`docs/planning/directreferencegapswiring.md` (2026-07-18).
 History: sequencing step 1 (bug fixes + A12) and Phase B items
 B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 content
 cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
