@@ -98,7 +98,7 @@
   "chop_yield_tech_bonus_pct": 50,
   "chop_outside_borders_pct": 50,
   "starting_techs": ["agriculture", "hunting"],
-  "default_research": "pottery",
+  "default_research": "the_wheel",
   "starting_units_base": ["settler"],
   "starting_unit_default": "warrior",
   "starting_unit_by_tech": { "hunting": "scout" },

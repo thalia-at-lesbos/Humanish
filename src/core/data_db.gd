@@ -315,9 +315,13 @@ func _validate_tech_prereqs() -> void:
 		for prereq in tech.get("prereqs_all", []):
 			if not technologies.has(prereq):
 				_errors.append("Tech '%s' prereq_all '%s' not found" % [tech_id, prereq])
+			elif str(prereq) == str(tech_id):
+				_errors.append("Tech '%s' lists itself as a prereq_all" % tech_id)
 		for prereq in tech.get("prereqs_any", []):
 			if not technologies.has(prereq):
 				_errors.append("Tech '%s' prereq_any '%s' not found" % [tech_id, prereq])
+			elif str(prereq) == str(tech_id):
+				_errors.append("Tech '%s' lists itself as a prereq_any" % tech_id)
 
 # A unit's tech_required may be null, a single tech id, or a list of tech ids
 # (compound AND form, §15.12). Every listed id must exist in the tech table.

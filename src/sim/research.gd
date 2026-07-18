@@ -78,9 +78,13 @@ static func _effective_cost(tech_id: String, player: Player, db: DataDB,
 		cost = 1
 
 	# ── Post-chain Humanish discounts (intentional extensions, §15.4) ──
-	# Prereq discount: 10% per held prerequisite.
+	# Prereq discount: 10% per held prerequisite (AND- and OR-lists alike —
+	# "per held prerequisite of this tech", D1).
 	var prereq_discount: int = 0
 	for prereq in tech.get("prereqs_all", []):
+		if player.has_tech(prereq):
+			prereq_discount += 10
+	for prereq in tech.get("prereqs_any", []):
 		if player.has_tech(prereq):
 			prereq_discount += 10
 	cost = max(1, cost - Fixed.scale(cost, prereq_discount))

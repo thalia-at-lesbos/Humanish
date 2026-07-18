@@ -215,7 +215,7 @@
       "id": "state_property",
       "name": "State Property",
       "category": "economic",
-      "tech_required": "communism",
+      "tech_required": "utopia",
       "upkeep_modifier": -10,
       "slider_increment": 10,
       "anger_modifier": 0,

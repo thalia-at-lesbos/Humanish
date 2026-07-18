@@ -207,11 +207,19 @@ generic of each (reasonable merge).
 
 ## 3. Technologies
 
+> **CLOSED (2026-07-18, D1):** the whole section is resolved. The AND/OR
+> prereq graph now matches the reference exactly (85 of 92 techs rewired from
+> the plan's appendix table; gating already honoured `prereqs_any`), and
+> `communism` is renamed to the reference id `utopia` — XML-verified: the
+> reference `TECH_UTOPIA` *displays* as "Communism", so the display name is
+> unchanged and only the id (and its `tech_required` references in
+> structures/policies) moved. See directreferencegaps.md D1 note.
+
 > **Resolution note (2026-07-11, A13 — f6e4e20):** the era and cost rows below
 > are now the reference values in `data/technologies.json` — calendar and
 > iron_working are classical, genetics and stealth are future, future_tech
-> costs 10000. The wholesale AND/OR prereq-graph rewiring below remains **D1**
-> (untouched). The text below is the original audit snapshot, kept verbatim.
+> costs 10000. ~~The wholesale AND/OR prereq-graph rewiring below remains **D1**
+> (untouched).~~ The text below is the original audit snapshot, kept verbatim.
 
 - Costs: **all 90 match** except `future_tech` 8000 ≠ 10000 **[value]**.
 - Eras: `calendar`, `iron_working` ancient≠classical; `genetics`, `stealth`

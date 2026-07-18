@@ -40,8 +40,9 @@ func test_researchable_node_is_enabled_known_is_not() -> void:
 	var gs = facade.get_state()
 	var p = gs.players[0]
 	gs.current_player_id = p.id
-	# Know agriculture; pottery (its dependant) becomes researchable.
-	p.technologies = ["agriculture"]
+	# Know the_wheel + agriculture; pottery (their dependant) becomes researchable
+	# (D1 graph: the_wheel AND agriculture-or-fishing).
+	p.technologies = ["agriculture", "the_wheel"]
 
 	var tc = _chooser(facade)
 	var known_node = tc._build_tech_node("agriculture", p)
