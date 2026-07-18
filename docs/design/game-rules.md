@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Reference-adopted mechanics, all implemented — inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), compound prereqs (15.12); goody-roster rewards (15.11) ship as data, deliberately disabled"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -63,7 +63,6 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.8/15.9/15.10 implemented 2026-07-17, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1502,7 +1501,8 @@ Plant meltdowns (§5.7). Fallout is modelled as a removable tile feature that po
 slows movement, and harms settlement wellbeing (§4.6) until a worker-type unit clears it with a
 `clean_fallout` action. The **Ecology** tech and the **Recycling Center** structure speed
 cleanup; see §5.7 for the strike/meltdown side and the data tables for the Fallout feature's
-exact penalties. (Provisional — not yet implemented; constants are placeholders.)
+exact penalties. (Provisional — implemented except the Ecology/Recycling-Center cleanup
+speed-up; the Fallout feature's penalty constants are Humanish-tuned placeholders.)
 
 ---
 
@@ -1548,17 +1548,20 @@ supplies the values they read. A faithful implementation must reproduce both.
 11. (Recommended) an **override-hook seam** mirroring the phase-override pattern so content
     can replace any rule.
 
-## 15. Reference-parity mechanics (parity targets; unimplemented unless a subsection says otherwise)
+## 15. Reference-parity mechanics (implemented — reference values)
 
-> **⚠️ Provisional — none of §15 is implemented.** Every subsection below specifies a
-> mechanic (or a rule-level correction) that exists in the reference game but has no
-> Humanish model yet. Values are taken directly from the reference XML
-> (layered original reference, highest layer wins) and are recorded here so implementation needs no
-> access to the reference install. The work plan, priorities, and the value-retune
-> lists for *existing* mechanics live in `docs/planning/directreferencegaps.md`
-> (with the raw comparison in `docs/planning/reference-parity-audit.md`). Companion data
-> tables: `game-data.md` §29. Remove each subsection's "unimplemented" marker (and move
-> it into the appropriate numbered section) as it lands.
+> **Implemented.** Every subsection below specifies a mechanic (or a rule-level
+> correction) adopted from the reference game. The parity plan
+> (`docs/planning/directreferencegaps.md`, **COMPLETE 2026-07-18**) shipped all of
+> them — each subsection carries its own implementation note — with one exception:
+> §15.11 (settler/worker discovery-site rewards) ships as data but stays
+> deliberately disabled (goody weights 0). Values are taken directly from the
+> reference XML (layered original reference, highest layer wins) and are recorded
+> here so no access to the reference install is needed — the XML-sourcing
+> authorization was session-scoped and has ended; these tables are now the source.
+> The raw comparison lives in `docs/planning/reference-parity-audit.md`; companion
+> data tables: `game-data.md` §29. Small parked follow-ups are recorded in the
+> plan's item notes.
 
 ### 15.1 Inflation
 
