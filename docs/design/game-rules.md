@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Reference-adopted mechanics, all implemented — inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12)"
+  "§15 Reference-parity mechanics": "Reference-adopted mechanics — implemented: inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12); sourced 2026-07-18, awaiting wiring (directreferencegapswiring.md): culture-rate happiness (15.13), air interception (15.14), settler food-box (15.15), spaceship arrival delay (15.16), structure obsolescence (15.17), per-player GP threshold (15.18), citizen default specialist (15.19), military instructor (15.20), unit capture (15.21)"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -1550,14 +1550,18 @@ supplies the values they read. A faithful implementation must reproduce both.
 
 ## 15. Reference-parity mechanics (implemented — reference values)
 
-> **Implemented.** Every subsection below specifies a mechanic (or a rule-level
-> correction) adopted from the reference game. The parity plan
-> (`docs/planning/directreferencegaps.md`, **COMPLETE 2026-07-18**) shipped all of
-> them — each subsection carries its own implementation note (§15.11 via the
-> per-difficulty `goody_weights` overrides). Values are taken directly from the
-> reference XML (layered original reference, highest layer wins) and are recorded
-> here so no access to the reference install is needed — the XML-sourcing
-> authorization was session-scoped and has ended; these tables are now the source.
+> **Implemented through §15.12; §15.13–§15.21 are sourced specs awaiting wiring.**
+> Every subsection below specifies a mechanic (or a rule-level correction) adopted
+> from the reference game. The parity plan (`docs/planning/directreferencegaps.md`,
+> **COMPLETE 2026-07-18**) shipped §15.1–§15.12 — each subsection carries its own
+> implementation note (§15.11 via the per-difficulty `goody_weights` overrides).
+> §15.13–§15.21 were captured in the successor plan's Phase 0 sourcing sitting
+> (`docs/planning/directreferencegapswiring.md`, sourced 2026-07-18) and are
+> **specified but not yet implemented** — each names the wiring-plan item that
+> will build it. Values are taken directly from the reference XML/SDK (layered
+> original reference, highest layer wins) and are recorded here so no access to
+> the reference install is needed — both XML-sourcing authorizations were
+> session-scoped and have ended; these tables are now the source.
 > The raw comparison lives in `docs/planning/reference-parity-audit.md`; companion
 > data tables: `game-data.md` §29. Small parked follow-ups are recorded in the
 > plan's item notes.
@@ -1654,7 +1658,8 @@ culture-level threshold** (`culture_level_thresholds` top entry: 25000/50000/
 75000/150000 on quick/normal/epic/marathon) — the reference per-speed culture
 table carries its own scaling, so no `victory_delay_scale` stretch applies. The
 `victory_delay_scale` column stays shipped per-pace reference data but is
-currently unread (its reference use — spaceship-arrival delay — is unmodelled).
+currently unread (its reference use — the spaceship-arrival delay — is now
+spec'd in §15.16, sourced 2026-07-18, and ships with wiring item M4).
 The **Time** victory turn limit is *not* additionally scaled: `max_turns` in
 `paces.json` (330/500/750/1500) already carries the reference per-pace game lengths.
 **Wild timing** — `WildForces._scaled_turns` reads `wild_scale` (a 40-turn gate →
@@ -1769,10 +1774,10 @@ re-confirmed against the reference XML:
 |---|---|---|
 | your unit killed while attacking | 3 | `war_weariness_unit_killed_attacking` |
 | your unit killed while defending | 2 | `war_weariness_unit_killed_defending` |
-| your unit captured | 2 | *(unit capture is not a Humanish mechanic — no key)* |
+| your unit captured | 2 | *(unit capture spec'd §15.21, sourced 2026-07-18 — key ships with wiring item M6)* |
 | you kill a unit while attacking | 2 | `war_weariness_killed_unit_attacking` |
 | you kill a unit while defending | 1 | `war_weariness_killed_unit_defending` |
-| you capture a unit | 1 | *(unit capture is not a Humanish mechanic — no key)* |
+| you capture a unit | 1 | *(unit capture spec'd §15.21, sourced 2026-07-18 — key ships with wiring item M6)* |
 | your city captured | 6 | `war_weariness_city_captured` |
 | hit by nuke | 3 | `war_weariness_hit_by_nuke` |
 | attacked with a nuke (aggressor penalty) | 12 | `war_weariness_attacked_with_nuke` |
@@ -1814,7 +1819,8 @@ percentage modifiers, and Emancipation exerts diplomatic pressure:
   mechanism with no shipped carrier above 100. The reference has **no golden-age
   worker effect**. The reference Steam Power tech (+50, which obsoletes Hagia
   Sophia) is *not* wired: structure obsolescence is unmodelled, and adding the tech
-  source without it would double up — an open gap tied to obsolescence.
+  source without it would double up — an open gap tied to obsolescence (now
+  spec'd in §15.17; ships with wiring item M1).
 - **Emancipation** (tech Democracy): `improvement_upgrade_rate_modifier: 100` —
   the cottage-line `upgrade_turns` threshold becomes `turns × 100 / (100 + mod)`,
   truncating, min 1 (twice as fast at 100; replaces the old `faster_cottage_growth`
@@ -1880,3 +1886,175 @@ this also introduced the game's first *resource* gates (build/draft/upgrade/AI) 
 `resource_required` was previously display-only, and upgrades had no prereq gate.
 The remaining per-unit stat corrections are Phase-A retunes in
 `directreferencegaps.md`.
+
+### 15.13 Culture-rate building happiness *(sourced 2026-07-18 — pending wiring item M2)*
+
+Reference buildings may carry a per-commerce-type **commerce happiness** value:
+the city sums the values of its standing carriers per commerce type, multiplies
+each sum by the owner's allocation percentage for that commerce type, and divides
+by 100 (one integer truncation per commerce type over the *summed* per-city
+value, not per building). The result adds to city happiness (a negative total
+would count as unhappiness); there is no cap. In practice only the **culture**
+slot is used — a value of 10 reads "+1 happy per 10% culture rate", 5 reads
+"+1 per 20%". **The reference carriers are the entertainment tier** (theatre /
+colosseum / broadcast tower and their unique variants), *not* the cathedral tier
+the wiring plan's M2 line assumed — cathedrals carry no commerce happiness in
+the reference. Carrier values: `game-data.md` §29.12. Obsolete carriers stop
+counting (§15.17).
+
+### 15.14 Air interception *(sourced 2026-07-18 — pending wiring item M3)*
+
+The reference model, confirmed in the SDK (`interceptTest`/`bestInterceptor`/
+`resolveAirCombat`); every roll is a 0–99 uniform draw:
+
+1. **Interceptable acts**: air strike, air bombardment, and a paradrop landing
+   (the test runs at the *target* tile). Air rebase/recon are not intercepted;
+   nukes use the separate §15.7 interception channel.
+2. **Evasion first**: roll vs the acting unit's evasion chance (unit
+   `evasion_chance` + promotion bonuses, cap 90) — success skips interception
+   entirely.
+3. **Best interceptor**: among enemy units that can air-defend, have not yet
+   intercepted this turn (one interception per interceptor per turn), are within
+   their `air_range` of the target tile, and — for air-domain interceptors —
+   have not moved and are on an intercept stance; the candidate with the highest
+   *current* interception chance wins. An air interceptor's current chance is
+   its max chance scaled by current HP / max HP; ground/naval interceptors
+   always use their full chance (unit value + promotion `intercept_bonus`es,
+   cap 100).
+4. **Intercept roll**: roll vs the chosen interceptor's current chance; failure
+   lets the mission proceed unharmed.
+5. **Engagement**: up to 5 rounds (`INTERCEPTION_MAX_ROUNDS`). Per round the
+   attacker wins with odds `airStr_att / (airStr_att + airStr_int)` (air combat
+   strengths; a ground interceptor uses its ground strength). A lost round deals
+   the *opponent's* interception chance × 50 (`MAX_INTERCEPTION_DAMAGE`) / 100
+   damage: the attacker takes the interceptor's chance × 50/100 per lost round;
+   an **air** interceptor takes the attacker's own interception chance × 50/100
+   (floored at 10, `MIN_INTERCEPTION_DAMAGE`, when the attacker is air-domain —
+   so bombers with 0 interception still scratch back); a ground/naval
+   interceptor takes no damage. Stop early on a death.
+6. **Aftermath**: an intercepted air strike / air bomb is aborted (no ground
+   damage); an intercepted paradrop still lands, damaged. The interceptor is
+   marked as having intercepted this turn. Standard combat XP flows to the
+   winner scaled by the strength ratio (clamped by the per-combat XP bounds);
+   both-survive engagements pay the withdrawal XP.
+
+Unit/promotion values (the shipped `intercept_bonus` 10/20 and ace
+`evasion_chance` 25 are confirmed): `game-data.md` §29.13.
+
+### 15.15 Settler & worker food-box production *(sourced 2026-07-18 — pending wiring item R1)*
+
+Units flagged **food-production** (settler, worker, and the fast-worker variant)
+are built with hammers *plus food*: while one heads the queue, the city's
+per-turn progress is
+
+```
+progress = (base hammers + overflow) × (100 + production modifiers) / 100
+         + max(0, food yield − food consumption)
+```
+
+— the food surplus joins **after** the percentage modifiers (it is never
+multiplied), and consumption is the standard 2 per population. While training
+such an item the food box is **frozen**: the growth delta becomes
+`min(0, surplus)` — the city never grows but can still starve. Completion
+overflow follows the normal production-overflow rules (the food contribution
+counts toward the overflow cap base). Reference costs: worker 60; the settler's
+cost is computed dynamically in the reference (advanced-start city cost 67 ×
+pace growth % / 100, plus the size-1 growth threshold (22 food) × 150 / 100)
+— exactly **100 at normal pace** from an ancient start, matching the base
+game's flat 100. Humanish adopts the flat value: settler 100, worker 60, with
+the food contribution above.
+
+### 15.16 Spaceship arrival delay *(sourced 2026-07-18 — pending wiring item M4)*
+
+The space-race victory has a post-launch **travel countdown**:
+
+- **Launch** requires every part type at its *minimum* threshold (1 casing,
+  1 thruster, 1 engine, and each single-instance part; the enabler wonder
+  already built). Full thresholds: casing ×5, thrusters ×5, engines ×2
+  (`game-data.md` §29.14).
+- On launch the countdown is set to **10 turns** (the space victory's
+  `iVictoryDelayTurns`) × the pace victory-delay % (67/100/150/300 — the
+  shipped-but-unread `victory_delay_scale` column finally gets its reader) /
+  100, then stretched by missing optional parts: each part type short of its
+  full threshold adds `delay% × missing / threshold` percent — engines
+  (delay 50, threshold 2) +25% per missing engine; thrusters (delay 100,
+  threshold 5) +20% per missing thruster; casings add no delay. Integer
+  truncation throughout.
+- The countdown ticks −1 per game turn while the launch conditions still hold;
+  at **0** an **arrival roll** fires: success chance = 100 − 20 × missing
+  casings (`iSuccessRate` 20 on the casing part). Success wins the game;
+  failure resets the victory progress (the launch is lost; built parts remain
+  and a re-launch is possible).
+- **Losing the capital cancels the countdown** — the spaceship is lost and must
+  be re-launched.
+
+### 15.17 Structure obsolescence *(sourced 2026-07-18 — pending wiring item M1)*
+
+A structure may carry an **obsoleting tech**. Once the owner researches it the
+structure counts as *zero active copies*: **every effect stops** — yields,
+commerce (including culture accrual), happiness/health, free specialists,
+worker-speed and other `effects` reads. The building remains built (it is never
+sold — also the standing Humanish invariant) and keeps only its identity. The
+full reference roster (walls → Rifling, Hagia Sophia → Steam Power, all
+monasteries → Scientific Method, …) is `game-data.md` §29.15. Wiring M1 filters
+obsolete structures at the standing-structure aggregation choke points and then
+adds the parked Steam Power +50 worker speed (§15.9) without double-stacking
+Hagia Sophia across the same tech.
+
+### 15.18 Per-player Great Person threshold *(sourced 2026-07-18 — pending wiring item R2)*
+
+Confirmed against the reference: threshold base **100** GP points (= shipped
+`gp_threshold_base`), scaled by the pace Great-People % (67/100/150/300 —
+quick/normal/epic/marathon). The escalation is **per-player**, applied when a
+GP is born anywhere in that player's civilization: the birth adds
+`GREAT_PEOPLE_THRESHOLD_INCREASE` 50 **plus** the same-team increase 50 (a
+player always sits on its own team) to the player's threshold modifier —
+effectively **+100% of base per GP born** in a team-less game, giving the
+100 / 200 / 300 / … progression at normal pace (the shipped
+`gp_threshold_increase_percent` 50 matches the XML define, but the effective
+per-birth step is twice that). From the 11th GP on, each birth's increment is
+multiplied by `(GPs born ÷ 10) + 1`. **The accumulation pool stays per-city in
+the reference** — a city pops a GP when *its own* pool reaches the player-wide
+threshold, the type is drawn weighted by the city's per-type point sources, the
+pool keeps the remainder (`pool −= threshold`), and the per-type progress
+resets. Note for R2: the wiring plan's "move the pool to per-player" goes
+further than the reference model (which only escalates the *threshold*
+per-player); decide at implementation which to adopt. The Great General counter
+is a separate system (base 30, own escalation) already modelled by Humanish
+combat-XP accrual.
+
+### 15.19 Citizen default specialist *(sourced 2026-07-18 — pending wiring item R3)*
+
+The reference's **default specialist** is the citizen: +1 production, no
+Great-Person points, and *always assignable* (unlimited slots — the specialist
+validity check passes unconditionally for the default type). Any displaced or
+excess citizen lands there automatically: population beyond the worked tiles
+plus assigned specialists, a worked plot that is unassigned, or a specialist
+slot that is removed each convert to one citizen specialist. Separately,
+specialists granted by settling Great People or buildings are **free
+specialists** — they do not consume a population slot (R3's other half; the
+reference join-city action adds a free-specialist count, §15.20). The reference
+specialist yield vectors for cross-checking Humanish rows: `game-data.md`
+§29.16.
+
+### 15.20 Military instructor *(sourced 2026-07-18 — pending wiring item R4)*
+
+A settled Great General joins the city as a **free** `great_general` specialist
+with zero yields and zero GP points, carrying the specialist experience value
+**2**: every combat-capable unit completed in the city gains **+2 XP per
+settled Great General** (stacking additively with barracks-style sources at
+unit completion; a conscripted unit receives half the city's total production
+XP, integer-truncated). This replaces the Humanish settled +2-production
+stand-in.
+
+### 15.21 Non-combat unit capture *(sourced 2026-07-18 — pending wiring item M6)*
+
+Reference units may carry a **capture class**: when such a unit would die to an
+enemy (it cannot defend and its tile is overrun), the killing player instead
+receives a **fresh unit of the capture class** on the tile — full health, no
+XP/promotions carried, original unit removed. Carriers: worker → worker,
+**settler → worker** (a captured settler demotes), fast-worker variant →
+worker. Wild forces (the reference barbarians) never capture — the unit simply
+dies. War-weariness weights on a capture event: the losing side accrues **2**
+(your unit captured), the capturing side **1** — the parked C8 rows of the
+§15.8 table, scaled by the same ×2 base multiplier.

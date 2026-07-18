@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15), shipped into data/*.json: units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters (data only, deliberately disabled), hurry types, labor civic effects, retune globals"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json: units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters (data only, deliberately disabled), hurry types, labor civic effects, retune globals; sourced 2026-07-18, awaiting wiring: culture-rate happiness carriers (29.12), air-combat values (29.13), spaceship parts & arrival delay (29.14), obsolescence roster (29.15), Phase 0 point values & cross-checks (29.16)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -2592,11 +2592,15 @@ from the shared map RNG in fixed start order, keeping generation deterministic.
 
 ## 29. Reference-parity data (shipped)
 
-> **Shipped.** Companion data for `game-rules.md` §15: every table in this section
+> **Shipped through §29.11; §29.12–§29.16 are sourced values awaiting wiring.**
+> Companion data for `game-rules.md` §15: every table in this section
 > carries values read directly from the reference data (layered original reference,
 > highest layer wins). The parity plan (`docs/planning/directreferencegaps.md`,
-> **COMPLETE 2026-07-18**) shipped them into `data/*.json` — each table carries its
-> own status note. Still not live: the non-inflation columns of 29.10 (candidates —
+> **COMPLETE 2026-07-18**) shipped §29.1–§29.11 into `data/*.json` — each table
+> carries its own status note. §29.12–§29.16 were captured in the successor plan's
+> Phase 0 sourcing sitting (`docs/planning/directreferencegapswiring.md`, sourced
+> 2026-07-18) and ship with the wiring items named per table. Still not live
+> earlier: the non-inflation columns of 29.10 (candidates —
 > Humanish folds them into the single `ai_bonus` yield scaler) and the small inline
 > leftovers noted per table (the gold-hurry retune in 29.8, the unread
 > `victory_delay_scale` in 29.5). The discrepancy audit for pre-existing tables is
@@ -2706,9 +2710,9 @@ civic/religion switches, bounds `anarchy_min_turns` 1 / `anarchy_max_turns` 100 
 and `wild_scale` (`WildForces._scaled_turns`) — see game-rules §15.3. The
 `victory_delay_scale` column ships as reference data but is unread since D2
 (2026-07-17): `WinConditions._cultural` now reads the pace's own legendary
-`culture_level_thresholds` entry (§29.4), and the column's reference use
-(spaceship-arrival delay) is unmodelled. Only the `feature-production %` column
-remains a candidate.
+`culture_level_thresholds` entry (§29.4), and the column's reference use — the
+spaceship-arrival delay — is now spec'd (§29.14, sourced 2026-07-18) and ships
+with wiring item M4. Only the `feature-production %` column remains a candidate.
 
 ### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
 
@@ -2833,3 +2837,122 @@ engine's `experience_vs_wild_cap` 10 is per-fight; no lifetime tracker); animal 
 XP cap **5** (adopted 2026-07-08); max withdrawal probability **90** (adopted,
 `withdrawal_chance_max`); occupation turns = **50%** of population (base 3);
 conscription minimum city size **5**; nuke magnitudes in `game-rules.md` §15.7.
+
+### 29.12 Culture-rate happiness carriers (sourced 2026-07-18 — ships with wiring item M2)
+
+Mechanic: `game-rules.md` §15.13 — city happiness = Σ(carrier values) × culture
+allocation % / 100, truncated once over the per-city sum; no cap. The carriers
+are the **entertainment tier** (cathedrals carry none):
+
+| Humanish structure | Value | Reads as |
+|---|---|---|
+| theatre | 10 | +1 happy per 10% culture rate |
+| pavilion *(Chinese theatre)* | 10 | +1 per 10% |
+| hippodrome *(Byzantine theatre)* | 20 | +1 per 5% |
+| colosseum | 5 | +1 per 20% |
+| odeon *(Greek colosseum)* | 5 | +1 per 20% |
+| ball_court *(Maya colosseum)* | 5 | +1 per 20% |
+| garden *(Babylonian colosseum)* | 5 | +1 per 20% |
+| broadcast_tower | 10 | +1 per 10% |
+
+### 29.13 Air-combat values (sourced 2026-07-18 — ships with wiring item M3)
+
+Mechanic: `game-rules.md` §15.14. Globals (`GlobalDefines.xml`): engagement
+rounds **5**, max round damage **50**, min round damage vs an air attacker
+**10**, interception-chance cap **100**, evasion cap **90**. Promotions
+(confirming shipped data): interception I **+10** / II **+20**
+(`intercept_bonus`), ace **+25 evasion** (`evasion_chance`). Units (reference
+values mapped to Humanish ids; blank = 0):
+
+| Unit | Intercept % | Evade % | Air str | Air range | Strike cap % |
+|---|---|---|---|---|---|
+| sam_infantry | 40 | | | 1 | |
+| mobile_sam | 50 | | | 1 | |
+| machine_gun | 20 | | | | |
+| mechanized_infantry | 20 | | | | |
+| destroyer | 30 | | | | |
+| paratrooper | | 25 | | | |
+| airship | | | 4 | 8 | 20 |
+| fighter | 100 | | 12 | 6 | 50 |
+| jet_fighter | 100 | | 24 | 10 | 50 |
+| bomber | | | 16 | 8 | 50 |
+| stealth_bomber | | 50 | 20 | 12 | 50 |
+| guided_missile | | 100 | 40 | 4 | 100 |
+| tactical_nuke | | 50 | | 4 | |
+
+("Strike cap" is the reference `iAirCombatLimit` — the max damage % an air
+strike can leave on its ground target. The reference anti-tank infantry also
+carries intercept 20 but has no Humanish counterpart. SAM ranges are the
+reference `iAirRange` 1 — interception reach from the unit's tile.)
+
+### 29.14 Spaceship parts & arrival delay (sourced 2026-07-18 — ships with wiring item M4)
+
+Mechanic: `game-rules.md` §15.16. Base travel delay **10 turns** × the §29.5
+victory-delay % column (67/100/150/300 — its long-promised reader). Parts
+(Apollo-analogue enabler wonder prerequisite for all):
+
+| Part | Cost | Tech | Full count | Min to launch | Delay % (per missing / threshold) | Arrival risk |
+|---|---|---|---|---|---|---|
+| cockpit | 1000 | fiber_optics | 1 | 1 | — | — |
+| life support | 1000 | ecology | 1 | 1 | — | — |
+| stasis chamber | 1200 | genetics | 1 | 1 | — | — |
+| docking bay | 2000 | satellites | 1 | 1 | — | — |
+| engine | 1600 | fusion | 2 | 1 | 50 (+25% per missing) | — |
+| casing | 1200 | composites | 5 | 1 | — | −20% success per missing |
+| thrusters | 1200 | superconductors | 5 | 1 | 100 (+20% per missing) | — |
+
+(16 parts at full build. The shipped-but-dead `count_needed` values in
+`win_conditions.json` match the Full-count column.)
+
+### 29.15 Structure obsolescence roster (sourced 2026-07-18 — ships with wiring item M1)
+
+Mechanic: `game-rules.md` §15.17 (all effects stop; building remains; never
+sold). The full reference roster mapped to Humanish ids:
+
+| Structure | Obsoleted by |
+|---|---|
+| walls, dun *(Celtic walls)*, chichen_itza | rifling |
+| castle, citadel *(Spanish castle)* | economics |
+| stable, ger *(Mongol stable)* | advanced_flight |
+| obelisk, stele *(Ethiopian)*, totem_pole *(Native-American)*, stonehenge, colossus | astronomy |
+| monastery *(every religion's)*, great_library, parthenon, temple_of_artemis | scientific_method |
+| hagia_sophia | steam_power |
+| great_lighthouse | corporation |
+| angkor_wat, spiral_minaret, university_of_sankore | computers |
+| kremlin | fiber_optics |
+| apostolic_palace | mass_media |
+
+### 29.16 Phase 0 point values & cross-checks (sourced 2026-07-18)
+
+- **Great People (R2, §15.18)**: threshold base **100**; pace GP %
+  67/100/150/300; per-birth increase **50 own + 50 same-team** (= +100% of base
+  effective) × `(born ÷ 10) + 1`; pool per-city, threshold per-player;
+  remainder carries after a birth.
+- **Food-box (R1, §15.15)**: food-production units settler/worker; consumption
+  2 per pop; worker cost **60**, settler effectively **100** at normal pace
+  (dynamic in the reference: 67 × growth % + 22-food size-1 threshold × 150/100);
+  growth delta `min(0, surplus)` while training; food joins after % modifiers.
+- **Citizen specialist (R3, §15.19)**: +1 production, no GP points, unlimited
+  (the reference default-specialist). Reference specialist vectors for
+  cross-checks (F food / P production / G gold / R research / C culture /
+  E espionage; GP-point rate in parentheses): priest 1P+1G (3), artist 1R+4C
+  (3), scientist 3R (3), merchant 3G (3), engineer 2P (3), spy 1R+4E (3);
+  settled greats — great priest 2P+5G, great artist 3G+12C, great scientist
+  1P+6R, great merchant 1F+6G, great engineer 3P+3R, great spy 3R+12E, great
+  general nothing but §15.20's +2 XP.
+- **Military instructor (R4, §15.20)**: specialist experience **2** per settled
+  Great General; conscripts get half the city's total production XP.
+- **Unit capture (M6, §15.21)**: settler → worker, worker → worker; wild forces
+  never capture; captured unit is fresh (no XP/promotions); war-weariness
+  **2** captured / **1** captor.
+- **Cross-checks (0j)**: `collateral_damage_protection` = percentage cut of
+  collateral/spillover damage **taken** — `damage × (100 − protection) / 100`,
+  truncating; the drill II/III/IV values (20 each, §29.3) **sum on the unit**
+  (a Drill IV unit carries 60; ≥100 would be immunity). Panzer confirmed at
+  unit-level **+50 vs armor** (reference unit-combat modifier) on top of the
+  already-live promotion-side channel (W7). Medic/woodsman stack healing
+  (W6): the heal phase adds a **single best** bonus — the maximum across
+  same-tile friendly units' `same_tile_heal` (the healing unit's own value
+  competes) and same-landmass-adjacent-tile friendly units' `adjacent_tile_heal`
+  — never summed, and not best-of-each-category either; promotion values do sum
+  on one carrier unit.
