@@ -95,7 +95,12 @@ editorial_rule: >
 
 ## 2. Technologies
 
-Costs are in research points (beakers).
+Costs are in research points (beakers). In the Prerequisites columns, `+` joins
+techs that are **all** required (AND), and `/` separates alternatives of which
+**any one** suffices (OR); a parenthesised group is one OR-alternative set
+inside an AND requirement. The engine stores these as `prereqs_all` /
+`prereqs_any` in `data/technologies.json`. Note: the Communism tech's internal
+id is `utopia` (its reference id); only its display name is "Communism".
 
 ### 2.1 Ancient Era — no-prerequisite pool
 
@@ -114,122 +119,122 @@ These six techs have **no prerequisites** and form the starting tech pool — ea
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Animal Husbandry | 100 | The Wheel | Pasture; reveals Horse resource |
+| Animal Husbandry | 100 | Hunting / Agriculture | Pasture; reveals Horse resource |
 | Archery | 60 | Hunting | Archer; upgrades to Crossbowman/Longbowman path |
 | Bronze Working | 120 | Mining | Axeman; Slavery civic; forest chopping |
-| Masonry | 80 | Mining | Walls, Quarry; enables Pyramids, Great Wall, Stonehenge |
+| Masonry | 80 | Mining / Mysticism | Walls, Quarry; enables Pyramids, Great Wall, Stonehenge |
 | Meditation | 80 | Mysticism | Monastery; founds Buddhism |
-| Monotheism | 120 | Polytheism + Meditation | Organized Religion civic; founds Judaism |
-| Polytheism | 100 | Mysticism + Hunting | Parthenon; founds Hinduism |
-| Pottery | 80 | Agriculture | Granary, Cottage improvement |
-| Priesthood | 60 | Mysticism | Temple, Oracle wonder |
+| Monotheism | 120 | Masonry + Polytheism | Organized Religion civic; founds Judaism |
+| Polytheism | 100 | Mysticism | Parthenon; founds Hinduism |
+| Pottery | 80 | The Wheel + (Agriculture / Fishing) | Granary, Cottage improvement |
+| Priesthood | 60 | Meditation / Polytheism | Temple, Oracle wonder |
 | Sailing | 100 | Fishing | Galley, Lighthouse; coastal trade |
-| Writing | 120 | Pottery | Library; enables Open Borders |
+| Writing | 120 | Priesthood / Animal Husbandry / Pottery | Library; enables Open Borders |
 
 ### 2.3 Classical Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Aesthetics | 300 | Literature + Polytheism | Parthenon, Statue of Zeus, Shwedagon Paya |
+| Aesthetics | 300 | Writing | Parthenon, Statue of Zeus, Shwedagon Paya |
 | Alphabet | 300 | Writing | Technology trading between factions |
-| Calendar | 350 | Mysticism + Sailing | Plantation improvement; centers world map; obsoletes Stonehenge/Obelisk |
-| Code of Laws | 350 | Alphabet | Courthouse, Chichen Itza; Caste System civic; founds Confucianism |
-| Compass | 400 | Masonry + Sailing | Explorer unit, Harbor |
+| Calendar | 350 | Sailing + Mathematics | Plantation improvement; centers world map; obsoletes Stonehenge/Obelisk |
+| Code of Laws | 350 | Writing + (Priesthood / Currency) | Courthouse, Chichen Itza; Caste System civic; founds Confucianism |
+| Compass | 400 | Sailing + Iron Working | Explorer unit, Harbor |
 | Construction | 350 | Masonry + Mathematics | War Elephant, Catapult, Colosseum; bridge crossing |
-| Currency | 400 | Metal Casting + Mathematics | Market, Grocer; +1 trade route; gold trading |
+| Currency | 400 | Mathematics / Alphabet | Market, Grocer; +1 trade route; gold trading |
 | Drama | 300 | Aesthetics | Theatre, Globe Theatre national wonder; culture slider |
-| Horseback Riding | 250 | Animal Husbandry + The Wheel | Horse Archer, enables Knight/Cavalry line |
+| Horseback Riding | 250 | Animal Husbandry | Horse Archer, enables Knight/Cavalry line |
 | Iron Working | 200 | Bronze Working | Swordsman; reveals Iron; jungle clearing |
-| Literature | 200 | Alphabet | Heroic Epic, National Epic, Great Library |
-| Mathematics | 250 | Alphabet | Aqueduct, Hanging Gardens, Fort; +50% forest chopping |
-| Metal Casting | 450 | Bronze Working | Trireme, Forge, Colossus, Workshop improvement |
-| Monarchy | 300 | Code of Laws + Metal Casting | Winery improvement; Hereditary Rule civic |
+| Literature | 200 | Polytheism + Aesthetics | Heroic Epic, National Epic, Great Library |
+| Mathematics | 250 | Writing | Aqueduct, Hanging Gardens, Fort; +50% forest chopping |
+| Metal Casting | 450 | Pottery + Bronze Working | Trireme, Forge, Colossus, Workshop improvement |
+| Monarchy | 300 | Priesthood / Monotheism | Winery improvement; Hereditary Rule civic |
 
 ### 2.4 Medieval Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
 | Banking | 700 | Currency + Guilds | Bank; Mercantilism civic |
-| Civil Service | 800 | Alphabet + Code of Laws | Maceman; Bureaucracy civic; farms spread irrigation without rivers |
-| Divine Right | 1200 | Theology + Monotheism | Versailles, Spiral Minaret; founds Islam |
-| Engineering | 1000 | Construction + Iron Working | Pikeman, Trebuchet, Castle, Hagia Sophia; +1 road movement |
-| Feudalism | 700 | Monarchy | Longbowman; Vassalage, Serfdom civics |
-| Guilds | 1000 | Feudalism + Currency | Knight (with Horseback Riding) |
-| Machinery | 700 | Engineering + Metal Casting | Crossbowman, Maceman, Windmill, Watermill improvements |
-| Music | 600 | Drama + Calendar | Cathedral, Sistine Chapel; building culture; grants Great Artist |
-| Optics | 600 | Compass + Mathematics | Caravel; +1 water visibility |
-| Paper | 600 | Alphabet | Map trading |
-| Philosophy | 800 | Literature + Meditation | Angkor Wat, Pacifism civic; founds Taoism |
-| Theology | 500 | Priesthood + Monotheism | Hagia Sophia, Apostolic Palace; Theocracy civic; founds Christianity |
+| Civil Service | 800 | Mathematics + (Code of Laws / Feudalism) | Maceman; Bureaucracy civic; farms spread irrigation without rivers |
+| Divine Right | 1200 | Theology + Monarchy | Versailles, Spiral Minaret; founds Islam |
+| Engineering | 1000 | Machinery + Construction | Pikeman, Trebuchet, Castle, Hagia Sophia; +1 road movement |
+| Feudalism | 700 | Writing + Monarchy | Longbowman; Vassalage, Serfdom civics |
+| Guilds | 1000 | Feudalism + Machinery | Knight (with Horseback Riding) |
+| Machinery | 700 | Metal Casting | Crossbowman, Maceman, Windmill, Watermill improvements |
+| Music | 600 | Mathematics + (Literature / Drama) | Cathedral, Sistine Chapel; building culture; grants Great Artist |
+| Optics | 600 | Machinery + Compass | Caravel; +1 water visibility |
+| Paper | 600 | Theology / Civil Service | Map trading |
+| Philosophy | 800 | Meditation + (Code of Laws / Drama) | Angkor Wat, Pacifism civic; founds Taoism |
+| Theology | 500 | Writing + Monotheism | Hagia Sophia, Apostolic Palace; Theocracy civic; founds Christianity |
 
 ### 2.5 Renaissance Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Astronomy | 2000 | Optics + Mathematics | Galleon, Frigate, Observatory; ocean trade; obsoletes Colossus |
-| Chemistry | 1800 | Gunpowder + Metal Casting | Privateer, Frigate; +1 Workshop yield |
-| Constitution | 2000 | Printing Press + Liberalism | Jail; Representation civic |
-| Corporation | 1600 | Economics + Metal Casting | Wall Street national wonder; +1 trade route; enables Corporations; obsoletes Great Lighthouse |
-| Democracy | 2800 | Printing Press + Nationalism | Security Bureau; Statue of Liberty; Universal Suffrage, Emancipation civics |
-| Economics | 1400 | Guilds + Banking | Customs House; Free Market civic; grants Great Merchant; obsoletes Castle |
-| Education | 1800 | Philosophy + Paper | University, Oxford University national wonder |
-| Gunpowder | 1200 | Iron Working + Metal Casting | Musketman |
-| Liberalism | 1400 | Education + Philosophy | Free Speech, Free Religion civics; grants 1 free technology |
-| Military Science | 2000 | Engineering + Gunpowder | Grenadier, Ship of the Line, Military Academy national wonder |
-| Military Tradition | 2000 | Horseback Riding + Feudalism | Cuirassier, Cavalry; West Point national wonder; defensive pacts |
-| Nationalism | 1800 | Gunpowder + Education | Hermitage national wonder, Taj Mahal; Nationhood civic |
-| Printing Press | 1600 | Machinery + Paper | +1 Commerce from Villages/Towns |
-| Replaceable Parts | 1800 | Engineering + Machinery | Lumbermill improvement; +1 yield from mills |
-| Rifling | 2400 | Gunpowder + Chemistry | Rifleman; obsoletes Chichen Itza, Walls |
+| Astronomy | 2000 | Calendar + Optics | Galleon, Frigate, Observatory; ocean trade; obsoletes Colossus |
+| Chemistry | 1800 | Engineering + Gunpowder | Privateer, Frigate; +1 Workshop yield |
+| Constitution | 2000 | Code of Laws + Nationalism | Jail; Representation civic |
+| Corporation | 1600 | Constitution + Economics | Wall Street national wonder; +1 trade route; enables Corporations; obsoletes Great Lighthouse |
+| Democracy | 2800 | Printing Press + Constitution | Security Bureau; Statue of Liberty; Universal Suffrage, Emancipation civics |
+| Economics | 1400 | Banking + Education | Customs House; Free Market civic; grants Great Merchant; obsoletes Castle |
+| Education | 1800 | Paper | University, Oxford University national wonder |
+| Gunpowder | 1200 | Guilds / Education | Musketman |
+| Liberalism | 1400 | Philosophy + Education | Free Speech, Free Religion civics; grants 1 free technology |
+| Military Science | 2000 | Chemistry | Grenadier, Ship of the Line, Military Academy national wonder |
+| Military Tradition | 2000 | Music + Nationalism | Cuirassier, Cavalry; West Point national wonder; defensive pacts |
+| Nationalism | 1800 | Civil Service + (Divine Right / Philosophy) | Hermitage national wonder, Taj Mahal; Nationhood civic |
+| Printing Press | 1600 | Machinery + Alphabet + Paper | +1 Commerce from Villages/Towns |
+| Replaceable Parts | 1800 | Banking + Printing Press | Lumbermill improvement; +1 yield from mills |
+| Rifling | 2400 | Gunpowder + Replaceable Parts | Rifleman; obsoletes Chichen Itza, Walls |
 
 ### 2.6 Industrial Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Artillery | 4000 | Rifling + Engineering | Artillery, Mobile Artillery units |
-| Assembly Line | 5000 | Industrialism + Electricity | Infantry, Factory, Coal Plant, Pentagon wonder |
-| Biology | 3600 | Scientific Method | Farm without irrigation; +1 Food from farms |
-| Combustion | 3600 | Steam Power + Physics | Transport, Destroyer, Submarine, Well improvement; obsoletes Whale |
-| Communism | 2800 | Philosophy + Scientific Method | Scotland Yard national wonder, Kremlin; State Property civic; permanent alliances |
-| Electricity | 4500 | Steam Power + Scientific Method | Bunker, Bomb Shelter, Broadway wonder; +1 Commerce from windmills, +2 from watermills |
-| Fascism | 2400 | Nationalism + Military Science | Paratrooper, Mt. Rushmore national wonder; Police State civic; grants Great General |
-| Fission | 5500 | Electricity + Physics | ICBM, Tactical Nuke, Nuclear Plant, Manhattan Project national wonder |
+| Artillery | 4000 | Physics + Steel + Rifling | Artillery, Mobile Artillery units |
+| Assembly Line | 5000 | Corporation + Steam Power | Infantry, Factory, Coal Plant, Pentagon wonder |
+| Biology | 3600 | Chemistry + Scientific Method | Farm without irrigation; +1 Food from farms |
+| Combustion | 3600 | Railroad | Transport, Destroyer, Submarine, Well improvement; obsoletes Whale |
+| Communism | 2800 | Liberalism + Scientific Method | Scotland Yard national wonder, Kremlin; State Property civic; permanent alliances |
+| Electricity | 4500 | Physics | Bunker, Bomb Shelter, Broadway wonder; +1 Commerce from windmills, +2 from watermills |
+| Fascism | 2400 | Nationalism + Assembly Line | Paratrooper, Mt. Rushmore national wonder; Police State civic; grants Great General |
+| Fission | 5500 | Electricity | ICBM, Tactical Nuke, Nuclear Plant, Manhattan Project national wonder |
 | Industrialism | 6500 | Electricity + Assembly Line | Marine, Tank, Battleship, Carrier, Industrial Park; reveals Aluminum; obsoletes Ivory |
-| Medicine | 4500 | Biology + Scientific Method | Hospital, Red Cross national wonder; Environmentalism civic |
-| Physics | 4000 | Astronomy + Education | Airship; reveals Uranium; grants Great Scientist |
-| Railroad | 4500 | Steam Power + Industrialism | Railroad improvement (3× movement); Machine Gun unit |
-| Scientific Method | 2400 | Paper + Astronomy | Forest Preserve improvement; reveals Oil; obsoletes Great Library, Monastery |
-| Steam Power | 3200 | Engineering + Physics | Ironclad, Levee improvement; reveals Coal; +50% faster improvement building; obsoletes Hagia Sophia |
-| Steel | 2800 | Iron Working + Industrialism | Cannon, Ironclad, Drydock, Ironworks national wonder |
+| Medicine | 4500 | Optics + Biology | Hospital, Red Cross national wonder; Environmentalism civic |
+| Physics | 4000 | Astronomy + Scientific Method | Airship; reveals Uranium; grants Great Scientist |
+| Railroad | 4500 | Steam Power + Steel | Railroad improvement (3× movement); Machine Gun unit |
+| Scientific Method | 2400 | Printing Press + (Chemistry / Astronomy) | Forest Preserve improvement; reveals Oil; obsoletes Great Library, Monastery |
+| Steam Power | 3200 | Chemistry + Replaceable Parts | Ironclad, Levee improvement; reveals Coal; +50% faster improvement building; obsoletes Hagia Sophia |
+| Steel | 2800 | Iron Working + Chemistry | Cannon, Ironclad, Drydock, Ironworks national wonder |
 
 ### 2.7 Modern Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Advanced Flight | 5000 | Flight + Rocketry | Gunship; obsoletes Stable |
-| Composites | 7500 | Computers + Plastics | Modern Armor, Jet Fighter, SS Casing |
-| Computers | 6500 | Electricity + Scientific Method | Modern Armor, Laboratory, The Internet project; obsoletes Angkor Wat, Spiral Minaret, University of Sankore |
-| Ecology | 5500 | Biology + Combustion | Recycling Center, SS Life Support; Environmentalism civic; fallout cleanup |
-| Fiber Optics | 7500 | Computers + Satellites | The Internet, SS Cockpit; obsoletes Kremlin |
-| Flight | 5000 | Combustion + Physics | Fighter, Bomber, Airport |
-| Laser | 7000 | Composites + Plastics | Mobile Artillery, Mobile SAM, SDI |
-| Mass Media | 3600 | Radio + Electricity | Broadcast Tower, Hollywood wonder, United Nations wonder |
-| Plastics | 7000 | Chemistry + Combustion | Hydro Plant, Three Gorges Dam wonder, Offshore Platform; obsoletes Fur |
-| Radio | 6000 | Electricity + Mass Media | Submarine, Bomber, Eiffel Tower wonder, Rock 'n' Roll wonder |
-| Refrigeration | 4000 | Medicine + Combustion | Supermarket; +1 movement for naval units |
-| Robotics | 8000 | Computers + Laser | Mechanized Infantry, Stealth Bomber, Stealth Destroyer, Space Elevator wonder, SS Docking Bay |
-| Rocketry | 5000 | Flight + Physics | SAM Infantry, Gunship, Guided Missile, Tactical Nuke, ICBM, Apollo Program national wonder, SS Casing |
-| Satellites | 6000 | Rocketry + Computers | SS Docking Bay, Space Elevator wonder; reveals entire world map |
-| Superconductors | 6500 | Physics + Robotics | Laboratory, SS Thrusters |
+| Advanced Flight | 5000 | Satellites + Flight | Gunship; obsoletes Stable |
+| Composites | 7500 | Satellites + Plastics | Modern Armor, Jet Fighter, SS Casing |
+| Computers | 6500 | Plastics + Radio | Modern Armor, Laboratory, The Internet project; obsoletes Angkor Wat, Spiral Minaret, University of Sankore |
+| Ecology | 5500 | Biology + (Plastics / Fission) | Recycling Center, SS Life Support; Environmentalism civic; fallout cleanup |
+| Fiber Optics | 7500 | Computers / Laser | The Internet, SS Cockpit; obsoletes Kremlin |
+| Flight | 5000 | Physics + Combustion | Fighter, Bomber, Airport |
+| Laser | 7000 | Plastics + Satellites | Mobile Artillery, Mobile SAM, SDI |
+| Mass Media | 3600 | Radio | Broadcast Tower, Hollywood wonder, United Nations wonder |
+| Plastics | 7000 | Combustion + Industrialism | Hydro Plant, Three Gorges Dam wonder, Offshore Platform; obsoletes Fur |
+| Radio | 6000 | Electricity | Submarine, Bomber, Eiffel Tower wonder, Rock 'n' Roll wonder |
+| Refrigeration | 4000 | Biology + Electricity | Supermarket; +1 movement for naval units |
+| Robotics | 8000 | Computers | Mechanized Infantry, Stealth Bomber, Stealth Destroyer, Space Elevator wonder, SS Docking Bay |
+| Rocketry | 5000 | Rifling + (Flight / Artillery) | SAM Infantry, Gunship, Guided Missile, Tactical Nuke, ICBM, Apollo Program national wonder, SS Casing |
+| Satellites | 6000 | Radio + Rocketry | SS Docking Bay, Space Elevator wonder; reveals entire world map |
+| Superconductors | 6500 | Refrigeration / Computers | Laboratory, SS Thrusters |
 
 ### 2.8 Future Era
 
 | Tech | Cost | Prerequisites | Unlocks |
 |------|------|---------------|---------|
-| Fusion | 8000 | Robotics + Superconductors | SS Engine; grants Great Engineer |
-| Future Tech | 10000 | Fusion + Genetics | +1 Health and +1 Happiness in all cities (repeatable) |
-| Genetics | 7000 | Medicine + Computers | SS Stasis Chamber; +1 Health in all cities |
-| Stealth | 8000 | Computers + Fiber Optics | Stealth Bomber, Stealth Destroyer |
+| Fusion | 8000 | Fission + Fiber Optics | SS Engine; grants Great Engineer |
+| Future Tech | 10000 | Stealth + Genetics | +1 Health and +1 Happiness in all cities (repeatable) |
+| Genetics | 7000 | Medicine + Superconductors | SS Stasis Chamber; +1 Health in all cities |
+| Stealth | 8000 | Composites + Advanced Flight | Stealth Bomber, Stealth Destroyer |
 
 ---
 

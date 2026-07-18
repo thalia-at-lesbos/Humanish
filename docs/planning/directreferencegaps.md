@@ -1,6 +1,10 @@
 # Direct Reference Gaps — plan to reach data & rules parity
 
-Status: **in progress** — sequencing step 1 (bug fixes + A12) and Phase B items
+Status: **COMPLETE 2026-07-18** — every work item in this plan has shipped. The
+final item, **D1 (tech-graph parity), landed 2026-07-18** (see the D1 note); the
+only leftovers are the small parked follow-ups recorded in their items' notes
+below (dead keys, unmodelled subsystems) — none is a parity gap in shipped data.
+History: sequencing step 1 (bug fixes + A12) and Phase B items
 B1–B3 done 2026-07-08; the whole A phase (A1–A13) done 2026-07-11; the D4 content
 cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
 2026-07-11 (values adopted from the reference under a user-authorized sourcing
@@ -10,7 +14,8 @@ emancipation, labor tech gates) done 2026-07-17; D2 + C4 (border curve +
 culture-level city defence; values re-confirmed under a fresh user-authorized
 XML-sourcing session, now closed again) done 2026-07-17. Date: 2026-07-07.
 
-**REMAINING (handoff for the next session):** D1 (tech-graph parity) only —
+**REMAINING: nothing — D1 done 2026-07-18; the plan is complete.** Previous
+handoff: D1 (tech-graph parity) only —
 **C8 done 2026-07-17** (the reference per-event war-weariness weights; values
 re-confirmed against the reference XML under a user-authorized sourcing session,
 now closed again), after **C4 + D2 done 2026-07-17** (the reference geometric
@@ -629,6 +634,43 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   our `communism` tech to the reference `utopia` (audit §3) — grep data + tests for
   the id. Affects era pacing, wild-forces timing, AI openings, every playthrough
   test — do last among the big items, when A/C are green.
+  **DONE 2026-07-18.** Findings: the OR-gating engine support **already existed
+  everywhere** — `Research.can_research` (all of `prereqs_all` AND any one of
+  `prereqs_any`; empty OR-list = no requirement), `PlayerAI._cheapest_research`
+  (filters via `can_research`), `GreatPeople._prereqs_met` (tech bulb), and the
+  encyclopedia/tech-chooser/`TextGen` renderers — so step (1) reduced to new
+  semantics tests (`test_research.gd` AND-only/OR-only/AND+OR/no-prereq cases;
+  AI candidate filtering was already pinned in `test_player_ai.gd`). One
+  behaviour change shipped with it: the §15.4 Humanish **prereq discount now
+  counts held OR-prereqs too** ("10% per held prerequisite" — with the reference
+  graph mostly OR-edges, an AND-only read would have gutted the mechanic;
+  pinned by `test_prereq_discount_counts_or_prereqs_too`). The data pass
+  rewired **85 of 92** techs' prereq columns (eras and costs already matched
+  after A13); the appendix table applied exactly, verified acyclic, every id
+  resolving (`DataDB._validate_tech_prereqs` extended with a self-reference
+  check; no cycle check existed to extend). `constants.json`
+  `default_research` moved `pottery` → `the_wheel` (pottery now needs
+  the_wheel AND agriculture-or-fishing, so it is not researchable from the
+  starting techs). Rename: id `communism` → `utopia` — **XML-verified: the
+  reference `TECH_UTOPIA` *displays* as "Communism"**, so only the id changed
+  (data blast radius: `technologies.json`, `structures.json`
+  intelligence_agency + kremlin `tech_required`, `policies.json` State
+  Property `tech_required`; zero code/tests/docs-user references existed;
+  `test_communism_renamed_to_utopia_everywhere_in_data` greps every data
+  table). B1 follow-up swept: `unlocks_units` display lists re-anchored to
+  each unit's **reference primary tech** (XML-verified `PrereqTech` column):
+  frigate astronomy→chemistry, ironclad steam_power→steel, bomber
+  flight→radio, submarine industrialism→radio, carrier
+  industrialism→flight, missile_cruiser satellites→robotics, icbm
+  double-listing dropped from rocketry (unique units stay unlisted —
+  pre-existing convention). Graph shape pinned by
+  `test_tech_graph_carries_d1_reference_prereqs` (92 rows, AND/OR spot pins,
+  every prereq resolves, no self-reference). Recalibration turned out to be
+  **minimal**: only `test_tech_chooser.gd` (researchable-node fixture now
+  needs the_wheel) and the two research-default/gating-chain cases in
+  `test_research.gd`; the **integration playthrough gate passed unchanged**
+  (scripted research orders were already legal under the new graph). Full
+  gate green: 1602 unit + 11 integration, zero SCRIPT ERROR.
 - **D2. Border-expansion curve** — **DECIDED: adopt** the reference geometric
   5 levels ×4 speeds (§29.4), replacing the near-linear 10 rings. Touches
   `culture_ring_thresholds` (constants.json), `CultureRevolt`, `Influence`,
@@ -808,9 +850,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    done 2026-07-17 (B4/B5 44becde and B6 79fa8e0 landed alongside); C4 remains —
    do it WITH D2 (its defence tiers key off the D2 curve)~~; **B7 + C6 done
    2026-07-17; D2 + C4 done together 2026-07-17 — see the D2/C4 notes**.
-6. D1 tech graph last among the big items (touches everything; do when A/C are
-   green). ~~D2 border curve~~ **done 2026-07-17 (with C4)**. ~~C8~~ **done
-   2026-07-17**. Remaining: D1 only.
+6. ~~D1 tech graph last among the big items (touches everything; do when A/C are
+   green).~~ **DONE 2026-07-18 — see the D1 note.** ~~D2 border curve~~ **done
+   2026-07-17 (with C4)**. ~~C8~~ **done 2026-07-17**. Remaining: **nothing —
+   the plan is complete.**
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
 save/load determinism tests must pass after every schema change (int-coercion rule for

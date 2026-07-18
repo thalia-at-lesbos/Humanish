@@ -39,13 +39,61 @@ func test_can_research_with_prereq() -> void:
 	assert_true(Research.can_research("bronze_working", p, gs.db),
 		"Can research bronze_working when mining is known")
 
+# ── D1 AND/OR gating semantics ───────────────────────────────────────────────
+# A tech is researchable when ALL of prereqs_all are known AND at least ONE of
+# prereqs_any is known; an empty OR-list imposes no OR requirement.
+
+func test_and_only_gating_requires_every_and_prereq() -> void:
+	# divine_right = theology AND monarchy, no OR-list.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["theology"]
+	assert_false(Research.can_research("divine_right", p, gs.db),
+		"one of two AND-prereqs is not enough")
+	p.technologies = ["theology", "monarchy"]
+	assert_true(Research.can_research("divine_right", p, gs.db),
+		"all AND-prereqs held opens the tech")
+
+func test_or_only_gating_needs_any_one_alternative() -> void:
+	# writing ← any of priesthood/animal_husbandry/pottery, no AND-list.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = []
+	assert_false(Research.can_research("writing", p, gs.db),
+		"no OR-prereq held keeps the tech locked")
+	p.technologies = ["animal_husbandry"]
+	assert_true(Research.can_research("writing", p, gs.db),
+		"any single OR-prereq opens the tech")
+
+func test_and_plus_or_gating_needs_both_sides() -> void:
+	# pottery = the_wheel AND (agriculture OR fishing).
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["the_wheel"]
+	assert_false(Research.can_research("pottery", p, gs.db),
+		"AND side alone is not enough when an OR-list exists")
+	p.technologies = ["agriculture", "fishing"]
+	assert_false(Research.can_research("pottery", p, gs.db),
+		"OR side alone is not enough when the AND side is unmet")
+	p.technologies = ["the_wheel", "fishing"]
+	assert_true(Research.can_research("pottery", p, gs.db),
+		"AND side plus any one OR alternative opens the tech")
+
+func test_no_prereqs_means_open_from_the_start() -> void:
+	var gs = make_gs(1)
+	assert_true(Research.can_research("fishing", gs.get_player(1), gs.db),
+		"a tech with empty AND- and OR-lists is open from the start")
+
 func test_tech_tree_gating_along_the_age_chain() -> void:
 	var gs = make_gs(1)
 	var p = gs.get_player(1)
 	assert_true(Research.can_research("agriculture", p, gs.db), "agriculture open from the start")
-	assert_false(Research.can_research("pottery", p, gs.db), "pottery locked without agriculture")
 	p.technologies = ["agriculture"]
-	assert_true(Research.can_research("pottery", p, gs.db), "pottery unlocks after agriculture")
+	assert_false(Research.can_research("pottery", p, gs.db),
+		"pottery locked without the_wheel even with agriculture")
+	p.technologies = ["agriculture", "the_wheel"]
+	assert_true(Research.can_research("pottery", p, gs.db),
+		"pottery unlocks with the_wheel plus agriculture")
 	assert_false(Research.can_research("writing", p, gs.db), "writing still locked")
 
 # ── Cost & completion ────────────────────────────────────────────────────────
@@ -59,6 +107,17 @@ func test_prereq_discount_applies() -> void:
 	p2.id = 99; p2.technologies = []
 	var cost_without: int = Research._effective_cost("bronze_working", p2, gs.db, {}, "normal")
 	assert_true(cost_with <= cost_without, "Having a prereq should reduce or equal research cost")
+
+func test_prereq_discount_counts_or_prereqs_too() -> void:
+	# D1: "10% per held prerequisite" counts AND- and OR-list members alike.
+	# writing ← OR [priesthood, animal_husbandry, pottery]: three held = 30% off.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.technologies = ["priesthood", "animal_husbandry", "pottery"]
+	var chained: int = Fixed.scale(120, 130)  # base 120 × standard world 130%
+	var cost: int = Research._effective_cost("writing", p, gs.db, {}, "normal")
+	assert_eq(cost, chained - Fixed.scale(chained, 30),
+		"each held OR-prereq contributes 10% to the discount")
 
 # ── §6.3 cost chain (game-data §15.4) ────────────────────────────────────────
 
@@ -172,7 +231,8 @@ func test_setup_seeds_starting_tech_and_research() -> void:
 		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 100}], ["time"])
 	var p = facade.get_state().players[0]
 	assert_true(p.has_tech("agriculture"), "Players start knowing agriculture")
-	assert_eq(p.current_research_id, "pottery", "Default research target is pottery")
+	assert_eq(p.current_research_id, "the_wheel",
+		"Default research target is the_wheel (pottery needs it under the D1 graph)")
 
 # ── Finance supplementing research (§6.3) ────────────────────────────────────
 

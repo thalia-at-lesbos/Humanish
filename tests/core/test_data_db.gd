@@ -51,14 +51,65 @@ func test_tech_tree_ages_present() -> void:
 	for tid in ["agriculture", "pottery", "writing", "alphabet"]:
 		assert_false(db.get_technology(tid).empty(), "Tech '%s' must exist" % tid)
 
-func test_tech_tree_is_linear_progression() -> void:
+func test_tech_graph_carries_d1_reference_prereqs() -> void:
+	# D1 data pass (audit §3, plan appendix): the reference AND/OR graph.
 	var db = _db()
-	assert_eq(db.get_technology("pottery").get("prereqs_all"), ["agriculture"],
-		"pottery requires agriculture")
-	assert_eq(db.get_technology("writing").get("prereqs_all"), ["pottery"],
-		"writing requires pottery")
-	assert_eq(db.get_technology("alphabet").get("prereqs_all"), ["writing"],
-		"alphabet requires writing")
+	assert_eq(db.technologies.size(), 92, "the reference tech table has 92 techs")
+	# AND+OR row: pottery = the_wheel AND (agriculture OR fishing).
+	assert_eq(db.get_technology("pottery").get("prereqs_all"), ["the_wheel"],
+		"pottery requires the_wheel (AND)")
+	assert_eq(db.get_technology("pottery").get("prereqs_any"), ["agriculture", "fishing"],
+		"pottery requires agriculture or fishing (OR)")
+	# OR-only row: writing ← any of priesthood/animal_husbandry/pottery.
+	assert_eq(db.get_technology("writing").get("prereqs_all"), [],
+		"writing has no AND-prereqs")
+	assert_eq(db.get_technology("writing").get("prereqs_any"),
+		["priesthood", "animal_husbandry", "pottery"],
+		"writing requires any of priesthood/animal_husbandry/pottery")
+	# AND-only row: divine_right = theology AND monarchy.
+	assert_eq(db.get_technology("divine_right").get("prereqs_all"), ["theology", "monarchy"],
+		"divine_right requires theology and monarchy")
+	assert_eq(db.get_technology("divine_right").get("prereqs_any"), [],
+		"divine_right has no OR-prereqs")
+	# Mixed row: civil_service = mathematics AND (code_of_laws OR feudalism).
+	assert_eq(db.get_technology("civil_service").get("prereqs_all"), ["mathematics"],
+		"civil_service requires mathematics (AND)")
+	assert_eq(db.get_technology("civil_service").get("prereqs_any"),
+		["code_of_laws", "feudalism"],
+		"civil_service requires code_of_laws or feudalism (OR)")
+	# Every prereq id resolves and no tech requires itself (validator-backed).
+	for tid in db.technologies:
+		var t: Dictionary = db.get_technology(tid)
+		for pre in t.get("prereqs_all", []) + t.get("prereqs_any", []):
+			assert_true(db.technologies.has(pre),
+				"Tech '%s' prereq '%s' must resolve" % [tid, pre])
+			assert_ne(str(pre), str(tid), "Tech '%s' must not require itself" % tid)
+
+func test_communism_renamed_to_utopia_everywhere_in_data() -> void:
+	# D1 rename (audit §3): the tech id is `utopia` (reference TECH_UTOPIA; the
+	# display name stays "Communism"). No data table may reference the old id.
+	var db = _db()
+	assert_false(db.technologies.has("communism"), "old id 'communism' is gone")
+	var utopia: Dictionary = db.get_technology("utopia")
+	assert_false(utopia.empty(), "tech 'utopia' exists")
+	assert_eq(str(utopia.get("name", "")), "Communism", "utopia displays as Communism")
+	assert_eq(utopia.get("prereqs_all"), ["liberalism"], "utopia requires liberalism (AND)")
+	assert_eq(utopia.get("prereqs_any"), ["scientific_method"],
+		"utopia requires scientific_method (OR)")
+	var dir := Directory.new()
+	assert_eq(dir.open("res://data"), OK, "data dir opens")
+	dir.list_dir_begin(true, true)
+	var fname: String = dir.get_next()
+	while fname != "":
+		if fname.ends_with(".json"):
+			var f := File.new()
+			f.open("res://data/" + fname, File.READ)
+			var text: String = f.get_as_text()
+			f.close()
+			assert_eq(text.find("\"communism\""), -1,
+				"data/%s must not reference the old 'communism' id" % fname)
+		fname = dir.get_next()
+	dir.list_dir_end()
 
 # ── Civics ───────────────────────────────────────────────────────────────────
 
@@ -272,7 +323,7 @@ func test_science_rows_and_spy_verified_against_reference() -> void:
 
 func test_techs_carry_a13_reference_eras_and_cost() -> void:
 	# A13 data pass (audit §3): era moves + the future_tech cost. The AND/OR
-	# prereq-graph rewiring is D1, not pinned here.
+	# prereq graph is pinned by test_tech_graph_carries_d1_reference_prereqs.
 	var db = _db()
 	assert_eq(str(db.get_technology("calendar").get("era", "")), "classical",
 		"Calendar is classical (reference)")

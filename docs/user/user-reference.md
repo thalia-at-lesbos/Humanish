@@ -313,6 +313,8 @@ Prolonged war accumulates **war fatigue** on both alliances, increasing unhappin
 
 Open with **F2**. Technologies are arranged in a prerequisite graph by era: Ancient → Classical → Medieval → Renaissance → Industrial → Modern → Future.
 
+A technology becomes researchable when you know **all** of its required prerequisites and — where it lists alternatives — **at least one** of them. The tech tree and encyclopedia show these as "Requires (all)" and "Requires (any)".
+
 Researching a technology unlocks units, structures, improvements, and game mechanics.
 
 ### Cost
