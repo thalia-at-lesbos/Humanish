@@ -110,18 +110,17 @@ static func _endgame_project(wc: Dictionary, game_state) -> int:
 	return -1
 
 # Cultural victory: `cities_at_max_culture` settlements must each accumulate the
-# legendary-culture threshold — the top culture_ring_thresholds entry stretched by
-# the per-pace victory_delay_scale (§15.3). At normal pace (100) this is exactly
-# the old "top border ring" check; slower paces demand proportionally more culture
-# (marathon ×3), faster paces less (quick ×0.67, which the ring alone cannot show).
+# legendary-culture threshold — the top entry of the pace's
+# `culture_level_thresholds` column (§15.4 / D2: 25000/50000/75000/150000 on
+# quick/normal/epic/marathon). The per-pace columns already carry the reference
+# speed scaling, so no `victory_delay_scale` stretch applies any more (the C3-era
+# formula scaled the old near-linear top ring of 550; D2 replaced that curve).
 static func _cultural(wc: Dictionary, game_state) -> int:
 	var cities_req: int = int(wc.get("cities_at_max_culture", 5))
-	var thresholds: Array = game_state.db.constants.get("culture_ring_thresholds", [])
-	if thresholds.empty():
+	var need_culture: int = CultureLevels.legendary_threshold(
+		game_state.db, game_state.pace_id)
+	if need_culture <= 0:
 		return -1
-	var pace_scale: int = int(game_state.db.get_pace(game_state.pace_id) \
-		.get("victory_delay_scale", 100))
-	var need_culture: int = Fixed.scale(int(thresholds[thresholds.size() - 1]), pace_scale)
 	var by_alliance := {}
 	for s in game_state.settlements:
 		if s.culture_total >= need_culture:

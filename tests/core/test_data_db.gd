@@ -440,6 +440,49 @@ func test_paces_carry_c3_scaling_columns() -> void:
 			assert_eq(int(db.paces[pace_id].get(col, 0)), int(expected[pace_id][col]),
 				"pace '%s' %s matches the reference" % [pace_id, col])
 
+func test_paces_carry_d2_culture_level_thresholds() -> void:
+	# §15.4 / §29.4 (D2): every pace carries the reference geometric culture-level
+	# column (5 levels; quick ×½, epic ×1.5, marathon ×3 of normal).
+	var expected := {
+		"quick":    [5, 50, 250, 2500, 25000],
+		"normal":   [10, 100, 500, 5000, 50000],
+		"epic":     [15, 150, 750, 7500, 75000],
+		"marathon": [30, 300, 1500, 15000, 150000],
+	}
+	var db = _db()
+	for pace_id in expected:
+		var col: Array = []
+		for t in db.paces[pace_id].get("culture_level_thresholds", []):
+			col.append(int(t))
+		assert_eq(col, expected[pace_id],
+			"pace '%s' culture_level_thresholds match the reference" % pace_id)
+
+func test_c4_culture_defence_constants_and_bombard_rates() -> void:
+	# §15.4 / §29.4 (C4): per-level city defence 20/40/60/80/100, the 5%/turn
+	# heal and 100-point damage cap, and the per-unit bombard rates — every
+	# value confirmed against the reference.
+	var db = _db()
+	var defence: Array = []
+	for v in db.constants.get("culture_level_defence", []):
+		defence.append(int(v))
+	assert_eq(defence, [20, 40, 60, 80, 100],
+		"culture_level_defence pins the reference per-level modifiers")
+	assert_eq(db.get_constant("city_defence_heal_rate", 0), 5,
+		"city defence heals 5 points per turn")
+	assert_eq(db.get_constant("max_city_defence_damage", 0), 100,
+		"city defence damage caps at 100")
+	var rates := {
+		"catapult": 8, "hwacha": 8, "trebuchet": 16, "cannon": 12,
+		"artillery": 16, "mobile_artillery": 16,
+		"frigate": 8, "ship_of_the_line": 12, "ironclad": 12,
+		"destroyer": 16, "battleship": 20, "missile_cruiser": 20,
+		"fighter": 8, "jet_fighter": 12, "bomber": 16, "stealth_bomber": 20,
+		"guided_missile": 16,
+	}
+	for uid in rates:
+		assert_eq(int(db.get_unit(uid).get("bombard_rate", 0)), rates[uid],
+			"unit '%s' bombard_rate matches the reference" % uid)
+
 func test_labor_civics_carry_b7_c6_reference_values() -> void:
 	# §15.9 / §29.9 (B7 + C6): labor-civic tech gates and effects, plus the
 	# sister worker-speed sources — every value confirmed against the reference.

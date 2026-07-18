@@ -101,6 +101,11 @@ var garrison_turns: int = 0
 # Defense value (from walls + culture)
 var defence_value: int = 0
 
+# Accumulated bombardment damage to the culture-level defence (§15.4 / C4):
+# percentage points 0..max_city_defence_damage knocked off the culture-defence
+# modifier by BOMBARD missions; heals city_defence_heal_rate (5) per turn.
+var defence_damage: int = 0
+
 # Conquest (§4.8). `health` is the city's defensive-integrity value (siege HP),
 # regenerated each owner turn up to its maximum (see TurnEngine.city_max_health).
 # It is now DORMANT: an undefended city falls to a single attack in both directions
@@ -190,6 +195,7 @@ func serialize() -> Dictionary:
 		"timed_health": timed_health.duplicate(true),
 		"garrison_turns": garrison_turns,
 		"defence_value": defence_value,
+		"defence_damage": defence_damage,
 		"health": health, "peak_population": peak_population,
 		"revolt_turns": revolt_turns, "revolt_progress": revolt_progress,
 		"produce_nothing": produce_nothing,
@@ -259,6 +265,7 @@ static func deserialize(d: Dictionary):
 		})
 	s.garrison_turns = int(d.get("garrison_turns", 0))
 	s.defence_value = int(d.get("defence_value", 0))
+	s.defence_damage = int(d.get("defence_damage", 0))
 	s.health = int(d.get("health", -1))
 	s.peak_population = int(d.get("peak_population", s.population))
 	s.revolt_turns = int(d.get("revolt_turns", 0))

@@ -1251,8 +1251,6 @@ static func _nearest_owned_city(gs: GameState, player_id: int, x: int, y: int) -
 
 static func _settlement_culture(gs: GameState, s: Settlement, player: Player) -> void:
 	var db: DataDB = gs.db
-	var thresholds: Array = db.constants.get("culture_ring_thresholds",
-		[10, 30, 60, 100, 150, 210, 280, 360, 450, 550])
 
 	# Culture is the culture slice of the economic split, not raw commerce (§4.7,
 	# §6.2). Players with no settlement owner default to the whole commerce value.
@@ -1273,14 +1271,10 @@ static func _settlement_culture(gs: GameState, s: Settlement, player: Player) ->
 	culture_out += EconOrgs.settlement_channel(gs, s, "culture")
 	s.culture_total += culture_out
 
-	# Ring expansion
-	var ring: int = 1
-	for thresh in thresholds:
-		if s.culture_total >= thresh:
-			ring += 1
-		else:
-			break
-	ring = min(ring, thresholds.size())
+	# Border-ring expansion (§15.4 / D2): the reference geometric culture-level
+	# curve, per pace — ring = culture level + 1 (a fresh "poor" city is ring 1;
+	# a legendary city reaches ring 6).
+	var ring: int = CultureLevels.level_for(db, gs.pace_id, s.culture_total) + 1
 	s.culture_ring = ring
 
 	# Spread cultural influence using the culture output.
@@ -1292,6 +1286,11 @@ static func _settlement_upkeep(gs: GameState, s: Settlement,
 	for struct_id in s.structures:
 		var struct: Dictionary = gs.db.get_structure(struct_id)
 		player.treasury -= int(struct.get("upkeep", 0))
+	# Bombardment damage to the culture-level defence heals a flat
+	# `city_defence_heal_rate` (5) points per owner turn (§15.4 / C4).
+	if s.defence_damage > 0:
+		var heal: int = gs.db.get_constant("city_defence_heal_rate", 5)
+		s.defence_damage = s.defence_damage - heal if s.defence_damage > heal else 0
 
 static func _special_person_progress(gs: GameState, s: Settlement) -> void:
 	# Accumulate special person points from specialists, weighted by each type's

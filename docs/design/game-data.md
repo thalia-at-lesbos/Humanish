@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects (shipped, 29.9), retune globals"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels (shipped, 29.4), pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects (shipped, 29.9), retune globals"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1313,9 +1313,10 @@ Base EP accumulation = espionage_slider_output per turn against a specific facti
 | Quick | 67% | 67% | 67% | Short |
 
 Further per-pace columns in `paces.json`: `hurry_scale` (§29.8), `event_timer_scale`,
-`inflation_percent`/`inflation_offset` (game-rules §15.1), and the C3 quartet
+`inflation_percent`/`inflation_offset` (game-rules §15.1), the C3 quartet
 `anarchy_scale` / `golden_age_scale` / `victory_delay_scale` / `wild_scale`
-(game-rules §15.3, table in §29.5), plus `max_turns`.
+(game-rules §15.3, table in §29.5), and the D2 `culture_level_thresholds`
+border/defence curve (game-rules §15.4, table in §29.4), plus `max_turns`.
 
 ### 15.7 Healing Rates
 
@@ -2651,6 +2652,29 @@ Drill IV — +2 first strikes, +10% vs mounted, +20% collateral protection.
 | influential | 2500 | 5000 | 7500 | 15000 | 80 |
 | legendary | 25000 | 50000 | 75000 | 150000 | 100 |
 
+This table is **live shipped data as of D2 + C4 (2026-07-17**, game-rules §15.4;
+every value re-confirmed against the reference XML): the per-speed threshold
+columns are `culture_level_thresholds` in `paces.json` (border ring = level + 1,
+read via `CultureLevels`), and the defence column is `culture_level_defence` in
+`constants.json` (level 0 — "poor", threshold 0 — grants no defence, matching
+the reference's zero-modifier none/poor rows). Companion constants (reference
+`GlobalDefines.xml`, sourced 2026-07-17): `city_defence_heal_rate` **5**
+(`CITY_DEFENSE_DAMAGE_HEAL_RATE`) and `max_city_defence_damage` **100**
+(`MAX_CITY_DEFENSE_DAMAGE`). Per-unit bombardment rates (`bombard_rate` in
+`units.json`; reference `iBombardRate`, air `iBombRate`, sourced 2026-07-17):
+
+| Unit | Rate | Unit | Rate | Unit | Rate |
+|---|---|---|---|---|---|
+| catapult | 8 | frigate | 8 | fighter | 8 |
+| hwacha | 8 | ship_of_the_line | 12 | jet_fighter | 12 |
+| cannon | 12 | ironclad | 12 | bomber | 16 |
+| trebuchet | 16 | destroyer | 16 | stealth_bomber | 20 |
+| artillery | 16 | battleship | 20 | guided_missile | 16 |
+| mobile_artillery | 16 | missile_cruiser | 20 | | |
+
+(The reference ballista elephant carries `iBombardRate` 0, so the Humanish unit
+gets no rate despite its flavour text.)
+
 ### 29.5 Pace table additions (`paces.json` candidate fields)
 
 | Pace | anarchy % | golden-age % | inflation % | inflation offset | victory-delay % | wild (barb) % | feature-production % | hurry % |
@@ -2671,9 +2695,12 @@ C2 (2026-07-12): `hurry_scale`, read by `TurnEngine.rush_hammers_per_pop`
 columns are live as of C3 (2026-07-12): `anarchy_scale` (SimFacade anarchy on
 civic/religion switches, bounds `anarchy_min_turns` 1 / `anarchy_max_turns` 100 in
 `constants.json`), `golden_age_scale` (`GreatPeople._golden_age_duration`),
-`victory_delay_scale` (`WinConditions._cultural` legendary-culture threshold),
-and `wild_scale` (`WildForces._scaled_turns`) — see game-rules §15.3. Only the
-`feature-production %` column remains a candidate.
+and `wild_scale` (`WildForces._scaled_turns`) — see game-rules §15.3. The
+`victory_delay_scale` column ships as reference data but is unread since D2
+(2026-07-17): `WinConditions._cultural` now reads the pace's own legendary
+`culture_level_thresholds` entry (§29.4), and the column's reference use
+(spaceship-arrival delay) is unmodelled. Only the `feature-production %` column
+remains a candidate.
 
 ### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
 

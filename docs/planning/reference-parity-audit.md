@@ -544,6 +544,10 @@ trait pairs differ from the reference leader table **[value]**:
   10/100/500/5000/50000 (normal speed) — different curve, no per-speed scaling,
   and the reference's per-culture-level **city defence 20–100%** has no
   Humanish analogue **[value/missing]**.
+  **RESOLVED 2026-07-17 (D2 + C4)**: the reference geometric curve ships as
+  per-pace `culture_level_thresholds` (game-data §29.4, full per-speed table),
+  and the 20–100% culture-level city defence is live with bombardment damage
+  (`bombard_rate` per unit) and the 5/turn heal — game-rules §15.4.
 - Healing rates: settlement 30/friendly 20/allied 15/neutral 5/hostile 0 vs
   reference city 20/friendly 15/neutral 10/enemy 5 **[value]**.
   **RESOLVED 2026-07-11 (A11 — f6e4e20)**: reference rates adopted (the extra
@@ -572,7 +576,8 @@ model at all, collected here for completeness:
 2. **Population rush / whipping** under Slavery (→ closed 2026-07-12, C2);
    **serfdom worker speed** → **Closed 2026-07-17 (B7/C6):** game-rules §15.9.
 3. **Golden-age length pace scaling** (`iGoldenAgePercent`).
-4. **Culture-level city defence** (20–100%).
+4. **Culture-level city defence** (20–100%). → **Closed 2026-07-17 (C4, with
+   the D2 border curve):** game-rules §15.4.
 5. **The Internet & SDI projects** (and nuke interception %). → **Closed
    2026-07-17 (C5):** both projects + the SDI interception roll and the §15.7
    reference nuke magnitudes are implemented.

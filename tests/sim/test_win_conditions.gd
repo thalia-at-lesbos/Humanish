@@ -151,20 +151,18 @@ func test_completing_a_project_advances_the_stage_count() -> void:
 func test_cultural_win_with_enough_legendary_cities() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["cultural"]
-	var thresholds: Array = gs.db.constants.get("culture_ring_thresholds", [])
-	var legendary: int = int(thresholds[thresholds.size() - 1])
+	var legendary: int = CultureLevels.legendary_threshold(gs.db, gs.pace_id)
 	var need: int = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
 	for i in range(need):
 		var s = make_settlement(gs, 1, 2 + i, 2, 4)
-		s.culture_total = legendary   # normal pace: victory_delay_scale 100 = the raw top threshold
+		s.culture_total = legendary   # the pace's top culture-level threshold
 	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
 		"The required number of legendary-culture cities wins the cultural condition")
 
 func test_cultural_no_win_one_city_short() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["cultural"]
-	var thresholds: Array = gs.db.constants.get("culture_ring_thresholds", [])
-	var legendary: int = int(thresholds[thresholds.size() - 1])
+	var legendary: int = CultureLevels.legendary_threshold(gs.db, gs.pace_id)
 	var need: int = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
 	for i in range(need - 1):         # one shy of the requirement
 		var s = make_settlement(gs, 1, 2 + i, 2, 4)
@@ -173,10 +171,10 @@ func test_cultural_no_win_one_city_short() -> void:
 		"One city short of the cultural requirement is not a win")
 
 func test_cultural_threshold_scales_with_game_pace() -> void:
-	# §15.3 (C3): the legendary-culture requirement is the top ring threshold (550)
-	# stretched by the per-pace victory_delay_scale — 368/550/825/1650 culture on
-	# quick/normal/epic/marathon (Fixed.scale truncation).
-	var cases := {"quick": 368, "normal": 550, "epic": 825, "marathon": 1650}
+	# §15.4 (D2): the legendary-culture requirement is the pace's own top
+	# culture-level threshold — 25000/50000/75000/150000 on quick/normal/epic/
+	# marathon (the reference per-speed table; no victory_delay_scale stretch).
+	var cases := {"quick": 25000, "normal": 50000, "epic": 75000, "marathon": 150000}
 	for pace_id in cases:
 		var gs = make_gs(2)
 		gs.enabled_win_conditions = ["cultural"]
@@ -194,14 +192,15 @@ func test_cultural_threshold_scales_with_game_pace() -> void:
 
 func test_accumulated_culture_reaches_the_top_ring() -> void:
 	# Reachability: enough culture pushes a settlement's ring to the maximum that
-	# the cultural win reads, via the real `_settlement_culture` path.
+	# the cultural win reads, via the real `_settlement_culture` path. On the D2
+	# curve the top (legendary) ring is level 5 + 1 = 6.
 	var gs = make_gs(2)
 	var s = make_settlement(gs, 1, 5, 5, 4)
-	var thresholds: Array = gs.db.constants.get("culture_ring_thresholds", [])
-	s.culture_total = int(thresholds[thresholds.size() - 1]) + 1
+	var thresholds: Array = CultureLevels.thresholds(gs.db, gs.pace_id)
+	s.culture_total = CultureLevels.legendary_threshold(gs.db, gs.pace_id) + 1
 	s.output_commerce = 0             # already past the last threshold; no new culture needed
 	TurnEngine._settlement_culture(gs, s, gs.get_player(1))
-	assert_eq(s.culture_ring, thresholds.size(),
+	assert_eq(s.culture_ring, thresholds.size() + 1,
 		"Passing the final culture threshold lifts the city to the top ring")
 
 # ── Time / score ───────────────────────────────────────────────────────────────
