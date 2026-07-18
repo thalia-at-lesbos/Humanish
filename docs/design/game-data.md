@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15): missing units/projects, chance first strikes, culture levels (shipped, 29.4), pace/handicap extras, corporation outputs (shipped, 29.6), goody rosters, hurry types, labor civic effects (shipped, 29.9), retune globals"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15), shipped into data/*.json: units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters (data only, deliberately disabled), hurry types, labor civic effects, retune globals"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -2590,14 +2590,18 @@ the `score_radius` neighbourhood (food weighted by `score_food_weight`), adds
 water. Step 1 is purely score-driven (no RNG draw); steps 8 and 9 draw their tile picks
 from the shared map RNG in fixed start order, keeping generation deterministic.
 
-## 29. Reference-parity data (unimplemented)
+## 29. Reference-parity data (shipped)
 
-> **⚠️ Unimplemented.** Companion data for `game-rules.md` §15: every table in this
-> section carries values read directly from the reference data (layered original reference,
-> highest layer wins) for mechanics/content Humanish does not have yet. Nothing here is loaded
-> by `DataDB` today. The implementation plan is `docs/planning/directreferencegaps.md`;
-> the discrepancy audit for *existing* tables is `docs/planning/reference-parity-audit.md`.
-> When a mechanic lands, move its table into the appropriate numbered section above.
+> **Shipped.** Companion data for `game-rules.md` §15: every table in this section
+> carries values read directly from the reference data (layered original reference,
+> highest layer wins). The parity plan (`docs/planning/directreferencegaps.md`,
+> **COMPLETE 2026-07-18**) shipped them into `data/*.json` — each table carries its
+> own status note. Still not live: the goody rosters (29.7; the records ship with
+> weight 0, deliberately disabled per game-rules §15.11), the non-inflation columns
+> of 29.10 (candidates, parked in the plan's A3 note), and the small inline
+> leftovers noted per table (the gold-hurry retune in 29.8, the unread
+> `victory_delay_scale` in 29.5). The discrepancy audit for pre-existing tables is
+> `docs/planning/reference-parity-audit.md`.
 
 ### 29.1 Missing units
 
