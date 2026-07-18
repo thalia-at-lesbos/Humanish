@@ -49,6 +49,11 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	# and favours fade, so attitude drifts back to neutral absent fresh acts.
 	Diplomacy.decay(gs, gs.db)
 
+	# War weariness decays in peace (§15.8): once a war is over, the weariness
+	# accumulated against that enemy fades each world step. Runs alongside the
+	# diplomatic-memory decay, independent of the per-phase hooks.
+	_decay_war_fatigue(gs)
+
 	# 3. Per-tile upkeep across the whole map
 	if not hooks.run(IDs.Phase.WORLD_TILE_UPKEEP, gs):
 		_tile_upkeep(gs)
@@ -95,6 +100,30 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 		var winner: int = WinConditions.check_all(gs)
 		if winner >= 0:
 			gs.winning_alliance_id = winner
+
+# War-weariness peace decay (§15.8): for every alliance, each per-enemy fatigue
+# entry whose war is over (neither side lists the other as at war) drops by the
+# flat `war_weariness_decay_rate` (reference −1) and then keeps only
+# `war_weariness_decay_peace_percent` (99%) of the remainder. Wars still hot do
+# not decay. Integer math; entries reaching zero are erased so the dictionary
+# (and the state hash) stays clean. No RNG.
+static func _decay_war_fatigue(gs: GameState) -> void:
+	var rate: int = gs.db.get_constant("war_weariness_decay_rate", -1)
+	var keep_pct: int = gs.db.get_constant("war_weariness_decay_peace_percent", 99)
+	for a in gs.alliances:
+		for k in a.war_fatigue.keys():
+			var eid: int = int(k)
+			var enemy: Alliance = gs.get_alliance(eid)
+			if a.is_at_war_with(eid) \
+					or (enemy != null and enemy.is_at_war_with(a.id)):
+				continue
+			var v: int = int(a.war_fatigue[k]) + rate
+			if v > 0:
+				v = v * keep_pct / 100
+			if v <= 0:
+				a.war_fatigue.erase(k)
+			else:
+				a.war_fatigue[k] = v
 
 # ── Per-player step ───────────────────────────────────────────────────────────
 

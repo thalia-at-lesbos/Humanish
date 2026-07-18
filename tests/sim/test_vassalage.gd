@@ -115,6 +115,8 @@ func test_vassal_inherits_overlord_war() -> void:
 	Vassalage.world_tick(gs, gs.db)
 	assert_true(gs.get_alliance(2).is_at_war_with(3), "The vassal is dragged into the overlord's war")
 	assert_true(gs.get_alliance(3).is_at_war_with(2), "And the enemy is at war with the vassal")
+	assert_true(3 in gs.get_alliance(2).forced_wars,
+		"An inherited war is forced on the vassal (§15.8 weariness modifier)")
 
 func test_vassal_shares_overlord_peace() -> void:
 	var gs = make_gs(3)
@@ -122,11 +124,14 @@ func test_vassal_shares_overlord_peace() -> void:
 	gs.get_alliance(1).tributaries = [2]
 	# The vassal carries a war with alliance 3 the overlord is not in.
 	gs.get_alliance(2).at_war_with = [3]
+	gs.get_alliance(2).forced_wars = [3]
 	gs.get_alliance(3).at_war_with = [2]
 	Vassalage.world_tick(gs, gs.db)
 	assert_false(gs.get_alliance(2).is_at_war_with(3),
 		"A vassal cannot keep a war its overlord has left (shared peace)")
 	assert_false(gs.get_alliance(3).is_at_war_with(2), "The drop is mutual")
+	assert_false(3 in gs.get_alliance(2).forced_wars,
+		"The dropped war's forced flag is cleared with it")
 
 # ── FREE_VASSAL command ─────────────────────────────────────────────────────────
 

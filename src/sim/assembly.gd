@@ -341,6 +341,7 @@ static func _force_peace(gs) -> void:
 	for a in gs.alliances:
 		a.at_war_with = []
 		a.war_fatigue = {}
+		a.forced_wars = []
 
 # Mandate the resident's government civic onto every member that has its enabling
 # technology. Defiance anger (the §4.5 "assembly rulings" source) is left to a

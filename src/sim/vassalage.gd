@@ -134,6 +134,10 @@ static func sync_vassal_wars(gs, sub) -> void:
 			continue
 		if not (eid in sub.at_war_with):
 			sub.at_war_with.append(eid)
+			# §15.8: a vassal dragged into its overlord's war did not choose it —
+			# its war weariness accrues at the forced-war modifier.
+			if not (eid in sub.forced_wars):
+				sub.forced_wars.append(eid)
 		var enemy = gs.get_alliance(eid)
 		if enemy != null and not (sub.id in enemy.at_war_with):
 			enemy.at_war_with.append(sub.id)
@@ -147,9 +151,11 @@ static func sync_vassal_wars(gs, sub) -> void:
 			drop.append(eid)
 	for eid in drop:
 		sub.at_war_with.erase(eid)
+		sub.forced_wars.erase(eid)
 		var enemy = gs.get_alliance(eid)
 		if enemy != null:
 			enemy.at_war_with.erase(sub.id)
+			enemy.forced_wars.erase(sub.id)
 
 # Once-per-world-step vassalage maintenance (§7): keep every vassal's wars in step
 # with its overlord, then free any vassal strong enough to break away. Liberation

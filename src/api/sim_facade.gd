@@ -744,6 +744,11 @@ func _enemy_settlement_at(x: int, y: int, attacker_pid: int) -> Settlement:
 # auto-razed; otherwise the captor keeps it (in revolt). Called the moment an
 # undefended enemy city is attacked (§4.8) — there is no siege-HP wear-down.
 func _city_falls(city: Settlement, captor_pid: int) -> String:
+	# War weariness (§15.8): losing a city to conquest is the heaviest combat
+	# event. Accrued whether the city is kept or razed; the shared accruer
+	# skips wild captors/owners (no player/alliance).
+	CombatApply.accrue_war_fatigue(_gs, city.owner_player_id, captor_pid,
+		"war_weariness_city_captured")
 	if captor_pid == -2 or (city.population <= 1 and city.peak_population <= 1):
 		_raze_city(city, captor_pid)
 		return "razed"
@@ -1081,6 +1086,12 @@ func _cmd_declare_war(cmd: Dictionary) -> bool:
 	# declaration against the aggressor, souring their attitude for a long time.
 	var target: Alliance = _gs.get_alliance(target_aid)
 	if target != null:
+		# §15.8: the attacked side was forced into this war — its war weariness
+		# accrues at the reference forced-war modifier until peace. The declarer
+		# chose the war, so any stale forced flag it held is cleared.
+		if not (alliance.id in target.forced_wars):
+			target.forced_wars.append(alliance.id)
+		alliance.forced_wars.erase(target_aid)
 		Diplomacy.record_alliance(_gs, _db, target.member_player_ids, [p.id], "declared_war")
 		# Open borders (§7): war overrides every standing open-borders agreement
 		# between the two sides — at war you invade regardless, so the agreement is
@@ -1100,9 +1111,13 @@ func _cmd_make_peace(cmd: Dictionary) -> bool:
 	if alliance == null:
 		return false
 	alliance.at_war_with.erase(target_aid)
+	# §15.8: the war is over — drop the forced-war flags on both sides (the
+	# accumulated weariness itself stays and decays in peace).
+	alliance.forced_wars.erase(target_aid)
 	# Diplomatic memory (§7): a peace overture is remembered warmly by the other side.
 	var peaced: Alliance = _gs.get_alliance(target_aid)
 	if peaced != null:
+		peaced.forced_wars.erase(alliance.id)
 		Diplomacy.record_alliance(_gs, _db, peaced.member_player_ids, [p.id], "made_peace")
 	_add_notification(p.name + " made peace with " + _alliance_label(target_aid) + ".", "major")
 	return true
@@ -2878,6 +2893,11 @@ func _cmd_nuclear_strike(cmd: Dictionary) -> bool:
 				continue
 			if not attacker_alliance.is_at_war_with(aid):
 				attacker_alliance.at_war_with.append(aid)
+				# §15.8: a war opened by a nuclear strike was forced on the
+				# victim — its weariness accrues at the forced-war modifier.
+				var victim_a: Alliance = _gs.get_alliance(int(aid))
+				if victim_a != null and not (attacker_alliance.id in victim_a.forced_wars):
+					victim_a.forced_wars.append(attacker_alliance.id)
 			if not attacker_alliance.has_contact_with(aid):
 				attacker_alliance.contacts.append(aid)
 

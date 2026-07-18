@@ -204,18 +204,20 @@ static func detonate(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> Dictiona
 			rt.feature_id = "fallout"
 			result["fallout_tiles"].append([cell[0], cell[1]])
 
-	# 4. Domestic & world revulsion: the attacker's alliance accrues heavy
-	#    war-fatigue against every victim (§5.7 diplomatic consequences).
+	# 4. Domestic & world revulsion (§5.7 / §15.8 war weariness): each victim's
+	#    alliance accrues hit-by-nuke points against the attacker, and the
+	#    attacker's own alliance accrues the far heavier aggressor penalty
+	#    against every victim. Both go through the shared CombatApply accruer
+	#    (multiplier, forced-war modifier, Golden-Age freeze).
 	var ap: Player = gs.get_player(attacker.owner_player_id)
 	if ap != null:
-		var aa: Alliance = gs.get_alliance(ap.alliance_id)
-		if aa != null:
-			var fatigue: int = db.get_constant("nuke_war_fatigue", 50)
-			if victims.empty():
-				aa.war_fatigue[ap.alliance_id] = int(aa.war_fatigue.get(ap.alliance_id, 0)) + fatigue
-			for aid in victims:
-				aa.war_fatigue[aid] = int(aa.war_fatigue.get(aid, 0)) + fatigue
-				result["victim_alliance_ids"].append(aid)
+		for aid in victims:
+			result["victim_alliance_ids"].append(int(aid))
+			var victim_pid: int = int(victims[aid])
+			CombatApply.accrue_war_fatigue(gs, victim_pid, ap.id,
+				"war_weariness_hit_by_nuke")
+			CombatApply.accrue_war_fatigue(gs, ap.id, victim_pid,
+				"war_weariness_attacked_with_nuke")
 
 	return result
 
@@ -317,9 +319,12 @@ static func _has_meltdown_plant(s, db: DataDB) -> bool:
 				return true
 	return false
 
+# Record a hit player's alliance as a strike victim. Keyed by alliance id; the
+# value keeps the first-noted member player id so the war-weariness accrual (a
+# per-player check, §14.4 Golden-Age freeze) has a concrete victim player.
 static func _note_victim(gs, owner_player_id: int, victims: Dictionary) -> void:
 	if owner_player_id < 0:
 		return
 	var p: Player = gs.get_player(owner_player_id)
-	if p != null:
-		victims[p.alliance_id] = true
+	if p != null and not victims.has(p.alliance_id):
+		victims[p.alliance_id] = p.id

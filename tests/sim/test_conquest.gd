@@ -49,6 +49,23 @@ func test_undefended_city_is_captured_by_a_single_attack() -> void:
 		"Kept cities revolt for the base turns plus half their size")
 	assert_eq([atk.x, atk.y], [5, 5], "The attacker advances into the captured city")
 
+func test_losing_a_city_accrues_the_heaviest_war_weariness() -> void:
+	# §15.8: city capture carries the largest per-event weight (6 x multiplier).
+	var gs = make_gs(2)
+	_at_war(gs)
+	var city = make_settlement(gs, 2, 5, 5, 4)
+	city.peak_population = 4
+	make_warrior(gs, 1, 5, 6)
+	var f = bare_facade(gs)
+	gs.current_player_id = 1
+	f.apply_command(Commands.move_stack(1, 5, 6, 5, 5))
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_city_captured", 6)
+			* gs.db.get_constant("war_weariness_multiplier", 2),
+		"The former owner's alliance accrues the city-captured weight x multiplier")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 0,
+		"The captor accrues nothing for taking an undefended city")
+
 func test_defended_city_must_clear_its_defender_first() -> void:
 	# A defender blocks capture: attacking the tile fights the defender (normal
 	# combat) and does NOT seize the city in the same step, even if the defender dies.

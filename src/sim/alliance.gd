@@ -30,6 +30,12 @@ var shared_research_store: int = 0
 # War fatigue per war (alliance_id -> int anger points accumulated)
 var war_fatigue: Dictionary = {}
 
+# Forced wars (§15.8): set of alliance IDs whose war against us was not our
+# choice (they declared on us, we were dragged in as a vassal, or we were
+# nuked into it). War weariness from such a war accrues at the reference
+# forced-war modifier (−50%). Cleared when the war ends.
+var forced_wars: Array = []
+
 # Permanent alliances: set of alliance IDs with which a permanent alliance
 # has been formed (when the gs.permanent_alliances rule is active).
 var permanent_allies: Array = []
@@ -57,6 +63,7 @@ func serialize() -> Dictionary:
 		"tributaries": tributaries.duplicate(),
 		"shared_research_store": shared_research_store,
 		"war_fatigue": war_fatigue.duplicate(),
+		"forced_wars": forced_wars.duplicate(),
 		"pending_trades": pending_trades.duplicate(true),
 		"permanent_allies": permanent_allies.duplicate()
 	}
@@ -79,6 +86,7 @@ static func deserialize(d: Dictionary):
 	var wf: Dictionary = d.get("war_fatigue", {})
 	for k in wf:
 		a.war_fatigue[int(k)] = int(wf[k])
+	a.forced_wars = _to_int_array(d.get("forced_wars", []))
 	a.pending_trades = d.get("pending_trades", []).duplicate(true)
 	a.permanent_allies = _to_int_array(d.get("permanent_allies", []))
 	return a
