@@ -112,14 +112,20 @@ func test_detonate_strips_improvement():
 	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
 	assert_eq(t.improvement_id, "", "improvements are stripped by the blast")
 
-func test_detonate_accrues_war_fatigue_on_attacker():
+func test_detonate_accrues_war_weariness_both_ways():
+	# §15.8: the aggressor takes the heavy attacked-with-nuke penalty per victim,
+	# and each victim takes the lighter hit-by-nuke weight against the attacker.
 	var gs = make_gs(2)
 	var attacker = make_unit(gs, "tactical_nuke", 1, 1, 1)
 	make_warrior(gs, 2, 8, 8)
 	Nuclear.detonate(gs, attacker, 8, 8, gs.rng)
-	var aa = gs.get_alliance(1)
-	assert_true(int(aa.war_fatigue.get(2, 0)) > 0,
-		"the attacker's alliance accrues war-fatigue against the victim")
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	assert_eq(int(gs.get_alliance(1).war_fatigue.get(2, 0)),
+		gs.db.get_constant("war_weariness_attacked_with_nuke", 12) * mult,
+		"the attacker's alliance accrues the aggressor penalty against the victim")
+	assert_eq(int(gs.get_alliance(2).war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_hit_by_nuke", 3) * mult,
+		"the victim's alliance accrues the hit-by-nuke weight against the attacker")
 
 func test_facade_strike_consumes_unit_and_emits():
 	var gs = make_gs(2)
@@ -133,6 +139,20 @@ func test_facade_strike_consumes_unit_and_emits():
 	assert_true(ok, "strike accepted")
 	assert_null(gs.get_unit(nuke.id), "the missile is consumed on launch")
 	assert_signal_emitted(f, "nuclear_detonated")
+
+func test_facade_strike_marks_forced_war_on_victim():
+	# §15.8: a war opened by a nuclear strike was forced on the victim, so the
+	# victim's weariness in it accrues at the forced-war modifier.
+	var gs = make_gs(2)
+	_enable_nukes(gs, 1)
+	gs.current_player_id = 1
+	var f = bare_facade(gs)
+	var nuke = make_unit(gs, "tactical_nuke", 1, 5, 5)
+	make_warrior(gs, 2, 7, 7)
+	assert_true(f.apply_command(Commands.nuclear_strike(1, nuke.id, 7, 7)), "strike accepted")
+	assert_true(gs.get_alliance(1).is_at_war_with(2), "the strike opens the war")
+	assert_true(1 in gs.get_alliance(2).forced_wars,
+		"the victim's new war is marked as forced")
 
 func test_facade_strike_rejected_without_manhattan_project():
 	var gs = make_gs(2)

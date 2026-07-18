@@ -303,7 +303,7 @@ Open the **Military** advisor screen to review all your units and their promotio
 
 ### War fatigue
 
-Prolonged war accumulates **war fatigue** on both alliances, increasing unhappiness. It decays over time once fighting stops.
+Prolonged war accumulates **war fatigue** on both alliances, increasing unhappiness in your cities. Every combat event adds fatigue: losing a unit hurts most while attacking, less while defending; even killing enemy units adds a little; losing a city adds the most; nuclear strikes add heavy fatigue — far more for the side that launched them. A war that was declared **on** you accrues fatigue at half rate, and none accrues during a Golden Age. Once fighting stops, fatigue decays a little each turn.
 
 ---
 

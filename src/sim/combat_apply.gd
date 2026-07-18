@@ -37,11 +37,19 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 	if result["defender_survived"]:
 		award_promotions(gs, defender)
 
-	# War-fatigue: the losing side's alliance accrues fatigue (§4.5, §7).
+	# War weariness (§15.8): each side's alliance accrues per-event points
+	# against the other when a unit dies — the loser more than the victor, an
+	# attacking loss more than a defending one (reference weights, §4.5/§7).
 	if not result["defender_survived"] and result["attacker_survived"]:
-		accrue_war_fatigue(gs, defender, attacker)
+		accrue_war_fatigue(gs, defender.owner_player_id, attacker.owner_player_id,
+			"war_weariness_unit_killed_defending")
+		accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
+			"war_weariness_killed_unit_attacking")
 	elif not result["attacker_survived"] and result["defender_survived"]:
-		accrue_war_fatigue(gs, attacker, defender)
+		accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
+			"war_weariness_unit_killed_attacking")
+		accrue_war_fatigue(gs, defender.owner_player_id, attacker.owner_player_id,
+			"war_weariness_killed_unit_defending")
 
 	if not result["attacker_survived"]:
 		Stack.remove_unit(gs.units, attacker.id)
@@ -191,18 +199,29 @@ static func promo_applies(promo: Dictionary, cls: String, dom: String) -> bool:
 	var a: String = str(applies)
 	return a == "all" or a == cls or a == dom
 
-# The defeated unit's alliance accumulates war-fatigue against the victor's
-# alliance. Wild forces (no player/alliance) are skipped.
-static func accrue_war_fatigue(gs, loser: Unit, winner: Unit) -> void:
-	var lp: Player = gs.get_player(loser.owner_player_id)
-	var wp: Player = gs.get_player(winner.owner_player_id)
-	if lp == null or wp == null:
+# §15.8 war weariness: `side_pid`'s alliance accrues the data-defined per-event
+# weight `key` (× `war_weariness_multiplier`) against `enemy_pid`'s alliance.
+# Reduced by the forced-war modifier (−50%) when the war was declared on `side`
+# (alliance.forced_wars). Shared by every event site — unit combat (both the
+# facade and WildAI paths route through apply_unit_result above), city conquest
+# (SimFacade._city_falls) and nuclear strikes (Nuclear.detonate) — so all paths
+# write state identically. Wild forces (no player/alliance) are skipped, as is
+# a side enjoying a Golden Age (§14.4: weariness is frozen).
+static func accrue_war_fatigue(gs, side_pid: int, enemy_pid: int, key: String) -> void:
+	var sp: Player = gs.get_player(side_pid)
+	var ep: Player = gs.get_player(enemy_pid)
+	if sp == null or ep == null or sp.alliance_id == ep.alliance_id:
 		return
-	var la: Alliance = gs.get_alliance(lp.alliance_id)
-	if la == null:
+	var sa: Alliance = gs.get_alliance(sp.alliance_id)
+	if sa == null:
 		return
 	# War Weariness does not increase for a player enjoying a Golden Age (§14.4).
-	if GreatPeople.is_in_golden_age(lp):
+	if GreatPeople.is_in_golden_age(sp):
 		return
-	var amt: int = gs.db.get_constant("war_fatigue_per_loss", 5)
-	la.war_fatigue[wp.alliance_id] = int(la.war_fatigue.get(wp.alliance_id, 0)) + amt
+	var amt: int = gs.db.get_constant(key, 0) \
+		* gs.db.get_constant("war_weariness_multiplier", 2)
+	if ep.alliance_id in sa.forced_wars:
+		amt = amt * (100 + gs.db.get_constant("war_weariness_forced_modifier", -50)) / 100
+	if amt <= 0:
+		return
+	sa.war_fatigue[ep.alliance_id] = int(sa.war_fatigue.get(ep.alliance_id, 0)) + amt

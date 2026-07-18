@@ -22,14 +22,22 @@ func test_declare_war_command_sets_war_state() -> void:
 	assert_true(f.apply_command(Commands.declare_war(1, 2)), "Declare war command accepted")
 	assert_true(gs.alliances[0].is_at_war_with(2), "Declaring war records the war state")
 	assert_true(gs.alliances[0].has_contact_with(2), "Declaring war establishes contact")
+	assert_true(1 in gs.alliances[1].forced_wars,
+		"The attacked side records the war as forced (§15.8)")
+	assert_false(2 in gs.alliances[0].forced_wars,
+		"The declarer chose the war — not forced")
 
 func test_make_peace_command_clears_war_state() -> void:
 	var gs = make_gs(2)
 	var f = bare_facade(gs)
 	gs.current_player_id = 1
 	gs.alliances[0].at_war_with = [2]
+	gs.alliances[0].forced_wars = [2]
+	gs.alliances[1].forced_wars = [1]
 	assert_true(f.apply_command(Commands.make_peace(1, 2)), "Make peace command accepted")
 	assert_false(gs.alliances[0].is_at_war_with(2), "Making peace clears the war state")
+	assert_false(2 in gs.alliances[0].forced_wars, "Peace clears our forced-war flag")
+	assert_false(1 in gs.alliances[1].forced_wars, "Peace clears their forced-war flag too")
 
 func test_cannot_declare_war_on_own_alliance() -> void:
 	var gs = make_gs(2)
@@ -317,6 +325,7 @@ func test_alliance_contacts_deserialize_as_ints() -> void:
 	a.permanent_allies = [3]
 	a.at_war_with = [2]
 	a.war_fatigue = {2: 7}
+	a.forced_wars = [2]
 	# Round-trip through real JSON so keys/values pick up JSON's float/string typing.
 	var round_tripped = JSON.parse(JSON.print(a.serialize())).result
 	var b = load("res://src/sim/alliance.gd").deserialize(round_tripped)
@@ -326,6 +335,8 @@ func test_alliance_contacts_deserialize_as_ints() -> void:
 	assert_true(3 in b.permanent_allies, "Permanent-ally membership matches an int id")
 	assert_true(2 in b.at_war_with, "War membership matches an int id")
 	assert_eq(int(b.war_fatigue[2]), 7, "war_fatigue is reachable by its int key")
+	assert_true(2 in b.forced_wars and typeof(b.forced_wars[0]) == TYPE_INT,
+		"forced_wars survives a round trip as ints")
 
 func test_intel_accumulation_survives_save_load() -> void:
 	# Two players in sight of each other accumulate intel identically whether the

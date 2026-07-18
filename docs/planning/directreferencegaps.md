@@ -10,9 +10,11 @@ emancipation, labor tech gates) done 2026-07-17; D2 + C4 (border curve +
 culture-level city defence; values re-confirmed under a fresh user-authorized
 XML-sourcing session, now closed again) done 2026-07-17. Date: 2026-07-07.
 
-**REMAINING (handoff for the next session):** C8 (optional, low priority), then
-D1 (tech-graph parity) last — **C4 + D2 done 2026-07-17** (the reference
-geometric border curve + culture-level city defence, one sitting as planned).
+**REMAINING (handoff for the next session):** D1 (tech-graph parity) only —
+**C8 done 2026-07-17** (the reference per-event war-weariness weights; values
+re-confirmed against the reference XML under a user-authorized sourcing session,
+now closed again), after **C4 + D2 done 2026-07-17** (the reference geometric
+border curve + culture-level city defence, one sitting as planned).
 Also parked along the way, each recorded in its item's note:
 per-city `science_bonus` wiring (A2 note), three_gorges_dam `unhealthy_global`
 + hippodrome `happiness_with_horse` dead keys (A2), panzer's missing +50% vs
@@ -601,6 +603,22 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   `test_raider_stock_never_picks_a_defensive_only_unit`.
 - **C8. War-weariness deepening** (§15.8) — *optional*: keep the 2-constant model or
   adopt per-event weights; if adopted, wire into `CombatApply` outcomes. Low priority.
+  **DONE 2026-07-17.** Adopted the full reference model (per the blanket
+  adopt-reference decision): `war_fatigue_per_loss`/`nuke_war_fatigue` are
+  **removed**, replaced by the §15.8 per-event weight block in `constants.json`
+  (`war_weariness_*`: unit killed attacking 3 / defending 2, killed a unit
+  attacking 2 / defending 1, city captured 6, hit by nuke 3, attacked with nuke
+  12, ×2 base multiplier). One accruer, `CombatApply.accrue_war_fatigue`, is
+  called from unit combat (shared facade/WildAI path), `SimFacade._city_falls`
+  and `Nuclear.detonate` (victims now also accrue vs the aggressor). New: peace
+  decay (−1 then keep 99% per `world_step`, no decay while at war) and the
+  forced-war −50% modifier via the new serialized `Alliance.forced_wars`
+  (declared-on, vassal drag-in, nuclear first strike; cleared at peace;
+  int-coerced on load). Kept: `war_fatigue_anger_divisor` 4, Police State
+  `war_anger_reduction`, the §14.4 Golden-Age freeze, wild forces exempt.
+  Unit-capture weights (2/1) are **not shipped** — unit capture is not a
+  Humanish mechanic (no dead keys). Statue of Zeus `enemy_war_weariness` stays
+  a parked dead key (A2-style note).
 
 ## Phase D — decided 2026-07-08 (all resolved "adopt reference"); now work items
 
@@ -791,8 +809,8 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    do it WITH D2 (its defence tiers key off the D2 curve)~~; **B7 + C6 done
    2026-07-17; D2 + C4 done together 2026-07-17 — see the D2/C4 notes**.
 6. D1 tech graph last among the big items (touches everything; do when A/C are
-   green). ~~D2 border curve~~ **done 2026-07-17 (with C4)**. Suggested
-   remaining order: C8 (optional) → D1.
+   green). ~~D2 border curve~~ **done 2026-07-17 (with C4)**. ~~C8~~ **done
+   2026-07-17**. Remaining: D1 only.
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
 save/load determinism tests must pass after every schema change (int-coercion rule for

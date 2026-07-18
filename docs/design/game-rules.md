@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — war weariness, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -63,7 +63,7 @@ provisional_sections:
   - "§9.2  Wild-forces spawning — reference-derived port, per-difficulty tables provisional"
   - "§9.3  Wild animals — spawning, behaviour, and combat limits (reference-derived)"
   - "§9.4  Naval raiders — placeholder (sea-domain wild forces)"
-  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.9/15.10 implemented 2026-07-17, the rest unbuilt"
+  - "§15   Reference-parity mechanics — each subsection is a reference-parity target with final values (from reference XML); 15.5/15.6/15.12 implemented 2026-07-08, 15.1/15.2/15.3 implemented 2026-07-12, 15.8/15.9/15.10 implemented 2026-07-17, the rest unbuilt"
 editorial_rule: >
   Modify only with explicit user consent. This is the upstream source of truth;
   the engine grows toward it. When a gap is closed, update the relevant section to
@@ -1757,27 +1757,43 @@ magnitudes above are live in `Nuclear.detonate` (`data/constants.json` `nuke_*`)
 missiles are excluded in `Stack.get_defender` and destroyed by
 `CombatApply.destroy_stranded_missiles`.
 
-### 15.8 War weariness — reference event weights *(partially implemented)*
+### 15.8 War weariness — reference event weights *(implemented 2026-07-17, C8)*
 
-Humanish's war fatigue (`war_fatigue_per_loss` 5, anger divisor 4) is a two-constant
-simplification. The reference accumulates weariness per *event kind* and decays it in
-peace; parity values if the model is ever deepened:
+War fatigue accumulates weariness per *event kind* (the old two-constant
+`war_fatigue_per_loss` model is replaced) and decays it in peace. Adopted weights,
+re-confirmed against the reference XML:
 
-| Event (your side) | WW points |
-|---|---|
-| your unit killed while attacking | 3 |
-| your unit killed while defending | 2 |
-| your unit captured | 2 |
-| you kill a unit while attacking | 2 |
-| you kill a unit while defending | 1 |
-| you capture a unit | 1 |
-| your city captured | 6 |
-| hit by nuke | 3 |
-| attacked with a nuke (aggressor penalty) | 12 |
+| Event (your side) | WW points | constants.json key |
+|---|---|---|
+| your unit killed while attacking | 3 | `war_weariness_unit_killed_attacking` |
+| your unit killed while defending | 2 | `war_weariness_unit_killed_defending` |
+| your unit captured | 2 | *(unit capture is not a Humanish mechanic — no key)* |
+| you kill a unit while attacking | 2 | `war_weariness_killed_unit_attacking` |
+| you kill a unit while defending | 1 | `war_weariness_killed_unit_defending` |
+| you capture a unit | 1 | *(unit capture is not a Humanish mechanic — no key)* |
+| your city captured | 6 | `war_weariness_city_captured` |
+| hit by nuke | 3 | `war_weariness_hit_by_nuke` |
+| attacked with a nuke (aggressor penalty) | 12 | `war_weariness_attacked_with_nuke` |
 
-Multiplier `BASE_WAR_WEARINESS_MULTIPLIER` 2; decay in peace: −1/turn and −1% of the
-total per turn (`WW_DECAY_RATE` −1, `WW_DECAY_PEACE_PERCENT` 99); a war you were forced
-into (declared on you) accrues at −50%.
+Multiplier `BASE_WAR_WEARINESS_MULTIPLIER` 2 (`war_weariness_multiplier` — every
+accrued weight is scaled by it); decay in peace: −1/turn and then keep 99% of the
+total per turn (`war_weariness_decay_rate` −1, `war_weariness_decay_peace_percent`
+99 — no decay while the war is still hot); a war you were forced into accrues at
+−50% (`war_weariness_forced_modifier`, tracked per-alliance in
+`Alliance.forced_wars`: set when war is declared on you, when a vassal is dragged
+into its overlord's war, or when a nuclear first strike opens the war; cleared at
+peace).
+
+**As built:** every event routes through the single accruer
+`CombatApply.accrue_war_fatigue(gs, side_pid, enemy_pid, key)` — unit deaths from
+`CombatApply.apply_unit_result` (shared by the facade and WildAI combat paths),
+city loss from `SimFacade._city_falls` (kept or razed), nuke events from
+`Nuclear.detonate` (each victim accrues hit-by-nuke; the aggressor accrues
+attacked-with-nuke per victim alliance). Wild forces (no player/alliance) never
+accrue or cause accrual, and a side in a Golden Age is frozen (§14.4). The peace
+decay runs once per `TurnEngine.world_step` (`_decay_war_fatigue`). Weariness
+still converts to city anger through the unchanged `war_fatigue_anger_divisor`
+(4) with the Police State `war_anger_reduction` civic cut (§8).
 
 ### 15.9 Worker-speed and improvement-upgrade civic effects
 

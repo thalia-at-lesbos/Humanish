@@ -478,24 +478,106 @@ func test_xp_per_combat_capped_at_ten() -> void:
 	assert_eq(int(result["attacker_xp_gain"]), 10,
 		"XP per combat is capped at 10 (reference, A11)")
 
-# ── War fatigue (§3.8/§7) ────────────────────────────────────────────────────────
+# ── War weariness (§15.8 reference per-event weights) ────────────────────────────
 
-func test_combat_loss_accrues_war_fatigue() -> void:
-	var gs = make_gs()
-	var f = bare_facade(gs)
-	var atk = make_unit(gs, "warrior", 1, 5, 6)
-	var def = make_unit(gs, "warrior", 2, 5, 5)
-	var result = {
+func _dead_defender_result() -> Dictionary:
+	return {
 		"attacker_survived": true, "defender_survived": false,
 		"attacker_health_after": 100, "defender_health_after": 0,
 		"attacker_withdrew": false, "rounds": 1,
 		"attacker_xp_gain": 0, "defender_xp_gain": 0,
 		"spillover_damage": 0, "flanking_damage": 0
 	}
-	f._apply_combat_result(atk, def, result)
-	var amt: int = gs.db.get_constant("war_fatigue_per_loss", 5)
-	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)), amt,
-		"Loser's alliance accrues war-fatigue against the victor")
+
+func _dead_attacker_result() -> Dictionary:
+	return {
+		"attacker_survived": false, "defender_survived": true,
+		"attacker_health_after": 0, "defender_health_after": 100,
+		"attacker_withdrew": false, "rounds": 1,
+		"attacker_xp_gain": 0, "defender_xp_gain": 0,
+		"spillover_damage": 0, "flanking_damage": 0
+	}
+
+func test_defender_loss_accrues_per_event_weariness_both_sides() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var def = make_unit(gs, "warrior", 2, 5, 5)
+	f._apply_combat_result(atk, def, _dead_defender_result())
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_unit_killed_defending", 2) * mult,
+		"Loser (unit killed defending) accrues its weight x multiplier")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)),
+		gs.db.get_constant("war_weariness_killed_unit_attacking", 2) * mult,
+		"Victor (killed a unit while attacking) accrues its weight x multiplier")
+
+func test_attacking_loss_weighs_heavier_than_defending_loss() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var def = make_unit(gs, "warrior", 2, 5, 5)
+	f._apply_combat_result(atk, def, _dead_attacker_result())
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	var attacking_loss: int = int(gs.alliances[0].war_fatigue.get(2, 0))
+	assert_eq(attacking_loss,
+		gs.db.get_constant("war_weariness_unit_killed_attacking", 3) * mult,
+		"Losing the attacker accrues the heavier unit-killed-attacking weight")
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_killed_unit_defending", 1) * mult,
+		"A defensive kill accrues the lightest weight on the victor")
+	assert_true(attacking_loss > gs.db.get_constant(
+		"war_weariness_unit_killed_defending", 2) * mult,
+		"An attacking loss outweighs a defending loss (3 > 2, reference)")
+
+func test_forced_war_halves_weariness_accrual() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	# The war was declared ON player 2's alliance: its accrual is halved.
+	gs.alliances[1].forced_wars = [1]
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var def = make_unit(gs, "warrior", 2, 5, 5)
+	f._apply_combat_result(atk, def, _dead_defender_result())
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	var full: int = gs.db.get_constant("war_weariness_unit_killed_defending", 2) * mult
+	var mod: int = gs.db.get_constant("war_weariness_forced_modifier", -50)
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)), full * (100 + mod) / 100,
+		"A forced war accrues at the reference -50% modifier")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)),
+		gs.db.get_constant("war_weariness_killed_unit_attacking", 2) * mult,
+		"The aggressor side still accrues in full")
+
+func test_golden_age_freezes_weariness_accrual() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	gs.get_player(2).golden_age_turns = 3   # loser is in a Golden Age (§14.4)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var def = make_unit(gs, "warrior", 2, 5, 5)
+	f._apply_combat_result(atk, def, _dead_defender_result())
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)), 0,
+		"No weariness accrues for a player enjoying a Golden Age")
+	assert_true(int(gs.alliances[0].war_fatigue.get(2, 0)) > 0,
+		"The other side (not in a Golden Age) accrues normally")
+
+func test_both_combat_paths_accrue_weariness_identically() -> void:
+	# The facade path (_apply_combat_result) and the WildAI path both route
+	# through the shared CombatApply.apply_unit_result, so identical fights
+	# write identical weariness.
+	var gs1 = make_gs()
+	var f = bare_facade(gs1)
+	f._apply_combat_result(make_unit(gs1, "warrior", 1, 5, 6),
+		make_unit(gs1, "warrior", 2, 5, 5), _dead_defender_result())
+	var gs2 = make_gs()
+	CombatApply.apply_unit_result(gs2, make_unit(gs2, "warrior", 1, 5, 6),
+		make_unit(gs2, "warrior", 2, 5, 5), _dead_defender_result())
+	assert_eq(int(gs1.alliances[0].war_fatigue.get(2, 0)),
+		int(gs2.alliances[0].war_fatigue.get(2, 0)),
+		"Victor-side weariness matches across the two combat paths")
+	assert_eq(int(gs1.alliances[1].war_fatigue.get(1, 0)),
+		int(gs2.alliances[1].war_fatigue.get(1, 0)),
+		"Loser-side weariness matches across the two combat paths")
+	assert_true(int(gs1.alliances[1].war_fatigue.get(1, 0)) > 0,
+		"and the shared path actually accrued (not two zeros)")
 
 # ── Auto-promotion on XP (§5.5) ──────────────────────────────────────────────────
 

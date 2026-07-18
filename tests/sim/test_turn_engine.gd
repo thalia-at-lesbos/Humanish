@@ -143,3 +143,42 @@ func test_human_research_unaffected_by_ai_bonus() -> void:
 	TurnEngine._apply_research(gs, human)
 
 	assert_eq(human.research_store, 10, "human research is never affected by ai_bonus")
+
+# ── C8: war-weariness peace decay (§15.8) ────────────────────────────────────
+
+func test_war_weariness_decays_in_peace() -> void:
+	var gs = make_gs(2)
+	gs.alliances[0].war_fatigue = {2: 101}
+	TurnEngine._decay_war_fatigue(gs)
+	# (101 - 1) * 99 / 100 = 99 — the flat decay rate, then the peace percent.
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 99,
+		"Peace decay: minus the decay rate, then keep the peace percent")
+
+func test_war_weariness_does_not_decay_while_at_war() -> void:
+	var gs = make_gs(2)
+	gs.alliances[0].at_war_with = [2]
+	gs.alliances[0].war_fatigue = {2: 50}
+	TurnEngine._decay_war_fatigue(gs)
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 50,
+		"A hot war never decays")
+	# The asymmetric case: only the OTHER side lists the war — still hot.
+	var gs2 = make_gs(2)
+	gs2.alliances[1].at_war_with = [1]
+	gs2.alliances[0].war_fatigue = {2: 50}
+	TurnEngine._decay_war_fatigue(gs2)
+	assert_eq(int(gs2.alliances[0].war_fatigue.get(2, 0)), 50,
+		"Either side listing the war blocks decay")
+
+func test_war_weariness_entry_erased_at_zero() -> void:
+	var gs = make_gs(2)
+	gs.alliances[0].war_fatigue = {2: 1}
+	TurnEngine._decay_war_fatigue(gs)
+	assert_false(gs.alliances[0].war_fatigue.has(2),
+		"A fully decayed entry is erased, keeping the dictionary clean")
+
+func test_world_step_runs_the_peace_decay() -> void:
+	var gs = make_gs(2)
+	gs.alliances[0].war_fatigue = {2: 101}
+	TurnEngine.world_step(gs, hooks())
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 99,
+		"world_step applies the peace decay each turn")
