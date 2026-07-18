@@ -3069,17 +3069,41 @@ func _cmd_mission(cmd: Dictionary) -> bool:
 					if one_use:
 						_consume_one_use(u)
 					return true  # intercepted: mission aborted
-			var target: Unit = Stack.get_defender(_gs.units, tx, ty, player_id, _gs)
-			if target == null:
-				return false
-			var result: Dictionary = Combat.resolve(u, target, _gs, _gs.rng)
-			# Bombard / air strike never advances onto the target tile.
-			_apply_combat_result(u, target, result, false)
-			emit_signal("combat_resolved", result)
-			_add_combat_notification(u, target, result)
-			u.has_moved = true
-			if one_use:
-				_consume_one_use(u)
+			# Bombarding a hostile settlement's defences (§15.4 / C4): while the
+			# target city's culture-level defence still stands, a unit with a
+			# `bombard_rate` knocks that many points off it instead of fighting
+			# the garrison — pound the defences flat first, then the same
+			# mission falls through to the ranged attack below.
+			var bomb_settle: Settlement = _gs.get_settlement_at(tx, ty)
+			var bomb_rate: int = int(udata_b.get("bombard_rate", 0))
+			if bomb_settle != null and bomb_settle.owner_player_id != player_id \
+					and bomb_rate > 0 and Combat.culture_defence(bomb_settle, _db) > 0:
+				# Ground/naval bombardment works from an adjacent tile only
+				# (air range was already validated above).
+				if not is_air and _gs.map.distance(u.x, u.y, tx, ty) > 1:
+					return false
+				var max_dmg: int = _db.get_constant("max_city_defence_damage", 100)
+				bomb_settle.defence_damage += bomb_rate
+				if bomb_settle.defence_damage > max_dmg:
+					bomb_settle.defence_damage = max_dmg
+				_add_notification(_db.get_unit(u.unit_type_id).get("name",
+					u.unit_type_id).capitalize() + " bombards the defences of "
+					+ bomb_settle.name + ".", "info")
+				u.has_moved = true
+				if one_use:
+					_consume_one_use(u)
+			else:
+				var target: Unit = Stack.get_defender(_gs.units, tx, ty, player_id, _gs)
+				if target == null:
+					return false
+				var result: Dictionary = Combat.resolve(u, target, _gs, _gs.rng)
+				# Bombard / air strike never advances onto the target tile.
+				_apply_combat_result(u, target, result, false)
+				emit_signal("combat_resolved", result)
+				_add_combat_notification(u, target, result)
+				u.has_moved = true
+				if one_use:
+					_consume_one_use(u)
 		IDs.CommandType.MISSION_AIRLIFT:
 			var tx2: int = int(cmd.get("target_x", u.x))
 			var ty2: int = int(cmd.get("target_y", u.y))
@@ -3752,12 +3776,9 @@ func unit_effective_strength(unit_id: int) -> int:
 	# unit garrisons one of its own settlements, mirroring the combat resolver.
 	var settle: Settlement = _gs.get_settlement_at(u.x, u.y)
 	var at_settlement: bool = settle != null
-	var settle_def: int = 0
-	if at_settlement:
-		for sid in settle.structures:
-			var st: Dictionary = _db.get_structure(sid)
-			settle_def += int(st.get("defence_bonus", 0))
-			settle_def += int(st.get("cultural_defence_bonus", 0))
+	# Same structure + culture-level defence sum the combat resolver uses
+	# (§5.3, §15.4), so the displayed number stays honest.
+	var settle_def: int = Combat.settlement_defence(settle, _db)
 	return u.effective_strength(_db, false, ter, feat, "",
 		at_settlement, settle_def, false)
 

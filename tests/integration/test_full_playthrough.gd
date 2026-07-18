@@ -404,8 +404,7 @@ func test_playthrough_reaches_a_cultural_victory() -> void:
 	var ng = _new_game(21); var gs = ng[0]; var f = ng[1]
 	gs.enabled_win_conditions = ["cultural", "time"]
 
-	var thresholds = gs.db.constants.get("culture_ring_thresholds", [])
-	var legendary = int(thresholds[thresholds.size() - 1]) + 1   # past the top ring
+	var legendary = CultureLevels.legendary_threshold(gs.db, gs.pace_id) + 1   # past the top level
 	var need = int(gs.db.win_conditions["cultural"].get("cities_at_max_culture", 3))
 
 	# Player 1 owns the required number of legendary cities; player 2 has one

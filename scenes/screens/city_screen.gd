@@ -125,8 +125,19 @@ func _build() -> void:
 		var split = owner.split_commerce(s.output_commerce)
 		_line(v, "Commerce split →  Finance " + str(split[0]) + "   Research " + str(split[1]) \
 			+ "   Culture " + str(split[2]) + "   Intel " + str(split[3]))
-	_line(v, "Food store: " + str(s.food_store) + "    Culture: " + str(s.culture_total) \
-		+ " (border ring " + str(s.culture_ring) + ")")
+	# Culture level (§15.4 / D2): the level name plus the border ring it grants;
+	# the level's intrinsic city defence shows its bombardment wear, if any.
+	var culture_line: String = "Food store: " + str(s.food_store) + "    Culture: " \
+		+ str(s.culture_total) + " (" + CultureLevels.level_name(db, s.culture_ring - 1) \
+		+ ", border ring " + str(s.culture_ring) + ")"
+	var cdef: int = Combat.culture_defence(s, db)
+	var cdef_full: int = CultureLevels.defence_pct(db, s.culture_ring - 1)
+	if cdef_full > 0:
+		culture_line += "    Culture defence: +" + str(cdef) + "%"
+		if cdef < cdef_full:
+			culture_line += " (bombarded, heals +" \
+				+ str(db.get_constant("city_defence_heal_rate", 5)) + "/turn)"
+	_line(v, culture_line)
 
 	# ── Wellbeing & contentment ────────────────────────────────────────────────
 	_header(v, "Wellbeing & Contentment")

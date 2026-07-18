@@ -22,6 +22,7 @@ key_files:
   - src/sim/beliefs.gd           # §8 religion founding and spread
   - src/sim/econ_orgs.gd         # §8 economic organizations
   - src/sim/culture_revolt.gd    # §4.9 cultural city flipping
+  - src/sim/culture_levels.gd    # §15.4 culture levels / border curve / city defence
   - src/sim/nuclear.gd           # §5.7 nuclear weapons
   - src/sim/assembly.gd          # §7.2 world-government voting
   - src/sim/eras.gd              # §2.1 derived era system
@@ -43,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Parity targets with reference values — culture defence, war weariness, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
+  "§15 Reference-parity mechanics": "Parity targets with reference values — war weariness, goody rosters (unimplemented); inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10) and compound prereqs (15.12) are implemented"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -391,7 +392,8 @@ feature** health (below).
 
 ### 4.7 Culture & borders
 * Each settlement accumulates cultural output and crosses **influence-level thresholds**
-  that expand its working/claim radius outward in rings.
+  that expand its working/claim radius outward in rings — since D2 the reference
+  geometric per-pace culture-level curve (§15.4; 5 levels, ring = level + 1).
 * Each turn the settlement adds cultural influence to every tile within range, weighted by
   distance. Ownership of a tile is awarded to whichever player has the greatest accumulated
   influence on it. This is how borders form, expand, and shift between players.
@@ -1644,18 +1646,37 @@ civic switch's `transition_turns` (`_cmd_set_policy`) and a religion switch's
 truncation never erases a real switch cost; espionage-induced anarchy (§7.1) is
 mission-priced and stays unscaled. **Golden ages** — `GreatPeople._golden_age_duration`
 reads `golden_age_scale` (8 turns → 6/8/10/16), replacing its old `build_scale` read.
-**Victory delay** — `WinConditions._cultural` requires each city's `culture_total` to
-reach the top `culture_ring_thresholds` entry (550) × `victory_delay_scale`
-(368/550/825/1650); at normal pace this is exactly the old top-border-ring check.
+**Victory delay** — *superseded by D2 (2026-07-17, §15.4)*: `WinConditions._cultural`
+now requires each city's `culture_total` to reach the pace's own **legendary
+culture-level threshold** (`culture_level_thresholds` top entry: 25000/50000/
+75000/150000 on quick/normal/epic/marathon) — the reference per-speed culture
+table carries its own scaling, so no `victory_delay_scale` stretch applies. The
+`victory_delay_scale` column stays shipped per-pace reference data but is
+currently unread (its reference use — spaceship-arrival delay — is unmodelled).
 The **Time** victory turn limit is *not* additionally scaled: `max_turns` in
 `paces.json` (330/500/750/1500) already carries the reference per-pace game lengths.
 **Wild timing** — `WildForces._scaled_turns` reads `wild_scale` (a 40-turn gate →
 26/40/60/160), replacing its old `growth_scale` read.
 
-### 15.4 Culture-level city defence *(unimplemented)*
+### 15.4 Culture levels & culture-level city defence *(implemented — D2 + C4, 2026-07-17)*
 
-A settlement's cultural development grants an intrinsic defence modifier (on top of
-structures), by culture level:
+**The border curve (D2)**: the reference geometric culture-level progression
+replaces the old near-linear 10-ring `culture_ring_thresholds`. Each pace row in
+`paces.json` carries its own `culture_level_thresholds` column (5 levels — the
+reference table has its own per-speed scaling, quick ×½ / epic ×1.5 / marathon ×3
+of normal; see game-data §29.4). A settlement's **culture level** is the number of
+thresholds its `culture_total` has passed (0 = poor … 5 = legendary, via
+`CultureLevels.level_for`), and its **border ring** is `level + 1` (a fresh city is
+ring 1 — own tile + immediate neighbours; a legendary city reaches ring 6).
+`TurnEngine._settlement_culture` recomputes the ring each turn and feeds it to
+`Influence.spread`; `CultureRevolt` reads the same ring for rival-city reach, and
+the city work radius stays `min(ring, 2)` (the fixed 5×5 fat cross caps it).
+**Cultural victory** reads the pace's legendary threshold directly (§15.3
+victory-delay note).
+
+**The defence modifier (C4)**: a settlement's culture level grants an intrinsic
+defence modifier on top of structures (`culture_level_defence` in
+`constants.json`), summed in `Combat.settlement_defence`:
 
 | Level | Culture (quick/normal/epic/marathon) | City defence % |
 |---|---|---|
@@ -1665,12 +1686,20 @@ structures), by culture level:
 | influential | 2500 / 5000 / 7500 / 15000 | +80 |
 | legendary | 25000 / 50000 / 75000 / 150000 | +100 |
 
-Note the reference expansion curve is geometric (10 → 100 → 500 → 5000 → 50000 at
-normal) where Humanish `culture_ring_thresholds` is near-linear (10…550) — reconciling
-border growth is a **decision item** in `directreferencegaps.md`, but the defence
-modifier can be adopted independently, keyed off whatever thresholds are in force.
-Bombardment reduces this modifier before combat (reference
-`CITY_DEFENSE_DAMAGE_HEAL_RATE` 5 %/turn recovery).
+**Bombardment** reduces this modifier before combat: while a hostile settlement's
+culture defence still stands, a `MISSION_BOMBARD` by a unit with a `bombard_rate`
+(units.json; reference `iBombardRate`/air `iBombRate` — see game-data §29.4) adds
+that many points to the settlement's serialized `defence_damage`
+(0..`max_city_defence_damage` 100, reference `MAX_CITY_DEFENSE_DAMAGE`); the
+effective culture defence scales as `base × (100 − damage) / 100`
+(`Combat.culture_defence`). Ground/naval bombardment works from an adjacent tile;
+air bombardment within air range (interception applies first). Once the culture
+defence is flat — or the unit has no bombard rate — the same mission falls through
+to the pre-existing ranged attack on the garrison. Damage heals a flat
+`city_defence_heal_rate` **5 points per owner turn** (reference
+`CITY_DEFENSE_DAMAGE_HEAL_RATE`; Humanish heals unconditionally — the reference's
+skip-heal-on-a-bombarded-turn refinement is not modelled) in
+`TurnEngine._settlement_upkeep`.
 
 ### 15.5 Chance first strikes
 

@@ -318,7 +318,8 @@ static func _unit_class(u: Unit, db: DataDB) -> String:
 	return db.get_unit(u.unit_type_id).get("classification", "")
 
 # Total defensive bonus a settlement grants its garrison (§5.3): each built
-# structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …).
+# structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …),
+# plus the intrinsic culture-level defence (§15.4 / C4).
 # Public so the facade's city-intel readout (§25.6) shows the same number the
 # combat resolver uses.
 static func settlement_defence(settle, db: DataDB) -> int:
@@ -329,4 +330,27 @@ static func settlement_defence(settle, db: DataDB) -> int:
 		var st: Dictionary = db.get_structure(sid)
 		total += int(st.get("defence_bonus", 0))
 		total += int(st.get("cultural_defence_bonus", 0))
+	total += culture_defence(settle, db)
 	return total
+
+# Intrinsic city defence from the settlement's culture level (§15.4 / C4):
+# +20/40/60/80/100% at fledgling..legendary (`culture_level_defence`), degraded
+# proportionally by accumulated bombardment damage (`defence_damage`, 0..
+# `max_city_defence_damage`) and restored 5 points/turn in settlement upkeep.
+# The level is read from the maintained border ring (level = culture_ring - 1);
+# a pre-D2 save's larger ring clamps to the top defence entry.
+static func culture_defence(settle, db: DataDB) -> int:
+	if settle == null:
+		return 0
+	var base: int = CultureLevels.defence_pct(db, settle.culture_ring - 1)
+	if base <= 0:
+		return 0
+	var max_dmg: int = db.get_constant("max_city_defence_damage", 100)
+	if max_dmg <= 0:
+		return base
+	var dmg: int = settle.defence_damage
+	if dmg < 0:
+		dmg = 0
+	if dmg > max_dmg:
+		dmg = max_dmg
+	return (base * (max_dmg - dmg)) / max_dmg

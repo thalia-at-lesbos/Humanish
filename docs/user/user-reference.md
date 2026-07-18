@@ -138,7 +138,11 @@ When the food store reaches the growth threshold (scales with population and era
 
 ### Culture and borders
 
-Cities produce culture each turn. As culture accumulates the city's border ring expands outward, claiming territory. A tile's owner is the player with the highest accumulated cultural influence on that tile.
+Cities produce culture each turn. As culture accumulates the city climbs through six **culture levels** — Poor, Fledgling, Developing, Refined, Influential, Legendary — and each level pushes its border ring one tile further out, claiming territory. A tile's owner is the player with the highest accumulated cultural influence on that tile.
+
+At Normal pace the levels are reached at 10 / 100 / 500 / 5,000 / 50,000 accumulated culture (half that at Quick; half again more at Epic; triple at Marathon). The city screen shows the city's current level next to its culture total.
+
+**Culture defends the city.** From Fledgling up, the city's culture level grants an intrinsic defence bonus to its garrison — +20 % per level, up to +100 % at Legendary — on top of walls and other defensive structures. Enemy siege engines, warships and aircraft can **bombard** these cultural defences down before an assault (see Bombardment under Units), and they recover by 5 percentage points each turn.
 
 ---
 
@@ -194,6 +198,10 @@ The selection panel shows available actions for the selected unit(s):
 | Spread Belief | (Missionary) Spread your state religion to the target city |
 | Perform GP Action | (Great Person) Use the Great Person's special ability |
 | Disband | Remove the unit permanently |
+
+### Bombardment
+
+Siege engines (Catapult through Mobile Artillery), bombard-capable warships (Frigate through Missile Cruiser) and strike aircraft can attack at range with the bombard order (right-click the target as usual). Against an enemy **city whose cultural defences still stand**, the bombardment instead **knocks down the city's culture-level defence bonus** — each unit type removes a fixed number of percentage points per turn (e.g. Catapult 8, Trebuchet 16, Battleship 20). Once the cultural defence is flattened (it recovers 5 points per turn, so keep the pressure up), further bombard orders hit the garrison directly. Ground and naval units bombard from an adjacent tile; aircraft within their air range (enemy interceptors may shoot them down first).
 
 ### Workers
 
@@ -603,7 +611,7 @@ Hold at least **66 %** of all land tiles *and* **66 %** of total population simu
 
 ### Cultural
 
-Bring **three** of your cities to **Legendary culture** (**550** culture points accumulated in each city at Normal pace — the requirement scales with game pace: about a third less at Quick, half again more at Epic). The three cities can be any combination; they do not need to reach Legendary simultaneously.
+Bring **three** of your cities to **Legendary culture** (**50,000** culture points accumulated in each city at Normal pace — the requirement scales with game pace: 25,000 at Quick, 75,000 at Epic, 150,000 at Marathon). The three cities can be any combination; they do not need to reach Legendary simultaneously.
 
 ### Score
 

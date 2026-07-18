@@ -11,6 +11,13 @@
     "golden_age_scale": 80,
     "victory_delay_scale": 67,
     "wild_scale": 67,
+    "culture_level_thresholds": [
+      5,
+      50,
+      250,
+      2500,
+      25000
+    ],
     "inflation_percent": 45,
     "inflation_offset": -60,
     "max_turns": 330
@@ -27,6 +34,13 @@
     "golden_age_scale": 100,
     "victory_delay_scale": 100,
     "wild_scale": 100,
+    "culture_level_thresholds": [
+      10,
+      100,
+      500,
+      5000,
+      50000
+    ],
     "inflation_percent": 30,
     "inflation_offset": -90,
     "max_turns": 500
@@ -43,6 +57,13 @@
     "golden_age_scale": 125,
     "victory_delay_scale": 150,
     "wild_scale": 150,
+    "culture_level_thresholds": [
+      15,
+      150,
+      750,
+      7500,
+      75000
+    ],
     "inflation_percent": 20,
     "inflation_offset": -135,
     "max_turns": 750
@@ -59,6 +80,13 @@
     "golden_age_scale": 200,
     "victory_delay_scale": 300,
     "wild_scale": 400,
+    "culture_level_thresholds": [
+      30,
+      300,
+      1500,
+      15000,
+      150000
+    ],
     "inflation_percent": 10,
     "inflation_offset": -270,
     "max_turns": 1500

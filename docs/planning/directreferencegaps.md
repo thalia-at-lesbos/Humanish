@@ -6,12 +6,14 @@ cut done 2026-07-11; the D4 promotion-additions half + the A8 leftovers done
 2026-07-11 (values adopted from the reference under a user-authorized sourcing
 session — see A8/D4 notes); C1–C3 (economy trio) done 2026-07-12; B4/B5, C7,
 C5 (+ D3 missiles-cannot-defend), B6, and B7 + C6 (worker speed, serfdom &
-emancipation, labor tech gates) done 2026-07-17. Date: 2026-07-07.
+emancipation, labor tech gates) done 2026-07-17; D2 + C4 (border curve +
+culture-level city defence; values re-confirmed under a fresh user-authorized
+XML-sourcing session, now closed again) done 2026-07-17. Date: 2026-07-07.
 
-**REMAINING (handoff for the next session):** C4 + D2 together (culture-
-level city defence keys off the reference geometric border curve — see the C4
-entry's dependency note), C8 (optional, low priority), then D1 (tech-graph
-parity) last. Also parked along the way, each recorded in its item's note:
+**REMAINING (handoff for the next session):** C8 (optional, low priority), then
+D1 (tech-graph parity) last — **C4 + D2 done 2026-07-17** (the reference
+geometric border curve + culture-level city defence, one sitting as planned).
+Also parked along the way, each recorded in its item's note:
 per-city `science_bonus` wiring (A2 note), three_gorges_dam `unhealthy_global`
 + hippodrome `happiness_with_horse` dead keys (A2), panzer's missing +50% vs
 armor (A1), settler food-box build model (A1), gold-rush 3-gold/hammer retune
@@ -506,6 +508,23 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   settlement's culture tier in `Combat` city-defence math; bombard reduces it, heals
   5%/turn. `[decide→RESOLVED]` the border-expansion curve moves to the reference
   geometric thresholds (D2 adopted) — the defence tiers key off that curve.
+  **DONE 2026-07-17 (with D2).** `Combat.settlement_defence` now adds
+  `Combat.culture_defence`: +20/40/60/80/100% at level 1..5
+  (`culture_level_defence`, constants.json), level = the D2 border ring − 1.
+  Bombardment: units carry the reference `bombard_rate` (`iBombardRate`/air
+  `iBombRate`, 17 units in units.json — §29.4 table); while a hostile city's
+  culture defence stands, `MISSION_BOMBARD` adds the rate to the new serialized
+  `Settlement.defence_damage` (cap `max_city_defence_damage` 100; effective
+  defence = base × (100 − damage)/100) instead of fighting — flattened (or
+  rate-less), the mission falls through to the pre-existing ranged attack.
+  Ground/naval bombard requires adjacency; air keeps its range + interception
+  gate. Damage heals `city_defence_heal_rate` 5/turn in `_settlement_upkeep`
+  (unconditional — the reference's skip-on-a-bombarded-turn nicety is not
+  modelled). The city screen shows level name + culture defence + bombard wear;
+  `unit_effective_strength` now delegates to `Combat.settlement_defence` so the
+  HUD preview includes it. Tests: `test_culture_levels.gd` (new suite — curve
+  pins, ring recompute, defence tiers, bombard missions incl. cap/adjacency/
+  fall-through/air, heal, save/load hash), `test_data_db.gd` value pins.
 - **C5. SDI + The Internet + nuke interception** (§15.7, §29.2): projects.json
   entries (non-spaceship projects with effects — small `projects` model extension),
   interception roll in the nuke-strike path (`src/sim/nuclear.gd`), tech-share check
@@ -596,6 +615,22 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
   5 levels ×4 speeds (§29.4), replacing the near-linear 10 rings. Touches
   `culture_ring_thresholds` (constants.json), `CultureRevolt`, `Influence`,
   fat-cross reach; C4's defence tiers key off the new curve.
+  **DONE 2026-07-17 (with C4).** `culture_ring_thresholds` is **removed**;
+  each pace row in `paces.json` carries the reference `culture_level_thresholds`
+  column (quick 5..25000 / normal 10..50000 / epic 15..75000 / marathon
+  30..150000 — the per-speed table re-confirmed against the reference XML). The
+  new pure-static `CultureLevels` (`src/sim/culture_levels.gd`) is the single
+  reader (`thresholds`/`level_for`/`defence_pct`/`legendary_threshold`/
+  `level_name`); border ring = level + 1 (1 at founding .. 6 legendary, was
+  1..10), recomputed in `TurnEngine._settlement_culture`. `Influence` and
+  `CultureRevolt` read the ring unchanged; the 5×5 fat-cross work radius still
+  caps at 2. **Cultural victory** reads the pace's own legendary threshold
+  (25000/50000/75000/150000) with **no** `victory_delay_scale` stretch — the
+  column stays shipped reference data but is unread (its reference use,
+  spaceship-arrival delay, is unmodelled; noted in §15.3/§29.5). Tests
+  recalibrated: `test_win_conditions.gd` (pace cases 368/550/825/1650 →
+  25000/50000/75000/150000; top ring = thresholds.size()+1 — ring semantics,
+  not just numbers), integration cultural-victory read.
 - **D3. Intentional-deviation register** — **DECIDED: dissolved.** Nothing is an
   intentional deviation; every formerly-listed divergence is now scheduled inside
   its phase item: naval rescale (A1), difficulty philosophy (A3), map grids/research %
@@ -754,10 +789,10 @@ are flagged `[decide]` — ALL RESOLVED 2026-07-08 to "adopt the reference value
    (+ the missiles-cannot-defend item)/C7~~ **C5+missiles 0e4b578 and C7 c1c5798
    done 2026-07-17 (B4/B5 44becde and B6 79fa8e0 landed alongside); C4 remains —
    do it WITH D2 (its defence tiers key off the D2 curve)~~; **B7 + C6 done
-   2026-07-17 — C4 remains, WITH D2**.
-6. D1 tech graph + D2 border curve last among the big items (touch everything; do
-   when A/C are green). Suggested remaining order: D2+C4 → C8
-   (optional) → D1.
+   2026-07-17; D2 + C4 done together 2026-07-17 — see the D2/C4 notes**.
+6. D1 tech graph last among the big items (touches everything; do when A/C are
+   green). ~~D2 border curve~~ **done 2026-07-17 (with C4)**. Suggested
+   remaining order: C8 (optional) → D1.
 
 Each phase ends green on `./run_tests.sh` including the integration playthrough gate;
 save/load determinism tests must pass after every schema change (int-coercion rule for
