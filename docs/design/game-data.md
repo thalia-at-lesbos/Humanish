@@ -2596,9 +2596,8 @@ from the shared map RNG in fixed start order, keeping generation deterministic.
 > carries values read directly from the reference data (layered original reference,
 > highest layer wins). The parity plan (`docs/planning/directreferencegaps.md`,
 > **COMPLETE 2026-07-18**) shipped them into `data/*.json` — each table carries its
-> own status note. Still not live: the goody rosters (29.7; the records ship with
-> weight 0, deliberately disabled per game-rules §15.11), the non-inflation columns
-> of 29.10 (candidates, parked in the plan's A3 note), and the small inline
+> own status note. Still not live: the non-inflation columns of 29.10 (candidates —
+> Humanish folds them into the single `ai_bonus` yield scaler) and the small inline
 > leftovers noted per table (the gold-hurry retune in 29.8, the unread
 > `victory_delay_scale` in 29.5). The discrepancy audit for pre-existing tables is
 > `docs/planning/reference-parity-audit.md`.
@@ -2757,6 +2756,11 @@ total). Settler/worker huts exist only through Prince/Warlord:
 | tech | 4 | 3 | 3 | 2 | 2 | 2 | 2 | 2 | 2 |
 | barbarians_weak | 0 | 1 | 1 | 2 | 3 | 3 | 3 | 3 | 2 |
 | barbarians_strong | 0 | 0 | 1 | 1 | 1 | 2 | 3 | 4 | 6 |
+
+The settler/worker rows are live shipped data (verified A12, 2026-07-08): the
+per-difficulty `goody_weights` overrides in `difficulties.json` carry the
+§24-normalised weights (10/10/5 through Warlord, 0 from Noble up) over the base
+`weight: 0` records in `goodies.json` (game-rules §15.11).
 
 ### 29.8 Hurry types
 
