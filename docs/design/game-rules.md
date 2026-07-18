@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Reference-adopted mechanics, all implemented — inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), compound prereqs (15.12); goody-roster rewards (15.11) ship as data, deliberately disabled"
+  "§15 Reference-parity mechanics": "Reference-adopted mechanics, all implemented — inflation (15.1), whipping (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12)"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -1553,9 +1553,8 @@ supplies the values they read. A faithful implementation must reproduce both.
 > **Implemented.** Every subsection below specifies a mechanic (or a rule-level
 > correction) adopted from the reference game. The parity plan
 > (`docs/planning/directreferencegaps.md`, **COMPLETE 2026-07-18**) shipped all of
-> them — each subsection carries its own implementation note — with one exception:
-> §15.11 (settler/worker discovery-site rewards) ships as data but stays
-> deliberately disabled (goody weights 0). Values are taken directly from the
+> them — each subsection carries its own implementation note (§15.11 via the
+> per-difficulty `goody_weights` overrides). Values are taken directly from the
 > reference XML (layered original reference, highest layer wins) and are recorded
 > here so no access to the reference install is needed — the XML-sourcing
 > authorization was session-scoped and has ended; these tables are now the source.
@@ -1857,14 +1856,15 @@ specialist channels) via `EconOrgs.settlement_channel`. `maintenance_for` charge
 `hq_gold_per_franchise` (4) per member city worldwide. All rates in
 `data/econ_orgs.json` (§29.6 values, confirmed against the reference XML).
 
-### 15.11 Settler & worker discovery-site rewards *(disabled)*
+### 15.11 Settler & worker discovery-site rewards *(implemented — per-difficulty weights)*
 
-The reference grants settlers and workers from goody huts on the four easiest
-difficulties (see the per-difficulty roster in `game-data.md` §29.7). The Humanish
-`goodies.json` records exist but carry `weight: 0` (never selected) at every
-difficulty. Parity: give the settler/worker records the per-difficulty weights from
-§29.7 (they already exist as data; only the weights change — no engine work beyond
-per-difficulty goody weighting, which §24 already supports).
+The reference grants settlers and workers from goody huts on the easiest
+difficulties (see the per-difficulty roster in `game-data.md` §29.7). Implemented
+(verified already shipped, A12, 2026-07-08): the base `goodies.json` records carry
+`weight: 0` — the documented "difficulty-enabled only" convention — and the
+per-difficulty `goody_weights` overrides in `difficulties.json` (the §24-normalised
+values: settler/worker 10/10/5 through Warlord, 0 from Noble up) make them live in
+the goody selection read by `Events`.
 
 ### 15.12 Compound unit prerequisites
 
