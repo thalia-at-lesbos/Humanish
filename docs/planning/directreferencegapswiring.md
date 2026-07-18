@@ -1,6 +1,10 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **PLANNED 2026-07-18** — nothing started. Successor to
+Status: **PHASE 0 COMPLETE 2026-07-18** — the sourcing sitting ran the same day
+the plan was written; every 0a–0j value is recorded in `game-rules.md`
+§15.13–§15.21 and `game-data.md` §29.12–§29.16 (all tagged "sourced
+2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
+proceed docs-only. No implementation started. Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
 dead keys with no engine reader, mechanics blocked on unmodelled subsystems, the
@@ -44,10 +48,22 @@ with user consent (planning/ref/user docs update freely).
 
 ## Phase 0 — sourcing sitting (user-authorized, session-scoped; BLOCKS the items marked ⓪)
 
-One sitting, authorized by the user for that session only, that reads the
-reference XML/SDK and records into `game-rules.md` §15 (rule specs) and
-`game-data.md` §29 (value tables), with design-doc consent granted for the
-sitting. Nothing else in this phase — no engine work. Capture list:
+**DONE 2026-07-18.** One sitting, authorized by the user for that session only,
+that reads the reference XML/SDK and records into `game-rules.md` §15 (rule
+specs) and `game-data.md` §29 (value tables), with design-doc consent granted
+for the sitting. Nothing else in this phase — no engine work. All ten items
+below were captured (spec §15.13–§15.21, values §29.12–§29.16); the exit
+criterion is met and the authorization is closed. Findings that corrected a
+plan assumption: **0a** the carriers are the entertainment tier (theatre /
+colosseum / broadcast tower + unique variants), *not* cathedrals — cathedrals
+carry no culture-rate happiness in the reference (M2 note updated); **0c** the
+reference settler cost is computed dynamically but lands at exactly 100 at
+normal pace (adopt flat 100); **0f** the reference keeps the GP *pool*
+per-city and only escalates the *threshold* per-player — and the effective
+per-birth step is +100% of base (50 own + 50 same-team), not +50 (R2 note
+updated); **0i** a captured settler demotes to a worker; **W6** the medic
+bonus is a single best value across same-tile and adjacent sources combined
+(§29.16). Original capture list:
 
 - **0a. Culture%-slider happiness** — the reference `iHappinessPerXPercentCulture`
   mechanic (cathedral-tier buildings grant happiness scaled by the culture
@@ -158,10 +174,12 @@ docs-only.
   validation. **Tests:** `tests/sim/test_policy_effects.gd` (Hagia Sophia stops at
   Steam Power; net worker speed unchanged across the transition),
   `test_data_db.gd` shape.
-- **M2. Culture%-slider happiness** ⓪(0a): cathedral-tier buildings grant
-  happiness scaled by the culture allocation rate; ends the A2 stand-in that left
-  cathedrals culture-only (flat happy 0). **Files:** `src/sim/turn_engine.gd`
-  (`_update_contentment`), `data/structures.json` (key per 0a). **Tests:**
+- **M2. Culture%-slider happiness** ⓪(0a — sourced; spec §15.13, values
+  §29.12): **entertainment-tier** buildings (theatre/colosseum/broadcast tower
+  + unique variants — *not* cathedrals, which carry nothing in the reference)
+  grant happiness scaled by the culture allocation rate (Σ carrier values ×
+  culture% / 100, truncated once per city). **Files:** `src/sim/turn_engine.gd`
+  (`_update_contentment`), `data/structures.json` (key per §29.12). **Tests:**
   `test_settlement.gd` (0%/50% slider cases, truncation).
 - **M3. Air interception** ⓪(0b): make `intercept_bonus` (10/20) and ace
   `evasion_chance` (25) live per the sourced model; rolls through `gs.rng` in
@@ -212,9 +230,14 @@ docs-only.
   `src/sim/turn_engine.gd` (`_settlement_growth`/production), `data/units.json`,
   `data/constants.json`. **Tests:** `test_settlement.gd` (food-to-hammers cases,
   growth freeze), integration playthrough, save/load determinism midgame.
-- **R2. Per-player GP counter** ⓪(0f): the GP-point pool and threshold move from
-  per-settlement to per-player (`Player`), threshold escalating per GP born
-  (shipped `gp_threshold_base`/`gp_threshold_increase_percent`). Save-format:
+- **R2. Per-player GP counter** ⓪(0f — sourced; spec §15.18): **the reference
+  keeps the pool per-city** and escalates only the *threshold* per-player
+  (effective step +100% of base per birth — 50 own + 50 same-team — with the
+  `(born÷10)+1` multiplier; shipped `gp_threshold_base` 100 confirmed,
+  `gp_threshold_increase_percent` 50 is the raw define but half the effective
+  step). Decide at implementation whether to adopt the reference split
+  (per-city pool + per-player threshold) or the plan's original full
+  per-player pool move. Save-format:
   new `Player` fields, migrate/ignore old per-settlement counters on load —
   **major version bump candidate**. **Files:** `src/sim/great_people.gd`,
   `src/sim/player.gd`, `src/sim/settlement.gd`, `src/sim/game_state.gd`
@@ -259,9 +282,12 @@ docs-only.
 
 ## Sequencing recommendation
 
-1. **Phase W first** (except W7 waits for 0j) — independent, small, each a
-   one-sitting item with existing shipped values; burns down the dead-key list.
-2. **Phase 0 sitting** — one authorized session capturing 0a–0j into §15/§29.
+1. **Phase W first** — independent, small, each a one-sitting item with
+   existing shipped values; burns down the dead-key list. (W7's 0j check is
+   done — no waits remain.)
+2. **Phase 0 sitting** — ~~one authorized session capturing 0a–0j into
+   §15/§29~~ **done 2026-07-18**; every later phase now sources from the docs
+   only.
 3. **M1 → M2/M3/M5/M7** (M1 unblocks the Steam Power leftovers; M5/M7 are
    doc-ready any time), then **M4/M6**.
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
