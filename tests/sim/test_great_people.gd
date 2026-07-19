@@ -337,13 +337,13 @@ func test_subsequent_great_general_costs_more() -> void:
 	assert_true(p.great_general_threshold > gs.db.get_constant("great_general_first_cost", 30),
 		"the next Great General costs more than the first")
 
-# ── Special-person production at the city threshold (§6.5/§14.3) ──────────────────
+# ── Special-person production at the city threshold (§6.5/§14.3/§15.18) ──────────
 
 func test_special_person_births_typed_great_person() -> void:
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5)
-	s.special_person_threshold = 10
-	s.specialists = {"scientist": 12}  # 12 points >= threshold 10
+	s.special_person_points = 97
+	s.specialists = {"scientist": 1}  # +3 points -> 100 == base threshold
 	TurnEngine._special_person_progress(gs, s)
 	assert_eq(s.special_persons_produced, 1, "A special person is produced")
 	var found := false
@@ -356,8 +356,8 @@ func test_special_person_births_typed_great_person() -> void:
 func test_special_person_birth_matches_dominant_specialist() -> void:
 	var gs = make_gs()
 	var s = make_settlement(gs, 1, 5, 5)
-	s.special_person_threshold = 10
-	s.specialists = {"merchant": 12, "scientist": 3}
+	s.special_person_points = 60
+	s.specialists = {"merchant": 12, "scientist": 3}  # +45 points -> 105
 	TurnEngine._special_person_progress(gs, s)
 	assert_eq(s.special_persons_produced, 1, "A special person is produced")
 	var found := false
@@ -366,30 +366,151 @@ func test_special_person_birth_matches_dominant_specialist() -> void:
 			found = true
 	assert_true(found, "More merchant than scientist specialists births a Great Merchant")
 
-func test_special_person_threshold_rises() -> void:
+func test_threshold_escalates_after_own_birth() -> void:
+	# §15.18: a birth adds gp_threshold_increase_percent twice (own 50 + own-team
+	# 50) to the player's threshold modifier — +100% of base per birth.
 	var gs = make_gs()
+	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5)
-	s.special_person_threshold = 100
-	s.specialists = {"artist": 100}
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 100,
+		"the first Great Person costs the base threshold")
+	s.special_person_points = 100
+	s.specialists = {"artist": 1}
 	TurnEngine._special_person_progress(gs, s)
-	assert_gt(s.special_person_threshold, 100, "The next special person costs more")
+	assert_eq(p.special_persons_born, 1, "the birth counts on the player")
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 200,
+		"the next special person costs +100% of base (50 own + 50 same-team)")
 
 func test_threshold_follows_reference_progression() -> void:
-	# Reference progression (A7): base 100, each birth adds 50% of the base, and
-	# the increment accelerates every 10 births — 100, 150, ..., 550, then +100
-	# steps. Pin the first birth and the acceleration at the 10th.
+	# §15.18 progression: base 100, each birth adds 100 (50 own + 50 same-team)
+	# to the modifier, and the increment is multiplied by (births/10 + 1) using
+	# the post-birth count — so the 11th GP is the first to cost a doubled step:
+	# 100, 200, ..., 1000, then 1200, 1400, ...
 	var gs = make_gs()
+	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5)
 	s.specialists = {"scientist": 1}
 	var expected: int = 100
 	for n in range(1, 12):
-		s.special_person_points = s.special_person_threshold
+		s.special_person_points = GreatPeople.special_person_threshold(gs, p)
 		TurnEngine._special_person_progress(gs, s)
-		expected += 50 * (n / 10 + 1)
-		assert_eq(s.special_person_threshold, expected,
+		expected += 100 * (n / 10 + 1)
+		assert_eq(GreatPeople.special_person_threshold(gs, p), expected,
 			"threshold after birth %d follows the reference progression" % n)
-	assert_eq(s.special_person_threshold, 750,
-		"births 1-9 add +50 each, the 10th and 11th add +100 (acceleration)")
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 1400,
+		"births 1-9 add +100 each, the 10th and 11th add +200 (acceleration)")
+
+func test_same_team_birth_escalates_teammates_threshold() -> void:
+	# §15.18: every living same-team player takes the team share (+50 x its own
+	# (births/10 + 1)) when a teammate births a GP; unrelated players are
+	# untouched. Humanish teams are alliances.
+	var gs = make_gs(3)
+	var p1 = gs.get_player(1)
+	var p2 = gs.get_player(2)
+	var p3 = gs.get_player(3)
+	p2.alliance_id = p1.alliance_id  # p2 joins p1's team; p3 stays apart
+	var s = make_settlement(gs, 1, 5, 5)
+	s.special_person_points = 100
+	s.specialists = {"scientist": 1}
+	TurnEngine._special_person_progress(gs, s)
+	assert_eq(GreatPeople.special_person_threshold(gs, p1), 200,
+		"the owner takes the own share and its own team share (+100)")
+	assert_eq(GreatPeople.special_person_threshold(gs, p2), 150,
+		"a teammate takes only the team share (+50)")
+	assert_eq(p2.special_persons_born, 0, "a teammate's own birth count is untouched")
+	assert_eq(GreatPeople.special_person_threshold(gs, p3), 100,
+		"a player outside the team is unaffected")
+
+func test_per_city_pools_stay_independent() -> void:
+	# §15.18 reference split: the pool is per-city — one city's birth never
+	# drains another's pool, but the escalated player threshold applies to all.
+	var gs = make_gs()
+	var sa = make_settlement(gs, 1, 5, 5)
+	var sb = make_settlement(gs, 1, 8, 8)
+	sa.special_person_points = 100
+	sa.specialists = {"scientist": 1}
+	sb.special_person_points = 90
+	TurnEngine._special_person_progress(gs, sa)
+	assert_eq(sa.special_persons_produced, 1, "city A births at the base threshold")
+	assert_eq(sb.special_person_points, 90, "city B's pool is untouched by A's birth")
+	sb.special_person_points = 150
+	sb.specialists = {"scientist": 1}
+	TurnEngine._special_person_progress(gs, sb)
+	assert_eq(sb.special_persons_produced, 0,
+		"city B now needs the escalated player-wide threshold (200)")
+	sb.special_person_points = 200
+	TurnEngine._special_person_progress(gs, sb)
+	assert_eq(sb.special_persons_produced, 1, "city B births once its pool reaches 200")
+
+func test_pool_keeps_remainder_after_birth() -> void:
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.special_person_points = 130
+	s.specialists = {"scientist": 1}  # +3 -> 133
+	TurnEngine._special_person_progress(gs, s)
+	assert_eq(s.special_persons_produced, 1, "one birth per crossing")
+	assert_eq(s.special_person_points, 33, "the pool keeps the remainder past the threshold")
+
+func test_threshold_scales_with_pace() -> void:
+	# §15.18: the threshold is scaled by the pace great_people_scale
+	# (67/100/150/300), applied after the escalation modifier.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	gs.pace_id = "marathon"
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 300,
+		"marathon triples the base threshold")
+	p.special_person_threshold_mod = 100  # one birth
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 600,
+		"the modifier applies before the pace scale")
+	gs.pace_id = "quick"
+	assert_eq(GreatPeople.special_person_threshold(gs, p), 134,
+		"quick scales to 67% (200 x 67 / 100, truncating)")
+
+func test_gp_threshold_state_save_roundtrip() -> void:
+	# The new Player fields survive a JSON roundtrip as ints (the float gotcha).
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.special_persons_born = 3
+	p.special_person_threshold_mod = 300
+	var s = make_settlement(gs, 1, 5, 5)
+	s.special_person_points = 42
+	s.special_persons_produced = 3
+	var gs2 = GameState.deserialize(JSON.parse(JSON.print(gs.serialize())).result, gs.db)
+	var p2 = gs2.get_player(1)
+	assert_eq(p2.special_persons_born, 3, "births counter survives the roundtrip")
+	assert_eq(p2.special_person_threshold_mod, 300, "threshold modifier survives")
+	assert_true(typeof(p2.special_persons_born) == TYPE_INT
+		and typeof(p2.special_person_threshold_mod) == TYPE_INT,
+		"both fields are int-coerced on load")
+	var s2 = gs2.settlements[0]
+	assert_eq(s2.special_person_points, 42, "the per-city pool survives")
+	assert_eq(s2.special_persons_produced, 3, "the per-city produced tally survives")
+	assert_eq(JSON.print(gs2.serialize()), JSON.print(gs.serialize()),
+		"a re-save of the loaded state is identical")
+
+func test_pre_r2_save_migrates_player_threshold() -> void:
+	# A pre-R2 save has no per-player fields and a per-settlement threshold:
+	# the migration rebuilds the birth count from the owned cities' produced
+	# tallies and re-derives the escalation (2 x 50 x (k/10 + 1) per birth k),
+	# ignoring the obsolete settlement field.
+	var gs = make_gs()
+	var s = make_settlement(gs, 1, 5, 5)
+	s.special_persons_produced = 12
+	var d = JSON.parse(JSON.print(gs.serialize())).result
+	for pd in d["players"]:
+		pd.erase("special_persons_born")
+		pd.erase("special_person_threshold_mod")
+	for sd in d["settlements"]:
+		sd["special_person_threshold"] = 750  # obsolete pre-R2 field
+	var gs2 = GameState.deserialize(d, gs.db)
+	var p2 = gs2.get_player(1)
+	assert_eq(p2.special_persons_born, 12, "births reconstructed from owned cities")
+	assert_eq(p2.special_person_threshold_mod, 1500,
+		"escalation re-derived: 9 x 100 + 3 x 200 (acceleration from the 10th)")
+	assert_eq(GreatPeople.special_person_threshold(gs2, p2), 1600,
+		"the migrated player's next GP costs 1600")
+	assert_eq(gs2.get_player(2).special_person_threshold_mod, 0,
+		"a cityless player migrates to zero births")
 
 func test_working_specialists_bank_three_gp_points_each() -> void:
 	# Reference GPP rate (A7): every working specialist banks 3 points per turn.

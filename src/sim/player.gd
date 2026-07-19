@@ -151,6 +151,20 @@ var great_general_points: int = 0
 var great_general_threshold: int = 0
 var great_generals_produced: int = 0
 
+# Per-player Great Person threshold escalation (§15.18 / R2). The GP *pool*
+# stays per-settlement (Settlement.special_person_points); the *threshold*
+# every city measures its pool against is player-wide:
+# gp_threshold_base × (100 + special_person_threshold_mod) / 100, scaled by
+# the pace `great_people_scale`. Each GP born anywhere in the civ adds
+# gp_threshold_increase_percent to the modifier once as the owner's own birth
+# and once per living same-alliance player (a player always sits on its own
+# team, so a solo player takes +100% of base per birth), each share multiplied
+# by (that player's births ÷ 10 + 1). special_persons_born counts the civ-wide
+# births; the Great General is a separate §14.2 counter and never counts here.
+# See GreatPeople.special_person_threshold / record_special_person_birth.
+var special_persons_born: int = 0
+var special_person_threshold_mod: int = 0
+
 func has_tech(tech_id: String) -> bool:
 	return tech_id in technologies
 
@@ -213,6 +227,8 @@ func serialize() -> Dictionary:
 		"great_general_points": great_general_points,
 		"great_general_threshold": great_general_threshold,
 		"great_generals_produced": great_generals_produced,
+		"special_persons_born": special_persons_born,
+		"special_person_threshold_mod": special_person_threshold_mod,
 		"society_id": society_id,
 		"used_city_names": used_city_names.duplicate()
 	}
@@ -283,6 +299,11 @@ static func deserialize(d: Dictionary):
 	p.great_general_points = int(d.get("great_general_points", 0))
 	p.great_general_threshold = int(d.get("great_general_threshold", 0))
 	p.great_generals_produced = int(d.get("great_generals_produced", 0))
+	# §15.18 / R2 per-player GP threshold state (int-coerced — the JSON float
+	# gotcha). Absent on pre-R2 saves: GameState.deserialize reconstructs both
+	# from the per-settlement produced tallies (see the migration there).
+	p.special_persons_born = int(d.get("special_persons_born", 0))
+	p.special_person_threshold_mod = int(d.get("special_person_threshold_mod", 0))
 	p.society_id = str(d.get("society_id", ""))
 	p.used_city_names = d.get("used_city_names", []).duplicate()
 	return p

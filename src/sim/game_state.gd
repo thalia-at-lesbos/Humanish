@@ -423,6 +423,30 @@ static func deserialize(d: Dictionary, db_ref):
 			u.movement_left = (u.movement_left * Fixed.MOVE_DENOMINATOR) / 100
 	for ad in d["alliances"]:
 		gs.alliances.append(Alliance.deserialize(ad))
+	# Migration (§15.18 / R2): pre-R2 saves carried the GP threshold per
+	# settlement and no per-player birth counter. Reconstruct each such player's
+	# civ-wide births from the per-city produced tallies of the settlements it
+	# currently owns (cities lost since their births under-count; unknowable),
+	# and rebuild the escalation as if the player were solo — each birth k added
+	# 2 × gp_threshold_increase_percent × (k ÷ 10 + 1), the own + same-team
+	# shares (cross-teammate shares from old allied games cannot be
+	# reconstructed and are dropped). The obsolete per-settlement threshold
+	# field is ignored by Settlement.deserialize.
+	var pidx: int = 0
+	for pd in d["players"]:
+		if not pd.has("special_persons_born"):
+			var mig_p = gs.players[pidx]
+			var born: int = 0
+			for mig_s in gs.settlements:
+				if mig_s.owner_player_id == mig_p.id:
+					born += mig_s.special_persons_produced
+			mig_p.special_persons_born = born
+			var mig_inc: int = 2 * db_ref.get_constant("gp_threshold_increase_percent", 50)
+			var mig_mod: int = 0
+			for k in range(1, born + 1):
+				mig_mod += mig_inc * (k / 10 + 1)
+			mig_p.special_person_threshold_mod = mig_mod
+		pidx += 1
 	gs.turn_number = int(d.get("turn_number", 0))
 	gs.max_turns = int(d.get("max_turns", 500))
 	gs.pace_id = str(d.get("pace_id", "normal"))

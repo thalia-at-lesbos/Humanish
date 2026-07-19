@@ -68,9 +68,13 @@ var structures: Array = []        # Array of structure IDs
 var belief_id: String = ""
 var econ_org_id: String = ""
 
-# Special person progress
+# Special person progress (§14.3 / §15.18): the per-city GP *pool* and produced
+# tally. Since R2 the threshold the pool is measured against is per-player
+# (Player.special_person_threshold_mod, read via
+# GreatPeople.special_person_threshold); the old per-settlement
+# special_person_threshold field is gone — deserialize ignores it on old saves
+# and GameState.deserialize migrates the escalation onto the player.
 var special_person_points: int = 0
-var special_person_threshold: int = 100
 var special_persons_produced: int = 0
 
 # Rushing penalty turns
@@ -193,7 +197,6 @@ func serialize() -> Dictionary:
 		"structure_bonuses": structure_bonuses.duplicate(true),
 		"belief_id": belief_id, "econ_org_id": econ_org_id,
 		"special_person_points": special_person_points,
-		"special_person_threshold": special_person_threshold,
 		"special_persons_produced": special_persons_produced,
 		"rush_anger_turns": rush_anger_turns,
 		"timed_happiness": timed_happiness.duplicate(true),
@@ -253,7 +256,8 @@ static func deserialize(d: Dictionary):
 	s.belief_id = str(d.get("belief_id", ""))
 	s.econ_org_id = str(d.get("econ_org_id", ""))
 	s.special_person_points = int(d.get("special_person_points", 0))
-	s.special_person_threshold = int(d.get("special_person_threshold", 100))
+	# A pre-R2 save also carried "special_person_threshold" here — the threshold
+	# is per-player now (§15.18), so the old field is deliberately ignored.
 	s.special_persons_produced = int(d.get("special_persons_produced", 0))
 	s.rush_anger_turns = int(d.get("rush_anger_turns", 0))
 	s.timed_happiness = []

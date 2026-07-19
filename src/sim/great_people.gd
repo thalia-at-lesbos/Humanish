@@ -92,6 +92,41 @@ static func birth_from_settlement(gs: GameState, s: Settlement) -> int:
 		gs.pending_great_people.append({"player_id": s.owner_player_id, "unit_type_id": unit_type})
 	return u.id if u != null else -1
 
+# ── Per-player Great Person threshold (§15.18 / R2) ──────────────────────────
+
+# The player-wide threshold every city's GP pool is measured against: the base
+# (gp_threshold_base 100) raised by the player's accumulated escalation percent,
+# then scaled by the pace great_people_scale (67/100/150/300 — reference order:
+# modifier first, then pace; integer truncation at each step).
+static func special_person_threshold(gs: GameState, player: Player) -> int:
+	var db: DataDB = gs.db
+	var base: int = db.get_constant("gp_threshold_base", 100)
+	var thr: int = base * (100 + player.special_person_threshold_mod) / 100
+	var pace_scale: int = int(db.get_pace(gs.pace_id).get("great_people_scale", 100))
+	return Fixed.scale(thr, pace_scale)
+
+# Record a Great Person birth in `player`'s civilization (§15.18): the civ-wide
+# birth counter rises, and the threshold modifier escalates per the reference —
+# gp_threshold_increase_percent (50) once for the owner's own birth, plus the
+# same amount once per living same-team player, the owner included (a player
+# always sits on its own team, so a solo player takes +100% of base per birth:
+# 100, 200, 300, … at normal pace). Each share is multiplied by (that player's
+# births ÷ 10 + 1) using the post-birth count, so increments double from the
+# 10th birth on (the 11th GP is the first to cost the doubled step). Humanish
+# teams are alliances; the -1 "no alliance" sentinel never groups strangers.
+static func record_special_person_birth(gs: GameState, player: Player) -> void:
+	if player == null:
+		return
+	var inc: int = gs.db.get_constant("gp_threshold_increase_percent", 50)
+	player.special_persons_born += 1
+	player.special_person_threshold_mod += inc * (player.special_persons_born / 10 + 1)
+	for q in gs.players:
+		if q.is_eliminated:
+			continue
+		if q.id == player.id \
+				or (player.alliance_id >= 0 and q.alliance_id == player.alliance_id):
+			q.special_person_threshold_mod += inc * (q.special_persons_born / 10 + 1)
+
 # ── Great General (§14.2) ─────────────────────────────────────────────────────
 
 # Accumulate Great General points for `player` after a combat victory worth `xp`
