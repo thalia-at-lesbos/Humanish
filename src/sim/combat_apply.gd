@@ -60,11 +60,16 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 			attacker.x = defender.x
 			attacker.y = defender.y
 
-	# Spillover to stacked units (siege attackers)
+	# Spillover to stacked units (siege attackers). Each stacked unit's summed
+	# promotion `collateral_damage_protection` (W5, §29.16: the Drill line, 20
+	# each) cuts the spillover it takes.
 	if result["spillover_damage"] > 0:
 		for u in Stack.at(gs.units, defender.x, defender.y, defender.owner_player_id):
 			if u.id != defender.id:
-				u.health = max(0, u.health - int(result["spillover_damage"]))
+				var spill: int = spillover_taken(gs, u, int(result["spillover_damage"]))
+				if spill <= 0:
+					continue
+				u.health = max(0, u.health - spill)
 				if u.health <= 0:
 					Stack.remove_unit(gs.units, u.id)
 
@@ -93,6 +98,21 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 			GreatPeople.award_combat_points(gs,
 				gs.get_player(defender.owner_player_id),
 				defender.x, defender.y, int(result["defender_xp_gain"]))
+
+# Collateral/spillover damage a stacked unit actually takes (W5, §29.16 / 0j
+# cross-check): the unit's promotions' `collateral_damage_protection` values SUM
+# (Drill II/III/IV carry 20 each, so a Drill IV unit holds 60) and cut the
+# damage taken — damage × (100 − protection) / 100, truncating; a sum of 100 or
+# more is full immunity. Integer math only.
+static func spillover_taken(gs, u: Unit, damage: int) -> int:
+	var protection: int = 0
+	for pid in u.promotions:
+		protection += int(gs.db.get_promotion(pid).get("collateral_damage_protection", 0))
+	if protection <= 0:
+		return damage
+	if protection >= 100:
+		return 0
+	return damage * (100 - protection) / 100
 
 # Missiles cannot defend (§15.7 / D3), so a missile left with no surviving
 # defender on a tile taken by an enemy — a captured/razed city, or open ground an

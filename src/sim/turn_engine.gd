@@ -1414,9 +1414,64 @@ static func _heal_unit(gs: GameState, u: Unit, player: Player) -> void:
 	var rate: int = _healing_rate(gs, u, player)
 	for promo_id in u.promotions:
 		rate += int(db.get_promotion(promo_id).get("healing_bonus", 0))
+	rate += _medic_bonus(gs, u)
 	if rate <= 0:
 		return
 	u.health = 100 if u.health + rate > 100 else u.health + rate
+
+# Medic/woodsman stack-healing bonus (W6, §29.16): a healing unit gains a
+# SINGLE BEST bonus — the maximum across same-tile friendly units'
+# `same_tile_heal` (the healing unit's own value competes) and
+# same-landmass-adjacent-tile friendly units' `adjacent_tile_heal` — never
+# summed across sources, and not best-of-each-category either. Promotion values
+# DO sum on one carrier unit (Medic I + Medic III = 25 same-tile). "Friendly"
+# is the same owner or the same alliance. The landmass labels (4-neighbour land
+# components, Quests.landmass_labels) are computed lazily, only when an
+# adjacent candidate could actually raise the bonus; sea tiles carry no
+# landmass, so no adjacent bonus reaches or leaves a water tile.
+static func _medic_bonus(gs: GameState, u: Unit) -> int:
+	var best: int = 0
+	for o in Stack.at(gs.units, u.x, u.y):
+		if not _heal_friendly(gs, u, o):
+			continue
+		var same: int = _promo_sum(gs.db, o, "same_tile_heal")
+		if same > best:
+			best = same
+	var labels: Dictionary = {}
+	var labels_ready: bool = false
+	for nt in gs.map.neighbours8(u.x, u.y):
+		if nt == null:
+			continue
+		for o in Stack.at(gs.units, nt.x, nt.y):
+			if not _heal_friendly(gs, u, o):
+				continue
+			var adj: int = _promo_sum(gs.db, o, "adjacent_tile_heal")
+			if adj <= best:
+				continue
+			if not labels_ready:
+				labels = Quests.landmass_labels(gs)
+				labels_ready = true
+			var uk: int = int(labels.get(Quests.tile_key(u.x, u.y, gs), -1))
+			var ok: int = int(labels.get(Quests.tile_key(nt.x, nt.y, gs), -2))
+			if uk == ok:
+				best = adj
+	return best
+
+# Sum of one promotion key across a unit's promotions (heal-phase helper).
+static func _promo_sum(db: DataDB, u: Unit, key: String) -> int:
+	var total: int = 0
+	for pid in u.promotions:
+		total += int(db.get_promotion(pid).get(key, 0))
+	return total
+
+# Whether `o` counts as friendly to `u` for stack healing: same owner, or both
+# owners are players sharing an alliance (wild forces have no player entry).
+static func _heal_friendly(gs: GameState, u: Unit, o: Unit) -> bool:
+	if o.owner_player_id == u.owner_player_id:
+		return true
+	var up: Player = gs.get_player(u.owner_player_id)
+	var op: Player = gs.get_player(o.owner_player_id)
+	return up != null and op != null and up.alliance_id == op.alliance_id
 
 static func _healing_rate(gs: GameState, u: Unit, player: Player) -> int:
 	var db: DataDB = gs.db

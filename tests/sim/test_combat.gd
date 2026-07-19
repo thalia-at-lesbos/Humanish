@@ -872,3 +872,72 @@ func test_wild_combat_modifier_skips_ai_opponents() -> void:
 	assert_eq(vs_ai["attacker_health_after"], base["attacker_health_after"],
 		"an AI opponent gets no wild-side modifier (attacker health identical)")
 	assert_eq(vs_ai["rounds"], base["rounds"], "the fight replays round-for-round")
+
+# ── Collateral damage protection (W5, §29.16) ─────────────────────────────────
+
+func _spillover_result(dmg) -> Dictionary:
+	return {
+		"attacker_survived": true, "defender_survived": false,
+		"attacker_health_after": 100, "defender_health_after": 0,
+		"attacker_withdrew": false, "rounds": 1,
+		"attacker_xp_gain": 0, "defender_xp_gain": 0,
+		"spillover_damage": dmg, "flanking_damage": 0
+	}
+
+func test_collateral_protection_cuts_spillover_taken() -> void:
+	# A stacked Drill II unit (collateral_damage_protection 20) takes only 80%
+	# of the spillover a bare stackmate takes: 30 → 24 (integer truncation).
+	var gs = make_gs()
+	var atk = make_warrior(gs, 1, 5, 6)
+	var def = make_warrior(gs, 2, 5, 5)
+	var bare = make_warrior(gs, 2, 5, 5)
+	var drilled = make_warrior(gs, 2, 5, 5)
+	drilled.promotions = ["drill2"]
+	CombatApply.apply_unit_result(gs, atk, def, _spillover_result(30))
+	assert_eq(bare.health, 70, "An unprotected stackmate takes the full 30 spillover")
+	assert_eq(drilled.health, 76, "Drill II cuts spillover taken: 30 x 80 / 100 = 24")
+
+func test_collateral_protection_sums_across_drill_line() -> void:
+	# Drill II+III+IV sum on one unit (20 each = 60): 30 spillover → 12 taken.
+	var gs = make_gs()
+	var atk = make_warrior(gs, 1, 5, 6)
+	var def = make_warrior(gs, 2, 5, 5)
+	var veteran = make_warrior(gs, 2, 5, 5)
+	veteran.promotions = ["drill2", "drill3", "drill4"]
+	CombatApply.apply_unit_result(gs, atk, def, _spillover_result(30))
+	assert_eq(veteran.health, 88, "Summed 60% protection: 30 x 40 / 100 = 12 taken")
+
+func test_collateral_protection_at_or_over_100_is_immunity() -> void:
+	# A summed protection of 100 or more zeroes the spillover entirely (§29.16).
+	var gs = make_gs()
+	gs.db.promotions["test_shell"] = {
+		"id": "test_shell", "applies_to": "land", "collateral_damage_protection": 90
+	}
+	var u = make_warrior(gs, 2, 5, 5)
+	u.promotions = ["test_shell", "drill2"]   # 90 + 20 = 110
+	assert_eq(CombatApply.spillover_taken(gs, u, 30), 0,
+		"Protection >= 100 is full immunity")
+	u.promotions = ["test_shell"]
+	assert_eq(CombatApply.spillover_taken(gs, u, 30), 3,
+		"...while 90 still truncates to 30 x 10 / 100 = 3")
+
+# ── Unit-level vs-class modifiers (W7, §29.16) ────────────────────────────────
+
+func test_panzer_unit_level_vs_armor_bonus() -> void:
+	# The panzer's own data row carries vs_armor 50 (reference unit-combat
+	# modifier): +50% against armor, nothing against other classes.
+	var gs = make_gs()
+	var p = make_unit(gs, "panzer", 1, 5, 5)   # base_strength 28
+	assert_eq(p.effective_strength(gs.db, true, {}, {}, "armor"), 42,
+		"Panzer vs armor (a tank): 28 x 150 / 100 = 42")
+	assert_eq(p.effective_strength(gs.db, true, {}, {}, "gunpowder"), 28,
+		"Panzer vs infantry (gunpowder class): base 28, no bonus")
+
+func test_unit_level_vs_class_stacks_with_promotion_side() -> void:
+	# The unit-level key reads through the same site as the promotion-side
+	# channel (Unit.VS_CLASS_KEY), so panzer + Ambush stack: 50 + 25 = +75%.
+	var gs = make_gs()
+	var p = make_unit(gs, "panzer", 1, 5, 5)
+	p.promotions = ["ambush"]                  # vs_armor 25
+	assert_eq(p.effective_strength(gs.db, true, {}, {}, "armor"), 49,
+		"Panzer + Ambush vs armor: 28 x 175 / 100 = 49")

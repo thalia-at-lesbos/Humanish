@@ -223,3 +223,80 @@ func test_statue_of_zeus_stops_counting_after_capture() -> void:
 	CombatApply.accrue_war_fatigue(gs, 1, 2, "war_weariness_unit_killed_attacking")
 	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 6,
 		"A captured statue no longer amplifies accrual against its old owner")
+
+# ── W6: medic / woodsman stack healing (§5.6, §29.16) ────────────────────────
+#
+# The heal phase adds a SINGLE BEST bonus — the maximum across same-tile
+# friendly units' `same_tile_heal` (the healing unit's own value competes) and
+# same-landmass-adjacent-tile friendly units' `adjacent_tile_heal` — never
+# summed across sources. Promotion values DO sum on one carrier unit.
+
+func test_medic_on_tile_raises_stack_heal_rate() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.health = 50
+	var medic = make_warrior(gs, 1, 5, 5)
+	medic.promotions = ["medic1"]   # same_tile_heal 10
+	TurnEngine.player_step(gs, 1, hooks())
+	# Neutral-territory 10 + medic 10 = 20.
+	assert_eq(u.health, 70, "A stacked Medic I adds its same_tile_heal to the rate")
+
+func test_medic_adjacent_tile_raises_heal_rate() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.health = 50
+	var medic = make_warrior(gs, 1, 5, 6)
+	medic.promotions = ["medic2"]   # adjacent_tile_heal 10
+	TurnEngine.player_step(gs, 1, hooks())
+	# Neutral-territory 10 + adjacent medic 10 = 20 (same landmass: all grass).
+	assert_eq(u.health, 70, "An adjacent Medic II adds its adjacent_tile_heal")
+
+func test_medic_bonus_is_single_best_never_summed() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.health = 50
+	u.promotions = ["medic1"]                 # own same_tile_heal 10 competes
+	var stacked = make_warrior(gs, 1, 5, 5)
+	stacked.promotions = ["medic3"]           # same_tile_heal 15
+	var adjacent = make_warrior(gs, 1, 6, 5)
+	adjacent.promotions = ["medic2"]          # adjacent_tile_heal 10
+	TurnEngine.player_step(gs, 1, hooks())
+	# Best single source is 15 (not 10+15+10): neutral 10 + 15 = 25.
+	assert_eq(u.health, 75,
+		"The medic bonus is the single best source across tile and adjacency")
+
+func test_medic_promotion_values_sum_on_one_carrier() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.health = 50
+	var medic = make_warrior(gs, 1, 5, 5)
+	medic.promotions = ["medic1", "medic3"]   # same_tile_heal 10 + 15 = 25
+	TurnEngine.player_step(gs, 1, hooks())
+	# Neutral 10 + summed carrier 25 = 35.
+	assert_eq(u.health, 85, "One carrier's medic promotions sum (Medic I + III)")
+
+func test_enemy_medic_grants_no_heal_bonus() -> void:
+	var gs = make_gs()
+	var u = make_warrior(gs, 1, 5, 5)
+	u.health = 50
+	var enemy = make_warrior(gs, 2, 5, 6)
+	enemy.promotions = ["medic2"]
+	TurnEngine.player_step(gs, 1, hooks())
+	assert_eq(u.health, 60, "A hostile medic adds nothing (plain neutral rate)")
+
+func test_adjacent_heal_requires_same_landmass() -> void:
+	# 2x2 map, diagonal land split: (0,0) and (1,1) are grass, the connecting
+	# orthogonals are ocean — diagonal-adjacent but different 4-neighbour land
+	# components, so the adjacent medic's bonus does not cross the strait.
+	var gs = make_gs(2, 42, 2, 2)
+	gs.map.get_tile(1, 0).terrain_id = "ocean"
+	gs.map.get_tile(0, 1).terrain_id = "ocean"
+	var u = make_warrior(gs, 1, 0, 0)
+	u.health = 50
+	var medic = make_warrior(gs, 1, 1, 1)
+	medic.promotions = ["medic2"]   # adjacent_tile_heal 10
+	assert_eq(TurnEngine._medic_bonus(gs, u), 0,
+		"No adjacent heal across landmasses")
+	gs.map.get_tile(1, 0).terrain_id = "grassland"  # bridge the strait
+	assert_eq(TurnEngine._medic_bonus(gs, u), 10,
+		"Bridged into one landmass, the adjacent bonus applies")
