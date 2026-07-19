@@ -9,6 +9,7 @@
     "event_timer_scale": 67,
     "anarchy_scale": 67,
     "golden_age_scale": 80,
+    "great_people_scale": 67,
     "victory_delay_scale": 67,
     "wild_scale": 67,
     "culture_level_thresholds": [
@@ -32,6 +33,7 @@
     "event_timer_scale": 100,
     "anarchy_scale": 100,
     "golden_age_scale": 100,
+    "great_people_scale": 100,
     "victory_delay_scale": 100,
     "wild_scale": 100,
     "culture_level_thresholds": [
@@ -55,6 +57,7 @@
     "event_timer_scale": 150,
     "anarchy_scale": 150,
     "golden_age_scale": 125,
+    "great_people_scale": 150,
     "victory_delay_scale": 150,
     "wild_scale": 150,
     "culture_level_thresholds": [
@@ -78,6 +81,7 @@
     "event_timer_scale": 300,
     "anarchy_scale": 200,
     "golden_age_scale": 200,
+    "great_people_scale": 300,
     "victory_delay_scale": 300,
     "wild_scale": 400,
     "culture_level_thresholds": [

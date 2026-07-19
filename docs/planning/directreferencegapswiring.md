@@ -6,8 +6,8 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
 **Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
-Phase R in progress: **R1 done (2026-07-19)**; next R2–R5 (version-bump
-review at phase end), then Phase T.
+Phase R in progress: **R1 done (2026-07-19)**, **R2 done (2026-07-19)**;
+next R3–R5 (version-bump review at phase end), then Phase T.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -500,18 +500,57 @@ docs-only.
   `src/sim/turn_engine.gd` (`_settlement_growth`/production), `data/units.json`,
   `data/constants.json`. **Tests:** `test_settlement.gd` (food-to-hammers cases,
   growth freeze), integration playthrough, save/load determinism midgame.
-- **R2. Per-player GP counter** ⓪(0f — sourced; spec §15.18): **the reference
-  keeps the pool per-city** and escalates only the *threshold* per-player
+- **R2. Per-player GP counter** ⓪(0f — sourced; spec §15.18): **DONE
+  2026-07-19** — the **reference split adopted** (decision-2 blanket rule):
+  the pool stays per-city (`Settlement.special_person_points` +
+  `special_persons_produced`, both unchanged); the threshold is per-player.
+  New `Player` fields `special_persons_born` (civ-wide GP births; Great
+  Generals stay the separate §14.2 counter) and
+  `special_person_threshold_mod` (accumulated escalation percent).
+  `GreatPeople.special_person_threshold(gs, player)` = `gp_threshold_base`
+  100 × (100 + mod)/100, then × the pace `great_people_scale` — a NEW
+  paces.json column (67/100/150/300 per §15.18/§29.16; reference order:
+  modifier first, then pace, truncating each step).
+  `GreatPeople.record_special_person_birth` applies the escalation:
+  `gp_threshold_increase_percent` (50) once as the owner's own share plus
+  once per living same-alliance player *including the owner* (a player always
+  sits on its own team ⇒ solo step +100% of base: 100/200/300…), each share
+  × (that player's **post-birth** count ÷ 10 + 1) — so increments double from
+  the 10th birth (the 11th GP is the first to cost the doubled step; matches
+  the reference post-increment semantics and the previous Humanish
+  progression shape). Teammates use their *own* birth count for the
+  multiplier and their own count is not incremented (reference
+  `_INCREASE_TEAM` semantics); the `alliance_id == -1` sentinel never groups
+  strangers. `TurnEngine._special_person_progress` now reads the player
+  threshold; one birth per city per turn, remainder carries, per-city pools
+  never interact. **Save format:** the per-settlement
+  `special_person_threshold` field is REMOVED (serialize + var; ignored when
+  present in an old save); the two Player fields are serialized and
+  int-coerced on load. **Migration** (key-presence, like M4 — `SAVE_VERSION`
+  stays 2): a player dict without `special_persons_born` gets births = Σ
+  `special_persons_produced` over its *currently owned* settlements
+  (births in since-lost cities under-count; unknowable) and the modifier
+  re-derived as-if-solo (Σ 2×50×(k÷10+1) for k=1..births; cross-teammate
+  shares from old allied games are not reconstructable and are dropped).
+  Tests (+6 net in `test_great_people.gd`): own-birth escalation, 11-birth
+  progression pin (…1000/1200/1400), same-team share (+50, ally count
+  untouched, outsider unaffected), per-city pool isolation, remainder carry,
+  pace pin (marathon 300 / quick 134 truncation), roundtrip with int-coercion
+  + identical re-save, pre-R2 migration (12 births ⇒ mod 1500, next GP 1600);
+  `test_policy_effects.gd` pacifism guard moved to the player field. No
+  PlayerAI/facade/UI read existed. Full run 1711 unit + 11 integration green;
+  midgame save/load determinism unchanged. Remains the **major version bump
+  candidate** for the phase-end review (Settlement field removed + Player
+  fields added; old saves load via migration, new saves are not
+  backward-compatible). Original item: the reference
+  keeps the pool per-city and escalates only the *threshold* per-player
   (effective step +100% of base per birth — 50 own + 50 same-team — with the
   `(born÷10)+1` multiplier; shipped `gp_threshold_base` 100 confirmed,
   `gp_threshold_increase_percent` 50 is the raw define but half the effective
-  step). Decide at implementation whether to adopt the reference split
-  (per-city pool + per-player threshold) or the plan's original full
-  per-player pool move. Save-format:
-  new `Player` fields, migrate/ignore old per-settlement counters on load —
-  **major version bump candidate**. **Files:** `src/sim/great_people.gd`,
+  step). **Files:** `src/sim/great_people.gd`,
   `src/sim/player.gd`, `src/sim/settlement.gd`, `src/sim/game_state.gd`
-  (serialize). **Tests:** `tests/sim/test_great_people.gd` rewrite of threshold
+  (serialize), `src/sim/turn_engine.gd`, `data/paces.json`. **Tests:**
+  `tests/sim/test_great_people.gd` rewrite of threshold
   cases; save/load roundtrip with int-coercion.
 - **R3. Free settled specialists + citizen auto-assignment** ⓪(0g): settled
   specialists stop consuming a population worker slot, and excess citizens

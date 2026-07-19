@@ -5,6 +5,19 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Changed
+- **Great Person threshold is now empire-wide.** Each city still banks its own
+  Great Person point pool, but the threshold a pool must reach is shared by
+  the whole civilization: it starts at 100 (scaled by game pace — Quick 67,
+  Epic 150, Marathon 300) and rises by 100 for every Great Person born
+  anywhere in your empire (100, 200, 300, …), with the increase doubling from
+  the 10th Great Person on. A Great Person born to an allied player raises
+  your threshold by half as much. Previously each city escalated its own
+  threshold independently, so wide empires farmed cheap Great People from
+  every new city. Great Generals remain a separate counter. **Save format:**
+  the threshold state moved from cities onto players; older saves migrate
+  automatically (birth counts are rebuilt from each city's tally).
+
 ### Added
 - **Settlers and Workers are built with food.** While a Settler or Worker
   heads a city's production queue the city's food surplus is added to

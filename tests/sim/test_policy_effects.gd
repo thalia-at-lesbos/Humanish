@@ -576,7 +576,7 @@ func test_pacifism_great_person_rate() -> void:
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 4)
 	s.specialists = {"scientist": 3}
-	s.special_person_threshold = 100000  # never births during the test
+	p.special_person_threshold_mod = 100000  # never births during the test (R2: per-player)
 	TurnEngine._special_person_progress(gs, s)
 	var base_points = s.special_person_points
 	s.special_person_points = 0

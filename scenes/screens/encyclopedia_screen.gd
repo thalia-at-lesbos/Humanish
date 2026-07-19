@@ -1128,7 +1128,10 @@ func _guide_sections() -> Array:
 		]],
 		["Great People", [
 			"Specialists in your cities generate Great Person (GP) points each turn.",
-			"When a city's total crosses the current threshold, a Great Person is born.",
+			"Each city banks its own pool; when it crosses the threshold, a Great Person",
+			"is born there. The threshold is empire-wide: it starts at 100 (scaled by",
+			"game pace) and rises by 100 for every GP born anywhere in your empire",
+			"(faster from the 10th on). Allied players' births add half as much.",
 			"",
 			"Great Scientist  — Scientist specialists  — discover a technology, build an Academy",
 			"Great Engineer   — Engineer specialists   — hurry production, build the Ironworks",
