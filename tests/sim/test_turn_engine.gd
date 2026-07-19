@@ -300,3 +300,17 @@ func test_adjacent_heal_requires_same_landmass() -> void:
 	gs.map.get_tile(1, 0).terrain_id = "grassland"  # bridge the strait
 	assert_eq(TurnEngine._medic_bonus(gs, u), 10,
 		"Bridged into one landmass, the adjacent bonus applies")
+
+# ── M1: structure obsolescence × enemy_war_weariness (§15.17) ────────────────
+
+func test_obsolete_statue_of_zeus_stops_amplifying() -> void:
+	# Synthetic obsolescence on the statue: once ITS OWNER researches the tech,
+	# the W4 amplification stops and the enemy accrues the plain 3 × 2 = 6.
+	var gs = make_gs(2)
+	var zeus_city = make_settlement(gs, 2, 15, 15)
+	zeus_city.structures.append("statue_of_zeus")  # enemy_war_weariness: 100
+	gs.db.structures["statue_of_zeus"]["obsoleted_by"] = "mysticism"
+	gs.get_player(2).technologies.append("mysticism")
+	CombatApply.accrue_war_fatigue(gs, 1, 2, "war_weariness_unit_killed_attacking")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 6,
+		"An obsolete statue no longer amplifies enemy accrual (§15.17)")

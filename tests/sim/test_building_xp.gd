@@ -114,3 +114,15 @@ func test_heals_units_fully_heals_garrison():
 	u.health = 40
 	TurnEngine._heal_unit(gs, u, p)
 	assert_eq(u.health, 100, "a heals_units structure fully restores its garrison")
+
+# ── M1: structure obsolescence (§15.17) ──────────────────────────────────────
+
+func test_obsolete_stable_grants_no_mounted_xp():
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.structures.append("stable")        # mounted_xp 2; obsoleted_by advanced_flight
+	p.technologies.append("advanced_flight")
+	var horse = _build(gs, s, p, "chariot")
+	assert_eq(horse.experience, 0,
+		"An obsolete stable trains no one (§15.17: Stable → Advanced Flight)")

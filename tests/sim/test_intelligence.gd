@@ -703,3 +703,22 @@ func test_moving_onto_hidden_spy_tile_coexists() -> void:
 	assert_eq([w.x, w.y], [8, 8], "The mover arrives")
 	assert_not_null(gs.get_unit(enemy_spy.id), "The hidden spy is untouched (no combat)")
 	assert_eq([enemy_spy.x, enemy_spy.y], [8, 8], "Both units share the tile")
+
+# ── M1: structure obsolescence × espionage structures (§15.17) ────────────────
+
+func test_obsolete_castle_espionage_output_stops() -> void:
+	# The Castle's espionage_output 25 is a shipped roster pair: it stops when
+	# the owner researches Economics (§29.15).
+	var gs = make_gs(2)
+	gs.alliances[0].contacts = [2]
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_commerce = 0
+	s.structures = ["jail", "castle"]   # 4 flat, then +25% → 5
+	TurnEngine._apply_intelligence(gs, gs.get_player(1))
+	assert_eq(int(gs.get_player(1).intel_points.get(2, 0)), 5,
+		"A live castle scales the jail's 4 flat espionage to 5")
+	gs.get_player(1).intel_points = {}
+	gs.get_player(1).technologies.append("economics")
+	TurnEngine._apply_intelligence(gs, gs.get_player(1))
+	assert_eq(int(gs.get_player(1).intel_points.get(2, 0)), 4,
+		"Economics silences the castle's espionage_output (§15.17)")

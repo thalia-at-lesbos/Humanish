@@ -6,6 +6,15 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Added
+- **Structure obsolescence.** Buildings can now go obsolete: once you research
+  a structure's obsoleting technology (walls at Rifling, monasteries at
+  Scientific Method, Hagia Sophia at Steam Power, the Apostolic Palace at Mass
+  Media, … — the full reference roster), every one of its bonuses stops —
+  yields, happiness, health, defence, unit XP, specialist slots, and special
+  effects. The building remains in the city (never sold, no refund).
+- **Steam Power speeds workers.** Researching Steam Power grants +50% worker
+  build speed empire-wide — taking over from Hagia Sophia's identical bonus,
+  which goes obsolete at the same technology.
 - **Compound unit prerequisites.** Units can now require several technologies
   (all of them) and strategic resources in "all of these" / "any one of these"
   combinations — knights need Guilds + Horseback Riding and Horse + Iron;

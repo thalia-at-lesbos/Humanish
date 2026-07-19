@@ -93,7 +93,12 @@ static func _strike_chance(game_state, db: DataDB) -> int:
 static func _building_unhealth(game_state, db: DataDB) -> int:
 	var total: int = 0
 	for s in game_state.settlements:
+		var owner = game_state.get_player(s.owner_player_id)
 		for struct_id in s.structures:
+			# An obsolete structure's health effects — its pollution included —
+			# have stopped (§15.17), so it no longer warms the globe either.
+			if owner != null and owner.structure_obsolete(db, struct_id):
+				continue
 			total += int(db.get_structure(struct_id).get("health_penalty", 0))
 	return total
 

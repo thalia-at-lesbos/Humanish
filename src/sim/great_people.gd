@@ -107,7 +107,7 @@ static func award_combat_points(gs: GameState, player: Player,
 	var rate_bonus: int = 0
 	if "imperialistic" in player.traits:
 		rate_bonus += db.get_constant("imperialistic_great_general_pct", 100)
-	if _player_has_structure(gs, player, "great_wall"):
+	if _player_has_active_structure(gs, player, "great_wall"):
 		rate_bonus += db.get_constant("great_wall_great_general_pct", 100)
 	if rate_bonus != 0:
 		pts = Fixed.scale_up(pts, rate_bonus)
@@ -150,7 +150,7 @@ static func _golden_age_duration(gs: GameState, player: Player) -> int:
 	var turns: int = db.get_constant("golden_age_base_turns", 8)
 	var pace_scale: int = int(db.get_pace(gs.pace_id).get("golden_age_scale", 100))
 	turns = Fixed.scale(turns, pace_scale)
-	if _player_has_structure(gs, player, "mausoleum"):
+	if _player_has_active_structure(gs, player, "mausoleum"):
 		turns = Fixed.scale_up(turns, db.get_constant("mausoleum_golden_age_pct", 50))
 	return 1 if turns < 1 else turns
 
@@ -241,6 +241,15 @@ static func _player_has_structure(gs: GameState, player: Player,
 		if s.owner_player_id == player.id and s.has_structure(struct_id):
 			return true
 	return false
+
+# Effect-gate variant of _player_has_structure: an obsolete wonder (§15.17) no
+# longer confers its bonus (the plain check above stays for identity uses such
+# as the build-uniqueness gate — an obsolete wonder still exists).
+static func _player_has_active_structure(gs: GameState, player: Player,
+		struct_id: String) -> bool:
+	if player != null and player.structure_obsolete(gs.db, struct_id):
+		return false
+	return _player_has_structure(gs, player, struct_id)
 
 # Resolve the target settlement from params.settlement_id, defaulting to the one
 # under the unit. Null unless it is owned by the acting player.

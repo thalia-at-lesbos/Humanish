@@ -154,6 +154,17 @@ var great_generals_produced: int = 0
 func has_tech(tech_id: String) -> bool:
 	return tech_id in technologies
 
+# Structure obsolescence (§15.17): once this player has researched a structure's
+# `obsoleted_by` tech, the building counts as zero active copies — every effect
+# read (yields, happiness/health, defence, XP, specialist slots, worker speed,
+# `effects` keys, …) must skip it. The building itself remains (never sold, no
+# refund) and keeps only its identity: presence, wonder score, upkeep, and
+# build-target listing are unaffected. This is the single obsolescence
+# predicate; every standing-structure aggregation site filters through it.
+func structure_obsolete(db, struct_id: String) -> bool:
+	var obs: String = str(db.get_structure(struct_id).get("obsoleted_by", ""))
+	return obs != "" and has_tech(obs)
+
 func get_slider_sum() -> int:
 	return slider_finance + slider_research + slider_culture + slider_intel
 

@@ -98,7 +98,7 @@ func _build() -> void:
 	# Jun 9 bug report: the city menu must show the city's defensive health and
 	# whether it is growing.
 	_header(v, "City status")
-	var maxh: int = TurnEngine.city_max_health(s, db)
+	var maxh: int = TurnEngine.city_max_health(s, db, gs.get_player(s.owner_player_id))
 	# health < 0 is the "full" sentinel; a shrunk city may sit above the new cap.
 	var cur_h: int = maxh if (s.health < 0 or s.health > maxh) else s.health
 	_line(v, "Health: " + str(cur_h) + "/" + str(maxh) \

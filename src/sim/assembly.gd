@@ -38,20 +38,31 @@ const VOTE_ABSTAIN := "abstain"
 
 # Which assembly currently exists, gated on its founding wonder. The secular United
 # Nations supersedes the religious Apostolic Palace. "" when neither wonder is built.
+# An obsolete founding wonder (§15.17: the Apostolic Palace once its owner has
+# Mass Media) counts as absent — its assembly-hosting effect has stopped.
 static func active_body(gs) -> String:
 	var has_religious: bool = false
 	for s in gs.settlements:
-		if s.has_structure("united_nations"):
+		if s.has_structure("united_nations") \
+				and _wonder_active(gs, s, "united_nations"):
 			return "secular"
-		if s.has_structure("apostolic_palace"):
+		if s.has_structure("apostolic_palace") \
+				and _wonder_active(gs, s, "apostolic_palace"):
 			has_religious = true
 	return "religious" if has_religious else ""
+
+# Whether a founding wonder in `s` is still active — i.e. its owner has not
+# researched its `obsoleted_by` tech (§15.17).
+static func _wonder_active(gs, s, struct_id: String) -> bool:
+	var owner = gs.get_player(s.owner_player_id)
+	return owner == null or not owner.structure_obsolete(gs.db, struct_id)
 
 # The belief the religious assembly organises around: the faith of the city holding
 # the Apostolic Palace. "" for the secular body (or an unfaithful Palace).
 static func _religious_belief(gs) -> String:
 	for s in gs.settlements:
-		if s.has_structure("apostolic_palace"):
+		if s.has_structure("apostolic_palace") \
+				and _wonder_active(gs, s, "apostolic_palace"):
 			return str(s.belief_id)
 	return ""
 
@@ -539,9 +550,11 @@ static func _open_diplo_session(gs) -> void:
 	})
 
 # The Apostolic Palace wonder owner — the natural primary candidate, or -1.
+# An obsolete Palace (§15.17) confers no candidacy.
 static func _ap_owner(gs) -> int:
 	for s in gs.settlements:
-		if s.has_structure("apostolic_palace"):
+		if s.has_structure("apostolic_palace") \
+				and _wonder_active(gs, s, "apostolic_palace"):
 			return s.owner_player_id
 	return -1
 

@@ -941,3 +941,31 @@ func test_unit_level_vs_class_stacks_with_promotion_side() -> void:
 	p.promotions = ["ambush"]                  # vs_armor 25
 	assert_eq(p.effective_strength(gs.db, true, {}, {}, "armor"), 49,
 		"Panzer + Ambush vs armor: 28 x 175 / 100 = 49")
+
+# ── M1: structure obsolescence × city defence (§15.17) ───────────────────────
+
+func test_walls_defence_stops_at_rifling() -> void:
+	var gs = make_gs()
+	var owner = gs.get_player(2)
+	var s = make_settlement(gs, 2, 5, 5)
+	s.structures = ["walls"]            # 50 + 10; obsoleted_by rifling
+	assert_eq(Combat.settlement_defence(s, gs.db, owner), 60,
+		"Pre-Rifling walls defend at full strength")
+	owner.technologies.append("rifling")
+	assert_eq(Combat.settlement_defence(s, gs.db, owner), 0,
+		"Rifling silences the walls' defence AND cultural defence (§15.17)")
+
+func test_obsolete_defence_flows_through_combat_resolve() -> void:
+	# The bastion from the resolve test, obsoleted: the attacker now wins.
+	var gs = make_gs()
+	gs.db.structures["test_bastion"] = {"id": "test_bastion",
+		"defence_bonus": 100000, "obsoleted_by": "mysticism"}
+	gs.get_player(2).technologies.append("mysticism")
+	var atk = make_warrior(gs, 1, 5, 6)
+	var dfn = make_warrior(gs, 2, 5, 5)
+	dfn.health = 1                       # one hit finishes the fight
+	var s = make_settlement(gs, 2, 5, 5)
+	s.structures = ["test_bastion"]
+	var r: Dictionary = Combat.resolve(atk, dfn, gs, _rng(42))
+	assert_false(r["defender_survived"],
+		"Combat.resolve ignores an obsolete bastion's defence (§15.17)")

@@ -89,6 +89,12 @@ static func slots_for(db: DataDB, s: Settlement, player: Player, stype: String) 
 		return -1
 	var total: int = base
 	for sid in s.structures:
+		# An obsolete structure's slots close (§15.17: the Obelisk's priest pair
+		# at Astronomy): no NEW assignment may use them. Specialists already
+		# assigned keep working until reassigned — the standing rule for every
+		# slot-shrinking event (population loss, Caste System revocation).
+		if player != null and player.structure_obsolete(db, sid):
+			continue
 		total += int(db.get_structure(sid).get("specialist_slots", {}).get(stype, 0))
 	return total
 

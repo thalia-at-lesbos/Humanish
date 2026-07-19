@@ -941,3 +941,47 @@ func test_and_set_units_anchor_under_final_gating_tech() -> void:
 	for uid in expected:
 		assert_true(uid in db.get_technology(expected[uid]).get("unlocks_units", []),
 			"%s anchors under its final gating tech %s" % [uid, expected[uid]])
+
+# ── M1: structure obsolescence data (§15.17 / §29.15) ────────────────────────
+
+func test_obsolescence_roster_matches_sourced_table() -> void:
+	# The full §29.15 reference roster, mapped to Humanish ids.
+	var db = _db()
+	var expected := {
+		"walls": "rifling", "dun": "rifling", "chichen_itza": "rifling",
+		"castle": "economics", "citadel": "economics",
+		"stable": "advanced_flight", "ger": "advanced_flight",
+		"obelisk": "astronomy", "stele": "astronomy", "totem_pole": "astronomy",
+		"stonehenge": "astronomy", "colossus": "astronomy",
+		"monastery": "scientific_method", "great_library": "scientific_method",
+		"parthenon": "scientific_method", "temple_of_artemis": "scientific_method",
+		"hagia_sophia": "steam_power", "great_lighthouse": "corporation",
+		"angkor_wat": "computers", "spiral_minaret": "computers",
+		"university_of_sankore": "computers", "kremlin": "fiber_optics",
+		"apostolic_palace": "mass_media"
+	}
+	for sid in expected:
+		assert_eq(str(db.structures[sid].get("obsoleted_by", "")), expected[sid],
+			"%s is obsoleted by %s (§29.15)" % [sid, expected[sid]])
+
+func test_steam_power_carries_the_worker_speed_tech_source() -> void:
+	var db = _db()
+	assert_eq(int(db.get_technology("steam_power").get("worker_speed_modifier", 0)), 50,
+		"Steam Power carries the +50 worker-speed tech source (§15.9)")
+
+func test_obsoleted_by_bad_tech_ref_fails_validation() -> void:
+	var db = _db()
+	db.structures["bogus_struct"] = {"id": "bogus_struct",
+		"obsoleted_by": "no_such_tech"}
+	db._validate_structure_obsolete_refs()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_struct" in err and "no_such_tech" in err:
+			found = true
+	assert_true(found, "an unknown obsoleted_by tech id is reported")
+
+func test_obsoleted_by_shipped_refs_validate_clean() -> void:
+	var db = _db()
+	db._validate_structure_obsolete_refs()
+	assert_true(db.get_errors().empty(),
+		"every shipped obsoleted_by names a real technology")

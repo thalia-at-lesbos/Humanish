@@ -1074,3 +1074,89 @@ func test_hippodrome_happy_lost_when_resource_lost() -> void:
 	TurnEngine._update_contentment(gs, s, p, gs.db)
 	assert_eq(s.positive_sentiment, with_horse - 1,
 		"Losing the Horse connection loses the conditional happy face")
+
+# ── M1: structure obsolescence (§15.17) ──────────────────────────────────────
+#
+# Once the owner researches a structure's `obsoleted_by` tech the building's
+# every effect stops (it remains built — never sold, no refund). One case per
+# aggregation category this suite owns: science %, wellbeing, contentment,
+# specialist slots, tile-output yields.
+
+func test_monastery_science_bonus_stops_at_scientific_method() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("monastery")    # science_bonus 10; obsoleted_by scientific_method
+	s.output_commerce = 100
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 110,
+		"A live monastery boosts the city's research share by 10%")
+	p.research_store = 0
+	p.technologies.append("scientific_method")
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 100,
+		"Scientific Method silences the monastery's science bonus (§15.17)")
+
+func test_obsolete_structure_health_effects_stop() -> void:
+	# Synthetic roster entry: obsolete the Three Gorges Dam and its owner-wide
+	# unhealthy_global stops in every city (the W2 scan filters, §15.17).
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var cap = make_settlement(gs, 1, 5, 5)
+	var other = make_settlement(gs, 1, 9, 9)
+	cap.structures.append("three_gorges_dam")  # effects.unhealthy_global: 2
+	gs.db.structures["three_gorges_dam"]["obsoleted_by"] = "mysticism"
+	TurnEngine._update_wellbeing(gs, cap, p, gs.db)
+	TurnEngine._update_wellbeing(gs, other, p, gs.db)
+	var cap_neg: int = cap.wellbeing_negative
+	var other_neg: int = other.wellbeing_negative
+	p.technologies.append("mysticism")
+	TurnEngine._update_wellbeing(gs, cap, p, gs.db)
+	TurnEngine._update_wellbeing(gs, other, p, gs.db)
+	assert_eq(cap.wellbeing_negative, cap_neg - 2,
+		"The obsolete dam's +2 global unhealthiness stops in its own city")
+	assert_eq(other.wellbeing_negative, other_neg - 2,
+		"…and in every other city of the owner")
+
+func test_obsolete_structure_happiness_stops() -> void:
+	# Synthetic: an obsolete temple's happiness_bonus no longer comforts the
+	# city (the contentment scan runs through _structure_effect_active).
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.structures.append("temple")       # happiness_bonus 1
+	gs.db.structures["temple"]["obsoleted_by"] = "mysticism"
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var live_pos: int = s.positive_sentiment
+	p.technologies.append("mysticism")
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, live_pos - 1,
+		"An obsolete temple's +1 happiness stops (§15.17)")
+
+func test_obelisk_specialist_slots_close_at_astronomy() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 4)
+	s.structures.append("obelisk")      # priest slots 2; obsoleted_by astronomy
+	var live_slots: int = Specialists.slots_for(gs.db, s, p, "priest")
+	p.technologies.append("astronomy")
+	assert_eq(Specialists.slots_for(gs.db, s, p, "priest"), live_slots - 2,
+		"The obsolete Obelisk's two priest slots close (§15.17)")
+
+func test_obsolete_structure_output_delta_stops() -> void:
+	# Synthetic: give the granary a food output_delta and obsolete it — the
+	# yield stops while a non-obsolete copy still pays out.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	gs.db.structures["granary"]["output_delta"]["food"] = 3
+	s.structures.append("granary")
+	TurnEngine._settlement_growth(gs, s, p)
+	var live_food: int = s.output_food
+	gs.db.structures["granary"]["obsoleted_by"] = "mysticism"
+	p.technologies.append("mysticism")
+	TurnEngine._settlement_growth(gs, s, p)
+	assert_eq(s.output_food, live_food - 3,
+		"An obsolete structure's output_delta yields nothing (§15.17)")
