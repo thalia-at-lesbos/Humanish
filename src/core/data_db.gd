@@ -275,6 +275,20 @@ func _validate() -> void:
 	_validate_diplomacy_refs()
 	_validate_belief_refs()
 	_validate_trait_refs()
+	_validate_structure_obsolete_refs()
+
+# A structure's `obsoleted_by` (§15.17) must name a real technology — a dangling
+# id would ship a structure that silently never obsoletes (or, worse, a typo'd
+# roster entry that keeps a wonder's effects alive forever).
+func _validate_structure_obsolete_refs() -> void:
+	for sid in structures:
+		if sid == "_comment":
+			continue
+		var obs = structures[sid].get("obsoleted_by", null)
+		if obs == null:
+			continue
+		if not (obs is String) or obs == "" or not technologies.has(str(obs)):
+			_errors.append("Structure '%s' obsoleted_by '%s' not in technologies table" % [sid, obs])
 
 # Every structure a trait grants free (`free_structures`) or builds at double
 # speed (`double_production_structures`, B4) must exist in the structures table,

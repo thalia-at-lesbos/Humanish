@@ -207,7 +207,48 @@ docs-only.
 
 ## Phase M — blocked mechanics (each a self-contained subsystem; ⓪ = needs its Phase 0 line)
 
-- **M1. Structure obsolescence** ⓪(0e): per-structure `obsolete_tech`; at
+- **M1. Structure obsolescence** ⓪(0e): **DONE 2026-07-19** — the shipped data
+  key is the pre-existing (dead) `obsoleted_by`; the full §29.15 roster is now
+  carried (23 entries — 14 wonders already had it, 9 added: walls, dun, castle
+  was present, citadel, stable, ger, obelisk, stele, totem_pole, monastery).
+  The single predicate is `Player.structure_obsolete(db, sid)`; the existing
+  `TurnEngine._structure_effect_active` choke (contentment + production, the
+  religion gate) now folds it in, and every other standing-structure
+  aggregation loop filters through the predicate: output_delta yields, granary
+  carry, wellbeing (health_bonus/penalty + the W2 `unhealthy_global` scan),
+  barracks-civic comfort, power gate, unit XP (city + Pentagon empire scan),
+  free promotions, worker speed, `heals_units`, siege HP
+  (`city_max_health(s, db, owner=null)`), the W1 `science_bonus`, espionage
+  flat/`espionage_output`; `Combat.settlement_defence(settle, db, owner=null)`
+  (defence_bonus AND cultural_defence_bonus stop — walls/castle cases);
+  `CombatApply` W4 `enemy_war_weariness`; `Specialists.slots_for` (slots
+  close; already-assigned specialists persist until reassigned, the standing
+  rule for every slot-shrinking event); `GlobalWarming._building_unhealth`;
+  `Nuclear` nukes-enabled/shelter/meltdown scans; `Assembly` founding-wonder
+  gates (an obsolete Apostolic Palace hosts no religious assembly — real
+  shipped pair, AP→mass_media); `GreatPeople._player_has_active_structure`
+  (Great Wall/Mausoleum effect gates; the plain variant stays for the
+  build-uniqueness identity check); facade whip-anger/espionage-defense/
+  city-intel readouts; `PlayerAI` missionary gate. Identity uses (presence,
+  wonder score, **upkeep — still charged**, build-target lists,
+  destroy-building targeting, names) deliberately unfiltered. Steam Power +50
+  worker speed shipped as `worker_speed_modifier: 50` **on the tech entry**
+  (summed over researched techs in `worker_build_turns` — chosen over a
+  player-level effects read because worker speed already aggregates per-source
+  there); net speed pinned unchanged across the Hagia Sophia transition.
+  `DataDB._validate_structure_obsolete_refs` rejects dangling tech ids. Tests
+  (+19): `test_policy_effects.gd` (tech source, no double-stack, transition
+  pin), `test_data_db.gd` (roster pin, tech-source pin, validator),
+  `test_settlement.gd` (science %, wellbeing, happiness, slots, yields),
+  `test_combat.gd` (defence + resolve), `test_conquest.gd` (siege HP, never
+  sold), `test_building_xp.gd`, `test_turn_engine.gd` (W4),
+  `test_intelligence.gd` (castle→economics), `test_assembly.gd` (AP→
+  mass_media). NOTE: §29.15 lists the monument's unique variants (obelisk/
+  stele/totem_pole) but not base `monument` itself — followed exactly;
+  flagged as a possible roster gap for a design-doc sitting. Buildability of
+  already-obsolete structures is NOT gated (spec silent; reference blocks it —
+  candidate follow-up alongside M7's `not_buildable` flag). Original item:
+  per-structure `obsolete_tech`; at
   research, the structure's `effects` stop being read (building remains, never
   sold). Single choke point: wherever standing-structure effects are aggregated
   (worker speed, `PolicyEffects`-style scans, W1–W3 sites) filter obsolete
@@ -333,8 +374,8 @@ docs-only.
 2. **Phase 0 sitting** — ~~one authorized session capturing 0a–0j into
    §15/§29~~ **done 2026-07-18**; every later phase now sources from the docs
    only.
-3. **M1 → M2/M3/M5/M7** (M1 unblocks the Steam Power leftovers; M5/M7 are
-   doc-ready any time), then **M4/M6**.
+3. **M1 → M2/M3/M5/M7** (M1 — **done 2026-07-19** — unblocked the Steam Power
+   leftovers; M5/M7 are doc-ready any time), then **M4/M6**.
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
    full integration gate + midgame save/load determinism after each, version
    review at phase end).

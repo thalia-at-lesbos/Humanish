@@ -251,6 +251,8 @@ static func accrue_war_fatigue(gs, side_pid: int, enemy_pid: int, key: String) -
 		if es.owner_player_id != ep.id:
 			continue
 		for e_struct_id in es.structures:
+			if ep.structure_obsolete(gs.db, e_struct_id):
+				continue  # an obsolete wonder stops amplifying (§15.17)
 			enemy_pct += int(gs.db.get_structure(e_struct_id).get("effects", {}) \
 				.get("enemy_war_weariness", 0))
 	if enemy_pct > 0:

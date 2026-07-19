@@ -1137,6 +1137,8 @@ static func _can_train_missionary(gs, s, player) -> bool:
 	if PolicyEffects.has_flag(player, db, "missionary_without_monastery"):
 		return true
 	for sid in s.structures:
+		if player.structure_obsolete(db, sid):
+			continue  # an obsolete Monastery trains no missionaries (§15.17)
 		if db.get_structure(sid).get("effects", {}).get("trains_missionaries", false):
 			return true
 	return false

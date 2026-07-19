@@ -34,7 +34,10 @@ static func is_nuke(db: DataDB, u: Unit) -> bool:
 # `enable_nukes_global` (the Manhattan Project) — it enables nukes for everyone.
 static func nukes_enabled(gs) -> bool:
 	for s in gs.settlements:
+		var owner = gs.get_player(s.owner_player_id)
 		for sid in s.structures:
+			if owner != null and owner.structure_obsolete(gs.db, sid):
+				continue  # an obsolete wonder's effects stop (§15.17)
 			if gs.db.get_structure(sid).get("effects", {}).get("enable_nukes_global", false):
 				return true
 	return false
@@ -165,7 +168,7 @@ static func detonate(gs, attacker: Unit, tx: int, ty: int, rng: RNG) -> Dictiona
 		var s: Settlement = gs.get_settlement_at(cell[0], cell[1])
 		if s == null:
 			continue
-		var shelter2: int = _nuke_damage_reduction(s, db)
+		var shelter2: int = _nuke_damage_reduction(gs, s, db)
 		var eff_pop: int = pop_base + _rand_part(rng, pop_r1) + _rand_part(rng, pop_r2)
 		eff_pop -= (eff_pop * shelter2) / 100
 		var loss: int = (s.population * eff_pop) / 100
@@ -232,7 +235,7 @@ static func meltdown_tick(gs, rng: RNG) -> Array:
 	if chance <= 0:
 		return contaminated
 	for s in gs.settlements:
-		if not _has_meltdown_plant(s, db):
+		if not _has_meltdown_plant(gs, s, db):
 			continue
 		if not rng.rand_bool_percent(chance):
 			continue
@@ -288,14 +291,18 @@ static func _ring_tiles(gs, cx: int, cy: int, radius: int) -> Array:
 # settlement on that tile shelters it.
 static func _shelter_reduction(gs, x: int, y: int, db: DataDB) -> int:
 	var s: Settlement = gs.get_settlement_at(x, y)
-	return _nuke_damage_reduction(s, db) if s != null else 0
+	return _nuke_damage_reduction(gs, s, db) if s != null else 0
 
-# The strongest `nuke_damage_reduction` (%) among a settlement's structures.
-static func _nuke_damage_reduction(s, db: DataDB) -> int:
+# The strongest `nuke_damage_reduction` (%) among a settlement's active (non-
+# obsolete, §15.17) structures.
+static func _nuke_damage_reduction(gs, s, db: DataDB) -> int:
 	if s == null:
 		return 0
+	var owner = gs.get_player(s.owner_player_id)
 	var best: int = 0
 	for sid in s.structures:
+		if owner != null and owner.structure_obsolete(db, sid):
+			continue
 		var red: int = int(db.get_structure(sid).get("effects", {}).get("nuke_damage_reduction", 0))
 		if red > best:
 			best = red
@@ -310,8 +317,13 @@ static func _can_contaminate(db: DataDB, t: Tile) -> bool:
 	var landform: String = str(db.get_terrain(t.terrain_id).get("landform", ""))
 	return landform in allowed
 
-static func _has_meltdown_plant(s, db: DataDB) -> bool:
+static func _has_meltdown_plant(gs, s, db: DataDB) -> bool:
+	var owner = gs.get_player(s.owner_player_id)
 	for sid in s.structures:
+		# An obsolete plant no longer provides power (§15.17) — and a plant that
+		# is not running cannot melt down.
+		if owner != null and owner.structure_obsolete(db, sid):
+			continue
 		if db.get_structure(sid).get("effects", {}).get("provides_power", false):
 			# Nuclear plants provide power and consume uranium; treat power plants
 			# that require fission as meltdown-prone.

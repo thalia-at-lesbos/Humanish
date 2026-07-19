@@ -464,3 +464,18 @@ func test_assembly_state_round_trips_through_save_load() -> void:
 		"An in-progress proposal survives save/load")
 	assert_eq(str(restored.assembly["pending"]["votes"]["1"]), Assembly.VOTE_YEA,
 		"Cast votes survive save/load")
+
+# ── M1: structure obsolescence × founding wonder (§15.17) ────────────────────
+
+func test_obsolete_apostolic_palace_hosts_no_assembly() -> void:
+	# Shipped roster pair: the Apostolic Palace obsoletes at Mass Media — its
+	# assembly-hosting effect stops; the wonder itself remains built.
+	var gs = make_gs(2)
+	var host = make_settlement(gs, 1, 3, 3, 5)
+	host.structures.append(APOSTOLIC)
+	assert_eq(Assembly.active_body(gs), "religious",
+		"A live Apostolic Palace hosts the religious body")
+	gs.get_player(1).technologies.append("mass_media")
+	assert_eq(Assembly.active_body(gs), "",
+		"An obsolete Palace hosts nothing (§15.17)")
+	assert_true(host.has_structure(APOSTOLIC), "…but is never sold")

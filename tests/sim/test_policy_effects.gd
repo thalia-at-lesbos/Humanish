@@ -585,3 +585,55 @@ func test_pacifism_great_person_rate() -> void:
 	TurnEngine._special_person_progress(gs, s)
 	assert_eq(s.special_person_points, base_points * 2,
 		"Pacifism doubles Great Person point accumulation")
+
+# ── M1: structure obsolescence × worker speed (§15.17, §15.9) ────────────────
+#
+# Steam Power carries worker_speed_modifier 50 on the TECH entry, and it is
+# also Hagia Sophia's obsoleting tech — so across the transition the two
+# sources swap and the net worker speed is unchanged (never double-stacked).
+
+func test_steam_power_tech_speeds_workers() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining", "steam_power"]
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, 3,
+		"Steam Power's +50%% (tech source, no wonder) scales the 5-turn mine to 3")
+
+func test_hagia_sophia_worker_speed_stops_at_steam_power() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining", "steam_power"]
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var s = make_settlement(gs, 1, 10, 10, 2)
+	s.structures.append("hagia_sophia")  # worker_speed_modifier 50; obsoleted_by steam_power
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, 3,
+		"Obsolete Hagia Sophia adds nothing on top of the tech's +50%%: "
+		+ "5×100/150 = 3, not the double-stacked 5×100/200 = 2")
+
+func test_net_worker_speed_unchanged_across_steam_power_transition() -> void:
+	# A Hagia Sophia empire researches Steam Power: the wonder's +50 stops, the
+	# tech's +50 starts — identical build turns before and after.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	gs.get_player(1).technologies = ["mining"]
+	gs.map.get_tile(5, 5).terrain_id = "hills"
+	var s = make_settlement(gs, 1, 10, 10, 2)
+	s.structures.append("hagia_sophia")
+	var f = bare_facade(gs)
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	var before: int = w.build_turns_left
+	gs.get_player(1).technologies.append("steam_power")
+	w.movement_left = w.movement_total
+	w.has_moved = false
+	f.apply_command(Commands.build_improvement(1, w.id, "mine"))
+	assert_eq(w.build_turns_left, before,
+		"Net worker speed is unchanged across the Steam Power transition")
+	assert_eq(before, 3, "Both sides of the transition sit at the single +50%% rate")

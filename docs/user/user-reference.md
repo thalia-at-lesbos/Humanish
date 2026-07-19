@@ -128,6 +128,10 @@ Specialists generate Great Person points toward a Great Person of that type (see
 The whip never takes more citizens than the remaining cost requires and always leaves the city at least 1 population; an item queued this same turn costs 50% extra.
 Each whip leaves one extra angry citizen in that city for 10 turns — and repeated whips stack.
 
+**Obsolescence** — some structures stop working once you research a certain technology (the encyclopedia lists it as "Obsoleted by").
+Walls and Castles stop defending at Rifling and Economics, Monasteries stop boosting science at Scientific Method, Hagia Sophia's worker bonus hands over to Steam Power's own +50%, and so on.
+An obsolete building stays in the city (buildings are never sold and give no refund) — it simply no longer contributes its bonuses.
+
 ### Growth
 
 Each turn a city accumulates **food surplus** (food output of worked tiles minus population upkeep).

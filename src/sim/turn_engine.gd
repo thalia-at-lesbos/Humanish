@@ -374,8 +374,10 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 			"windmill":
 				total_commerce += windmill_comm
 
-	# Structures bonus
+	# Structures bonus (an obsolete structure yields nothing, §15.17)
 	for struct_id in s.structures:
+		if player != null and player.structure_obsolete(db, struct_id):
+			continue
 		var struct: Dictionary = db.get_structure(struct_id)
 		total_food     += int(struct.get("output_delta", {}).get("food", 0))
 		total_prod     += int(struct.get("output_delta", {}).get("production", 0))
@@ -487,7 +489,8 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		if s.population > s.peak_population:
 			s.peak_population = s.population   # tracks the largest size ever (§4.8)
 		var carry_frac: int = 50  # carry 50% of threshold
-		if s.has_structure("granary"):
+		if s.has_structure("granary") \
+				and not (player != null and player.structure_obsolete(db, "granary")):
 			carry_frac = int(db.get_structure("granary").get("effects", {}).get("food_carry_over", 50))
 		var kept: int = Fixed.scale(threshold, carry_frac)
 		# Cap granary carry-over at threshold × max_food_kept_percent/100 (§4.2): no
@@ -511,6 +514,8 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 	var pos: int = 0
 	var neg: int = s.population  # base negative from population
 	for struct_id in s.structures:
+		if player != null and player.structure_obsolete(db, struct_id):
+			continue  # an obsolete structure's health effects stop (§15.17)
 		var struct: Dictionary = db.get_structure(struct_id)
 		pos += int(struct.get("health_bonus", 0))
 		neg += int(struct.get("health_penalty", 0))
@@ -522,6 +527,8 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 			if owner_s.owner_player_id != player.id:
 				continue
 			for g_struct_id in owner_s.structures:
+				if player.structure_obsolete(db, g_struct_id):
+					continue
 				neg += int(db.get_structure(g_struct_id).get("effects", {}) \
 					.get("unhealthy_global", 0))
 	# Adopted belief wellbeing (§8)
@@ -637,7 +644,8 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 	# comfort (Free Religion; the model carries one belief per city), happiness per
 	# worked forest/jungle tile (Environmentalism), and a flat bonus in the empire's
 	# largest cities (Representation).
-	if s.has_structure("barracks"):
+	if s.has_structure("barracks") \
+			and not (player != null and player.structure_obsolete(db, "barracks")):
 		pos += PolicyEffects.sum_int(player, db, "barracks_happiness")
 	if s.belief_id != "":
 		pos += PolicyEffects.sum_int(player, db, "happiness_per_religion")
@@ -767,7 +775,7 @@ static func _settlement_production(gs: GameState, s: Settlement,
 static func _production_percent_mods(gs: GameState, s: Settlement,
 		player: Player, db: DataDB, item: Dictionary) -> int:
 	var pct: int = TraitEffects.production_pct(player, db, item)
-	var powered: bool = _settlement_has_power(s, db)
+	var powered: bool = _settlement_has_power(s, db, player)
 	for sid in s.structures:
 		if not _structure_effect_active(db, sid, s, player):
 			continue
@@ -786,9 +794,11 @@ static func _production_percent_mods(gs: GameState, s: Settlement,
 	return pct
 
 # Whether any built, active structure supplies power to the city (§4.3) — the gate
-# for the Factory's powered production bonus.
-static func _settlement_has_power(s: Settlement, db: DataDB) -> bool:
+# for the Factory's powered production bonus. An obsolete plant powers nothing.
+static func _settlement_has_power(s: Settlement, db: DataDB, player: Player = null) -> bool:
 	for sid in s.structures:
+		if player != null and player.structure_obsolete(db, sid):
+			continue
 		if bool(db.get_structure(sid).get("effects", {}).get("provides_power", false)):
 			return true
 	return false
@@ -822,12 +832,15 @@ static func _is_military_unit(db: DataDB, unit_id: String) -> bool:
 	var cls: String = db.get_unit(unit_id).get("classification", "")
 	return cls != "" and cls != "civilian" and cls != "great_person"
 
-# Whether a structure's gameplay effects are live in this settlement (§8). A
+# Whether a structure's gameplay effects are live in this settlement (§8, §15.17).
+# An obsolete structure (owner researched its `obsoleted_by` tech) never is; a
 # structure flagged `requires_state_religion` (the Cathedral tier) only takes
 # effect while the city follows the player's adopted state religion; everything
 # else is always active.
 static func _structure_effect_active(db: DataDB, struct_id: String,
 		s: Settlement, player: Player) -> bool:
+	if player != null and player.structure_obsolete(db, struct_id):
+		return false
 	var st: Dictionary = db.get_structure(struct_id)
 	if not bool(st.get("effects", {}).get("requires_state_religion", false)):
 		return true
@@ -971,6 +984,8 @@ static func _structure_unit_xp(gs: GameState, s: Settlement,
 	var cls: String = str(ud.get("classification", ""))
 	var total: int = 0
 	for sid in s.structures:
+		if player != null and player.structure_obsolete(db, sid):
+			continue  # an obsolete structure trains no one (§15.17: Stable → Advanced Flight)
 		var fx: Dictionary = db.get_structure(sid).get("effects", {})
 		total += int(fx.get("military_xp", 0))
 		total += int(fx.get("military_xp_city", 0))
@@ -991,6 +1006,8 @@ static func _structure_unit_xp(gs: GameState, s: Settlement,
 		if other.owner_player_id != player.id:
 			continue
 		for sid in other.structures:
+			if player != null and player.structure_obsolete(db, sid):
+				continue
 			total += int(db.get_structure(sid).get("effects", {}).get("unit_xp_all_cities", 0))
 	return total
 
@@ -1003,7 +1020,10 @@ static func _grant_free_promotions(gs: GameState, u: Unit, s: Settlement) -> voi
 	var ud: Dictionary = db.get_unit(u.unit_type_id)
 	var cls: String = str(ud.get("classification", ""))
 	var dom: String = str(ud.get("domain", "land"))
+	var owner: Player = gs.get_player(s.owner_player_id)
 	for sid in s.structures:
+		if owner != null and owner.structure_obsolete(db, sid):
+			continue  # an obsolete structure confers nothing (§15.17: Dun → Rifling)
 		var fx: Dictionary = db.get_structure(sid).get("effects", {})
 		var fp: String = str(fx.get("free_promotion", ""))
 		if fp != "" and not (fp in u.promotions):
@@ -1156,8 +1176,14 @@ static func worker_build_turns(gs: GameState, u: Unit, base_turns: int) -> int:
 			if s.owner_player_id != player.id:
 				continue
 			for sid in s.structures:
+				if player.structure_obsolete(db, sid):
+					continue  # Hagia Sophia's +50 stops at Steam Power (§15.17)
 				mod += int(db.get_structure(sid).get("effects", {}) \
 					.get("worker_speed_modifier", 0))
+		# Researched techs carrying `worker_speed_modifier` (§15.9: Steam Power
+		# +50 — the tech that obsoletes Hagia Sophia, so the two never stack).
+		for tid in player.technologies:
+			mod += int(db.get_technology(str(tid)).get("worker_speed_modifier", 0))
 	if mod < -99:
 		mod = -99  # keep the divisor positive; a build never stalls forever
 	var turns: int = (base_turns * 100) / (100 + mod)
@@ -1480,6 +1506,8 @@ static func _healing_rate(gs: GameState, u: Unit, player: Player) -> int:
 	if settlement != null and settlement.owner_player_id == player.id:
 		# A structure with `heals_units` (Ikhanda) fully restores its garrison (§5.5).
 		for sid in settlement.structures:
+			if player.structure_obsolete(db, sid):
+				continue
 			if db.get_structure(sid).get("effects", {}).get("heals_units", false):
 				return 100
 		return db.get_constant("healing_in_settlement", 20)
@@ -1656,20 +1684,24 @@ static func _find_capital(gs: GameState, player_id: int) -> Settlement:
 # cities, or when the data tables define no Palace.
 # A city's maximum siege health (§4.8): a base, plus a slice for its size, plus a
 # slice of its defensive structures' bonuses (walls, castle, …). Public so the
-# conquest code in SimFacade shares the exact formula.
-static func city_max_health(s: Settlement, db: DataDB) -> int:
+# conquest code in SimFacade shares the exact formula. Pass the owning player so
+# obsolete defences (§15.17: Walls/Castle stop at Rifling/Economics) drop out;
+# a null owner (wild camps) never obsoletes anything.
+static func city_max_health(s: Settlement, db: DataDB, owner: Player = null) -> int:
 	var maxh: int = db.get_constant("city_base_health", 20)
 	maxh += s.population * db.get_constant("city_health_per_pop", 3)
 	var divisor: int = db.get_constant("city_defence_structure_divisor", 10)
 	if divisor > 0:
 		for struct_id in s.structures:
+			if owner != null and owner.structure_obsolete(db, struct_id):
+				continue
 			maxh += int(db.get_structure(struct_id).get("defence_bonus", 0)) / divisor
 	return maxh
 
 # Heal a city's siege HP toward its maximum (and normalise the -1 "full"
 # sentinel / any over-cap value left by a shrunk city).
 static func _city_health_regen(gs: GameState, s: Settlement) -> void:
-	var maxh: int = city_max_health(s, gs.db)
+	var maxh: int = city_max_health(s, gs.db, gs.get_player(s.owner_player_id))
 	if s.health < 0 or s.health > maxh:
 		s.health = maxh
 		return
@@ -1721,6 +1753,8 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		# direct yields outside the multiplier.
 		var sci_pct: int = 0
 		for sci_struct_id in s.structures:
+			if player.structure_obsolete(db, sci_struct_id):
+				continue  # e.g. the Monastery's 10 stops at Scientific Method (§15.17)
 			sci_pct += int(db.get_structure(sci_struct_id).get("science_bonus", 0))
 		if sci_pct > 0:
 			beakers += Fixed.scale(beakers, sci_pct)
@@ -1840,9 +1874,9 @@ static func _apply_intelligence(gs: GameState, player: Player) -> void:
 		if s.owner_player_id != player.id:
 			continue
 		var city_out: int = player.split_commerce(s.output_commerce)[3] \
-			+ _settlement_espionage_flat(s, gs.db) \
+			+ _settlement_espionage_flat(s, gs.db, player) \
 			+ Specialists.settlement_channel(gs.db, s, "espionage")
-		city_out += Fixed.scale(city_out, _settlement_espionage_output(s, gs.db))
+		city_out += Fixed.scale(city_out, _settlement_espionage_output(s, gs.db, player))
 		total += city_out
 
 	# Nationhood and other civics add a flat empire-wide espionage yield (§8).
@@ -1857,17 +1891,24 @@ static func _apply_intelligence(gs: GameState, player: Player) -> void:
 		player.intel_points[target_aid] += share
 
 # Sum of the flat `espionage` points contributed by a settlement's structures.
-static func _settlement_espionage_flat(s: Settlement, db: DataDB) -> int:
+static func _settlement_espionage_flat(s: Settlement, db: DataDB,
+		player: Player = null) -> int:
 	var flat: int = 0
 	for struct_id in s.structures:
+		if player != null and player.structure_obsolete(db, struct_id):
+			continue
 		flat += int(db.get_structure(struct_id).get("effects", {}).get("espionage", 0))
 	return flat
 
 # Sum of the `espionage_output` percent modifiers a settlement's structures grant
 # (they stack additively, e.g. Intelligence Agency +50% with Scotland Yard +100%).
-static func _settlement_espionage_output(s: Settlement, db: DataDB) -> int:
+# An obsolete structure's modifier stops (§15.17: the Castle's 25 at Economics).
+static func _settlement_espionage_output(s: Settlement, db: DataDB,
+		player: Player = null) -> int:
 	var pct: int = 0
 	for struct_id in s.structures:
+		if player != null and player.structure_obsolete(db, struct_id):
+			continue
 		pct += int(db.get_structure(struct_id).get("effects", {}).get("espionage_output", 0))
 	return pct
 

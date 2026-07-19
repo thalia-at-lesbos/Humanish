@@ -252,3 +252,18 @@ func test_walking_onto_lone_missile_tile_destroys_it() -> void:
 		"a lone hostile missile cannot contest the tile (missiles cannot defend)")
 	assert_null(gs.get_unit(missile.id), "entering its tile destroys the missile")
 	assert_eq(atk.health, 100, "no combat was fought over the missile")
+
+# ── M1: structure obsolescence × siege HP (§15.17) ───────────────────────────
+
+func test_city_max_health_drops_walls_slice_when_obsolete() -> void:
+	var gs = make_gs()
+	var owner = gs.get_player(2)
+	var s = make_settlement(gs, 2, 5, 5)
+	var bare = TurnEngine.city_max_health(s, gs.db, owner)
+	s.structures.append("walls")         # defence_bonus 50 → +5 HP at divisor 10
+	assert_true(TurnEngine.city_max_health(s, gs.db, owner) > bare,
+		"Live walls raise siege HP")
+	owner.technologies.append("rifling")
+	assert_eq(TurnEngine.city_max_health(s, gs.db, owner), bare,
+		"Obsolete walls add no siege HP (§15.17); the building itself remains")
+	assert_true(s.has_structure("walls"), "…and is never sold")

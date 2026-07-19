@@ -54,7 +54,10 @@ static func resolve(attacker: Unit, defender: Unit,
 	# the city's structure + cultural defence.
 	var settle: Settlement = game_state.get_settlement_at(defender.x, defender.y)
 	var at_settlement: bool = settle != null
-	var settle_def: int = settlement_defence(settle, db)
+	var settle_owner = null
+	if settle != null:
+		settle_owner = game_state.get_player(settle.owner_player_id)
+	var settle_def: int = settlement_defence(settle, db, settle_owner)
 	var a_fortified: bool = defender.entrenchment > 0
 	var d_fortified: bool = attacker.entrenchment > 0
 
@@ -321,12 +324,16 @@ static func _unit_class(u: Unit, db: DataDB) -> String:
 # structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …),
 # plus the intrinsic culture-level defence (§15.4 / C4).
 # Public so the facade's city-intel readout (§25.6) shows the same number the
-# combat resolver uses.
-static func settlement_defence(settle, db: DataDB) -> int:
+# combat resolver uses. Pass the owning player so obsolete defences drop out
+# (§15.17: Walls/Dun at Rifling, Castle/Citadel at Economics); a null owner
+# (wild camps) keeps every structure live.
+static func settlement_defence(settle, db: DataDB, owner = null) -> int:
 	if settle == null:
 		return 0
 	var total: int = 0
 	for sid in settle.structures:
+		if owner != null and owner.structure_obsolete(db, sid):
+			continue
 		var st: Dictionary = db.get_structure(sid)
 		total += int(st.get("defence_bonus", 0))
 		total += int(st.get("cultural_defence_bonus", 0))

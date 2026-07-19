@@ -768,7 +768,7 @@ func _capture_city(city: Settlement, captor_pid: int) -> void:
 	city.worked_tiles = []
 	city.locked_tiles = []
 	city.revolt_turns = _db.get_constant("revolt_base_turns", 3) + city.population / 2
-	city.health = TurnEngine.city_max_health(city, _db)
+	city.health = TurnEngine.city_max_health(city, _db, _gs.get_player(captor_pid))
 	city.in_disorder = true
 	# Missiles cannot defend (§15.7 / D3): the loser's garrisoned missiles are
 	# destroyed with the city, never inherited or left in the captor's streets.
@@ -1216,6 +1216,8 @@ func _cmd_rush_population(cmd: Dictionary) -> bool:
 	# Altar) halves the whip-anger duration.
 	var anger_turns: int = _db.get_constant("rush_pop_anger_turns", 10)
 	for st in s.structures:
+		if p.structure_obsolete(_db, st):
+			continue  # an obsolete structure's effects stop (§15.17)
 		if bool(_db.get_structure(st).get("effects", {}).get(
 				"halve_slavery_anger", false)):
 			anger_turns = anger_turns / 2
@@ -2186,6 +2188,8 @@ func _espionage_interception_chance(target: Alliance, extra: int = 0,
 		if owner == null or owner.alliance_id != target.id:
 			continue
 		for struct_id in s.structures:
+			if owner.structure_obsolete(_db, struct_id):
+				continue  # an obsolete structure's effects stop (§15.17)
 			var d: int = int(_db.get_structure(struct_id).get("effects", {}).get("espionage_defense", 0))
 			if d > defense:
 				defense = d
@@ -2495,12 +2499,15 @@ func city_intel_lines(city_id: int) -> Array:
 	var owner_name: String = owner.name if owner != null else "Wild"
 	var lines: Array = []
 	lines.append(owner_name + "'s city: " + s.name)
-	var maxh: int = TurnEngine.city_max_health(s, _db)
+	var maxh: int = TurnEngine.city_max_health(s, _db, owner)
 	var hp: int = s.health if s.health >= 0 and s.health <= maxh else maxh
-	lines.append("Defence: +" + str(Combat.settlement_defence(s, _db)) + "%   HP: " \
+	lines.append("Defence: +" + str(Combat.settlement_defence(s, _db, owner)) + "%   HP: " \
 		+ str(hp) + "/" + str(maxh))
 	var defences: Array = []
 	for struct_id in s.structures:
+		# An obsolete defence no longer counts (§15.17), so it is not listed.
+		if owner != null and owner.structure_obsolete(_db, struct_id):
+			continue
 		var st: Dictionary = _db.get_structure(struct_id)
 		if int(st.get("defence_bonus", 0)) > 0 or int(st.get("cultural_defence_bonus", 0)) > 0:
 			defences.append(str(st.get("name", str(struct_id).capitalize())))
@@ -3797,8 +3804,12 @@ func unit_effective_strength(unit_id: int) -> int:
 	var settle: Settlement = _gs.get_settlement_at(u.x, u.y)
 	var at_settlement: bool = settle != null
 	# Same structure + culture-level defence sum the combat resolver uses
-	# (§5.3, §15.4), so the displayed number stays honest.
-	var settle_def: int = Combat.settlement_defence(settle, _db)
+	# (§5.3, §15.4, obsolete defences excluded §15.17), so the displayed number
+	# stays honest.
+	var settle_owner = null
+	if settle != null:
+		settle_owner = _gs.get_player(settle.owner_player_id)
+	var settle_def: int = Combat.settlement_defence(settle, _db, settle_owner)
 	return u.effective_strength(_db, false, ter, feat, "",
 		at_settlement, settle_def, false)
 
