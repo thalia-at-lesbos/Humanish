@@ -6,6 +6,18 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Added
+- **Air interception.** Air strikes and air bombardments can now be contested
+  over the target tile (the reference model). Fighters on **Air Patrol** (the
+  intercept stance, once per turn per interceptor) and ground/naval anti-air —
+  SAM Infantry, Mobile SAM, Machine Gun, Mechanized Infantry, Destroyer —
+  may engage an inbound air mission within their interception range. The
+  striker may evade first (Stealth Bomber 50%, Guided Missile, Ace +25%);
+  otherwise the best interceptor rolls its interception chance (fighters
+  100%, boosted by the Interception promotions, scaled by an air
+  interceptor's health) and, on a hit, fights up to five engagement rounds:
+  the intercepted mission is aborted with no ground damage, and interception
+  damage flows both ways against air interceptors (ground/naval interceptors
+  engage unharmed). One-use weapons are still consumed when intercepted.
 - **Entertainment buildings reward the culture slider.** Theatres, Colosseums,
   Broadcast Towers, and their society-unique variants now grant city happiness
   scaling with your culture allocation rate (a Theatre reads "+1 happy per 10%

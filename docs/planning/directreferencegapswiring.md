@@ -5,7 +5,8 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 §15.13–§15.21 and `game-data.md` §29.12–§29.16 (all tagged "sourced
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
-M1 (2026-07-19), M2/M5/M7 (2026-07-19) done — M3/M4/M6 remain in Phase M.
+M1 (2026-07-19), M2/M5/M7 (2026-07-19), M3 (2026-07-19) done — M4/M6 remain in
+Phase M.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -283,7 +284,49 @@ docs-only.
   culture% / 100, truncated once per city). **Files:** `src/sim/turn_engine.gd`
   (`_update_contentment`), `data/structures.json` (key per §29.12). **Tests:**
   `test_settlement.gd` (0%/50% slider cases, truncation).
-- **M3. Air interception** ⓪(0b): make `intercept_bonus` (10/20) and ace
+- **M3. Air interception** ⓪(0b — sourced; spec §15.14, values §29.13):
+  **DONE 2026-07-19** — the §15.14 model replaces the old placeholder
+  (`interception_range`/`interception_chance` constants removed; the whole
+  engagement was previously a full `Combat.resolve`). Pure helpers in
+  `Combat` (`air_evasion_chance`, `intercept_chance_max`/`_current`,
+  `find_interceptor`, `resolve_air_engagement`); the rolls live in
+  `SimFacade._resolve_interception` at the head of the `MISSION_BOMBARD` air
+  branch, so air strikes AND air city-bombardments are contested (air
+  rebase/AIRLIFT is not; nuke-tagged strikers are excluded — §15.7 channel).
+  Roll order per engagement: evasion (unit `evasion_chance` + Ace, cap
+  `air_evasion_cap` 90; skipped when 0) → intercept roll at the best
+  interceptor's current chance (unit `intercept_chance` + promotion
+  `intercept_bonus`, cap `air_intercept_chance_cap` 100; air interceptors
+  health-scaled, and gated on unmoved + `is_patrolling` — Air Patrol finally
+  has a sim meaning; reach = `air_range`, default 0, SAMs 1) → up to
+  `air_engagement_rounds` (5) rounds at `a/(a+i)` odds, damage = opponent's
+  current chance × `air_interception_damage_max` (50)/100, air-interceptor
+  return damage floored at `air_interception_damage_min` (10), ground/naval
+  interceptors unharmed. Per the §15.5 discipline an *uncontested* mission
+  consumes NO rng draws (the spec's step order rolls evasion even with no
+  interceptor in reach; selection is pure, so outcomes are identical).
+  New serialized per-unit state: `Unit.has_intercepted` (bool; reset with
+  the per-turn flags in `player_step`). The engagement result is
+  CombatResult-shaped, applied via the existing
+  `CombatApply.apply_unit_result(advance=false)` (XP/promotions/war-fatigue/
+  GG accrual shared); both-survive pays the striker the new
+  `experience_from_withdrawal` (1). Data: units.json ships the §29.13
+  columns — `intercept_chance` (fighter/jet 100, mobile_sam 50, sam_infantry
+  40, destroyer 30, machine_gun/mech_inf 20; replaces the dead
+  `intercept_strength` 35/60), `evasion_chance` (guided_missile 100,
+  stealth_bomber/tactical_nuke 50, paratrooper 25), `air_range: 1` on both
+  SAMs. NOT shipped (out of M3 scope, candidates for follow-ups): the
+  §29.13 strike-cap column (`iAirCombatLimit` → air `combat_limit`), the
+  paradrop leg of §15.14 (no paradrop mission exists in the engine),
+  `air_range_bonus` (Range I/II) remains a dead key, and tactical_nuke's
+  evasion is inert (nukes use §15.7). Tests: +12 in `test_combat.gd`
+  (chance/evasion caps + promotion stacking, health scaling, interceptor
+  selection gates, engagement damage quantization + min-damage floor,
+  both-survive withdrawal XP, kill-XP bounds, same-seed determinism,
+  serialize roundtrip), +7 in `test_air_units.gd` (facade path: intercepted
+  abort, once-per-turn, evaded, missile consumed-when-intercepted, ground
+  interceptor unharmed, clean run past an idle fighter, flag reset next
+  turn). Original item: make `intercept_bonus` (10/20) and ace
   `evasion_chance` (25) live per the sourced model; rolls through `gs.rng` in
   pipeline order. **Files:** `src/sim/combat.gd`, `src/api/sim_facade.gd` (air
   mission command path), `src/sim/combat_apply.gd`. **Tests:**
@@ -427,8 +470,8 @@ docs-only.
    §15/§29~~ **done 2026-07-18**; every later phase now sources from the docs
    only.
 3. **M1 → M2/M3/M5/M7** (M1 — **done 2026-07-19** — unblocked the Steam Power
-   leftovers; M2/M5/M7 — **done 2026-07-19**), then **M4/M6** (with M3, the
-   Phase M remainder).
+   leftovers; M2/M5/M7 — **done 2026-07-19**; M3 — **done 2026-07-19**), then
+   **M4/M6** (the Phase M remainder).
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
    full integration gate + midgame save/load determinism after each, version
    review at phase end).

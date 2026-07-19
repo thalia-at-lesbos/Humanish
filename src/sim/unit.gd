@@ -65,6 +65,10 @@ var goto_y: int = -1
 # Flags
 var has_moved: bool = false
 var has_attacked: bool = false
+# §15.14 air interception: one interception per interceptor per turn. Set when
+# this unit successfully intercepts an inbound air mission; reset with the other
+# per-turn flags in TurnEngine.player_step. Serialized (save/load determinism).
+var has_intercepted: bool = false
 var is_fortified: bool = false
 var is_wild: bool = false
 # A wild *animal* (§9.3): a subset of wild units (owner -2, is_wild also true) with
@@ -236,6 +240,7 @@ func serialize() -> Dictionary:
 		"clearing_feature": clearing_feature,
 		"goto_x": goto_x, "goto_y": goto_y,
 		"has_moved": has_moved, "has_attacked": has_attacked,
+		"has_intercepted": has_intercepted,
 		"is_fortified": is_fortified, "is_wild": is_wild,
 		"is_animal": is_animal, "xp_from_animals": xp_from_animals,
 		"is_sentry": is_sentry, "is_patrolling": is_patrolling,
@@ -271,6 +276,7 @@ static func deserialize(d: Dictionary):
 	u.goto_y = int(d.get("goto_y", -1))
 	u.has_moved = bool(d.get("has_moved", false))
 	u.has_attacked = bool(d.get("has_attacked", false))
+	u.has_intercepted = bool(d.get("has_intercepted", false))
 	u.is_fortified = bool(d.get("is_fortified", false))
 	u.is_wild = bool(d.get("is_wild", false))
 	u.is_animal = bool(d.get("is_animal", false))
