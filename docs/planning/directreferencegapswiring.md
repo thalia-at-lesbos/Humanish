@@ -1,15 +1,17 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **PHASE 0 COMPLETE 2026-07-18** — the sourcing sitting ran the same day
-the plan was written; every 0a–0j value is recorded in `game-rules.md`
-§15.13–§15.21 and `game-data.md` §29.12–§29.16 (all tagged "sourced
-2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
-proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
-**Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
-**Phase R items complete (2026-07-19)**: R1–R4 done 2026-07-19, **R5 done
-(2026-07-19)** — all five reference-model adoptions shipped; what remains of
-the phase is the **version-bump review** (R2 is the standing major-bump
-candidate), then Phase T.
+Status: **IMPLEMENTATION COMPLETE 2026-07-19, except one pending-sourcing
+line and the version-bump review.** Phase W complete (2026-07-18); Phase M
+complete (2026-07-19); Phase R items complete (2026-07-19; the phase-end
+**version-bump review** — R2 is the standing major-bump candidate — remains
+outstanding); **Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
+implemented — the §29.6 spread columns do not map 1:1 onto the Humanish
+spread model, so it is parked on the new pending 0k sourcing line below (the
+Phase 0 authorization is closed; a future user-authorized sitting must
+capture the reference spread formulas first). Phase 0 itself: **COMPLETE
+2026-07-18** — every 0a–0j value is recorded in `game-rules.md` §15.13–§15.21
+and `game-data.md` §29.12–§29.16 (all tagged "sourced 2026-07-18") and the
+XML/SDK authorization is **closed again** — everything proceeds docs-only.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -108,6 +110,25 @@ bonus is a single best value across same-tile and adjacent sources combined
 Exit criterion: every value above recorded in §15/§29 with a "sourced 2026-MM-DD"
 note; the authorization is then closed again and implementation phases proceed
 docs-only.
+
+**⚠️ PENDING SOURCING (added after the sitting closed — needs a NEW
+user-authorized session):**
+
+- **0k. Corporation spread formulas** (from T2, added 2026-07-19): §29.6
+  records only the raw reference column values — spread factor 200 / spread
+  base cost 50 — but neither formula. The two models do not map 1:1: the
+  reference "spread factor" is a weight inside its religion-style
+  spread-influence formula (NOT a flat percent chance, so it cannot replace
+  the Humanish `spread_chance_base` 15 per-candidate roll), and "spread base
+  cost" 50 is the base of the reference's *executive* spread-cost formula (a
+  scaling price for the deliberate spread action — a different actor and
+  mechanic from the Humanish `spread_cost` 200, a flat founder-treasury
+  charge per *organic* spread; the Humanish executive price is the separate
+  `corporation_executive_spread_cost` 100 in `constants.json`). Capture into
+  §15/§29: the reference spread-probability formula (how the factor, distance,
+  and franchise count combine), and the executive spread-cost formula (base,
+  scaling terms, rounding). Until then `econ_orgs.json` keeps
+  `spread_cost` 200 / `spread_chance_base` 15 — no engine change.
 
 ---
 
@@ -658,19 +679,54 @@ docs-only.
 
 ## Phase T — remaining data retunes (documented; no Phase 0)
 
-- **T1. §29.10 AI handicap columns**: ship `ai_train_percent`,
-  `ai_construct_percent`, `ai_unit_cost_percent`, `ai_growth_percent` per
-  difficulty (§29.10 table) and read them at the AI's production/upkeep/growth
-  sites, narrowing `ai_bonus` to the residual yield scaler (decide at
-  implementation whether `ai_bonus` retires entirely — record either way in
-  `ai-design.md` §with consent). **Files:** `data/difficulties.json`,
-  `src/sim/turn_engine.gd`, `src/api/player_ai.gd`. **Tests:**
-  `tests/sim/test_turn_engine.gd`, `tests/api/test_player_ai.gd`.
-- **T2. Corporation spread columns** (§29.6 note): adopt spread factor 200 /
+- **T1. §29.10 AI handicap columns**: **DONE 2026-07-19** — the four columns
+  ship in `difficulties.json` exactly per the §29.10 table (settler
+  160/160/100/160 → noble 100/100/100/100 → deity 60/60/60/80). Read sites,
+  all `is_ai`-gated (mirroring the human-only aids, never cross-applying):
+  `ai_train_percent` / `ai_construct_percent` scale an AI player's unit /
+  structure COSTS inside `TurnEngine._item_cost` (new optional `difficulty`
+  param; pace scale first, then the AI percent, truncating, floor 1) — every
+  caller passes the current difficulty row (`_settlement_production`,
+  `rush_remaining_cost` → whip AND M5 gold-hurry price the discounted cost
+  coherently, the facade gold-rush store fill, `PlayerAI._sorted_options`
+  cost ranking, `city_screen.gd` display), so projects are the ONLY unscaled
+  item type — §29.10 carries no project column (the reference's
+  iAICreatePercent analogue was never captured; flagged as a possible future
+  sourcing line, NOT guessed). `ai_unit_cost_percent` scales the AI's unit
+  upkeep sum in `gold_upkeep` (unit upkeep only — settlement/corporation
+  maintenance untouched). `ai_growth_percent` scales the AI's growth
+  threshold in `_settlement_growth` (>100 slows easy-level AIs, <100 speeds
+  hard-level ones), beside the human-only `growth_bonus` block. **ai_bonus
+  decision: KEPT, narrowed** — the production-yield site is retired (the
+  cost columns replace it; hammer output is now difficulty-neutral), and
+  `_apply_research` is ai_bonus's only remaining site: the residual
+  research-yield scaler, since no §29.10 column covers beakers. Values
+  (0/0/0/0/10/20/35/50/70) unchanged. `ai-design.md` still describes the
+  two-site ai_bonus — design-doc consent needed (flagged). Tests: the old
+  A1 production-bonus trio in `test_turn_engine.gd` replaced by 9 T1 tests
+  (train 60%/160%, construct both ways + noble neutral, project unscaled,
+  end-to-end earlier completion, output-no-longer-boosted, upkeep deity/
+  noble, growth deity-lowered + settler-raised with noble control);
+  `test_settlement.gd` `test_difficulty_handicaps_skip_ai_players`
+  recalibrated (growth leg: the AI now has its OWN column — settler AI
+  holds, deity AI grows; health/happiness legs unchanged human-only);
+  `test_player_ai.gd` green unchanged (67/67 — the ranking's uniform cost
+  scaling at fixture-default prince preserves order). **Files:**
+  `data/difficulties.json`, `src/sim/turn_engine.gd`, `src/api/player_ai.gd`,
+  `src/api/sim_facade.gd`, `scenes/screens/city_screen.gd`.
+- **T2. Corporation spread columns** (§29.6 note): **NOT IMPLEMENTED —
+  PENDING SOURCING (dispositioned 2026-07-19)**. The semantics do not map
+  1:1 (see the 0k line in Phase 0 above): the reference spread factor is a
+  formula weight, not a percent chance, and the base cost 50 prices the
+  *executive* action via an undocumented scaling formula, not the Humanish
+  founder-side organic charge. Per the item's own instruction, a 0-line
+  (0k) was added instead of guessing; `data/econ_orgs.json` /
+  `src/sim/econ_orgs.gd` are untouched (`spread_cost` 200 /
+  `spread_chance_base` 15 stand). Original item: adopt spread factor 200 /
   base cost 50 over the Humanish `spread_cost` 200 / `spread_chance_base` 15
-  once the semantics are mapped (the two models differ in shape — if they do not
-  map 1:1, add a 0-line to the Phase 0 sitting instead of guessing). **Files:**
-  `data/econ_orgs.json`, `src/sim/econ_orgs.gd`. **Tests:**
+  once the semantics are mapped (the two models differ in shape — if they do
+  not map 1:1, add a 0-line to the Phase 0 sitting instead of guessing).
+  **Files:** `data/econ_orgs.json`, `src/sim/econ_orgs.gd`. **Tests:**
   `tests/sim/test_econ_orgs.gd`.
 
 ---
@@ -689,7 +745,8 @@ docs-only.
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
    full integration gate + midgame save/load determinism after each, version
    review at phase end).
-5. **Phase T** whenever convenient after Phase 0 (T1/T2 are data + small reads).
+5. **Phase T** whenever convenient after Phase 0 (T1/T2 are data + small reads)
+   — **dispositioned 2026-07-19**: T1 done, T2 pending the 0k sourcing line.
 
 Every item lands via the standard workflow: work-type branch, suites green
 (`./run_tests.sh`), doc-tier updates (design docs only with consent), merge to

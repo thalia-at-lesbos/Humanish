@@ -181,7 +181,8 @@ func _build() -> void:
 	else:
 		var item = s.production_queue[0]
 		var pace = db.get_pace(gs.pace_id)
-		var cost = TurnEngine._item_cost(item, db, owner, pace)
+		var cost = TurnEngine._item_cost(item, db, owner, pace,
+			db.get_difficulty(gs.difficulty_id))
 		var head_row := HBoxContainer.new()
 		var head_btn := Button.new()
 		head_btn.text = "Building: " + str(item.get("id", "?")) + " (" \

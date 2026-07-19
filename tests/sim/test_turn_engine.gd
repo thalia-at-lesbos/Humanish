@@ -12,71 +12,176 @@ extends "res://tests/support/sim_fixture.gd"
 
 # TurnEngine cross-cutting invariants — things that span the per-settlement and
 # per-player pipeline and don't belong in a single feature's test file.
-# Currently: Phase-A difficulty handicap for AI players (§2.2 ai_bonus).
+# Currently: the per-difficulty AI handicaps (§2.2) — the §29.10 cost/growth
+# columns (T1: ai_train / ai_construct / ai_unit_cost / ai_growth_percent) and
+# the residual ai_bonus research-yield scaler.
 
-# ── A1: AI production handicap ───────────────────────────────────────────────
+# ── T1: AI cost handicaps (§2.2, game-data §29.10) ───────────────────────────
+#
+# The four §29.10 columns replace the old ai_bonus production boost: an AI
+# player's unit costs scale by ai_train_percent, structure costs by
+# ai_construct_percent (deity 60 → 40% cheaper; settler 160 → 60% dearer),
+# unit upkeep by ai_unit_cost_percent, and the growth threshold by
+# ai_growth_percent. Humans are never touched by any of them.
 
-func test_ai_production_bonus_on_deity() -> void:
+func test_ai_train_cost_scaled_on_deity() -> void:
 	var gs = make_gs(2)
-	gs.difficulty_id = "deity"  # ai_bonus = 70
+	gs.difficulty_id = "deity"  # ai_train_percent = 60
+	var human = gs.get_player(1)
+	var ai    = gs.get_player(2)
+	ai.is_ai = true
+	var diff: Dictionary = gs.db.get_difficulty("deity")
+	var pace: Dictionary = gs.db.get_pace("normal")
+	var item: Dictionary = {"type": "unit", "id": "warrior"}  # cost 15
+	assert_eq(TurnEngine._item_cost(item, gs.db, human, pace, diff), 15,
+		"human warrior cost unscaled on deity")
+	assert_eq(TurnEngine._item_cost(item, gs.db, ai, pace, diff), 9,
+		"AI warrior costs 60% on deity (15 -> 9)")
 
+func test_ai_construct_cost_scaled_both_ways() -> void:
+	var gs = make_gs(2)
+	var ai = gs.get_player(2)
+	ai.is_ai = true
+	var pace: Dictionary = gs.db.get_pace("normal")
+	var item: Dictionary = {"type": "structure", "id": "granary"}  # cost 60
+	assert_eq(TurnEngine._item_cost(item, gs.db, ai, pace, gs.db.get_difficulty("deity")), 36,
+		"AI granary costs 60% on deity (60 -> 36)")
+	assert_eq(TurnEngine._item_cost(item, gs.db, ai, pace, gs.db.get_difficulty("settler")), 96,
+		"AI granary costs 160% on settler (60 -> 96) — easy levels penalize the AI")
+	assert_eq(TurnEngine._item_cost(item, gs.db, ai, pace, gs.db.get_difficulty("noble")), 60,
+		"noble is the neutral 100% baseline")
+
+func test_ai_project_cost_unscaled() -> void:
+	# §29.10 carries no project column, so AI project costs stay at face value.
+	var gs = make_gs(2)
+	var human = gs.get_player(1)
+	var ai    = gs.get_player(2)
+	ai.is_ai = true
+	var pace: Dictionary = gs.db.get_pace("normal")
+	var diff: Dictionary = gs.db.get_difficulty("deity")
+	var item: Dictionary = {"type": "project", "id": "ss_casing"}  # cost 1200
+	assert_eq(TurnEngine._item_cost(item, gs.db, ai, pace, diff),
+		TurnEngine._item_cost(item, gs.db, human, pace, diff),
+		"AI and human project costs are identical (no §29.10 project column)")
+
+func test_ai_train_discount_completes_unit_earlier() -> void:
+	# End-to-end through _settlement_production: on deity the AI's warrior costs
+	# 9, so 9 hammers finish it while the human still needs 15. Hammer OUTPUT is
+	# no longer boosted (the old ai_bonus production site is retired).
+	var gs = make_gs(2)
+	gs.difficulty_id = "deity"
 	var human = gs.get_player(1)
 	var ai    = gs.get_player(2)
 	ai.is_ai = true
 
-	# output_production=5: warrior costs 15, so neither city completes it this turn.
-	# human: Fixed.scale(5, 100)=5; AI: Fixed.scale(5, 170)=8
 	var human_city = make_settlement(gs, 1, 5, 5)
-	human_city.output_production = 5
+	human_city.output_production = 9
 	human_city.production_queue  = [{"type": "unit", "id": "warrior"}]
 
 	var ai_city = make_settlement(gs, 2, 15, 15)
-	ai_city.output_production = 5
+	ai_city.output_production = 9
 	ai_city.production_queue  = [{"type": "unit", "id": "warrior"}]
 
 	TurnEngine._settlement_production(gs, human_city, human)
 	TurnEngine._settlement_production(gs, ai_city, ai)
 
-	assert_eq(human_city.production_store, 5, "human production unscaled on deity")
-	assert_eq(ai_city.production_store, 8,  "AI production is 170% of human on deity")
+	assert_eq(human_city.production_store, 9, "human banks 9/15 — no completion")
+	assert_eq(human_city.production_queue.size(), 1, "human warrior not finished")
+	assert_eq(ai_city.production_queue.size(), 0, "AI warrior completes at 9 hammers")
+	assert_eq(ai_city.production_store, 0, "AI store spent exactly (9 - 9 = 0)")
 
-func test_ai_production_no_bonus_on_noble() -> void:
+func test_ai_hammer_output_no_longer_boosted() -> void:
+	# The retired ai_bonus production site: AI and human cities with identical
+	# output bank identical hammers on every difficulty.
 	var gs = make_gs(2)
-	gs.difficulty_id = "noble"  # ai_bonus = 0
-
+	gs.difficulty_id = "deity"
 	var human = gs.get_player(1)
 	var ai    = gs.get_player(2)
 	ai.is_ai = true
-
 	var human_city = make_settlement(gs, 1, 5, 5)
 	human_city.output_production = 5
 	human_city.production_queue  = [{"type": "unit", "id": "warrior"}]
-
 	var ai_city = make_settlement(gs, 2, 15, 15)
 	ai_city.output_production = 5
 	ai_city.production_queue  = [{"type": "unit", "id": "warrior"}]
-
 	TurnEngine._settlement_production(gs, human_city, human)
 	TurnEngine._settlement_production(gs, ai_city, ai)
+	assert_eq(ai_city.production_store, human_city.production_store,
+		"hammer output is difficulty-neutral; the handicap moved to the cost side")
 
-	assert_eq(human_city.production_store, ai_city.production_store,
-		"human and AI production match when ai_bonus is 0")
+# ── T1: AI unit-upkeep handicap (§29.10 ai_unit_cost_percent) ────────────────
 
-func test_human_production_unaffected_by_ai_bonus() -> void:
-	var gs = make_gs(1)
-	gs.difficulty_id = "deity"  # ai_bonus = 70
+func test_ai_unit_upkeep_scaled_on_deity() -> void:
+	var gs = make_gs(2)
+	gs.difficulty_id = "deity"  # ai_unit_cost_percent = 60
+	var human = gs.get_player(1)
+	var ai    = gs.get_player(2)
+	ai.is_ai = true
+	# Two warriors each (upkeep 1 apiece); no settlements, so gold_upkeep is
+	# purely unit upkeep (turn 0 → inflation 0).
+	make_warrior(gs, 1, 5, 5)
+	make_warrior(gs, 1, 5, 6)
+	make_warrior(gs, 2, 15, 15)
+	make_warrior(gs, 2, 15, 16)
+	assert_eq(TurnEngine.gold_upkeep(gs, human), 2, "human unit upkeep unscaled")
+	assert_eq(TurnEngine.gold_upkeep(gs, ai), 1,
+		"AI unit upkeep is 60% on deity (2 -> 1, truncating)")
 
-	var human = gs.get_player(1)  # is_ai = false by default
+func test_ai_unit_upkeep_neutral_on_noble() -> void:
+	var gs = make_gs(2)
+	gs.difficulty_id = "noble"  # ai_unit_cost_percent = 100
+	var ai = gs.get_player(2)
+	ai.is_ai = true
+	make_warrior(gs, 2, 15, 15)
+	make_warrior(gs, 2, 15, 16)
+	assert_eq(TurnEngine.gold_upkeep(gs, ai), 2, "noble AI upkeep is the plain sum")
 
-	var city = make_settlement(gs, 1, 5, 5)
-	city.output_production = 5
-	city.production_queue  = [{"type": "unit", "id": "warrior"}]
+# ── T1: AI growth handicap (§29.10 ai_growth_percent) ────────────────────────
 
-	TurnEngine._settlement_production(gs, city, human)
+func test_ai_growth_threshold_lowered_on_deity() -> void:
+	# Base threshold at pop 1 = 20 + 2×1 = 22 (normal pace, ancient era). Deity:
+	# AI ai_growth_percent 80 → 17; human growth_bonus −20 → 26. A bare AI city
+	# (pos 0, neg 1 → net health −1) eats 2 + 1 = 3; the human (health_bonus 2)
+	# eats 2. From food_store 20 the AI lands on 17 and grows; the human lands
+	# on 18 < 26 and does not.
+	var gs = make_gs(2)
+	gs.difficulty_id = "deity"
+	var human = gs.get_player(1)
+	var ai    = gs.get_player(2)
+	ai.is_ai = true
+	var human_city = make_settlement(gs, 1, 5, 5)
+	human_city.food_store = 20
+	var ai_city = make_settlement(gs, 2, 15, 15)
+	ai_city.food_store = 20
+	TurnEngine._settlement_growth(gs, human_city, human)
+	TurnEngine._settlement_growth(gs, ai_city, ai)
+	assert_eq(ai_city.population, 2, "deity AI grows at the lowered 80% threshold")
+	assert_eq(human_city.population, 1,
+		"the human keeps its own raised deity threshold — no cross-application")
 
-	assert_eq(city.production_store, 5, "human production is never affected by ai_bonus")
+func test_ai_growth_threshold_raised_on_settler() -> void:
+	# Settler ai_growth_percent 160 → threshold 22 → 35: from food_store 30 the
+	# AI banks 27 and does NOT grow, where the neutral noble threshold (22)
+	# would have grown it.
+	var gs = make_gs(2)
+	gs.difficulty_id = "settler"
+	var ai = gs.get_player(2)
+	ai.is_ai = true
+	var ai_city = make_settlement(gs, 2, 15, 15)
+	ai_city.food_store = 30
+	TurnEngine._settlement_growth(gs, ai_city, ai)
+	assert_eq(ai_city.population, 1, "settler AI growth slowed (27 < 35)")
 
-# ── A2: AI research handicap ─────────────────────────────────────────────────
+	var gs2 = make_gs(2)
+	gs2.difficulty_id = "noble"
+	var ai2 = gs2.get_player(2)
+	ai2.is_ai = true
+	var ai2_city = make_settlement(gs2, 2, 15, 15)
+	ai2_city.food_store = 30
+	TurnEngine._settlement_growth(gs2, ai2_city, ai2)
+	assert_eq(ai2_city.population, 2, "noble control: 27 >= 22 grows")
+
+# ── A2: AI research handicap (ai_bonus — since T1 its only remaining site) ───
 
 func test_ai_research_bonus_on_deity() -> void:
 	var gs = make_gs(2)

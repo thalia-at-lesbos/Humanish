@@ -671,13 +671,18 @@ func _positive_for_difficulty(diff, is_ai = false) -> int:
 	TurnEngine._update_contentment(gs, s, gs.get_player(1), gs.db)
 	return s.positive_sentiment
 
-# Handicaps are a player aid: AI players (is_ai) get none, so difficulty makes no
-# difference to their cities (their handicap is the separate ai_bonus).
+# The human city aids (growth_bonus / health_bonus / happiness_bonus) are a
+# player aid: AI players (is_ai) get none. Since T1 the AI carries its OWN
+# §29.10 growth column (ai_growth_percent: settler 160 slows it, deity 80
+# speeds it) — distinct from and never mixing with the human growth_bonus —
+# while health and happiness stay human-only with no AI analogue.
 
 func test_difficulty_handicaps_skip_ai_players() -> void:
-	assert_eq(_grow_pop_for_difficulty("settler", true),
-		_grow_pop_for_difficulty("deity", true),
-		"Growth handicap does not apply to AI players")
+	assert_eq(_grow_pop_for_difficulty("settler", true), 1,
+		"Settler AI holds: its own ai_growth_percent 160 raises the threshold "
+		+ "(the human growth_bonus aid still never applies)")
+	assert_eq(_grow_pop_for_difficulty("deity", true), 2,
+		"Deity AI grows: ai_growth_percent 80 lowers the threshold")
 	assert_eq(_deficit_for_difficulty("settler", true),
 		_deficit_for_difficulty("deity", true),
 		"Health handicap does not apply to AI players")
