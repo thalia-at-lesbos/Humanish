@@ -1,17 +1,19 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **FULLY COMPLETE 2026-07-19, except sourcing line 0k.** (The phase-end
-**version-bump review** — R2 is the standing major-bump candidate — remains the
-one parked administrative step.) The **design-doc follow-up sitting is DONE
+Status: **FULLY COMPLETE 2026-07-19, except sourcing line 0k.** The phase-end
+**version-bump review is RESOLVED 2026-07-19**: the user ruled the R2
+save-format break ships as a **minor** bump (v0.6.0), not the major bump
+CLAUDE.md prescribes, because the project is still alpha — pre-1.0,
+save-format breaks are minor bumps. The **design-doc follow-up sitting is DONE
 2026-07-19** (user consent granted for the sitting): every design-doc change
 the item notes flagged is recorded — `game-data.md` §14.3/§15.6/§15.9/§19.1/
 §19.4/§29 (intro, 29.5, 29.6, 29.8, 29.10, 29.12–29.16), `game-rules.md`
 §2.2/§4.6/§6.5/§6.6/§15 (intro, 15.2, 15.3, 15.8, 15.9, 15.13–15.21), and
 `ai-design.md` §2/§4/§9/§11 + frontmatter (the T1 ai_bonus narrowing recorded).
 Phase W complete (2026-07-18); Phase M
-complete (2026-07-19); Phase R items complete (2026-07-19; the phase-end
-**version-bump review** — R2 is the standing major-bump candidate — remains
-outstanding); **Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
+complete (2026-07-19); Phase R items complete (2026-07-19; version-bump
+review resolved — minor, v0.6.0, per the alpha versioning ruling above);
+**Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
 implemented — the §29.6 spread columns do not map 1:1 onto the Humanish
 spread model, so it is parked on the new pending 0k sourcing line below (the
 Phase 0 authorization is closed; a future user-authorized sitting must

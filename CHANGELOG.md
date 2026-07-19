@@ -3,7 +3,13 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
-## [Unreleased]
+## [0.6.0] - 2026-07-19 "Reference Wiring"
+
+Completes the direct-reference-gaps wiring plan (Phases W, M, R, T).
+Save-format note: saves from 0.5.x load and migrate automatically; saves
+written by 0.6.0 are **not** loadable by older builds (the Great Person
+threshold moved from per-city to per-player state). Shipped as a minor
+bump per the pre-1.0 alpha versioning policy.
 
 ### Changed
 - **AI difficulty handicaps now follow the reference cost model.** Each
