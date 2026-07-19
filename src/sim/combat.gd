@@ -320,6 +320,159 @@ static func _river_between(map, ax: int, ay: int, bx: int, by: int) -> bool:
 static func _unit_class(u: Unit, db: DataDB) -> String:
 	return db.get_unit(u.unit_type_id).get("classification", "")
 
+# ── §15.14 Air interception ──────────────────────────────────────────────────
+# The sourced reference model: an inbound air strike / air bombardment is tested
+# at the *target* tile — evasion first, then one roll against the single best
+# interceptor, then up to `air_engagement_rounds` rounds of engagement. The
+# chance/damage helpers here are pure; the rolls live in the facade's
+# `_resolve_interception` (the air mission command path) so every draw goes
+# through gs.rng in pipeline order. Nukes use the separate §15.7 channel.
+
+# Evasion chance (§15.14 step 2): unit `evasion_chance` (Stealth Bomber 50,
+# Guided Missile 100, §29.13) plus promotion values (Ace +25), capped at
+# `air_evasion_cap` (90).
+static func air_evasion_chance(db: DataDB, u: Unit) -> int:
+	var ev: int = int(db.get_unit(u.unit_type_id).get("evasion_chance", 0))
+	for pid in u.promotions:
+		ev += int(db.get_promotion(pid).get("evasion_chance", 0))
+	var cap: int = db.get_constant("air_evasion_cap", 90)
+	return cap if ev > cap else ev
+
+# Maximum interception chance: unit `intercept_chance` (fighters 100, SAMs
+# 40/50, destroyer 30, §29.13) plus promotion `intercept_bonus`es
+# (Interception I/II +10/+20), capped at `air_intercept_chance_cap` (100).
+static func intercept_chance_max(db: DataDB, u: Unit) -> int:
+	var c: int = int(db.get_unit(u.unit_type_id).get("intercept_chance", 0))
+	for pid in u.promotions:
+		c += int(db.get_promotion(pid).get("intercept_bonus", 0))
+	var cap: int = db.get_constant("air_intercept_chance_cap", 100)
+	return cap if c > cap else c
+
+# *Current* interception chance (§15.14 step 3): an air-domain unit's max chance
+# scales with its health fraction; ground/naval interceptors always fire at full
+# chance. Integer truncation.
+static func intercept_chance_current(db: DataDB, u: Unit) -> int:
+	var c: int = intercept_chance_max(db, u)
+	if str(db.get_unit(u.unit_type_id).get("domain", "land")) == "air":
+		c = (c * u.health) / 100
+	return c
+
+# The best interceptor against a strike by `striker` at (tx, ty), or null.
+# Pure — no rng. Candidates are hostile units (at war, or wild) that can
+# air-defend (positive current chance), have not intercepted this turn, and are
+# within their `air_range` of the target tile (default 0 = the unit's own tile;
+# SAMs carry 1, §29.13). Air-domain candidates must additionally be unmoved and
+# on air patrol (the intercept stance). The highest current chance wins; ties
+# keep the earliest unit in gs.units order (deterministic).
+static func find_interceptor(gs, striker: Unit, tx: int, ty: int):
+	var db: DataDB = gs.db
+	var best = null
+	var best_chance: int = 0
+	for u in gs.units:
+		if u.owner_player_id == striker.owner_player_id:
+			continue
+		if u.owner_player_id != -2 and striker.owner_player_id != -2 \
+				and not gs.are_at_war(striker.owner_player_id, u.owner_player_id):
+			continue
+		if u.has_intercepted:
+			continue
+		var udata: Dictionary = db.get_unit(u.unit_type_id)
+		if str(udata.get("domain", "land")) == "air":
+			if u.has_moved or not u.is_patrolling:
+				continue
+		if gs.map.distance(tx, ty, u.x, u.y) > int(udata.get("air_range", 0)):
+			continue
+		var chance: int = intercept_chance_current(db, u)
+		if chance <= 0:
+			continue
+		if chance > best_chance:
+			best = u
+			best_chance = chance
+	return best
+
+# Resolve an air-to-air engagement (§15.14 step 5): up to `air_engagement_rounds`
+# (5) rounds; per round the striker wins with odds a_str / (a_str + i_str) —
+# health-scaled strengths (a ground/naval interceptor uses its ground strength).
+# A lost round deals the *opponent's* current interception chance ×
+# `air_interception_damage_max` (50) / 100: the striker takes the interceptor's;
+# an air interceptor takes the striker's own, floored at
+# `air_interception_damage_min` (10) versus an air-domain striker (so bombers
+# with 0 interception still scratch back); a ground/naval interceptor takes no
+# damage. Stops early on a death. XP: standard kill XP to the winner scaled by
+# the strength ratio (per-combat bounds apply); a both-survive engagement pays
+# the striker the withdrawal XP (`experience_from_withdrawal`). Returns a
+# CombatResult-shaped Dictionary (striker as attacker, spillover/flanking 0)
+# applied via CombatApply.apply_unit_result with advance = false.
+static func resolve_air_engagement(striker: Unit, interceptor: Unit,
+		game_state, rng: RNG) -> Dictionary:
+	var db: DataDB = game_state.db
+	var a_str: int = (striker.base_strength * striker.health) / 100
+	if a_str < 1:
+		a_str = 1
+	var i_str: int = (interceptor.base_strength * interceptor.health) / 100
+	if i_str < 1:
+		i_str = 1
+
+	var dmg_max: int = db.get_constant("air_interception_damage_max", 50)
+	var dmg_min: int = db.get_constant("air_interception_damage_min", 10)
+	# Damage the striker takes per lost round: the interceptor's current chance.
+	var a_dmg: int = intercept_chance_current(db, interceptor) * dmg_max / 100
+	# Damage the interceptor takes per lost round: only air interceptors are hit
+	# back — the striker's own interception chance, floored vs an air striker.
+	var i_dmg: int = 0
+	if str(db.get_unit(interceptor.unit_type_id).get("domain", "land")) == "air":
+		i_dmg = intercept_chance_current(db, striker) * dmg_max / 100
+		if str(db.get_unit(striker.unit_type_id).get("domain", "land")) == "air" \
+				and i_dmg < dmg_min:
+			i_dmg = dmg_min
+
+	var a_health: int = striker.health
+	var i_health: int = interceptor.health
+	var rounds: int = 0
+	var max_rounds: int = db.get_constant("air_engagement_rounds", 5)
+	while rounds < max_rounds and a_health > 0 and i_health > 0:
+		rounds += 1
+		if rng.randi_range(0, a_str + i_str - 1) < a_str:
+			i_health -= i_dmg
+		else:
+			a_health -= a_dmg
+	if a_health < 0:
+		a_health = 0
+	if i_health < 0:
+		i_health = 0
+
+	var a_survived: bool = a_health > 0
+	var i_survived: bool = i_health > 0
+	var min_xp: int = db.get_constant("experience_per_kill_min", 5)
+	var max_xp: int = db.get_constant("experience_per_kill_max", 100)
+	var combat_cap: int = db.get_constant("experience_per_combat_cap", 10)
+	var a_xp: int = 0
+	var i_xp: int = 0
+	if a_survived and not i_survived:
+		a_xp = clamp(_xp_from_kill(a_str, i_str), min_xp, max_xp)
+		if a_xp > combat_cap:
+			a_xp = combat_cap
+	elif i_survived and not a_survived:
+		i_xp = clamp(_xp_from_kill(i_str, a_str), min_xp, max_xp)
+		if i_xp > combat_cap:
+			i_xp = combat_cap
+	elif a_survived and i_survived:
+		a_xp = db.get_constant("experience_from_withdrawal", 1)
+
+	return {
+		"attacker_survived": a_survived,
+		"defender_survived": i_survived,
+		"attacker_health_after": a_health,
+		"defender_health_after": i_health,
+		"attacker_withdrew": false,
+		"rounds": rounds,
+		"attacker_xp_gain": a_xp,
+		"defender_xp_gain": i_xp,
+		"spillover_damage": 0,
+		"flanking_damage": 0,
+		"air_interception": true
+	}
+
 # Total defensive bonus a settlement grants its garrison (§5.3): each built
 # structure's defence_bonus plus its cultural_defence_bonus (walls, castle, …),
 # plus the intrinsic culture-level defence (§15.4 / C4).

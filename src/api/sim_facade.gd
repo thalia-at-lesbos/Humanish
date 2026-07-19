@@ -2679,32 +2679,37 @@ func _apply_combat_result(attacker: Unit, defender: Unit,
 		result: Dictionary, advance: bool = true) -> void:
 	CombatApply.apply_unit_result(_gs, attacker, defender, result, advance)
 
-# An enemy fighter near the target may intercept an inbound air strike. Returns
-# true if the strike is aborted (the bomber was engaged), resolving the air-to-air
-# combat as a side effect (§5.2).
-func _resolve_interception(bomber: Unit, tx: int, ty: int, player_id: int) -> bool:
-	var reach: int = _db.get_constant("interception_range", 2)
-	var interceptor: Unit = null
-	var best_d: int = 999
-	for u in _gs.units:
-		if u.owner_player_id == player_id:
-			continue
-		if _db.get_unit(u.unit_type_id).get("domain", "") != "air":
-			continue
-		if u.owner_player_id != -2 and not _gs.are_at_war(player_id, u.owner_player_id):
-			continue
-		var d: int = _gs.map.distance(tx, ty, u.x, u.y)
-		if d <= reach and d < best_d:
-			interceptor = u; best_d = d
+# §15.14 air interception: an inbound air strike / air bombardment may be
+# engaged over the *target* tile. Returns true if the mission is aborted (the
+# striker was intercepted), resolving the air-to-air engagement as a side
+# effect. Roll order per engagement is the spec's: evasion, then the intercept
+# roll, then the engagement rounds — every draw through gs.rng in pipeline
+# order. Following the §15.5 chance-first-strikes discipline, an *uncontested*
+# mission (no candidate interceptor) consumes no draws, and a striker with no
+# evasion chance skips the evasion draw, so pre-existing seeded streams only
+# gain draws where an engagement is actually possible. Nukes never route here
+# (they use the separate §15.7 interception channel).
+func _resolve_interception(striker: Unit, tx: int, ty: int, player_id: int) -> bool:
+	if "nuke" in _db.get_unit(striker.unit_type_id).get("tags", []):
+		return false  # §15.7 channel, not §15.14
+	var interceptor: Unit = Combat.find_interceptor(_gs, striker, tx, ty)
 	if interceptor == null:
 		return false
-	if not _gs.rng.rand_bool_percent(_db.get_constant("interception_chance", 50)):
+	# Evasion first (§15.14 step 2): success skips interception entirely.
+	var evasion: int = Combat.air_evasion_chance(_db, striker)
+	if evasion > 0 and _gs.rng.rand_bool_percent(evasion):
 		return false
-	# The interceptor engages the bomber (no advance for either side).
-	var ir: Dictionary = Combat.resolve(interceptor, bomber, _gs, _gs.rng)
-	_apply_combat_result(interceptor, bomber, ir, false)
+	# Intercept roll (§15.14 step 4): failure lets the mission proceed unharmed.
+	if not _gs.rng.rand_bool_percent(Combat.intercept_chance_current(_db, interceptor)):
+		return false
+	# One interception per interceptor per turn (§15.14 step 6).
+	interceptor.has_intercepted = true
+	# The engagement (§15.14 step 5): the striker "attacks" the interceptor; no
+	# advance for either side.
+	var ir: Dictionary = Combat.resolve_air_engagement(striker, interceptor, _gs, _gs.rng)
+	_apply_combat_result(striker, interceptor, ir, false)
 	emit_signal("combat_resolved", ir)
-	_add_combat_notification(interceptor, bomber, ir)
+	_add_combat_notification(striker, interceptor, ir)
 	return true
 
 # Spread a religion to a city with a missionary unit (§8). The missionary must be

@@ -241,6 +241,7 @@ static func player_step(gs: GameState, player_id: int, hooks: Hooks) -> void:
 		u.movement_left = u.movement_total
 		u.has_moved = false
 		u.has_attacked = false
+		u.has_intercepted = false  # §15.14: one interception per interceptor per turn
 		# Timed event states (§9 UNIT_STATE): tick the immobile / no-attack counters
 		# down one per owner turn. While immobile the unit has no movement this turn.
 		_tick_unit_event_states(u)

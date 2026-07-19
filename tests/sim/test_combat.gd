@@ -969,3 +969,168 @@ func test_obsolete_defence_flows_through_combat_resolve() -> void:
 	var r: Dictionary = Combat.resolve(atk, dfn, gs, _rng(42))
 	assert_false(r["defender_survived"],
 		"Combat.resolve ignores an obsolete bastion's defence (§15.17)")
+
+# ── M3: §15.14 air interception ──────────────────────────────────────────────
+
+func test_air_intercept_chance_promotions_and_cap() -> void:
+	var gs = make_gs()
+	var fi = make_unit(gs, "fighter", 1, 5, 5)
+	assert_eq(Combat.intercept_chance_max(gs.db, fi), 100,
+		"Fighter intercepts at 100 (§29.13)")
+	fi.promotions = ["interception1", "interception2"]
+	assert_eq(Combat.intercept_chance_max(gs.db, fi), 100,
+		"Interception I+II (+10/+20) cap at air_intercept_chance_cap 100")
+	var sam = make_unit(gs, "sam_infantry", 1, 6, 5)
+	assert_eq(Combat.intercept_chance_max(gs.db, sam), 40,
+		"SAM Infantry intercepts at 40 (§29.13)")
+	sam.promotions = ["interception1"]
+	assert_eq(Combat.intercept_chance_max(gs.db, sam), 50,
+		"intercept_bonus +10 stacks onto the unit value")
+
+func test_air_intercept_current_chance_scales_air_by_health() -> void:
+	var gs = make_gs()
+	var fi = make_unit(gs, "fighter", 1, 5, 5)
+	fi.health = 40
+	assert_eq(Combat.intercept_chance_current(gs.db, fi), 40,
+		"An air interceptor's chance scales by health (100 x 40 / 100)")
+	var msam = make_unit(gs, "mobile_sam", 1, 6, 5)
+	msam.health = 40
+	assert_eq(Combat.intercept_chance_current(gs.db, msam), 50,
+		"A ground interceptor keeps its full 50 at any health")
+
+func test_air_evasion_chance_promotion_and_cap() -> void:
+	var gs = make_gs()
+	var sb = make_unit(gs, "stealth_bomber", 1, 5, 5)
+	assert_eq(Combat.air_evasion_chance(gs.db, sb), 50, "Stealth Bomber evades at 50")
+	sb.promotions = ["ace"]
+	assert_eq(Combat.air_evasion_chance(gs.db, sb), 75, "Ace adds +25 evasion")
+	var gm = make_unit(gs, "guided_missile", 1, 5, 5)
+	assert_eq(Combat.air_evasion_chance(gs.db, gm), 90,
+		"Guided missile's 100 caps at air_evasion_cap 90")
+
+func test_find_interceptor_requires_war_range_and_once_per_turn() -> void:
+	var gs = make_gs()
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var sam = make_unit(gs, "sam_infantry", 2, 10, 10)
+	assert_eq(Combat.find_interceptor(gs, bomber, 9, 10), null,
+		"Not at war: no interception")
+	gs.alliances[0].at_war_with = [2]; gs.alliances[1].at_war_with = [1]
+	assert_ne(Combat.find_interceptor(gs, bomber, 9, 10), null,
+		"A SAM within its air_range 1 of the target contests the strike")
+	assert_eq(Combat.find_interceptor(gs, bomber, 8, 10), null,
+		"Beyond its air_range 1 (distance 2) the SAM cannot reach")
+	sam.has_intercepted = true
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10), null,
+		"One interception per interceptor per turn")
+
+func test_find_interceptor_air_needs_patrol_and_unmoved() -> void:
+	var gs = make_gs()
+	gs.alliances[0].at_war_with = [2]; gs.alliances[1].at_war_with = [1]
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var fi = make_unit(gs, "fighter", 2, 10, 10)
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10), null,
+		"An air interceptor must be on air patrol (the intercept stance)")
+	fi.is_patrolling = true
+	assert_ne(Combat.find_interceptor(gs, bomber, 10, 10), null,
+		"A patrolling, unmoved fighter within its air_range 6 intercepts")
+	fi.has_moved = true
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10), null,
+		"A fighter that has moved this turn cannot intercept")
+
+func test_find_interceptor_highest_current_chance_wins() -> void:
+	var gs = make_gs()
+	gs.alliances[0].at_war_with = [2]; gs.alliances[1].at_war_with = [1]
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	make_unit(gs, "sam_infantry", 2, 10, 10)             # 40
+	var msam = make_unit(gs, "mobile_sam", 2, 10, 11)    # 50
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10).id, msam.id,
+		"Mobile SAM's 50 beats SAM Infantry's 40")
+	var fi = make_unit(gs, "fighter", 2, 12, 10)
+	fi.is_patrolling = true
+	fi.health = 45
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10).id, msam.id,
+		"A damaged fighter (100 x 45 / 100 = 45) loses to the mobile SAM's full 50")
+	fi.health = 100
+	assert_eq(Combat.find_interceptor(gs, bomber, 10, 10).id, fi.id,
+		"At full health the fighter's 100 wins")
+
+func test_air_engagement_ground_interceptor_untouched_damage_quantized() -> void:
+	# §15.14 step 5: a ground/naval interceptor takes no damage; the striker
+	# loses the interceptor's chance x 50 / 100 = 20 per lost round (SAM 40).
+	var gs = make_gs()
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var sam = make_unit(gs, "sam_infantry", 2, 10, 10)
+	var r: Dictionary = Combat.resolve_air_engagement(bomber, sam, gs, _rng(7))
+	assert_eq(int(r["defender_health_after"]), 100,
+		"A ground interceptor takes no engagement damage")
+	assert_eq((100 - int(r["attacker_health_after"])) % 20, 0,
+		"Striker damage comes in 20-point rounds (40 x 50 / 100)")
+	assert_true(int(r["rounds"]) <= gs.db.get_constant("air_engagement_rounds", 5),
+		"At most air_engagement_rounds rounds are fought")
+
+func test_air_engagement_min_damage_floor_vs_air_interceptor() -> void:
+	# A bomber carries interception 0, but an air interceptor still takes the
+	# 10-point minimum per lost round; the bomber takes 50 (fighter 100 x 50 / 100).
+	var gs = make_gs()
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var fi = make_unit(gs, "fighter", 2, 10, 10)
+	var r: Dictionary = Combat.resolve_air_engagement(bomber, fi, gs, _rng(11))
+	assert_eq((100 - int(r["defender_health_after"])) % 10, 0,
+		"An air interceptor takes the 10-point floor per lost round")
+	assert_eq((100 - int(r["attacker_health_after"])) % 50, 0,
+		"The striker takes 50 per lost round (interceptor chance 100)")
+
+func test_air_engagement_both_survive_pays_withdrawal_xp() -> void:
+	# Against an interceptor with no interception chance and no return damage
+	# (a plain ground unit), no blood can flow either way: the engagement runs
+	# its five rounds, both survive, and the striker banks the withdrawal XP.
+	var gs = make_gs()
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var w = make_warrior(gs, 2, 10, 10)
+	var r: Dictionary = Combat.resolve_air_engagement(bomber, w, gs, _rng(3))
+	assert_true(bool(r["attacker_survived"]) and bool(r["defender_survived"]),
+		"No damage possible: both survive")
+	assert_eq(int(r["rounds"]), 5, "The engagement runs the full 5 rounds")
+	assert_eq(int(r["attacker_xp_gain"]),
+		gs.db.get_constant("experience_from_withdrawal", 1),
+		"A both-survive engagement pays the striker the withdrawal XP")
+	assert_eq(int(r["defender_xp_gain"]), 0, "The interceptor gains nothing")
+
+func test_air_engagement_same_seed_identical_outcome() -> void:
+	var gs1 = make_gs(2, 42)
+	var b1 = make_unit(gs1, "bomber", 1, 2, 2)
+	var f1 = make_unit(gs1, "fighter", 2, 10, 10)
+	var r1: Dictionary = Combat.resolve_air_engagement(b1, f1, gs1, _rng(99))
+	var gs2 = make_gs(2, 42)
+	var b2 = make_unit(gs2, "bomber", 1, 2, 2)
+	var f2 = make_unit(gs2, "fighter", 2, 10, 10)
+	var r2: Dictionary = Combat.resolve_air_engagement(b2, f2, gs2, _rng(99))
+	for k in r1.keys():
+		assert_eq(r2[k], r1[k], "Same seed, same outcome: " + str(k))
+
+func test_air_engagement_kill_awards_bounded_kill_xp() -> void:
+	# A 5-HP air interceptor dies to the first striker-won round (10-point
+	# floor); the winner's XP follows the standard kill schedule, clamped by
+	# the per-kill minimum and per-combat cap.
+	var gs = make_gs()
+	var bomber = make_unit(gs, "bomber", 1, 2, 2)
+	var fi = make_unit(gs, "fighter", 2, 10, 10)
+	fi.health = 5
+	var r: Dictionary = Combat.resolve_air_engagement(bomber, fi, gs, _rng(1))
+	assert_false(bool(r["defender_survived"]),
+		"The crippled interceptor dies to the first lost round")
+	assert_true(int(r["attacker_xp_gain"]) >= gs.db.get_constant("experience_per_kill_min", 5),
+		"Kill XP is at least the per-kill minimum")
+	assert_true(int(r["attacker_xp_gain"]) <= gs.db.get_constant("experience_per_combat_cap", 10),
+		"Kill XP respects the per-combat cap")
+
+func test_has_intercepted_serializes_and_roundtrips() -> void:
+	var gs = make_gs()
+	var fi = make_unit(gs, "fighter", 1, 5, 5)
+	fi.has_intercepted = true
+	var d: Dictionary = fi.serialize()
+	assert_true(bool(Unit.deserialize(d).has_intercepted),
+		"has_intercepted survives serialize/deserialize")
+	var parsed: Dictionary = JSON.parse(JSON.print(d)).result
+	assert_true(bool(Unit.deserialize(parsed).has_intercepted),
+		"has_intercepted survives the JSON print/parse roundtrip")

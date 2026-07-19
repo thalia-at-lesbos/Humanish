@@ -214,6 +214,12 @@ The selection panel shows available actions for the selected unit(s):
 
 Siege engines (Catapult through Mobile Artillery), bombard-capable warships (Frigate through Missile Cruiser) and strike aircraft can attack at range with the bombard order (right-click the target as usual). Against an enemy **city whose cultural defences still stand**, the bombardment instead **knocks down the city's culture-level defence bonus** — each unit type removes a fixed number of percentage points per turn (e.g. Catapult 8, Trebuchet 16, Battleship 20). Once the cultural defence is flattened (it recovers 5 points per turn, so keep the pressure up), further bombard orders hit the garrison directly. Ground and naval units bombard from an adjacent tile; aircraft within their air range (enemy interceptors may shoot them down first).
 
+### Air interception
+
+Every air strike or air bombardment can be **intercepted** over its target tile. A defending **Fighter or Jet Fighter on Air Patrol** (issue the Air Patrol order and leave it unmoved) covers every tile within its air range; ground and naval anti-air — **SAM Infantry** and **Mobile SAM** (adjacent tiles and their own), plus **Machine Gun, Mechanized Infantry, and Destroyer** (their own tile) — stand watch automatically. Each interceptor can engage **once per turn**.
+
+When a strike is contested, the attacker may **evade** first — the Stealth Bomber evades half of all interceptions, the Guided Missile nearly all, and the **Ace** promotion adds +25% — otherwise the single best interceptor rolls its interception chance: Fighters intercept at 100%, Mobile SAM 50%, SAM Infantry 40%, Destroyer 30%, Machine Gun and Mechanized Infantry 20%, raised by the **Interception I/II** promotions and reduced for a damaged air interceptor. On a hit the mission is **aborted — no damage reaches the target** — and a short air battle is fought: the attacker takes damage proportional to the interceptor's chance each losing round, an intercepting fighter takes return fire in kind, and a ground or naval interceptor engages without risk. One-use weapons (the Guided Missile) are expended even when shot down. Nuclear strikes are handled by the separate anti-air/SDI interception rules instead.
+
 ### Workers
 
 Workers build tile improvements over multiple turns. Assign them to a tile via their action buttons,
