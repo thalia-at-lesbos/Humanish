@@ -182,3 +182,44 @@ func test_world_step_runs_the_peace_decay() -> void:
 	TurnEngine.world_step(gs, hooks())
 	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 99,
 		"world_step applies the peace decay each turn")
+
+# ── W4: Statue of Zeus enemy_war_weariness (§15) ─────────────────────────────
+#
+# A standing structure carrying `enemy_war_weariness` (Statue of Zeus, +100%)
+# amplifies the war-weariness its owner's enemies accrue against them, at the
+# shared per-event accrual site (CombatApply.accrue_war_fatigue).
+
+func test_statue_of_zeus_doubles_enemy_accrual() -> void:
+	var gs = make_gs(2)
+	var zeus_city = make_settlement(gs, 2, 15, 15)
+	zeus_city.structures.append("statue_of_zeus")  # enemy_war_weariness: 100
+	# Player 1 loses a unit attacking player 2: base 3 × multiplier 2 = 6,
+	# doubled by the enemy's statue → 12.
+	CombatApply.accrue_war_fatigue(gs, 1, 2, "war_weariness_unit_killed_attacking")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 12,
+		"The statue doubles the fatigue the enemy accrues against its owner")
+
+func test_statue_of_zeus_does_not_boost_owner_accrual() -> void:
+	var gs = make_gs(2)
+	var zeus_city = make_settlement(gs, 2, 15, 15)
+	zeus_city.structures.append("statue_of_zeus")
+	# The owner's own accrual against player 1 is unamplified: 3 × 2 = 6.
+	CombatApply.accrue_war_fatigue(gs, 2, 1, "war_weariness_unit_killed_attacking")
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)), 6,
+		"The owner's own weariness accrues at the normal rate")
+
+func test_accrual_unchanged_without_the_statue() -> void:
+	var gs = make_gs(2)
+	make_settlement(gs, 2, 15, 15)  # enemy city, no wonder
+	CombatApply.accrue_war_fatigue(gs, 1, 2, "war_weariness_unit_killed_attacking")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 6,
+		"No enemy_war_weariness structure → the plain 3 × 2 accrual")
+
+func test_statue_of_zeus_stops_counting_after_capture() -> void:
+	var gs = make_gs(2)
+	var zeus_city = make_settlement(gs, 2, 15, 15)
+	zeus_city.structures.append("statue_of_zeus")
+	zeus_city.owner_player_id = 1  # captured by the attacker
+	CombatApply.accrue_war_fatigue(gs, 1, 2, "war_weariness_unit_killed_attacking")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)), 6,
+		"A captured statue no longer amplifies accrual against its old owner")
