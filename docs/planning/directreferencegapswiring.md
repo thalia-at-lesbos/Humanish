@@ -6,7 +6,8 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
 **Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
-Next: Phase R (version-bump review at phase end), Phase T.
+Phase R in progress: **R1 done (2026-07-19)**; next R2–R5 (version-bump
+review at phase end), then Phase T.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -454,7 +455,44 @@ docs-only.
 
 ## Phase R — reference model adoptions (gameplay/save-format changes; version-bump review at the end of the phase)
 
-- **R1. Settler food-box build** ⓪(0c): settlers/workers consume the city's food
+- **R1. Settler food-box build** ⓪(0c — sourced; spec §15.15, values §29.16):
+  **DONE 2026-07-19** — the flag is `food_production` on the units.json rows
+  (settler/worker/fast_worker, the exact §15.15 roster; pinned with the costs
+  in `test_data_db.gd` — settler was already at the adopted flat 100, worker
+  60, so no cost change shipped). Implementation: `_settlement_growth`
+  computes the surplus as ever, then — when `_head_is_food_built` (queue head
+  is a unit whose data row carries the flag) — diverts a POSITIVE surplus
+  into `Settlement.food_for_production` (a **non-serialized transient**: set
+  by every growth run, consumed and zeroed by `_settlement_production` in the
+  same settlement_step before any save boundary, so the save format is
+  untouched) and freezes the box: growth delta `min(0, surplus)`, the
+  `food_store >= threshold` growth branch is gated off (banked food is kept,
+  untouched, even over-threshold), and the starvation branch stays live
+  (deficit drains the box / costs population as normal). The production phase
+  adds the diverted food AFTER the §4.3 percent chain and the flat civic
+  deltas (never multiplied — pinned: forge city 10+5, not (8+5)×1.25), scaled
+  by the pace's `build_scale` exactly as the hammer output is (Humanish
+  scales output AND costs by build_scale, so this keeps the food channel's
+  weight pace-invariant relative to hammers; marathon pin ×3). Completion
+  overflow needs no special rule — the food lands in `production_store`, so
+  the normal remainder-carries rule covers it (§15.15's "counts toward the
+  overflow cap base" is trivially satisfied; Humanish has no overflow cap).
+  A city in disorder loses the diverted surplus for the turn (consumed
+  exactly once, never double-added). Rushing food-built units stays
+  **allowed** (reference behaviour): whip and M5 gold-hurry price the
+  remaining HAMMER cost via `rush_remaining_cost`, which stays coherent since
+  food contributions are already banked in `production_store`. No new
+  constants (`data/constants.json` untouched — the spec carries no new
+  magnitudes; consumption reuses `food_per_citizen`). `city_screen.gd`'s
+  Growth line reads "paused — training (+N food/turn feeds production)"
+  while frozen. AI: `PlayerAI` needed no recalibration (`test_player_ai.gd`
+  green unchanged — its settler/worker heuristics read costs, not growth).
+  Tests: +8 in `test_settlement.gd` (divert-to-production end-to-end,
+  after-modifiers pin, pace pin, frozen-over-threshold, starvation-while-
+  training, completion overflow, non-food control, disorder consume-once),
+  +1 roster/cost pin in `test_data_db.gd`; full run 1705 unit + 11
+  integration green, midgame save/load determinism unchanged. Original item:
+  settlers/workers consume the city's food
   surplus as production (reference cost model; settler `cost` returns to the
   reference value with food contribution), growth pauses while training.
   Save-format: production-queue entries unchanged, but settlement growth state

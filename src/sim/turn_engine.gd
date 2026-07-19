@@ -461,6 +461,18 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		consumed -= net_health  # net unhealthiness (negative) drains the food box
 	var surplus: int = total_food - consumed
 
+	# Food-built units (§15.15): while a settler/worker (units.json
+	# `food_production`) heads the production queue, the city's positive food
+	# surplus is diverted to production (consumed by _settlement_production this
+	# same step) and the food box freezes — the growth delta becomes
+	# min(0, surplus), so the city never grows but can still starve; banked
+	# food_store contents stay untouched.
+	var food_built: bool = _head_is_food_built(s, db)
+	s.food_for_production = 0
+	if food_built and surplus > 0:
+		s.food_for_production = surplus
+		surplus = 0
+
 	s.food_store += surplus
 
 	# Growth threshold (§4.2): the reference's pop-and-speed curve — an affine base +
@@ -485,7 +497,7 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 			if threshold < 1:
 				threshold = 1
 
-	if s.food_store >= threshold:
+	if s.food_store >= threshold and not food_built:
 		s.population += 1
 		if s.population > s.peak_population:
 			s.peak_population = s.population   # tracks the largest size ever (§4.8)
@@ -733,6 +745,11 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 
 static func _settlement_production(gs: GameState, s: Settlement,
 		player: Player) -> void:
+	# Consume the growth phase's diverted food surplus exactly once (§15.15) —
+	# taken before the disorder gate, so a city in disorder loses it this turn
+	# like every other yield.
+	var food_prod: int = s.food_for_production
+	s.food_for_production = 0
 	if s.in_disorder or s.production_queue.empty():
 		return
 
@@ -761,6 +778,12 @@ static func _settlement_production(gs: GameState, s: Settlement,
 	prod += _policy_production_delta(gs, s, player, db, item)
 	if prod < 0:
 		prod = 0
+	# Food-built units (§15.15): the diverted food surplus joins AFTER the
+	# percentage modifiers (it is never multiplied by them), scaled by the
+	# pace's build scale exactly as the hammer output is — item costs carry
+	# the same factor, so the food channel's pace behaviour matches hammers.
+	if food_prod > 0 and _head_is_food_built(s, db):
+		prod += Fixed.scale(food_prod, pace_scale)
 	s.production_store += prod
 
 	var cost: int = _item_cost(item, db, player, pace)
@@ -836,6 +859,18 @@ static func _policy_production_delta(gs: GameState, s: Settlement,
 				mil += 1
 		delta += mil * drain
 	return delta
+
+# Whether the head of the settlement's production queue is a food-production
+# unit (§15.15: settler / worker / fast worker — the units.json
+# `food_production` flag). Such a unit is built with hammers PLUS the city's
+# food surplus, and the food box freezes while it trains.
+static func _head_is_food_built(s: Settlement, db: DataDB) -> bool:
+	if s.production_queue.empty():
+		return false
+	var item: Dictionary = s.production_queue[0]
+	if item.get("type", "unit") != "unit":
+		return false
+	return bool(db.get_unit(item.get("id", "")).get("food_production", false))
 
 # A unit type that counts as "military" for civic effects: anything that is not a
 # civilian or a Great Person.

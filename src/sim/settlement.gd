@@ -29,6 +29,11 @@ var output_commerce: int = 0
 # Production queue: Array of {"type": "unit"/"structure"/"project", "id": String}
 var production_queue: Array = []
 var production_store: int = 0   # accumulated production
+# Transient (§15.15, NOT serialized): the food surplus the growth phase diverted
+# toward a food-built unit (settler/worker) heading the queue this step. Set by
+# _settlement_growth every run, consumed and zeroed by _settlement_production in
+# the same settlement_step, so it never lives across a save boundary.
+var food_for_production: int = 0
 
 # Culture
 var culture_total: int = 0      # total accumulated culture

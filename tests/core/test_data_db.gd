@@ -1035,3 +1035,24 @@ func test_not_buildable_non_boolean_fails_validation() -> void:
 		if "bogus_struct" in err and "boolean" in err:
 			found = true
 	assert_true(found, "a non-boolean not_buildable flag is reported")
+
+# ── R1: food-production unit roster (§15.15/§29.16) ──────────────────────────
+
+func test_food_production_unit_roster_pinned() -> void:
+	# Exactly the settler, the worker, and the fast-worker variant are built
+	# with hammers plus the city's food surplus; settler 100 / worker 60 are
+	# the §15.15 reference costs (flat 100 adopted at normal pace).
+	var db = _db()
+	var want := ["settler", "worker", "fast_worker"]
+	for uid in want:
+		assert_true(bool(db.get_unit(uid).get("food_production", false)),
+			"%s is flagged food_production (§15.15)" % uid)
+	for uid in db.units:
+		if uid == "_comment" or uid in want:
+			continue
+		assert_false(bool(db.units[uid].get("food_production", false)),
+			"no unit outside the §15.15 roster is food-built (%s)" % uid)
+	assert_eq(int(db.get_unit("settler").get("cost", 0)), 100,
+		"Settler costs the reference flat 100 (§15.15)")
+	assert_eq(int(db.get_unit("worker").get("cost", 0)), 60,
+		"Worker costs the reference 60 (§15.15)")
