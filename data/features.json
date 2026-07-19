@@ -6,7 +6,7 @@
     "output_delta": { "food": 0, "production": 1, "commerce": 0 },
     "movement_cost_add": 30,
     "defence_bonus": 50,
-    "health_bonus": 1,
+    "health_delta_centi": 50,
     "growth_probability": 50,
     "chop_yield": 20,
     "clear_turns": 4,
@@ -21,7 +21,7 @@
     "output_delta": { "food": -1, "production": 0, "commerce": 0 },
     "movement_cost_add": 60,
     "defence_bonus": 50,
-    "health_penalty": 1,
+    "health_delta_centi": -25,
     "growth_probability": 50,
     "clear_turns": 6,
     "removable": true,
@@ -36,7 +36,7 @@
     "output_delta": { "food": 3, "production": 0, "commerce": 0 },
     "movement_cost_add": 0,
     "defence_bonus": 0,
-    "health_penalty": 1,
+    "health_delta_centi": -40,
     "notes": "Only on Desert tiles adjacent to rivers"
   },
   "oasis": {
@@ -47,7 +47,7 @@
     "output_delta": { "food": 3, "production": 0, "commerce": 2 },
     "movement_cost_add": 0,
     "defence_bonus": 0,
-    "health_bonus": 1,
+    "health_delta_centi": 100,
     "no_improvements": true,
     "notes": "Only in Desert; cannot be improved"
   },
@@ -58,7 +58,7 @@
     "output_delta": { "food": -3, "production": -3, "commerce": -3 },
     "movement_cost_add": 30,
     "defence_bonus": 0,
-    "health_penalty": 1,
+    "health_delta_centi": -100,
     "removable": true,
     "notes": "Nuclear contamination; can be cleaned by Workers"
   },

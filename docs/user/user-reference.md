@@ -150,6 +150,11 @@ When the food store reaches the growth threshold (scales with population and era
 
 **Disorder**: if a city is in disorder (discontented citizens ≥ effective workers), its effective workers drop to zero — no production or food surplus.  
 **Wellbeing deficit**: pollution and overcrowding reduce effective food income.
+Terrain features on **worked** tiles also count toward city health, in fractions:
+each worked Forest gives +0.5 health, a Jungle −0.25, Flood Plains −0.4 (Oasis +1
+and Fallout −1 stay whole points). The fractions are summed and the net rounds
+toward zero — two worked forests give +1 health, but one forest (or one jungle)
+alone changes nothing.
 
 ### Culture and borders
 
@@ -257,11 +262,11 @@ Features sit on top of terrain and modify it:
 
 | Feature | Effect |
 |---------|--------|
-| Forest | +1 production, +50 % defence, blocks line of sight; chopping it gives production to the nearest city |
-| Jungle | −1 food, +50 % defence, blocks line of sight, disease risk; usually cleared before improving |
-| Flood Plains | +3 food (desert tiles by rivers); disease risk |
-| Oasis | +3 food, +2 commerce (desert only); cannot be improved |
-| Fallout | Heavy yield penalty from nuclear contamination; Workers can clean it |
+| Forest | +1 production, +0.5 health to the working city, +50 % defence, blocks line of sight; chopping it gives production to the nearest city |
+| Jungle | −1 food, −0.25 health to the working city, +50 % defence, blocks line of sight; usually cleared before improving |
+| Flood Plains | +3 food (desert tiles by rivers); −0.4 health to the working city |
+| Oasis | +3 food, +2 commerce, +1 health (desert only); cannot be improved |
+| Fallout | Heavy yield penalty and −1 health from nuclear contamination; Workers can clean it |
 | Ice | Impassable; no units or improvements |
 
 ### Improvements

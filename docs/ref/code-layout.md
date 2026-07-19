@@ -154,7 +154,7 @@ The tables and what they configure:
 |---|---|
 | `constants.json` | Scalar tuning values (combat scale, growth base, entrenchment cap, …) |
 | `terrains.json` | Domain, landform, base output vector, movement cost, defence bonus, `sight_bonus` (extends a source's sight radius), `blocks_sight` (line-of-sight occlusion) |
-| `features.json` | Surface feature output delta, movement cost add, health effects, `blocks_sight` (forest/jungle occlude line of sight) |
+| `features.json` | Surface feature output delta, movement cost add, `health_delta_centi` (R5 fractional city health in integer hundredths — forest +50 = +0.5, jungle −25, flood plains −40, oasis +100, fallout −100; summed over a city's worked tiles and net-truncated toward zero in `_update_wellbeing`), `blocks_sight` (forest/jungle occlude line of sight) |
 | `resources.json` | Bonus output per tile; tech and improvement gates |
 | `improvements.json` | Tile improvement output delta, build time, tech gate, `allowed_landforms` (e.g. mine is hills-only) |
 | `transport.json` | Road/rail movement divisors, commerce bonus |
@@ -297,7 +297,7 @@ Implements §3 as three static functions called in sequence. Every phase first c
 
 **`settlement_step(gs, settlement, player, hooks)`** — runs per settlement:
 - Growth: sum tile outputs + structure bonuses + econ org delta (+ civic tile/capital/free-specialist bonuses via `PolicyEffects`) → surplus food → food store → population threshold check
-- Wellbeing: positive (structures, features, empire-health civics) vs negative (population, polluting structures) → deficit reduces effective food
+- Wellbeing: positive (structures, features, empire-health civics) vs negative (population, polluting structures) → deficit reduces effective food. Worked-tile feature health is fractional (R5): per-feature `health_delta_centi` summed in integer centi-units, the net truncated toward zero to whole health once per city (3 forests = +150 → +1; a lone jungle −25 → 0), then added to the positive or negative face by sign — every other health source stays in whole units
 - Contentment: positive sentiment (incl. civic happiness effects) vs anger-driven negative (war anger trimmed by civics) → `discontented` citizens → `in_disorder` flag
 - Production: accumulate construction capacity (adjusted by `_policy_production_delta` for the queued item) → complete queue items (units, structures, projects). A completed military unit starts with `TurnEngine.new_unit_xp` experience — civic XP (Vassalage `new_unit_xp` + Theocracy `state_religion_unit_xp`) + per-category building XP (`_structure_unit_xp`: barracks/stable/drydock/airport/West Point, Pentagon's empire-wide `unit_xp_all_cities`; obsolete structures filtered) + the §15.20/R4 settled-Great-General instructors (`Specialists.settlement_unit_xp`, +2/head); `SimFacade._cmd_draft` gives a conscript HALF this total, truncated
 - Culture: accumulate total culture → culture-level/ring recompute (`CultureLevels.level_for` + 1 on the §15.4 per-pace geometric curve; ring 1 at founding .. 6 at legendary) → `Influence.spread()`

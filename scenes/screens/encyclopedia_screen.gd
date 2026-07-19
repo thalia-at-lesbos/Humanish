@@ -143,6 +143,18 @@ func _join(arr: Array) -> String:
 func _sign_int(v: int) -> String:
 	return ("+" if v >= 0 else "") + str(v)
 
+# Format an integer centi-value (hundredths, R5 feature health) as a signed
+# decimal string with no float math: 50 → "+0.5", -25 → "-0.25", 100 → "+1".
+func _fmt_centi(c: int) -> String:
+	var sign_s = "+" if c >= 0 else "-"
+	var a = c if c >= 0 else -c
+	var whole = a / 100
+	var frac = a % 100
+	if frac == 0:
+		return sign_s + str(whole)
+	var frac_s = str(frac / 10) if frac % 10 == 0 else ("0" + str(frac) if frac < 10 else str(frac))
+	return sign_s + str(whole) + "." + frac_s
+
 # ── vbox helpers ────────────────────────────────────────────────────────────
 
 func _clear(vbox: VBoxContainer) -> void:
@@ -618,12 +630,9 @@ func _detail_terrain(vbox: VBoxContainer, d: Dictionary) -> void:
 		_lbl(vbox, "Sight:     " + _sign_int(sb) + " sight range to a unit standing here")
 	if bool(d.get("blocks_sight", false)):
 		_lbl(vbox, "Blocks line of sight: hides tiles beyond it", true)
-	var hb = int(d.get("health_bonus", 0))
-	if hb != 0:
-		_lbl(vbox, "Health:    " + _sign_int(hb) + " in nearby cities")
-	var hp = int(d.get("health_penalty", 0))
-	if hp != 0:
-		_lbl(vbox, "Health:    -%d in nearby cities" % [hp])
+	var hd = int(d.get("health_delta_centi", 0))
+	if hd != 0:
+		_lbl(vbox, "Health:    " + _fmt_centi(hd) + " per worked tile in nearby cities")
 	if bool(d.get("no_improvements", false)):
 		_lbl(vbox, "Cannot be improved")
 	var notes = str(d.get("notes", ""))

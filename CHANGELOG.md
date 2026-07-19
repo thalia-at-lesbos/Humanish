@@ -5,6 +5,16 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Changed
+- **Terrain features now give fractional city health.** A worked Forest
+  contributes **+0.5** health to its city (was +1), a worked Jungle **−0.25**
+  (was −1), and worked Flood Plains **−0.4** (was −1) — the reference values.
+  The fractions from all worked tiles are added up and the net rounds toward
+  zero: two forests give +1 health, three forests still only +1, and a single
+  jungle or flood plains costs nothing until several accumulate. Oasis (+1)
+  and Fallout (−1) keep their whole-point values. The Encyclopedia shows the
+  fractional value on each feature's page.
+
 ### Added
 - **Idle citizens now work as Citizen specialists.** A citizen with no tile
   left to work and no specialist post — because the city outgrew its land,

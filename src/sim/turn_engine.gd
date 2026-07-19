@@ -562,16 +562,25 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 	# Fresh water from an adjacent water body or a river/oasis feature (§4.6)
 	if _has_fresh_water(gs, s, db):
 		pos += db.get_constant("fresh_water_health", 2)
-	# Worked-tile feature wellbeing (§4.6): healthful features (forest, oasis) add to
-	# positive; unhealthful ones (jungle, flood plains, fallout) add to negative. Mirrors
-	# the worked-tile scan the happiness model uses for forests (§4.5).
+	# Worked-tile feature wellbeing (§4.6, R5 fractional): each worked feature tile
+	# contributes its `health_delta_centi` — hundredths of a health point, integer
+	# centi-health so the reference's fractional values need no floats (forest +50
+	# = +0.5, jungle −25, flood plains −40, oasis +100, fallout −100). The worked
+	# tiles are summed in centi-units and the NET truncates toward zero to whole
+	# health once per city (3 forests = +150 → +1; 1 jungle = −25 → 0; 2 forests +
+	# 1 jungle = +75 → 0), landing on the positive or negative face by sign.
+	# Mirrors the worked-tile scan the happiness model uses for forests (§4.5).
+	var feat_centi: int = 0
 	for wt in s.worked_tiles:
 		var tile: Tile = gs.map.get_tile(int(wt[0]), int(wt[1]))
 		if tile == null or tile.feature_id == "":
 			continue
-		var feat: Dictionary = db.get_feature(tile.feature_id)
-		pos += int(feat.get("health_bonus", 0))
-		neg += int(feat.get("health_penalty", 0))
+		feat_centi += int(db.get_feature(tile.feature_id).get("health_delta_centi", 0))
+	var feat_units: int = feat_centi / 100  # GDScript int division truncates toward zero
+	if feat_units > 0:
+		pos += feat_units
+	elif feat_units < 0:
+		neg += -feat_units
 	# Timed event wellbeing modifiers (§9 HEALTH_TIMED): a positive amount is a
 	# temporary +health face (folded into pos), a negative one extra unhealthiness.
 	for th in s.timed_health:
