@@ -6,9 +6,10 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
 **Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
-Phase R in progress: **R1 done (2026-07-19)**, **R2 done (2026-07-19)**,
-**R3 done (2026-07-19)**, **R4 done (2026-07-19)**;
-next R5 (then the version-bump review at phase end), then Phase T.
+**Phase R items complete (2026-07-19)**: R1–R4 done 2026-07-19, **R5 done
+(2026-07-19)** — all five reference-model adoptions shipped; what remains of
+the phase is the **version-bump review** (R2 is the standing major-bump
+candidate), then Phase T.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -606,12 +607,54 @@ docs-only.
   R3+R4: 1732 unit + 11 integration green; midgame save/load determinism
   unchanged.
 - **R5. Fractional feature health** (documented — plan A5 note: forest +0.5,
-  jungle −0.25, flood plains −0.4; no Phase 0): adopt by scaling city health
-  accounting ×100 (integer centi-health, `Fixed`-style; **no floats** — the
-  engine invariant stands), features carry `health_delta_centi` (+50/−25/−40),
-  display rounds toward zero. **Files:** `src/sim/turn_engine.gd` wellbeing,
-  `data/features.json`, `src/world/tile_output.gd`. **Tests:**
-  `test_settlement.gd` (rounding at the boundary, three-forest = +1 net).
+  jungle −0.25, flood plains −0.4; no Phase 0): **DONE 2026-07-19** — the
+  ×100 scaling is **minimal-footprint**: only the worked-tile feature
+  contribution runs in centi-units; every other health source (structures,
+  resources-via-structures, civics, traits, difficulty, fresh water, timed
+  events, W2 `unhealthy_global`) stays whole-unit, and the conversion happens
+  exactly once inside `_update_wellbeing` — the feature centi sum **nets
+  across signs first**, then truncates toward zero (`/ 100`, GDScript int
+  division), and the whole-unit result lands on the positive or negative
+  face by sign (2 forests + 1 jungle = +75 → 0, where per-sign truncation
+  would wrongly give +1). Pins: 1 forest = 0, 2 forests = +1 (exact
+  boundary), 3 forests = +1 net (the item's stated test), 1 jungle/flood
+  plains = 0 (toward-zero, not floor), 4 jungles = −1, 3 flood plains = −1.
+  **Radius:** the existing §4.6 worked-tile scan is kept (the same ring the
+  happiness worked-forest scan uses) — the reference's whole-fat-cross
+  semantics were NOT adopted; only worked feature tiles count, matching the
+  shipped design-doc rule, so R5 is a pure magnitude change. **Data
+  migration:** `features.json` `health_bonus`/`health_penalty` are REPLACED
+  by signed `health_delta_centi` — forest +50, jungle −25, flood plains −40
+  (the plan values), oasis +100 and fallout −100 (no fractional value is
+  documented for them, so their former ±1 carries over unchanged; fallout's
+  §5.7 worked-tile harm is intact). The old whole-unit feature reader in
+  `_update_wellbeing` was the ONLY engine reader and is gone;
+  `tile_output.gd` never read feature health (listed speculatively — no
+  change). Structures/beliefs/traits/difficulty keep their own
+  `health_bonus`/`health_penalty` keys (different tables, untouched).
+  Display: `encyclopedia_screen.gd` `_detail_terrain` formats the centi
+  value as an exact decimal with integer math only (`_fmt_centi`: +0.5,
+  −0.25, −0.4, +1); city-screen/text_gen wellbeing readouts need no change
+  (they show the whole-unit `wellbeing_*` fields). **No save-format
+  change** (confirmed): `wellbeing_positive/negative/deficit` stay
+  whole-unit ints, recomputed every settlement step; the centi units never
+  leave `_update_wellbeing`. No RNG, no new constants (the per-feature
+  values are data, in features.json where they belong). Tests: net +6 in
+  `test_settlement.gd` (the 3 old whole-unit feature tests rewritten into
+  9: single-forest zero, two-forest boundary, three-forest net, jungle
+  toward-zero, four-jungle −1, flood-plains single+triple, mixed-sign
+  net-before-truncate, oasis whole-point, unworked-inert unchanged). Full
+  run 1738 unit + 11 integration green; midgame save/load determinism
+  unchanged. Design-doc follow-up (consent needed): `game-rules.md` §4.6
+  still describes the whole-unit ±1 feature values and the
+  `health_bonus`/`health_penalty` key names. Original item: adopt by
+  scaling city health accounting ×100 (integer centi-health, `Fixed`-style;
+  **no floats** — the engine invariant stands), features carry
+  `health_delta_centi` (+50/−25/−40), display rounds toward zero.
+  **Files:** `src/sim/turn_engine.gd` wellbeing, `data/features.json`,
+  `scenes/screens/encyclopedia_screen.gd` (`tile_output.gd` untouched).
+  **Tests:** `test_settlement.gd` (rounding at the boundary, three-forest =
+  +1 net).
 
 ## Phase T — remaining data retunes (documented; no Phase 0)
 
