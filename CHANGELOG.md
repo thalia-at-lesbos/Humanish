@@ -6,6 +6,19 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Changed
+- **AI difficulty handicaps now follow the reference cost model.** Each
+  difficulty carries four per-difficulty AI columns (the reference §29.10
+  table): AI **unit** and **building costs** scale from 160% at Settler
+  (easy levels penalize the computer) down to 60% at Deity, AI **unit
+  upkeep** scales 100% → 60% from Noble to Deity, and the AI **growth
+  threshold** scales from 160% at Settler (slower growth) to 80% at Deity
+  (faster). The old flat production-yield boost is retired — AI hammer
+  output now equals a human's — while the `ai_bonus` column remains solely
+  as the AI research-yield scaler (0 at Noble → 70 at Deity). Human players
+  are unaffected by all four columns; whip and gold-hurry prices follow the
+  AI's discounted costs coherently.
+
+### Changed
 - **Terrain features now give fractional city health.** A worked Forest
   contributes **+0.5** health to its city (was +1), a worked Jungle **−0.25**
   (was −1), and worked Flood Plains **−0.4** (was −1) — the reference values.

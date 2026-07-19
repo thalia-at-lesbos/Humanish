@@ -1196,7 +1196,8 @@ func _cmd_rush_production(cmd: Dictionary) -> bool:
 		return false
 	p.treasury -= gold_cost
 	var pace: Dictionary = _db.get_pace(_gs.pace_id)
-	s.production_store = TurnEngine._item_cost(s.production_queue[0], _db, p, pace)
+	s.production_store = TurnEngine._item_cost(s.production_queue[0], _db, p, pace,
+		_db.get_difficulty(_gs.difficulty_id))
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 

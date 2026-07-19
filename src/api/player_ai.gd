@@ -360,7 +360,8 @@ static func _sorted_options(gs, s, player) -> Array:
 		var item_u: Dictionary = {"type": "unit", "id": uid}
 		opts.append({"type": "unit", "id": uid, "role": _unit_role(u, needs_defender),
 			"focus": int(profile.get(_unit_axis(u), 0)),
-			"cost": TurnEngine._item_cost(item_u, db, player, pace)})
+			"cost": TurnEngine._item_cost(item_u, db, player, pace,
+				db.get_difficulty(gs.difficulty_id))})
 	for sid in db.structures:
 		if s.has_structure(sid):
 			continue
@@ -374,7 +375,8 @@ static func _sorted_options(gs, s, player) -> Array:
 		var item_s: Dictionary = {"type": "structure", "id": sid}
 		opts.append({"type": "structure", "id": sid, "role": ROLE_ECONOMY,
 			"focus": int(profile.get(_structure_axis(st), 0)),
-			"cost": TurnEngine._item_cost(item_s, db, player, pace)})
+			"cost": TurnEngine._item_cost(item_s, db, player, pace,
+				db.get_difficulty(gs.difficulty_id))})
 	# Selection sort: Godot 3 cannot stably sort arrays of dictionaries via sort(),
 	# and a custom comparator over (role, cost, type, id) keeps the order determined.
 	var n: int = opts.size()

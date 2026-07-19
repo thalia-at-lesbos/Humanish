@@ -489,11 +489,22 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	# the food-to-grow threshold; a negative one (harder levels) raises it. Read from
 	# data/difficulties.json. growth_bonus is bounded so (100 - it) stays positive. The
 	# handicap is a player aid — applied to human players only (the AI's separate
-	# ai_bonus is its handicap); see §2.2.
+	# ai_growth_percent below is its handicap); see §2.2.
 	if player != null and not player.is_ai:
 		var diff_growth: int = int(db.get_difficulty(gs.difficulty_id).get("growth_bonus", 0))
 		if diff_growth != 0:
 			threshold = Fixed.scale(threshold, 100 - diff_growth)
+			if threshold < 1:
+				threshold = 1
+	# AI growth handicap (§2.2, game-data §29.10 `ai_growth_percent`): scales the
+	# AI's growth threshold directly — >100 on easy levels slows AI growth, <100
+	# on hard levels speeds it (settler 160 → deity 80). Never cross-applies to
+	# humans, mirroring the human-only growth_bonus above.
+	if player != null and player.is_ai:
+		var ai_growth: int = int(db.get_difficulty(gs.difficulty_id).get(
+			"ai_growth_percent", 100))
+		if ai_growth != 100:
+			threshold = Fixed.scale(threshold, ai_growth)
 			if threshold < 1:
 				threshold = 1
 
@@ -766,14 +777,10 @@ static func _settlement_production(gs: GameState, s: Settlement,
 	var pace: Dictionary = db.get_pace(gs.pace_id)
 	var pace_scale: int = int(pace.get("build_scale", 100))
 	var prod: int = Fixed.scale(s.output_production, pace_scale)
-
-	# AI production handicap (§2.2): higher difficulties give AI extra hammers.
-	# Mirrors the human-only growth handicap block; gated is_ai so the two aids
-	# stay symmetric and never cross-apply.
-	if player != null and player.is_ai:
-		var ai_bonus: int = int(db.get_difficulty(gs.difficulty_id).get("ai_bonus", 0))
-		if ai_bonus != 0:
-			prod = Fixed.scale(prod, 100 + ai_bonus)
+	# The AI production handicap lives on the COST side since T1 (§29.10): an AI
+	# player's item costs are scaled by ai_train_percent / ai_construct_percent
+	# in _item_cost below — hammer output itself is no longer boosted (the old
+	# ai_bonus yield scaler now covers research only).
 
 	var item: Dictionary = s.production_queue[0]
 	# Percentage yield chain (§4.3): structure and civic +% production modifiers
@@ -795,7 +802,8 @@ static func _settlement_production(gs: GameState, s: Settlement,
 		prod += Fixed.scale(food_prod, pace_scale)
 	s.production_store += prod
 
-	var cost: int = _item_cost(item, db, player, pace)
+	var cost: int = _item_cost(item, db, player, pace,
+		db.get_difficulty(gs.difficulty_id))
 	if cost <= 0:
 		return
 
@@ -904,19 +912,32 @@ static func _structure_effect_active(db: DataDB, struct_id: String,
 	return s.belief_id == player.state_religion
 
 static func _item_cost(item: Dictionary, db: DataDB, player: Player,
-		pace: Dictionary) -> int:
+		pace: Dictionary, difficulty: Dictionary = {}) -> int:
 	var pace_scale: int = int(pace.get("build_scale", 100))
 	var itype: String = item.get("type", "unit")
 	var iid: String = item.get("id", "")
 	var base: int = 0
+	# AI cost handicap (§2.2, game-data §29.10): pass the current difficulty row
+	# and an AI player's unit costs scale by `ai_train_percent`, structure costs
+	# by `ai_construct_percent` (>100 on easy levels penalizes the AI, <100 on
+	# hard levels aids it; 100 = neutral). Projects carry no §29.10 column and
+	# stay unscaled. Human costs are never touched.
+	var ai_pct: int = 100
 	match itype:
 		"unit":
 			base = int(db.get_unit(iid).get("cost", 60))
+			ai_pct = int(difficulty.get("ai_train_percent", 100))
 		"structure":
 			base = int(db.get_structure(iid).get("cost", 60))
+			ai_pct = int(difficulty.get("ai_construct_percent", 100))
 		"project":
 			base = int(db.projects.get(iid, {}).get("cost", 500))
-	return Fixed.scale(base, pace_scale)
+	var cost: int = Fixed.scale(base, pace_scale)
+	if player != null and player.is_ai and ai_pct != 100:
+		cost = Fixed.scale(cost, ai_pct)
+		if cost < 1:
+			cost = 1  # a discounted item still needs at least one hammer
+	return cost
 
 # ── Population rush ("whipping", §15.2) ──────────────────────────────────────
 # Hammers one sacrificed citizen buys: `rush_production_per_pop` (reference 30)
@@ -936,7 +957,8 @@ static func rush_remaining_cost(gs: GameState, s: Settlement,
 		return 0
 	var item: Dictionary = s.production_queue[0]
 	var pace: Dictionary = gs.db.get_pace(gs.pace_id)
-	var cost: int = _item_cost(item, gs.db, player, pace)
+	var cost: int = _item_cost(item, gs.db, player, pace,
+		gs.db.get_difficulty(gs.difficulty_id))
 	var remaining: int = cost - s.production_store
 	if remaining <= 0:
 		return 0
@@ -1665,6 +1687,16 @@ static func gold_upkeep(gs: GameState, player: Player) -> int:
 		var udata: Dictionary = db.get_unit(u.unit_type_id)
 		upkeep += int(udata.get("upkeep", 0))
 
+	# AI unit-upkeep handicap (§2.2, game-data §29.10 `ai_unit_cost_percent`):
+	# scales the AI's unit upkeep only — at this point `upkeep` holds nothing
+	# else. Settlement and corporation maintenance below stay unscaled. 100 at
+	# noble and below, 95 → 60 from prince to deity; is_ai gated, truncating.
+	if player.is_ai:
+		var ai_unit_cost: int = int(db.get_difficulty(gs.difficulty_id).get(
+			"ai_unit_cost_percent", 100))
+		if ai_unit_cost != 100:
+			upkeep = Fixed.scale(upkeep, ai_unit_cost)
+
 	# Settlement upkeep scales with distance from the capital and settlement size
 	# (§6.1). The capital is the player's earliest-founded settlement. State
 	# Property removes the distance term entirely (§8).
@@ -1859,7 +1891,10 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 				db.get_constant("finance_research_supplement_pct", 50))
 
 	# AI research handicap (§2.2): higher difficulties give AI extra beakers.
-	# Same is_ai gate as the production bonus; one data column controls both.
+	# Since T1 this is ai_bonus's ONLY site — the §29.10 cost columns
+	# (ai_train/ai_construct/ai_unit_cost/ai_growth_percent) took over the
+	# production, upkeep and growth handicaps, leaving ai_bonus narrowed to the
+	# residual research-yield scaler (no §29.10 column covers beakers).
 	if player.is_ai:
 		var ai_bonus: int = int(db.get_difficulty(gs.difficulty_id).get("ai_bonus", 0))
 		if ai_bonus != 0:
