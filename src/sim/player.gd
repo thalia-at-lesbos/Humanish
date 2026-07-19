@@ -43,7 +43,7 @@ var research_store: int = 0     # accumulated research points
 var technologies: Array = []    # Array of tech IDs
 
 # Completed effects projects (§15.7 C5: "sdi", "the_internet"). Spaceship stages
-# are NOT listed here — they stay in gs.endgame_project_stages. Read through
+# are NOT listed here — they stay in gs.endgame_project_parts. Read through
 # Projects.effect_int/has_project. Serialized (string IDs).
 var projects: Array = []        # Array of project IDs
 

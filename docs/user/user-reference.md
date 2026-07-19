@@ -312,6 +312,10 @@ Combat is turn-by-turn within a single resolution. Each round:
 
 **Flanking** (fast units) can hit multiple units in a stack.
 
+### Capturing civilians
+
+**Workers and Settlers are captured, not killed**, when your attack overruns their tile on open ground: the last defender falls, your attacker advances, and you receive a **fresh Worker** on the spot — a captured **Settler demotes to a Worker**. The captured unit arrives at full health with no experience or promotions and cannot move until your next turn. No capture happens when the civilian dies defending a city tile or to an air strike, and **wild raiders never capture** — a civilian they overrun simply dies.
+
 ### Experience and promotions
 
 Surviving units gain XP from combat. At XP thresholds you can choose a **promotion** — a permanent combat bonus (strength vs. unit class, terrain bonus, first strike, etc.).
@@ -320,7 +324,7 @@ Open the **Military** advisor screen to review all your units and their promotio
 
 ### War fatigue
 
-Prolonged war accumulates **war fatigue** on both alliances, increasing unhappiness in your cities. Every combat event adds fatigue: losing a unit hurts most while attacking, less while defending; even killing enemy units adds a little; losing a city adds the most; nuclear strikes add heavy fatigue — far more for the side that launched them. A war that was declared **on** you accrues fatigue at half rate, and none accrues during a Golden Age. Once fighting stops, fatigue decays a little each turn.
+Prolonged war accumulates **war fatigue** on both alliances, increasing unhappiness in your cities. Every combat event adds fatigue: losing a unit hurts most while attacking, less while defending; even killing enemy units adds a little; having a civilian captured hurts like a defensive loss (capturing one adds a little); losing a city adds the most; nuclear strikes add heavy fatigue — far more for the side that launched them. A war that was declared **on** you accrues fatigue at half rate, and none accrues during a Golden Age. Once fighting stops, fatigue decays a little each turn.
 
 ---
 
@@ -648,7 +652,7 @@ When the turn limit is reached (330 / 500 / 750 turns at Quick / Normal / Epic p
 
 Two further conditions are described in the Encyclopedia but are not enabled at game setup in the current version:
 
-- **Space Race** — complete all seven spaceship stages after building the **Apollo Program** wonder.
+- **Space Race** — after building the **Apollo Program** wonder, construct the spaceship's parts: 5 SS Casings, 5 SS Thrusters, 2 SS Engines, and one each of SS Cockpit, SS Life Support, SS Stasis Chamber, and SS Docking Bay (building extras of a finished part type is wasted). One of **every** part type launches the ship; it then travels for 10 turns (scaled by game pace, longer if optional engines/thrusters are missing) and arrives safely if you built enough casings (−20% success per missing casing — a failed arrival loses the launch, but the parts survive for a relaunch). Losing your capital destroys a spaceship in flight.
 - **Diplomatic** — win the World Leader election in a world assembly (United Nations: 60 % of the weighted vote; Apostolic Palace: 75 %).
 
 ---

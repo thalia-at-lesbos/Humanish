@@ -1,11 +1,11 @@
 {
-  "ss_casing":         { "id": "ss_casing",         "name": "SS Casing",         "cost": 1200, "tech_required": "composites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 1, "count_needed": 5 },
+  "ss_casing":         { "id": "ss_casing",         "name": "SS Casing",         "cost": 1200, "tech_required": "composites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 1, "count_needed": 5, "success_rate": 20 },
   "ss_cockpit":        { "id": "ss_cockpit",        "name": "SS Cockpit",        "cost": 1000, "tech_required": "fiber_optics",    "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 2, "count_needed": 1 },
   "ss_docking_bay":    { "id": "ss_docking_bay",    "name": "SS Docking Bay",    "cost": 2000, "tech_required": "satellites",      "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 3, "count_needed": 1 },
-  "ss_engine":         { "id": "ss_engine",         "name": "SS Engine",         "cost": 1600, "tech_required": "fusion",          "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 4, "count_needed": 2 },
+  "ss_engine":         { "id": "ss_engine",         "name": "SS Engine",         "cost": 1600, "tech_required": "fusion",          "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 4, "count_needed": 2, "delay_percent": 50 },
   "ss_life_support":   { "id": "ss_life_support",   "name": "SS Life Support",   "cost": 1000, "tech_required": "ecology",         "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 5, "count_needed": 1 },
   "ss_stasis_chamber": { "id": "ss_stasis_chamber", "name": "SS Stasis Chamber", "cost": 1200, "tech_required": "genetics",        "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 6, "count_needed": 1 },
-  "ss_thrusters":      { "id": "ss_thrusters",      "name": "SS Thrusters",      "cost": 1200, "tech_required": "superconductors", "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 7, "count_needed": 5 },
+  "ss_thrusters":      { "id": "ss_thrusters",      "name": "SS Thrusters",      "cost": 1200, "tech_required": "superconductors", "requires_wonder": "apollo_program", "win_condition": "endgame_project", "stage": 7, "count_needed": 5, "delay_percent": 100 },
 
   "sdi":               { "id": "sdi",               "name": "SDI",               "cost": 1000, "tech_required": "laser",           "requires_wonder_any": "manhattan_project", "instances": "player", "effects": { "nuke_interception": 75 } },
   "the_internet":      { "id": "the_internet",      "name": "The Internet",      "cost": 2000, "tech_required": "computers",       "instances": "world", "effects": { "tech_share": 2 } }

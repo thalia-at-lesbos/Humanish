@@ -37,14 +37,32 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 	if result["defender_survived"]:
 		award_promotions(gs, defender)
 
+	# Non-combat unit capture (§15.21 / M6): a unit carrying a `capture` class
+	# that dies while its tile is overrun (the attacker survives AND advances —
+	# not a city-tile defence or an air strike) is captured instead of killed:
+	# the tile-taker receives a fresh unit of the capture class (settler → worker
+	# demotes). Wild forces never capture — the unit simply dies.
+	var capture_class: String = ""
+	if advance and result["attacker_survived"] and not result["defender_survived"] \
+			and attacker.owner_player_id >= 0 \
+			and not attacker.is_wild and not attacker.is_animal:
+		capture_class = str(gs.db.get_unit(defender.unit_type_id).get("capture", ""))
+
 	# War weariness (§15.8): each side's alliance accrues per-event points
 	# against the other when a unit dies — the loser more than the victor, an
-	# attacking loss more than a defending one (reference weights, §4.5/§7).
+	# attacking loss more than a defending one (reference weights, §4.5/§7). A
+	# capture swaps in the C8 capture weights (unit captured 2 / captor 1).
 	if not result["defender_survived"] and result["attacker_survived"]:
-		accrue_war_fatigue(gs, defender.owner_player_id, attacker.owner_player_id,
-			"war_weariness_unit_killed_defending")
-		accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
-			"war_weariness_killed_unit_attacking")
+		if capture_class != "":
+			accrue_war_fatigue(gs, defender.owner_player_id, attacker.owner_player_id,
+				"war_weariness_unit_captured")
+			accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
+				"war_weariness_captured_unit")
+		else:
+			accrue_war_fatigue(gs, defender.owner_player_id, attacker.owner_player_id,
+				"war_weariness_unit_killed_defending")
+			accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
+				"war_weariness_killed_unit_attacking")
 	elif not result["attacker_survived"] and result["defender_survived"]:
 		accrue_war_fatigue(gs, attacker.owner_player_id, defender.owner_player_id,
 			"war_weariness_unit_killed_attacking")
@@ -86,6 +104,25 @@ static func apply_unit_result(gs, attacker: Unit, defender: Unit,
 	# surviving defender.
 	if advance and result["attacker_survived"] and not result["defender_survived"]:
 		destroy_stranded_missiles(gs, attacker.x, attacker.y, attacker.owner_player_id)
+
+	# §15.21 (M6): hand the tile-taker the captured unit — fresh (full health,
+	# no XP/promotions carried), spent for this turn, on the overrun tile. The
+	# result dict carries the id so the facade can surface it (unit_created).
+	if capture_class != "":
+		var cdata: Dictionary = gs.db.get_unit(capture_class)
+		var cu := Unit.new()
+		cu.id = gs.next_unit_id()
+		cu.unit_type_id = capture_class
+		cu.owner_player_id = attacker.owner_player_id
+		cu.x = defender.x
+		cu.y = defender.y
+		cu.base_strength = int(cdata.get("base_strength", 0))
+		cu.movement_total = int(cdata.get("movement", 120))
+		cu.movement_left = 0
+		cu.has_moved = true
+		gs.units.append(cu)
+		result["captured_unit_id"] = cu.id
+		result["captured_unit_type"] = capture_class
 
 	# Great General accrues from combat victories (§14.2): the surviving victor's
 	# owner gains points and may produce a Great General in the field.

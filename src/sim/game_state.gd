@@ -60,8 +60,16 @@ var nukes_exploded: int = 0
 var founded_beliefs: Dictionary = {}   # belief_id -> founder player_id
 var founded_econ_orgs: Dictionary = {} # org_id -> founder player_id
 
-# Endgame project stages completed per alliance
-var endgame_project_stages: Dictionary = {}  # alliance_id -> int
+# Spaceship parts completed per alliance, tallied PER TYPE (§15.16 / M4):
+# alliance_id -> {project_id: count}. Each type caps at its `count_needed`
+# (duplicates of a filled type no longer advance the race). Replaces the old
+# flat per-alliance stage count (alliance_id -> int); deserialize migrates.
+var endgame_project_parts: Dictionary = {}  # alliance_id -> {project_id: int}
+
+# Spaceship arrival countdowns in flight (§15.16): alliance_id -> turns left.
+# Set when an alliance reaches one of every part type; ticked by WinConditions;
+# erased on arrival (roll), on a failed arrival, or when the capital is lost.
+var spaceship_countdown: Dictionary = {}  # alliance_id -> int
 
 # Diplomatic assembly tally: votes cast for each alliance's candidate.
 
@@ -376,7 +384,8 @@ func serialize() -> Dictionary:
 		"nukes_exploded": nukes_exploded,
 		"founded_beliefs": founded_beliefs.duplicate(),
 		"founded_econ_orgs": founded_econ_orgs.duplicate(),
-		"endgame_project_stages": endgame_project_stages.duplicate(),
+		"endgame_project_parts": endgame_project_parts.duplicate(true),
+		"spaceship_countdown": spaceship_countdown.duplicate(),
 		"assembly": assembly.duplicate(true),
 		"deals": deals.duplicate(true),
 		"deal_denials": deal_denials.duplicate(true),
@@ -428,7 +437,34 @@ static func deserialize(d: Dictionary, db_ref):
 	gs.nukes_exploded = int(d.get("nukes_exploded", 0))
 	gs.founded_beliefs = d.get("founded_beliefs", {}).duplicate()
 	gs.founded_econ_orgs = d.get("founded_econ_orgs", {}).duplicate()
-	gs.endgame_project_stages = d.get("endgame_project_stages", {}).duplicate()
+	# Spaceship part tallies (§15.16 / M4): alliance keys and counts come back
+	# from JSON as strings/floats — coerce both to int (the recurring gotcha).
+	gs.endgame_project_parts = {}
+	var parts_src: Dictionary = d.get("endgame_project_parts", {})
+	for ak in parts_src:
+		var tally: Dictionary = {}
+		for pk in parts_src[ak]:
+			tally[str(pk)] = int(parts_src[ak][pk])
+		gs.endgame_project_parts[int(ak)] = tally
+	# Migration from the pre-M4 flat stage count (alliance_id -> int): k stages
+	# become one part each of the first k types in `stage` order, so a resumed
+	# mid-race save keeps (approximately) its progress.
+	var stages_src: Dictionary = d.get("endgame_project_stages", {})
+	for ak in stages_src:
+		var aid: int = int(ak)
+		if gs.endgame_project_parts.has(aid):
+			continue
+		var ids: Array = Projects.endgame_ids(db_ref)
+		var k: int = int(stages_src[ak])
+		var tally2: Dictionary = {}
+		for i in range(k if k < ids.size() else ids.size()):
+			tally2[str(ids[i])] = 1
+		gs.endgame_project_parts[aid] = tally2
+	# Arrival countdowns: int-coerce the alliance keys and the turns.
+	gs.spaceship_countdown = {}
+	var cd_src: Dictionary = d.get("spaceship_countdown", {})
+	for ak in cd_src:
+		gs.spaceship_countdown[int(ak)] = int(cd_src[ak])
 	gs.assembly = d.get("assembly", {}).duplicate(true)
 	# Active deals (§7): coerce the int id/alliance/player fields back to int so the
 	# loaded keys match later lookups (the recurring JSON float/string-key gotcha).

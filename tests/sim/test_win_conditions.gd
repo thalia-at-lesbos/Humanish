@@ -88,23 +88,158 @@ func test_dominance_no_win_when_population_short() -> void:
 	assert_eq(WinConditions.check_all(gs), -1,
 		"A land lead without the population share is not dominance")
 
-# ── Endgame project (space race) ───────────────────────────────────────────────
+# ── Endgame project (space race, §15.16 / M4) ─────────────────────────────────
+# Parts tally per type (Projects.count_needed); one of every type launches the
+# ship, the arrival countdown ticks per check, at 0 the arrival roll fires.
 
-func test_endgame_project_win_at_required_stages() -> void:
+# Fill alliance `aid`'s tally: every part type at `frac_full` (true = full
+# count, false = the minimum one of each).
+func _fill_parts(gs, aid, full = true) -> void:
+	var tally := {}
+	for pid in Projects.endgame_ids(gs.db):
+		tally[pid] = Projects.count_needed(gs.db.projects[pid]) if full else 1
+	gs.endgame_project_parts[aid] = tally
+
+func test_one_of_every_part_type_launches_the_countdown() -> void:
 	var gs = make_gs(2)
 	gs.enabled_win_conditions = ["endgame_project"]
-	var req: int = int(gs.db.win_conditions["endgame_project"].get("stages_required", 7))
-	gs.endgame_project_stages = {gs.players[0].alliance_id: req}
-	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
-		"Completing every endgame-project stage wins")
-
-func test_endgame_project_no_win_before_all_stages() -> void:
-	var gs = make_gs(2)
-	gs.enabled_win_conditions = ["endgame_project"]
-	var req: int = int(gs.db.win_conditions["endgame_project"].get("stages_required", 7))
-	gs.endgame_project_stages = {gs.players[0].alliance_id: req - 1}
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
 	assert_eq(WinConditions.check_all(gs), -1,
-		"One stage short of the endgame project is not a win")
+		"Completing the parts does not win instantly — the ship must travel")
+	assert_eq(int(gs.spaceship_countdown.get(aid, -1)), 10,
+		"A full ship at normal pace launches with the base 10-turn countdown")
+
+func test_no_launch_while_a_part_type_is_missing() -> void:
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["endgame_project"]
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
+	gs.endgame_project_parts[aid].erase("ss_thrusters")
+	assert_eq(WinConditions.check_all(gs), -1, "No win with a part type missing")
+	assert_false(gs.spaceship_countdown.has(aid),
+		"The ship cannot launch while any part type has zero instances")
+
+func test_arrival_countdown_ticks_down_to_victory() -> void:
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["endgame_project"]
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
+	assert_eq(WinConditions.check_all(gs), -1, "launch turn: no win yet")
+	var rng_before: String = JSON.print(gs.rng.get_state())
+	for i in range(9):
+		assert_eq(WinConditions.check_all(gs), -1,
+			"still travelling %d turns after launch" % (i + 1))
+	assert_eq(int(gs.spaceship_countdown.get(aid, -1)), 1,
+		"one travel turn left after nine ticks")
+	assert_eq(WinConditions.check_all(gs), gs.players[0].alliance_id,
+		"The ship arrives when the countdown expires — full casings always succeed")
+	assert_eq(JSON.print(gs.rng.get_state()), rng_before,
+		"a certain (chance-100) arrival consumes no rng draw")
+
+func test_missing_optional_parts_stretch_the_delay() -> void:
+	# Minimum launch (1 of each): 1 engine missing of 2 → 50×1/2 = +25%;
+	# 4 thrusters missing of 5 → 100×4/5 = +80%. 10 × 205 / 100 = 20 turns.
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["endgame_project"]
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, false)
+	WinConditions.check_all(gs)
+	assert_eq(int(gs.spaceship_countdown.get(aid, -1)), 20,
+		"Missing engines/thrusters stretch the countdown (+25% and +80%)")
+
+func test_pace_scales_the_arrival_delay() -> void:
+	# The long-dead victory_delay_scale column finally read: 67/100/150/300.
+	var cases := {"quick": 6, "epic": 15, "marathon": 30}
+	for pace_id in cases:
+		var gs = make_gs(2)
+		gs.enabled_win_conditions = ["endgame_project"]
+		gs.pace_id = pace_id
+		var aid: int = gs.players[0].alliance_id
+		_fill_parts(gs, aid, true)
+		WinConditions.check_all(gs)
+		assert_eq(int(gs.spaceship_countdown.get(aid, -1)), int(cases[pace_id]),
+			"victory_delay_scale stretches the countdown on %s" % pace_id)
+
+func test_failed_arrival_loses_the_launch_but_keeps_the_parts() -> void:
+	# Missing casings risk the roll: 4 missing × an (injected) 100% penalty
+	# clamps the chance to 0, so the arrival fails without an rng draw.
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["endgame_project"]
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
+	gs.endgame_project_parts[aid]["ss_casing"] = 1
+	gs.db.projects["ss_casing"]["success_rate"] = 100
+	gs.spaceship_countdown[aid] = 1
+	assert_eq(WinConditions.check_all(gs), -1, "A doomed arrival roll is not a win")
+	assert_false(gs.spaceship_countdown.has(aid),
+		"A failed arrival spends the launch — the countdown is cleared")
+	assert_eq(int(gs.endgame_project_parts[aid].get("ss_thrusters", 0)), 5,
+		"Built parts survive a failed arrival")
+	# The next check auto-relaunches from scratch (a re-launch is possible).
+	WinConditions.check_all(gs)
+	assert_true(gs.spaceship_countdown.has(aid),
+		"With every part type still present the ship re-launches")
+
+func test_losing_the_capital_cancels_the_countdown() -> void:
+	var gs = make_gs(2)
+	gs.enabled_win_conditions = ["endgame_project"]
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
+	WinConditions.check_all(gs)
+	assert_true(gs.spaceship_countdown.has(aid), "launched")
+	var cap = make_settlement(gs, 1, 4, 4, 3)
+	cap.structures.append("palace")
+	assert_true(WinConditions.spaceship_capital_lost(gs, cap),
+		"Losing the palace city cancels the arrival countdown")
+	assert_false(gs.spaceship_countdown.has(aid), "the spaceship is lost")
+	assert_false(WinConditions.spaceship_capital_lost(gs, cap),
+		"No countdown in flight: nothing further to cancel")
+
+func test_non_capital_loss_keeps_the_countdown() -> void:
+	var gs = make_gs(2)
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, true)
+	gs.spaceship_countdown[aid] = 5
+	var town = make_settlement(gs, 1, 8, 8, 2)
+	assert_false(WinConditions.spaceship_capital_lost(gs, town),
+		"A non-palace city falling never cancels the launch")
+	assert_eq(int(gs.spaceship_countdown.get(aid, -1)), 5, "countdown intact")
+
+func test_spaceship_state_roundtrips_with_int_keys() -> void:
+	# JSON returns dict keys as strings and numbers as floats; deserialize must
+	# coerce the alliance keys and counts back to int (the recurring gotcha).
+	var gs = make_gs(2)
+	var aid: int = gs.players[0].alliance_id
+	_fill_parts(gs, aid, false)
+	gs.spaceship_countdown[aid] = 7
+	var text: String = JSON.print(gs.serialize())
+	var gs2 = GameState.deserialize(JSON.parse(text).result, gs.db)
+	assert_true(gs2.endgame_project_parts.has(aid),
+		"per-type tallies come back keyed by INT alliance id")
+	assert_true(gs2.spaceship_countdown.has(aid),
+		"countdowns come back keyed by INT alliance id")
+	assert_eq(int(gs2.spaceship_countdown[aid]), 7, "countdown value survives")
+	assert_eq(gs2.endgame_project_parts[aid].get("ss_engine", -1), 1,
+		"per-type counts come back as ints")
+	assert_eq(JSON.print(gs2.serialize()), text,
+		"a load/save roundtrip reproduces the identical save")
+
+func test_old_flat_stage_save_migrates_to_per_type() -> void:
+	# A pre-M4 save carried alliance_id -> flat stage count; k stages migrate to
+	# one part each of the first k types in `stage` order.
+	var gs = make_gs(2)
+	var aid: int = gs.players[0].alliance_id
+	var d: Dictionary = JSON.parse(JSON.print(gs.serialize())).result
+	d.erase("endgame_project_parts")
+	d.erase("spaceship_countdown")
+	d["endgame_project_stages"] = {str(aid): 3}
+	var gs2 = GameState.deserialize(d, gs.db)
+	var tally: Dictionary = gs2.endgame_project_parts.get(aid, {})
+	assert_eq(int(tally.get("ss_casing", 0)), 1, "stage 1 migrates to a casing")
+	assert_eq(int(tally.get("ss_cockpit", 0)), 1, "stage 2 migrates to a cockpit")
+	assert_eq(int(tally.get("ss_docking_bay", 0)), 1, "stage 3 migrates to a docking bay")
+	assert_eq(int(tally.get("ss_engine", 0)), 0, "later stages stay unbuilt")
 
 func test_projects_carry_a10_reference_counts_and_costs() -> void:
 	# A10 data pass (audit §4): pin the reference spaceship part counts
@@ -132,17 +267,34 @@ func test_projects_carry_a10_reference_counts_and_costs() -> void:
 	assert_eq(int(gs.db.get_structure("manhattan_project").get("cost", 0)), 1500,
 		"Manhattan Project costs 1500 (reference project cost)")
 
-func test_completing_a_project_advances_the_stage_count() -> void:
+func test_completing_a_project_advances_the_part_tally() -> void:
 	# Drive the real production path: a finished "project" item bumps the
-	# alliance's stage tally (turn_engine `_complete_item`), which is exactly what
-	# the endgame win condition reads.
+	# alliance's PER-TYPE part tally (turn_engine `_complete_item`), which is
+	# exactly what the endgame win condition reads (§15.16 / M4).
 	var gs = make_gs(2)
 	var s = make_settlement(gs, 1, 5, 5, 3)
 	s.production_queue = [{"type": "project", "id": "ss_casing"}]
 	s.output_production = 100000        # enough store to finish in one step
 	TurnEngine._settlement_production(gs, s, gs.get_player(1))
-	assert_eq(int(gs.endgame_project_stages.get(gs.players[0].alliance_id, 0)), 1,
-		"Finishing a project increments the alliance's endgame-project stage count")
+	var tally: Dictionary = gs.endgame_project_parts.get(gs.players[0].alliance_id, {})
+	assert_eq(int(tally.get("ss_casing", 0)), 1,
+		"Finishing a part increments the alliance's tally for that type")
+
+func test_duplicate_part_of_a_filled_type_is_a_noop() -> void:
+	# ss_cockpit needs a single instance; a second cockpit no longer advances
+	# the race (the hammers are lost, as in the reference).
+	var gs = make_gs(2)
+	var p1 = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_cockpit"})
+	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_cockpit"})
+	assert_eq(int(gs.endgame_project_parts[p1.alliance_id].get("ss_cockpit", 0)), 1,
+		"A duplicate of an already-filled part type does not advance the race")
+	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_engine"})
+	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_engine"})
+	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_engine"})
+	assert_eq(int(gs.endgame_project_parts[p1.alliance_id].get("ss_engine", 0)), 2,
+		"Engines cap at their count_needed of 2")
 
 # ── Cultural ───────────────────────────────────────────────────────────────────
 # A settlement reaches the top ring when culture_total passes the last threshold;

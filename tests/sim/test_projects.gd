@@ -103,18 +103,18 @@ func test_completing_sdi_records_it_on_the_player() -> void:
 	var s = make_settlement(gs, 1, 5, 5, 3)
 	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "sdi"})
 	assert_true("sdi" in p1.projects, "completion records the project on the player")
-	assert_false(gs.endgame_project_stages.has(p1.alliance_id),
-		"an effects project never counts as a spaceship stage")
+	assert_false(gs.endgame_project_parts.has(p1.alliance_id),
+		"an effects project never counts as a spaceship part")
 
-func test_completing_spaceship_stage_keeps_old_model() -> void:
+func test_completing_spaceship_part_tallies_per_type() -> void:
 	var gs = make_gs(2)
 	var p1 = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 3)
 	TurnEngine._complete_item(gs, s, p1, {"type": "project", "id": "ss_casing"})
-	assert_eq(int(gs.endgame_project_stages.get(p1.alliance_id, 0)), 1,
-		"spaceship stage still increments the alliance counter")
+	assert_eq(int(gs.endgame_project_parts.get(p1.alliance_id, {}).get("ss_casing", 0)), 1,
+		"a spaceship part increments the alliance's per-type tally (§15.16)")
 	assert_false("ss_casing" in p1.projects,
-		"spaceship stages are not recorded on Player.projects")
+		"spaceship parts are not recorded on Player.projects")
 
 func test_world_project_completed_second_grants_nothing() -> void:
 	var gs = make_gs(2)

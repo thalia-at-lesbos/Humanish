@@ -6,6 +6,23 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Added
+- **Spaceship part counts and arrival countdown.** The Space Race now counts
+  parts **per type** — SS Casing ×5, SS Thrusters ×5, SS Engine ×2, and one
+  each of Cockpit, Life Support, Stasis Chamber, and Docking Bay (16 parts at
+  full build); building a duplicate of an already-filled type no longer
+  advances the race. One of every part type **launches the ship**: arrival
+  takes a 10-turn countdown, scaled by game pace (Quick 6 / Epic 15 /
+  Marathon 30) and stretched by missing optional parts (each missing engine
+  +25%, each missing thruster +20%). Missing casings risk the arrival —
+  −20% success per missing casing; a failed arrival loses the launch (the
+  built parts remain and the ship re-launches). Losing your capital destroys
+  a spaceship in flight. Older saves migrate their flat stage count.
+- **Civilian units are captured, not killed.** Overrunning a tile that falls
+  with a Worker or Settler on it now hands the attacker a fresh Worker
+  (a captured Settler demotes to a Worker); the captured unit arrives at
+  full health with no experience and cannot act until the next turn. Wild
+  raiders never capture — against them the unit simply dies. Losing a unit
+  to capture adds war fatigue (2 weight), capturing one adds a little (1).
 - **Air interception.** Air strikes and air bombardments can now be contested
   over the target tile (the reference model). Fighters on **Air Patrol** (the
   intercept stance, once per turn per interceptor) and ground/naval anti-air —

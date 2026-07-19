@@ -5,8 +5,8 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 §15.13–§15.21 and `game-data.md` §29.12–§29.16 (all tagged "sourced
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
-M1 (2026-07-19), M2/M5/M7 (2026-07-19), M3 (2026-07-19) done — M4/M6 remain in
-Phase M.
+**Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
+Next: Phase R (version-bump review at phase end), Phase T.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -332,7 +332,37 @@ docs-only.
   mission command path), `src/sim/combat_apply.gd`. **Tests:**
   `tests/sim/test_combat.gd` (intercepted/evaded/clean cases, deterministic
   seeds).
-- **M4. Spaceship part counts + arrival delay** ⓪(0d): wire the dead
+- **M4. Spaceship part counts + arrival delay** ⓪(0d): **DONE 2026-07-19** —
+  `gs.endgame_project_stages` (alliance→flat count) replaced by
+  `gs.endgame_project_parts` (alliance → {project_id: count}, capped at
+  `count_needed` in `TurnEngine._complete_item` so duplicates of a filled type
+  no-op) plus `gs.spaceship_countdown` (alliance → turns left); both
+  int-coerce alliance keys/counts on deserialize, and an old flat tally of k
+  migrates to one part each of the first k types in `stage` order (queueing
+  extra parts stays allowed — the hammers are lost, matching the world-unique
+  project rule). Per-type helpers live in `Projects` (`count_needed`,
+  `endgame_ids` — explicit int-key sort; Godot 3 Array-of-Array `sort()` is
+  NOT lexicographic (it came back reversed) — `parts_tally`/`parts_of`/
+  `launch_ready`). The §15.16 model runs inside `WinConditions
+  ._endgame_project` (world-step phase 10, alliances in sorted-id order):
+  **auto-launch** when every type ≥ 1 → countdown = `victory_delay_turns` 10
+  (new key in `win_conditions.json`, replacing `stages_required`) ×
+  `victory_delay_scale`/100 (the dead paces column's reader: 6/10/15/30) ×
+  (100 + Σ new per-part `delay_percent` × missing/`count_needed`)/100
+  (engine 50 → +25%/missing, thrusters 100 → +20%/missing; truncating);
+  tick −1 per check; at 0 the arrival roll (new `success_rate` 20 on
+  ss_casing: chance 100 − 20 × missing casings, one `gs.rng` draw — skipped
+  at chance 100/0 per the §15.5 no-pointless-draws discipline). Failure
+  spends the launch, parts remain, auto-relaunch next check. Capital loss:
+  event-driven `WinConditions.spaceship_capital_lost` from
+  `SimFacade._city_falls` (a poll would race `_ensure_capital_palace`'s
+  re-seed; WildAI needs no hook — wild forces cannot assault a capital).
+  Tests (+11 net in `test_win_conditions.gd`, 1 reworked in
+  `test_projects.gd`): launch/no-launch, duplicate no-op + engine cap,
+  10-tick arrival with a zero-rng-draw pin, min-launch stretch (20),
+  pace stretch, doomed-arrival reset + relaunch, capital-loss cancel (and
+  non-capital no-op), int-key roundtrip + identical re-save, flat-stage
+  migration. Original item: wire the dead
   `count_needed` (casing ×5, thrusters ×5, engines ×2 — 16 parts total, plan A10
   note) into the space-race win: per-part-type tallies replace the flat
   `stages_required: 7` stage count (duplicate parts of a filled type no longer
@@ -370,7 +400,28 @@ docs-only.
   `data/constants.json`, `data/policies.json` (retire the gate flag if unused
   elsewhere). **Tests:** `tests/sim/test_settlement.gd` (cost math), AI solvency
   reads unaffected (`tests/api/test_player_ai.gd`).
-- **M6. Unit capture** ⓪(0i, optional adoption): non-combat units are captured,
+- **M6. Unit capture** ⓪(0i, adopted): **DONE 2026-07-19** — units.json ships
+  a `capture` class on worker/settler/fast_worker (all `"worker"`, so a
+  captured settler demotes per §15.21). Implemented wholly in
+  `CombatApply.apply_unit_result` (the shared facade/WildAI path): when the
+  defender dies AND the attacker survives AND `advance` is true (the tile is
+  actually overrun — so a civilian dying in a city-tile defence or to an air
+  strike is killed, not captured; in Humanish a city cannot fall while a
+  capturable unit still garrisons it, since strength-0 civilians are picked
+  as defenders first, so the reference's capture-with-the-city case is
+  vacuous), the tile-taker gets a fresh unit of the class on the tile: full
+  health, zero XP/promotions, movement_left 0 + has_moved (spent for the
+  turn). Wild/animal attackers (owner −2 / is_wild / is_animal) never
+  capture; a player capturing FROM wild works (accrual skips wild as ever).
+  C8 weights shipped in constants.json — `war_weariness_unit_captured` 2 /
+  `war_weariness_captured_unit` 1 — replacing the kill weights on a capture
+  event (×2 multiplier as usual). The result dict carries
+  `captured_unit_id`/`captured_unit_type`; `SimFacade._apply_combat_result`
+  emits `unit_created` + a "Captured a Worker!" notification. Tests (+6 in
+  `test_combat.gd`): ownership flip + fresh/spent state + attacker advance,
+  settler demotion, C8 weights, wild-never-captures, no-overrun kill keeps
+  kill weights, combat units never captured. Original item: non-combat units
+  are captured,
   not killed, when their tile is taken; then ship the C8 unit-capture
   war-weariness weights (2/1). **Files:** `src/sim/combat_apply.gd`,
   `data/constants.json`. **Tests:** `tests/sim/test_combat.gd` (worker captured,
@@ -471,7 +522,7 @@ docs-only.
    only.
 3. **M1 → M2/M3/M5/M7** (M1 — **done 2026-07-19** — unblocked the Steam Power
    leftovers; M2/M5/M7 — **done 2026-07-19**; M3 — **done 2026-07-19**), then
-   **M4/M6** (the Phase M remainder).
+   **M4/M6** — **done 2026-07-19**; Phase M is complete.
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
    full integration gate + midgame save/load determinism after each, version
    review at phase end).
