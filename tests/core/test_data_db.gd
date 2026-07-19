@@ -905,3 +905,39 @@ func test_constants_carry_c5_reference_nuke_magnitudes() -> void:
 		"the old flat unit-damage placeholder is gone")
 	assert_eq(db.constants.has("nuke_population_loss_pct"), false,
 		"the old flat population-loss placeholder is gone")
+
+# ── W8: unlocks_units display sweep ──────────────────────────────────────────
+#
+# Display convention (see docs/ref/code-layout.md): a non-unique unit appears in
+# `unlocks_units` of exactly one technology — its FINAL gating tech (the entry
+# of its `tech_required` set latest by era, then by cost); unique units are
+# omitted (they surface via their society's roster instead).
+
+func test_unlocks_units_entries_match_unit_tech_required() -> void:
+	var db = _db()
+	var seen: Dictionary = {}
+	for tech_id in db.technologies:
+		for uid in db.get_technology(tech_id).get("unlocks_units", []):
+			assert_true(db.units.has(str(uid)),
+				"unlocks_units entry '%s' under %s names a real unit" % [uid, tech_id])
+			var reqs: Array = UnitPrereqs.tech_list(
+				db.get_unit(str(uid)).get("tech_required", null))
+			assert_true(str(tech_id) in reqs,
+				"'%s' listed under %s must carry that tech in tech_required" % [uid, tech_id])
+			assert_false(seen.has(str(uid)),
+				"'%s' appears under one tech only (was already under %s)" % [uid, str(seen.get(str(uid), ""))])
+			seen[str(uid)] = str(tech_id)
+
+func test_and_set_units_anchor_under_final_gating_tech() -> void:
+	# Spot-pin the W8 re-anchors: each AND-set unit sits under the latest
+	# (era, cost) member of its requirement set.
+	var db = _db()
+	var expected: Dictionary = {
+		"paratrooper": "flight", "cavalry": "rifling", "frigate": "astronomy",
+		"privateer": "astronomy", "ironclad": "steam_power",
+		"attack_submarine": "radio", "guided_missile": "radio",
+		"tactical_nuke": "rocketry", "icbm": "rocketry", "bomber": "radio"
+	}
+	for uid in expected:
+		assert_true(uid in db.get_technology(expected[uid]).get("unlocks_units", []),
+			"%s anchors under its final gating tech %s" % [uid, expected[uid]])

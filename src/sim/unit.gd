@@ -125,6 +125,13 @@ func effective_strength(db: DataDB, is_attacker: bool, terrain: Dictionary,
 	# Class-versus-class key for the opponent's classification (§5.3).
 	var vs_key: String = VS_CLASS_KEY.get(versus_class, "")
 
+	# Unit-level vs-class modifier (W7, §29.16): a unit's own data row may carry
+	# the same `vs_<class>` keys as promotions (panzer: `vs_armor` 50, the
+	# reference unit-combat modifier). Read through the same key channel so the
+	# unit-level and promotion-side values stack into one bonus sum.
+	if vs_key != "":
+		bonus_sum += int(db.get_unit(unit_type_id).get(vs_key, 0))
+
 	# Promotions
 	for promo_id in promotions:
 		var promo: Dictionary = db.get_promotion(promo_id)

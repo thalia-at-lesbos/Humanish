@@ -151,26 +151,53 @@ docs-only.
   possibly `src/sim/combat_apply.gd`. **Tests:** `tests/sim/test_turn_engine.gd`
   war-weariness cases.
 - **W5. `collateral_damage_protection`** (plan A8 note; drill2–4 carry 20):
-  spillover damage in `Combat.resolve`/`CombatApply` currently reads no
+  **DONE 2026-07-18** — `CombatApply.spillover_taken` cuts each stacked unit's
+  spillover by its summed promotion protection (damage × (100 − protection) /
+  100, truncating; ≥100 = immunity), applied at the one spillover site in
+  `apply_unit_result`. Tests in `test_combat.gd` (protected vs unprotected,
+  drill-line summing to 60, ≥100 immunity). Original item: spillover damage in
+  `Combat.resolve`/`CombatApply` currently reads no
   promotion key — reduce spillover damage *taken* by the defender's summed
   protection %, integer truncation (semantics confirmed in 0j). **Files:**
   `src/sim/combat.gd` or `src/sim/combat_apply.gd`. **Tests:**
   `tests/sim/test_combat.gd` (protected vs unprotected spillover, stacking cap).
 - **W6. `same_tile_heal` / `adjacent_tile_heal`** (plan A8/D4 notes; woodsman3
-  15, medic1 10/medic2 10/medic3 15+15): healing reads only own-unit
+  15, medic1 10/medic2 10/medic3 15+15): **DONE 2026-07-18** — per the §29.16
+  finding, `TurnEngine._medic_bonus` adds a SINGLE BEST value across same-tile
+  friendly units' summed `same_tile_heal` (the healer's own value competes)
+  and same-landmass-adjacent-tile friendly units' summed `adjacent_tile_heal`
+  (never summed across sources, not best-of-each-category; the landmass check
+  reuses the now-public `Quests.landmass_labels`, computed lazily). Tests in
+  `test_turn_engine.gd` (on tile, adjacent, single-best, per-carrier summing,
+  hostile medic inert, cross-strait landmass gate). Original item: healing
+  reads only own-unit
   `healing_bonus`. Extend the heal phase: a unit's heal rate gains the best
   `same_tile_heal` among *other* friendly units on its tile and the best
   `adjacent_tile_heal` among friendly units on adjacent tiles (reference medic
   model — best, not summed; confirm in 0j if doubted). **Files:**
   `src/sim/turn_engine.gd` heal phase. **Tests:** `tests/sim/test_turn_engine.gd`
   (medic on tile, medic adjacent, non-stacking).
-- **W7. Panzer +50% vs armor** (plan A1 note; magnitude confirmed in 0j): the
+- **W7. Panzer +50% vs armor** (plan A1 note; magnitude confirmed in 0j):
+  **DONE 2026-07-18** — `Unit.effective_strength` now also reads the opponent's
+  mapped `vs_<class>` key from the unit's own data row (same `VS_CLASS_KEY`
+  channel as promotions, stacking additively); panzer carries `vs_armor: 50`.
+  Tests in `test_combat.gd` (panzer vs armor 42, vs gunpowder control 28,
+  +Ambush stack 49). Original item: the
   promotion-side `vs_armor` is already live (`Unit.VS_CLASS_KEY`, ambush 25) —
   add the *unit-level* `vs_armor: 50` data key to panzer and read per-unit
   vs-class keys through the same site. **Files:** `data/units.json`,
   `src/sim/unit.gd`/`src/sim/combat.gd`. **Tests:** `tests/sim/test_combat.gd`
   (panzer vs tank vs panzer-vs-infantry control).
-- **W8. `unlocks_units` display sweep** (plan B1/D1 note; cosmetic): re-anchor
+- **W8. `unlocks_units` display sweep** (plan B1/D1 note; cosmetic): **DONE
+  2026-07-18** — convention chosen and stated in `code-layout.md`: a non-unique
+  unit appears under exactly ONE tech, its *final gating tech* (latest of its
+  `tech_required` set by era, then cost); unique units stay omitted (they
+  surface via their society's roster). Nine units re-anchored (paratrooper→
+  flight, cavalry→rifling, frigate/privateer→astronomy, ironclad→steam_power,
+  attack_submarine/guided_missile→radio, tactical_nuke/icbm→rocketry); the
+  lists are read only by display surfaces (tech tooltip, encyclopedia,
+  TextGen). `test_data_db.gd` now cross-checks every entry against
+  `tech_required`, uniqueness, and pins the re-anchors. Original item: re-anchor
   each AND-set unit to the correct tech list entries (e.g. bomber appears under
   both Flight and Radio, or under its final gate only — pick one convention and
   state it in `docs/ref/code-layout.md` if it matters). **Files:**

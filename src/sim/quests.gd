@@ -398,27 +398,28 @@ static func _fleet_met_types(aim: Dictionary, player: Player, game_state) -> int
 # fill over non-sea terrain); a city's mass is the component of its own tile. Pure
 # integer scan, no RNG. (Blessed Sea.)
 static func _cities_on_landmasses(player: Player, game_state) -> int:
-	var labels: Dictionary = _landmass_labels(game_state)
+	var labels: Dictionary = landmass_labels(game_state)
 	var seen: Dictionary = {}
 	for s in game_state.settlements:
 		if s.owner_player_id != player.id:
 			continue
-		var key: int = int(labels.get(_tile_key(s.x, s.y, game_state), -1))
+		var key: int = int(labels.get(tile_key(s.x, s.y, game_state), -1))
 		if key >= 0:
 			seen[key] = true
 	return seen.size()
 
 # Flood-fill every land tile into a connected-component id (4-neighbour adjacency,
 # honouring map wrap via WorldMap.neighbours4). Returns tile_key -> component id.
-# Sea tiles are omitted. Deterministic scan order (row-major).
-static func _landmass_labels(game_state) -> Dictionary:
+# Sea tiles are omitted. Deterministic scan order (row-major). Public: the §5.6
+# heal phase (TurnEngine, W6 medic bonus) reuses it for its same-landmass check.
+static func landmass_labels(game_state) -> Dictionary:
 	var db: DataDB = game_state.db
 	var labels: Dictionary = {}
 	var next_id: int = 0
 	for t in game_state.map.all_tiles():
 		if _is_sea(t, db):
 			continue
-		var k: int = _tile_key(t.x, t.y, game_state)
+		var k: int = tile_key(t.x, t.y, game_state)
 		if labels.has(k):
 			continue
 		# New component: BFS from this tile over connected land.
@@ -429,7 +430,7 @@ static func _landmass_labels(game_state) -> Dictionary:
 			for nt in game_state.map.neighbours4(cur.x, cur.y):
 				if nt == null or _is_sea(nt, db):
 					continue
-				var nk: int = _tile_key(nt.x, nt.y, game_state)
+				var nk: int = tile_key(nt.x, nt.y, game_state)
 				if labels.has(nk):
 					continue
 				labels[nk] = next_id
@@ -441,7 +442,7 @@ static func _is_sea(t: Tile, db: DataDB) -> bool:
 	return str(db.get_terrain(t.terrain_id).get("domain", "land")) == "sea"
 
 # A stable integer key for a tile (row-major); landmass labels are keyed by it.
-static func _tile_key(x: int, y: int, game_state) -> int:
+static func tile_key(x: int, y: int, game_state) -> int:
 	return y * game_state.map.width + x
 
 # conquer_resource aim: 1 if the player owns a tile carrying any of the named
