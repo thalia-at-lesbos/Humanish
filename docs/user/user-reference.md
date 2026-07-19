@@ -123,9 +123,11 @@ One item builds at a time; the queue advances automatically.
 **Worked tiles** — the city always works its own tile for free; each remaining citizen (population minus specialists, and minus any lost to disorder) works one more tile inside the city's current cultural border ring.
 Click a tile to lock or unlock it. Locked tiles are always worked first.
 **Automate Citizens** lets the game choose the remaining tiles, favouring food and production; with it off, only the city centre and your locked tiles are worked.
+A citizen with no tile to work and no specialist post is never idle: it automatically becomes a **Citizen specialist**, worth +1 production (shown as "Citizens (auto)" in the Specialists section). Citizens flow back onto the land as soon as tiles or slots open up.
 
 **Specialists** — assign citizens to specialist slots in built structures (e.g. scientist, engineer, merchant, artist).
 Specialists generate Great Person points toward a Great Person of that type (see §10).
+Settled Great People are **free** specialists: they sit on top of your population and never take a worker slot, so assigning a specialist only ever displaces an auto-filled Citizen or a tile worker.
 
 **Rush production** — spend gold to instantly complete the current build queue item, available under every government.
 The price is 3 gold per hammer still owed; an item queued this same turn costs 50% extra.
@@ -322,6 +324,8 @@ Combat is turn-by-turn within a single resolution. Each round:
 
 Surviving units gain XP from combat. At XP thresholds you can choose a **promotion** — a permanent combat bonus (strength vs. unit class, terrain bonus, first strike, etc.).
 
+Newly trained military units can start with XP before their first battle: from training buildings (Barracks, Stable, Drydock, Airport, and their empire-wide counterparts), from civics such as Vassalage and Theocracy, and from **settled Great Generals** in the training city (+2 each). A **drafted** unit receives half the city's total starting XP, rounded down.
+
 Open the **Military** advisor screen to review all your units and their promotion eligibility.
 
 ### War fatigue
@@ -446,7 +450,7 @@ Specialists in your cities generate **Great Person points** each turn. Each city
 
 The **Military Academy** (+25% military-unit production in its city) can **only** be raised by a Great General — it never appears in a city's normal build list.
 
-Every Great Person can also permanently **join a city** as a super-specialist, and most types can **start a Golden Age**. Use a Great Person's action from the selection panel when the unit is on a suitable tile.
+Every Great Person can also permanently **join a city** as a super-specialist, and most types can **start a Golden Age**. Use a Great Person's action from the selection panel when the unit is on a suitable tile. A settled Great Person is a **free** specialist — it does not consume a population slot, so its yields come on top of everything your citizens do. The settled **Great General** is special: it yields nothing directly but serves as a **military instructor** — every combat-capable unit trained in its city starts with **+2 experience** per settled General, stacking with barracks-style building XP.
 
 ### Golden Age
 

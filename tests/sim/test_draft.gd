@@ -68,6 +68,20 @@ func test_draft_rejected_below_min_population():
 		"a city too small cannot be drafted")
 	assert_eq(gs.units.size(), 0, "no unit raised")
 
+func test_conscript_gets_half_the_citys_production_xp():
+	# §15.20: a conscripted unit receives half the city's total production XP
+	# (civics + buildings + settled Great General instructors), truncated.
+	var ctx = _facade_with_city(5)
+	var f = ctx[0]; var gs = ctx[1]; var p = ctx[2]; var s = ctx[3]
+	p.policies = {"government": "nationhood"}
+	s.structures.append("barracks")            # land_xp 3
+	s.specialists = {"great_general": 1}       # military instructor +2 (§15.20)
+	assert_eq(TurnEngine.new_unit_xp(gs, s, p, "musketman"), 5,
+		"fixture sanity: a trained Musketman would start with 5 XP here")
+	assert_true(f.apply_command(Commands.draft(1, s.id)), "draft accepted")
+	assert_eq(gs.units[0].experience, 2,
+		"the conscript receives half the city's 5 production XP, truncated to 2")
+
 func test_draft_rejected_in_disorder():
 	var ctx = _facade_with_city(5)
 	var f = ctx[0]; var gs = ctx[1]; var p = ctx[2]; var s = ctx[3]

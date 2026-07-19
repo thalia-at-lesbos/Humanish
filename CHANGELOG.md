@@ -5,7 +5,25 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Added
+- **Idle citizens now work as Citizen specialists.** A citizen with no tile
+  left to work and no specialist post — because the city outgrew its land,
+  tiles are blockaded away, or citizen automation is off with too few locked
+  tiles — automatically becomes a **Citizen specialist** worth +1 production
+  (no Great Person points). Citizens return to the land as soon as tiles or
+  slots open up; the city screen shows the auto-filled count separately.
+
 ### Changed
+- **Settled Great People no longer consume a population slot.** A Great
+  Person who joins a city is now a **free** specialist on top of the
+  population: its yields no longer cost the city a tile worker, and it no
+  longer counts against the population cap when assigning specialists.
+- **The settled Great General is now a military instructor.** Instead of the
+  former +2 production stand-in, a settled Great General yields nothing
+  directly but grants **+2 starting experience** to every combat-capable
+  unit trained in its city (stacking with barracks-style building XP and
+  with each other). Drafted units now receive **half the city's total
+  starting XP** (rounded down) instead of only the civic bonus.
 - **Great Person threshold is now empire-wide.** Each city still banks its own
   Great Person point pool, but the threshold a pool must reach is shared by
   the whole civilization: it starts at 100 (scaled by game pace — Quick 67,

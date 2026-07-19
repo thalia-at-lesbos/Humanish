@@ -6,8 +6,9 @@ the plan was written; every 0a–0j value is recorded in `game-rules.md`
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
 proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
 **Phase M complete (2026-07-19)** — M1, M2/M5/M7, M3, and M4/M6 all done.
-Phase R in progress: **R1 done (2026-07-19)**, **R2 done (2026-07-19)**;
-next R3–R5 (version-bump review at phase end), then Phase T.
+Phase R in progress: **R1 done (2026-07-19)**, **R2 done (2026-07-19)**,
+**R3 done (2026-07-19)**, **R4 done (2026-07-19)**;
+next R5 (then the version-bump review at phase end), then Phase T.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
@@ -552,16 +553,58 @@ docs-only.
   (serialize), `src/sim/turn_engine.gd`, `data/paces.json`. **Tests:**
   `tests/sim/test_great_people.gd` rewrite of threshold
   cases; save/load roundtrip with int-coercion.
-- **R3. Free settled specialists + citizen auto-assignment** ⓪(0g): settled
-  specialists stop consuming a population worker slot, and excess citizens
-  auto-assign as `citizen` specialists (making the shipped +1P citizen row
-  live). **Files:** `src/sim/specialists.gd`, `src/sim/settlement.gd`,
-  `scenes/screens/city_screen.gd` (slot display). **Tests:**
-  `tests/sim/test_specialists.gd`, `tests/scenes/test_city_screen.gd` canary.
-- **R4. Military instructor model** ⓪(0h): settled Great General grants +XP to
-  units built in the city (replacing the +2P stand-in). **Files:**
-  `src/sim/great_people.gd`, `src/sim/turn_engine.gd` (unit-completion XP).
-  **Tests:** `tests/sim/test_great_people.gd`.
+- **R3. Free settled specialists + citizen auto-assignment** ⓪(0g — sourced;
+  spec §15.19): **DONE 2026-07-19** — data: `specialists.json` citizen row
+  gains `is_default: true` (the §15.19 default-specialist marker; the row's
+  shipped +1P / 0 GPP / unlimited slots are now live); `is_great` doubles as
+  the free-specialist marker (no new key). New `Specialists` helpers:
+  `is_free`, `default_type`, `population_used` (population-consuming posts =
+  non-free, non-default — the single worker-budget/assignment-cap base).
+  `TurnEngine._auto_assign_workers` charges only `population_used` against
+  `effective_workers()` (a settled great frees its slot on the spot, old
+  saves included — no migration needed) and, after tile assignment (both
+  auto and manual modes), auto-fills every leftover citizen as one
+  `citizen` specialist, recomputed from scratch each pass (so citizens are
+  pulled back out when tiles/locks/automation/slots open; a manual
+  assignment of the default type is engine-overwritten by design).
+  `SimFacade._cmd_assign_specialist` caps only population-consuming types
+  (free/default are uncapped per the §15.19 unconditional-validity rule) and
+  re-runs `_auto_assign_workers` on success so displacement is immediate.
+  `GreatPeople.dominant_specialist` now takes `db` and skips zero-GPP types
+  — auto-filled citizens (and settled greats) can no longer steal a birth
+  from the point-banking specialists and misroute it to the abstract
+  fallback. `Settlement.deserialize` int-coerces the specialist counts
+  (touched-deserialize rule). City screen: header splits "Assigned
+  specialists: W / pop" (working posts) from "Settled (free): F" and
+  "Citizens (auto): N"; the + cap uses `population_used` (canary test
+  already existed). **Save format unchanged** (the `specialists` dict just
+  gains engine-managed `citizen` entries). Contentment/food untouched —
+  specialists eat as population, which free settled greats never were.
+  Tests: new `tests/sim/test_specialists.gd` (15 tests: readers, free-slot
+  behaviour, citizen fill on short land / manual mode, reassignment when
+  tiles open, +1P yield, no GPP, facade cap incl. displacement, roundtrip),
+  +1 in `test_great_people.gd` (dominance skips pointless types). No
+  pinned totals shifted (fixtures have land for everyone).
+- **R4. Military instructor model** ⓪(0h — sourced; spec §15.20, value
+  §29.16): **DONE 2026-07-19** — `specialists.json` `great_general` row:
+  output `{}` (the +2P stand-in is GONE) and `experience: 2` (the §15.20
+  specialist-experience value; data-driven, any row may carry it). New
+  `Specialists.experience`/`settlement_unit_xp` (Σ count × experience) and
+  `TurnEngine.new_unit_xp(gs, s, player, iid)` — the extracted single
+  unit-completion XP site (civic `new_unit_xp` + Theocracy state-religion XP
+  + `_structure_unit_xp` buildings incl. Pentagon scan + instructors; 0 for
+  non-military), used by `_complete_item` and by `SimFacade._cmd_draft`,
+  where the §15.20 conscript rule is now real: a drafted unit gets HALF the
+  city's total production XP, integer-truncated (previously civic XP only —
+  a draft in a barracks+GG city now starts with (3+2)/2 = 2 XP). No
+  serialization change (settled GGs remain plain `specialists` counts).
+  Tests: +4 in `test_great_people.gd` (stand-in gone + experience pin,
+  own-city-only XP grant, stacking with barracks and multiple GGs,
+  civilians unaffected), +1 in `test_draft.gd` (conscript half-XP).
+  **Files:** `src/sim/specialists.gd`, `src/sim/great_people.gd`,
+  `src/sim/turn_engine.gd`, `src/api/sim_facade.gd`. Full run after
+  R3+R4: 1732 unit + 11 integration green; midgame save/load determinism
+  unchanged.
 - **R5. Fractional feature health** (documented — plan A5 note: forest +0.5,
   jungle −0.25, flood plains −0.4; no Phase 0): adopt by scaling city health
   accounting ×100 (integer centi-health, `Fixed`-style; **no floats** — the

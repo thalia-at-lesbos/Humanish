@@ -242,7 +242,12 @@ static func deserialize(d: Dictionary):
 	s.worked_tiles = d.get("worked_tiles", []).duplicate(true)
 	s.locked_tiles = d.get("locked_tiles", []).duplicate(true)
 	s.manage_citizens_auto = bool(d.get("manage_citizens_auto", true))
-	s.specialists = d.get("specialists", {}).duplicate()
+	# Specialist counts come back as floats from JSON — coerce to int so the
+	# engine-managed citizen fill and instructor sums stay integer (the gotcha).
+	s.specialists = {}
+	var spec_in: Dictionary = d.get("specialists", {})
+	for stype in spec_in:
+		s.specialists[str(stype)] = int(spec_in[stype])
 	s.structures = d.get("structures", []).duplicate()
 	# Per-structure event yield bonuses (§9 STRUCT_YIELD): coerce each channel value
 	# back to int so post-load output/contentment math matches (the JSON float gotcha).

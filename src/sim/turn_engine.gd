@@ -960,17 +960,11 @@ static func _complete_item(gs: GameState, s: Settlement,
 			u.base_strength = int(udata.get("base_strength", 5))
 			u.movement_total = int(udata.get("movement", 120))
 			u.movement_left = u.movement_total
-			# Civic starting experience for newly trained military units (§8):
-			# Vassalage's flat bonus, plus Theocracy's bonus when the unit is raised
-			# in a city that follows the player's adopted state religion.
+			# Starting experience for newly trained military units: civics,
+			# state religion, buildings, and settled Great General instructors
+			# (see new_unit_xp).
 			if _is_military_unit(gs.db, iid):
-				var xp: int = PolicyEffects.sum_int(player, gs.db, "new_unit_xp")
-				if player.state_religion != "" and s.belief_id == player.state_religion:
-					xp += PolicyEffects.sum_int(player, gs.db, "state_religion_unit_xp")
-				# Building-XP: barracks/stable/drydock/airport/West Point/Pentagon and
-				# the unique replacements grant starting experience by unit category (§5.5).
-				xp += _structure_unit_xp(gs, s, player, iid)
-				u.experience = xp
+				u.experience = new_unit_xp(gs, s, player, iid)
 				# Earned XP may already cross a promotion threshold; then layer on any
 				# building-granted free promotions (Dun, Ikhanda, Trading Post, …).
 				CombatApply.award_promotions(gs, u)
@@ -1022,6 +1016,23 @@ static func _complete_item(gs: GameState, s: Settlement,
 				"item_id": iid,
 				"item_name": str(proj.get("name", iid))
 			})
+
+# The city's total production experience for a newly completed military unit:
+# civic starting XP (§8 — Vassalage's flat bonus, plus Theocracy's when the city
+# follows the player's adopted state religion), building XP by unit category
+# (§5.5), and the settled Great General military instructors (+2 XP per head,
+# §15.20 / R4) — all stacking additively. 0 for non-military units. A conscript
+# receives HALF this total, integer-truncated (SimFacade._cmd_draft).
+static func new_unit_xp(gs: GameState, s: Settlement,
+		player: Player, iid: String) -> int:
+	if not _is_military_unit(gs.db, iid):
+		return 0
+	var xp: int = PolicyEffects.sum_int(player, gs.db, "new_unit_xp")
+	if player.state_religion != "" and s.belief_id == player.state_religion:
+		xp += PolicyEffects.sum_int(player, gs.db, "state_religion_unit_xp")
+	xp += _structure_unit_xp(gs, s, player, iid)
+	xp += Specialists.settlement_unit_xp(gs.db, s)
+	return xp
 
 # Starting experience a newly built military unit draws from its city's (and the
 # empire's) buildings, by unit category (§5.5). Per-settlement keys come from the
@@ -1461,7 +1472,7 @@ static func _apply_special_person(gs: GameState, s: Settlement) -> void:
 	if player == null:
 		return
 	# Typed specialists yield an actual Great Person unit at the city.
-	var gen_type: String = GreatPeople.dominant_specialist(s)
+	var gen_type: String = GreatPeople.dominant_specialist(s, gs.db)
 	if gen_type != "" and GreatPeople.gp_unit_for_type(gs.db, gen_type) != "":
 		GreatPeople.birth_from_settlement(gs, s)
 		return
@@ -2026,9 +2037,10 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 		if s.owner_player_id != player.id:
 			continue
 		# Citizens working as specialists are not available to work tiles.
-		var spec_count: int = 0
-		for spec_type in s.specialists:
-			spec_count += int(s.specialists[spec_type])
+		# Free settled greats and the auto-managed default citizen specialist
+		# consume no worker slot (§15.19) — only working posts are charged, and
+		# the citizen count is recomputed from the leftover below.
+		var spec_count: int = Specialists.population_used(db, s)
 		var workers_needed: int = s.effective_workers() - spec_count
 		if workers_needed < 0:
 			workers_needed = 0
@@ -2065,35 +2077,46 @@ static func _auto_assign_workers(gs: GameState, player: Player) -> void:
 			s.worked_tiles.append([lx, ly])
 			locked_set[str(lx) + "," + str(ly)] = true
 			assigned += 1
-		# When citizen management is manual, stop here — only the centre and the
-		# player's locked tiles are worked.
-		if not s.manage_citizens_auto:
-			continue
-		# Gather candidate tiles owned by this player (excluding the centre, which
-		# is already worked above, and any tiles already locked-in).
-		var candidates := []
-		for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
-			if locked_set.has(str(tile.x) + "," + str(tile.y)):
-				continue
-			if not TileOutput.workable(tile, db):
-				continue  # unworkable terrain (mountain peaks) never takes a citizen
-			if tile.owner_player_id == player.id or tile.owner_player_id == -1:
-				var out: Array = TileOutput.compute(tile, db, player.technologies,
-					gs.map.tile_has_river(tile.x, tile.y))
-				var score: int = out[0] * 3 + out[1] * 2 + out[2]
-				candidates.append([score, tile.x, tile.y])
-		# Repeatedly take the best candidate. A plain candidates.sort() would
-		# compare [score, x, y] sub-arrays, which Godot cannot order consistently
-		# ("bad comparison function; sorting will be broken").
-		while assigned < workers_needed and not candidates.empty():
-			var best_i: int = 0
-			for i in range(1, candidates.size()):
-				if _worker_candidate_better(candidates[i], candidates[best_i]):
-					best_i = i
-			var c: Array = candidates[best_i]
-			candidates.remove(best_i)
-			s.worked_tiles.append([c[1], c[2]])
-			assigned += 1
+		# When citizen management is auto, fill the remaining worker slots from
+		# the best candidate tiles; when manual, only the centre and the player's
+		# locked tiles are worked (the leftover falls through to the citizen fill).
+		if s.manage_citizens_auto:
+			# Gather candidate tiles owned by this player (excluding the centre,
+			# which is already worked above, and any tiles already locked-in).
+			var candidates := []
+			for tile in gs.map.tiles_in_range(s.x, s.y, s.culture_ring):
+				if locked_set.has(str(tile.x) + "," + str(tile.y)):
+					continue
+				if not TileOutput.workable(tile, db):
+					continue  # unworkable terrain (mountain peaks) never takes a citizen
+				if tile.owner_player_id == player.id or tile.owner_player_id == -1:
+					var out: Array = TileOutput.compute(tile, db, player.technologies,
+						gs.map.tile_has_river(tile.x, tile.y))
+					var score: int = out[0] * 3 + out[1] * 2 + out[2]
+					candidates.append([score, tile.x, tile.y])
+			# Repeatedly take the best candidate. A plain candidates.sort() would
+			# compare [score, x, y] sub-arrays, which Godot cannot order consistently
+			# ("bad comparison function; sorting will be broken").
+			while assigned < workers_needed and not candidates.empty():
+				var best_i: int = 0
+				for i in range(1, candidates.size()):
+					if _worker_candidate_better(candidates[i], candidates[best_i]):
+						best_i = i
+				var c: Array = candidates[best_i]
+				candidates.remove(best_i)
+				s.worked_tiles.append([c[1], c[2]])
+				assigned += 1
+		# Citizen default specialist (§15.19): every leftover citizen — population
+		# beyond the worked tiles plus the assigned specialist posts — lands as one
+		# default (`citizen`) specialist automatically. Recomputed from scratch on
+		# every pass, so opening tiles or specialist slots pulls citizens back out.
+		var def_type: String = Specialists.default_type(db)
+		if def_type != "":
+			var excess: int = workers_needed - assigned
+			if excess > 0:
+				s.specialists[def_type] = excess
+			else:
+				s.specialists.erase(def_type)
 
 # True if candidate `a` should be preferred over `b`: higher score first, ties
 # broken by larger x then larger y (matching the previous sort/invert ordering).

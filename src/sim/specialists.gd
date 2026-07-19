@@ -39,6 +39,49 @@ static func gp_type(db: DataDB, stype: String) -> String:
 static func gp_points(db: DataDB, stype: String) -> int:
 	return int(db.get_specialist(stype).get("gp_points", 0))
 
+# Free specialists (§15.19): the settled great_* super-specialists sit on top of
+# population — they never consume a worker slot and never count against the
+# assignment cap.
+static func is_free(db: DataDB, stype: String) -> bool:
+	return bool(db.get_specialist(stype).get("is_great", false))
+
+# The default specialist (§15.19, the reference citizen): unlimited, always
+# assignable, auto-filled by TurnEngine._auto_assign_workers with every citizen
+# that has no tile to work and no specialist post. "" if the table declares none.
+static func default_type(db: DataDB) -> String:
+	for stype in db.get_specialists():
+		if stype == "_comment":
+			continue
+		if bool(db.get_specialists()[stype].get("is_default", false)):
+			return str(stype)
+	return ""
+
+# Military-instructor experience (§15.20): the per-head `experience` a specialist
+# grants to combat-capable units completed in its city (settled Great General: 2).
+static func experience(db: DataDB, stype: String) -> int:
+	return int(db.get_specialist(stype).get("experience", 0))
+
+# Total +XP the city's specialists grant a newly completed combat-capable unit
+# (§15.20): Σ count × experience — stacks additively with the barracks-style
+# structure XP at the unit-completion site (TurnEngine.new_unit_xp).
+static func settlement_unit_xp(db: DataDB, s: Settlement) -> int:
+	var total: int = 0
+	for stype in s.specialists:
+		total += int(s.specialists[stype]) * experience(db, str(stype))
+	return total
+
+# Population the settlement's assigned specialists actually consume (§15.19):
+# free settled greats and the auto-managed default citizen specialist are
+# excluded — only working specialist posts reserve a worker slot.
+static func population_used(db: DataDB, s: Settlement) -> int:
+	var total: int = 0
+	var def_type: String = default_type(db)
+	for stype in s.specialists:
+		if is_free(db, str(stype)) or str(stype) == def_type:
+			continue
+		total += int(s.specialists[stype])
+	return total
+
 # The great-person unit a dominant pool of this specialist type births (§14.3),
 # read from the table rather than scanning unit `generated_by` tags.
 static func great_person_unit(db: DataDB, stype: String) -> String:
