@@ -6,6 +6,12 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Added
+- **Entertainment buildings reward the culture slider.** Theatres, Colosseums,
+  Broadcast Towers, and their society-unique variants now grant city happiness
+  scaling with your culture allocation rate (a Theatre reads "+1 happy per 10%
+  culture rate", a Colosseum "+1 per 20%") — the reference culture-rate
+  happiness mechanic. The bonus is summed per city, scaled once, and stops for
+  obsolete or otherwise inactive carriers.
 - **Structure obsolescence.** Buildings can now go obsolete: once you research
   a structure's obsoleting technology (walls at Rifling, monasteries at
   Scientific Method, Hagia Sophia at Steam Power, the Apostolic Palace at Mass
@@ -32,6 +38,17 @@ All notable changes to Humanish are recorded here. Versions follow
 - **Per-unit siege damage caps.** Siege weapons soften defenders down to a
   per-unit health floor (catapult/trebuchet/hwacha 25%, cannon 20%,
   artillery 15%) instead of near-killing them — other arms finish the job.
+
+### Changed
+- **Gold hurry retuned to the reference model.** Hurrying production with gold
+  now costs 3 gold per hammer of the remaining cost (was 1), is available
+  under every government (the Universal Suffrage requirement is gone — the
+  civic keeps its +1 town production), keeps the +50% surcharge on an item
+  queued the same turn, and no longer angers the city (the old flat 5-turn
+  rush anger is removed; whipping population still angers as before).
+- **The Military Academy is no longer city-buildable.** It can only be raised
+  by a Great General's Build Military Academy action — it no longer appears in
+  any production queue, and the AI no longer builds it directly.
 
 ### Fixed
 - **Sun Faith and Earth Covenant are real religions now.** Both referenced

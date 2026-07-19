@@ -33,8 +33,8 @@ func test_has_flag_reads_bare_and_nested() -> void:
 	p.policies = {"labor": "slavery"}            # bare top-level pop_rush
 	assert_true(PolicyEffects.has_flag(p, gs.db, "pop_rush"),
 		"has_flag reads a bare top-level boolean effect")
-	p.policies = {"government": "universal_suffrage"}  # nested can_rush_with_gold
-	assert_true(PolicyEffects.has_flag(p, gs.db, "can_rush_with_gold"),
+	p.policies = {"legal": "nationhood"}         # nested can_draft
+	assert_true(PolicyEffects.has_flag(p, gs.db, "can_draft"),
 		"has_flag reads a nested effects-dictionary boolean")
 	p.policies = {}
 	assert_false(PolicyEffects.has_flag(p, gs.db, "pop_rush"),
@@ -371,14 +371,13 @@ func _rush_setup():
 	gs.get_player(1).treasury = 100000
 	return [gs, f, s]
 
-func test_gold_rush_requires_universal_suffrage() -> void:
+func test_gold_rush_needs_no_permitting_civic() -> void:
+	# M5 (§15.2/§29.8): the Universal Suffrage `can_rush_with_gold` gate is
+	# retired — the gold hurry is available under every government.
 	var setup = _rush_setup()
 	var gs = setup[0]; var f = setup[1]
-	assert_false(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "treasury")),
-		"Gold rush is rejected without a permitting civic")
-	gs.get_player(1).policies = {"government": "universal_suffrage"}
 	assert_true(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "treasury")),
-		"Universal Suffrage permits a gold rush")
+		"Gold rush accepted with no civics adopted at all")
 
 func test_pop_rush_requires_slavery() -> void:
 	var setup = _rush_setup()

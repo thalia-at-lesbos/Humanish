@@ -605,11 +605,13 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 	# present here (§8).
 	var have_res: Dictionary = {}
 	var have_res_known: bool = false
+	var culture_rate_carriers: int = 0  # Σ standing `culture_rate_happiness` (§15.13, M2)
 	for struct_id in s.structures:
 		var struct: Dictionary = db.get_structure(struct_id)
 		if not _structure_effect_active(db, struct_id, s, player):
 			continue
 		pos += int(struct.get("happiness_bonus", 0))
+		culture_rate_carriers += int(struct.get("effects", {}).get("culture_rate_happiness", 0))
 		# Resource-conditional comfort (§15: `happiness_with_<resource>`, e.g. the
 		# Hippodrome's +1 while Horse is accessible): counts only while the owner
 		# can access the named resource — the same availability rule units use
@@ -622,6 +624,14 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 				have_res_known = true
 			if have_res.has(str(fx_key).substr(RES_HAPPINESS_PREFIX.length())):
 				pos += int(struct["effects"][fx_key])
+
+	# Culture-rate building happiness (§15.13, wiring item M2): entertainment-tier
+	# carriers grant happiness scaled by the owner's culture allocation rate —
+	# Σ(standing carrier values) × culture% / 100, truncated ONCE over the per-city
+	# sum (not per building); no cap. Obsolete/inactive carriers were already
+	# filtered out of the sum by _structure_effect_active above.
+	if culture_rate_carriers != 0 and player != null:
+		pos += culture_rate_carriers * player.slider_culture / 100
 
 	# Adopted belief comfort (§8)
 	if s.belief_id != "":

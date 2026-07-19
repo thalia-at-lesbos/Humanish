@@ -253,6 +253,18 @@ func test_build_academy_adds_structure() -> void:
 		"Build Academy succeeds")
 	assert_true(s.has_structure("academy"), "the academy is built in the city")
 
+func test_great_general_builds_military_academy() -> void:
+	# M7: the Military Academy is barred from every city production queue
+	# (`not_buildable`), so the Great General's generic build_<structure_id>
+	# action is the one way to raise it — and it must keep working.
+	var gs = make_gs()
+	var s = _city(gs, 1, 5, 5)
+	var u = make_gp(gs, "great_general", 1, 5, 5)
+	assert_true(GreatPeople.perform_action(gs, u, "build_military_academy",
+		{"settlement_id": s.id}), "Build Military Academy succeeds")
+	assert_true(s.has_structure("military_academy"),
+		"the Military Academy is built in the city")
+
 func test_national_wonder_is_unique_per_player() -> void:
 	var gs = make_gs()
 	var s1 = _city(gs, 1, 5, 5)

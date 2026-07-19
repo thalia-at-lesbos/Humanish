@@ -4,7 +4,9 @@ Status: **PHASE 0 COMPLETE 2026-07-18** — the sourcing sitting ran the same da
 the plan was written; every 0a–0j value is recorded in `game-rules.md`
 §15.13–§15.21 and `game-data.md` §29.12–§29.16 (all tagged "sourced
 2026-07-18") and the XML/SDK authorization is **closed again** — phases W/M/R/T
-proceed docs-only. No implementation started. Successor to
+proceed docs-only. Implementation progress: Phase W complete (2026-07-18);
+M1 (2026-07-19), M2/M5/M7 (2026-07-19) done — M3/M4/M6 remain in Phase M.
+Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
 *shipped data*; this plan finishes the follow-ups it parked in its item notes —
 dead keys with no engine reader, mechanics blocked on unmodelled subsystems, the
@@ -261,7 +263,21 @@ docs-only.
   Steam Power; net worker speed unchanged across the transition),
   `test_data_db.gd` shape.
 - **M2. Culture%-slider happiness** ⓪(0a — sourced; spec §15.13, values
-  §29.12): **entertainment-tier** buildings (theatre/colosseum/broadcast tower
+  §29.12): **DONE 2026-07-19** — the key is `culture_rate_happiness` in each
+  carrier's `effects` dict (§29.12 named no key; flag it at the next design-doc
+  sitting): theatre/pavilion 10, hippodrome 20, colosseum/odeon/ball_court/
+  garden 5, broadcast_tower 10 — the full entertainment tier, nothing else.
+  Read inside `_update_contentment`'s existing structures loop (so the
+  `_structure_effect_active` filter — obsolescence + religion gate — applies
+  per carrier for free), summed per city, then
+  `pos += sum * player.slider_culture / 100` — one integer truncation over the
+  per-city sum, no cap. Tests (+4 in `test_settlement.gd`): 0% inert, 50%
+  scaling, the single-truncation pin (theatre+colosseum at 35% ⇒ 5, not the
+  per-building 4), and a synthetic obsolete carrier excluded (no shipped
+  carrier is obsoletable); `test_data_db.gd` pins the §29.12 roster and that
+  no structure outside it carries the key. No existing pinned totals shifted
+  (`slider_culture` defaults to 0 in every fixture). Original item:
+  **entertainment-tier** buildings (theatre/colosseum/broadcast tower
   + unique variants — *not* cathedrals, which carry nothing in the reference)
   grant happiness scaled by the culture allocation rate (Σ carrier values ×
   culture% / 100, truncated once per city). **Files:** `src/sim/turn_engine.gd`
@@ -284,7 +300,26 @@ docs-only.
   `data/win_conditions.json`. **Tests:** `tests/sim/test_win_conditions.gd`
   (per-type fill, duplicate-part no-op, delay countdown, pace stretch),
   integration playthrough gate.
-- **M5. Gold-hurry retune** (documented — §15.2/§29.8; no Phase 0): 3 gold per
+- **M5. Gold-hurry retune** (documented — §15.2/§29.8; no Phase 0): **DONE
+  2026-07-19** — `_cmd_rush_production` now charges
+  `TurnEngine.rush_remaining_cost × rush_gold_per_hammer` (new constant, 3 —
+  reference `iGoldPerProduction`); routing through `rush_remaining_cost` means
+  the whip's `new_hurry_modifier` +50% just-queued surcharge applies to gold
+  identically. The Universal Suffrage `can_rush_with_gold` gate is **retired**
+  (flag removed from `policies.json` — the civic keeps `town_production`; the
+  facade and `city_screen.gd` reads are gone; the `test_policy_effects.gd`
+  nested-flag example now uses Nationhood's `can_draft`). **Anger scope
+  decision:** reference adopted — NO gold-hurry anger (the `rush_anger_turns=5`
+  write is deleted); pop-whip anger is a separate path (§9 timed-happiness
+  channel) and stays, as does the draft's use of the `rush_anger_turns`
+  channel. New facade read `rush_gold_cost(settlement_id)` mirrors
+  `rush_population_cost` for the city screen's Hurry button. AI solvency is
+  untouched (`PlayerAI` never gold-rushes; `test_player_ai.gd` green). Tests
+  (+4 in `test_settlement.gd`): 3/hammer math + store fill, the +50% surcharge
+  (450 vs 300 gold on a 100-hammer item), no anger of either kind,
+  poor/nothing-to-rush/empty-queue refusals; the integration debug-console
+  slice keeps adopting Universal Suffrage but notes the hurry is ungated.
+  Original item: 3 gold per
   hammer of remaining cost, available **always** (drop the Universal Suffrage
   gate), keep `new_hurry_modifier` +50%; decide at implementation whether the
   flat 5-turn rush anger survives (reference gold hurry has **no** anger — adopt
@@ -298,7 +333,24 @@ docs-only.
   `data/constants.json`. **Tests:** `tests/sim/test_combat.gd` (worker captured,
   ownership flip, weariness weights).
 - **M7. Military academy not-city-buildable** (documented — plan A2 note; no
-  Phase 0): remove it from the city build list; it remains constructible only via
+  Phase 0): **DONE 2026-07-19** — flag name decision: **`not_buildable`**
+  (top-level, general — chosen over `gp_only` so the M1-note follow-up of
+  blocking already-obsolete builds can reuse it), carried by
+  `military_academy` only. Enforced at `SimFacade._cmd_set_production` (the
+  whole queue set is refused if any entry is a `not_buildable` structure) and
+  filtered out of `PlayerAI._sorted_options`; the city screen's hardcoded
+  quick-build list never offered it. `GreatPeople._act_build_structure` does
+  not consult the flag, so the Great General's `build_military_academy` verb
+  (and the shipped event reward granting the structure) still work.
+  `DataDB._validate_structure_not_buildable` requires the flag to be a boolean
+  and the structure to keep a non-queue grant path (a GP `build_<sid>` action
+  in `units.json`, or an event/quest `building` reward) so a flagged entry can
+  never be silently unobtainable. Tests: queue rejection in
+  `tests/api/test_facade.gd` (the facade suite — the plan's
+  `test_sim_facade.gd` name does not exist), GP build in
+  `test_great_people.gd`, AI exclusion in `test_player_ai.gd`, flag/validator
+  pins in `test_data_db.gd`. Original item: remove it from the city build
+  list; it remains constructible only via
   the Great General `build_military_academy` action (the generic
   `build_<structure_id>` verb already exists). **Files:**
   `data/structures.json` (a `not_buildable`/`gp_only` flag), `src/api/
@@ -375,7 +427,8 @@ docs-only.
    §15/§29~~ **done 2026-07-18**; every later phase now sources from the docs
    only.
 3. **M1 → M2/M3/M5/M7** (M1 — **done 2026-07-19** — unblocked the Steam Power
-   leftovers; M5/M7 are doc-ready any time), then **M4/M6**.
+   leftovers; M2/M5/M7 — **done 2026-07-19**), then **M4/M6** (with M3, the
+   Phase M remainder).
 4. **Phase R last** (largest blast radius; R1/R2 touch save format — run the
    full integration gate + midgame save/load determinism after each, version
    review at phase end).

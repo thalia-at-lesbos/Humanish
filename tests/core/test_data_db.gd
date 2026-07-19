@@ -985,3 +985,53 @@ func test_obsoleted_by_shipped_refs_validate_clean() -> void:
 	db._validate_structure_obsolete_refs()
 	assert_true(db.get_errors().empty(),
 		"every shipped obsoleted_by names a real technology")
+
+# ── M2: culture-rate happiness carriers (§29.12) ─────────────────────────────
+
+func test_culture_rate_happiness_carrier_roster_pinned() -> void:
+	# The entertainment tier per §29.12 — theatre-line 10 (hippodrome 20),
+	# colosseum-line 5, broadcast tower 10; cathedrals carry none.
+	var db = _db()
+	var want := {"theatre": 10, "pavilion": 10, "hippodrome": 20,
+		"colosseum": 5, "odeon": 5, "ball_court": 5, "garden": 5,
+		"broadcast_tower": 10}
+	for sid in want:
+		assert_eq(int(db.get_structure(sid).get("effects", {}) \
+			.get("culture_rate_happiness", 0)), int(want[sid]),
+			"%s carries the §29.12 culture_rate_happiness value" % sid)
+	for sid in db.structures:
+		if sid == "_comment" or want.has(sid):
+			continue
+		assert_eq(int(db.structures[sid].get("effects", {}) \
+			.get("culture_rate_happiness", 0)), 0,
+			"no structure outside the §29.12 roster carries the key (%s)" % sid)
+
+# ── M7: not_buildable structures ─────────────────────────────────────────────
+
+func test_military_academy_is_not_buildable() -> void:
+	var db = _db()
+	assert_true(bool(db.get_structure("military_academy").get("not_buildable", false)),
+		"the Military Academy is flagged not city-buildable (M7)")
+	db._validate_structure_not_buildable()
+	assert_true(db.get_errors().empty(),
+		"shipped not_buildable structures validate clean (a grant path exists)")
+
+func test_not_buildable_without_grant_path_fails_validation() -> void:
+	var db = _db()
+	db.structures["bogus_struct"] = {"id": "bogus_struct", "not_buildable": true}
+	db._validate_structure_not_buildable()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_struct" in err and "nothing grants" in err:
+			found = true
+	assert_true(found, "a not_buildable structure no verb can grant is reported")
+
+func test_not_buildable_non_boolean_fails_validation() -> void:
+	var db = _db()
+	db.structures["bogus_struct"] = {"id": "bogus_struct", "not_buildable": "yes"}
+	db._validate_structure_not_buildable()
+	var found := false
+	for err in db.get_errors():
+		if "bogus_struct" in err and "boolean" in err:
+			found = true
+	assert_true(found, "a non-boolean not_buildable flag is reported")
