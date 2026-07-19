@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json: units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs, goody rosters (data only, deliberately disabled), hurry types, labor civic effects, retune globals; sourced 2026-07-18, awaiting wiring: culture-rate happiness carriers (29.12), air-combat values (29.13), spaceship parts & arrival delay (29.14), obsolescence roster (29.15), Phase 0 point values & cross-checks (29.16)"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json and wired (2026-07-19): units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (spread columns parked on sourcing line 0k), goody rosters, hurry types (gold hurry live, M5), labor civic effects, AI cost/growth handicaps (29.10, T1), culture-rate happiness carriers (29.12, M2), air-combat values (29.13, M3; strike cap & air_range_bonus still readerless), spaceship parts & arrival delay (29.14, M4), obsolescence roster (29.15, M1; base monument a noted gap), Phase 0 point values & cross-checks (29.16)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -1116,18 +1116,31 @@ The Great General is not produced by specialists. Instead, it accumulates from *
 
 ### 14.3 Great Person Point (GPP) Thresholds
 
-Each city maintains a separate **GP pool** per type, based on which specialists are assigned there. When total accumulated GPP in a city reaches the threshold, a Great Person of the dominant type is born there.
+The reference split, adopted with R2 (2026-07-19, game-rules §15.18): the
+accumulation **pool is per-city** (each city banks GPP from its own
+specialists), while the **threshold is per-player** — a city pops a Great
+Person when *its own* pool reaches the owner's civilization-wide threshold; the
+pool keeps the remainder. One birth per city per turn; per-city pools never
+interact.
 
 ```
 1st Great Person threshold = 100                       (gp_threshold_base)
-After each birth the threshold rises by 50% of the base (gp_threshold_increase_percent),
-and the increment itself accelerates: it is multiplied by (births ÷ 10 + 1), integer math.
-  births 1–9  add +50 each  → 100, 150, 200, … 550
-  births 10–19 add +100 each → 650, 750, …
-(reference GREAT_PEOPLE_THRESHOLD / _INCREASE progression)
+  … then × the pace great_people_scale (67/100/150/300), modifier first, pace
+  second, truncating each step.
+Each birth anywhere in the owner's civilization escalates the owner's threshold
+modifier by 50% of base (gp_threshold_increase_percent) TWICE — once as the
+birth share and once as the own-team share (a player always sits on its own
+team) — so a solo player adds +100% of base per birth: 100, 200, 300, …
+Each share is multiplied by (that player's births ÷ 10 + 1), integer math, on
+the POST-birth count: the increment doubles from the 10th birth, so the 11th GP
+is the first to cost a doubled (+200) step … 900, 1000, 1200, 1400, …
+Living same-alliance players also take the +50 share (scaled by their own birth
+count); their own counters are not incremented (reference _INCREASE_TEAM
+semantics).
 
 Type born = whichever specialist type has contributed the most accumulated GPP in that city.
-If multiple types are tied, one is chosen at random.
+If multiple types are tied, one is chosen at random. (Zero-GPP types — the
+auto-filled citizen and settled greats — never carry the type choice.)
 ```
 
 Modifiers to GPP accumulation:
@@ -1320,8 +1333,10 @@ Base EP accumulation = espionage_slider_output per turn against a specific facti
 Further per-pace columns in `paces.json`: `hurry_scale` (§29.8), `event_timer_scale`,
 `inflation_percent`/`inflation_offset` (game-rules §15.1), the C3 quartet
 `anarchy_scale` / `golden_age_scale` / `victory_delay_scale` / `wild_scale`
-(game-rules §15.3, table in §29.5), and the D2 `culture_level_thresholds`
-border/defence curve (game-rules §15.4, table in §29.4), plus `max_turns`.
+(game-rules §15.3, table in §29.5), the D2 `culture_level_thresholds`
+border/defence curve (game-rules §15.4, table in §29.4), the R2
+`great_people_scale` GP-threshold column (quick 67 / normal 100 / epic 150 /
+marathon 300 — game-rules §15.18, §14.3), plus `max_turns`.
 
 ### 15.7 Healing Rates
 
@@ -1353,15 +1368,17 @@ chain — larger maps cost more) are the reference values (`data/world_sizes.jso
 The two **canonical** knobs (reference-grounded) are the **player research %**
 (`handicap_research_percent`, scaling the player's own tech cost, §15.4) and the **AI per-era
 research modifier** (`ai_research_per_era`, negative = AI techs get cheaper as the game
-advances). `noble` is the research-neutral baseline (research 100). The `ai_bonus` (flat AI
-yield handicap), the **free early wins** against wild/raider forces, and the human-only city
+advances). `noble` is the research-neutral baseline (research 100). The `ai_bonus` (AI
+**research**-yield scaler — narrowed from the old flat production+research handicap by T1,
+2026-07-19; the AI's cost/growth handicaps are now the four §29.10 columns), the **free early
+wins** against wild/raider forces, and the human-only city
 aids (`growth_bonus`/`health_bonus`/`happiness_bonus`) are the other levers. All apply to
 human players only except the AI knobs. Per the reference, the city aids **never go negative**
 for the human — every level keeps at least health +2 / happiness +4; harder levels instead
 raise the growth threshold (negative `growth_bonus`). All values are the reference table,
 shipped in `data/difficulties.json`:
 
-| Level | Player research % | AI per-era modifier | AI yield bonus % | Free early wins | Growth bonus | Health | Happiness |
+| Level | Player research % | AI per-era modifier | AI research bonus % | Free early wins | Growth bonus | Health | Happiness |
 |-------|:----------------:|:-------------------:|:----------------:|:---------------:|:------------:|:------:|:---------:|
 | Settler | 60 | 0 | 0 | 5 | +25 | +4 | +6 |
 | Chieftain | 75 | 0 | 0 | 4 | +10 | +3 | +5 |
@@ -1572,7 +1589,10 @@ appear in `units.json` and are read by the engine:
 | `per_specialist_output` | Dict | Per-specialist commerce/science/culture output the GP unit provides while garrisoned (specialist mode) |
 | `classification` | String | Unit class: `"civilian"`, `"great_person"`, `"land"`, `"naval"`, `"air"` — used for combat class matching (§5.3) and garrison checks |
 | `first_strikes` | int | Number of first-strike rounds the unit fires before normal combat |
-| `intercept_strength` | int | Effectiveness as an air interceptor (fighter units) |
+| `intercept_chance` | int | Interception probability % as an air defender (§15.14 of game-rules): fighter/jet_fighter 100, mobile_sam 50, sam_infantry 40, destroyer 30, machine_gun/mechanized_infantry 20 (§29.13; replaced the dead `intercept_strength`, M3 2026-07-19) |
+| `evasion_chance` | int | Percent chance to evade an interception (§29.13): guided_missile 100, stealth_bomber/tactical_nuke 50, paratrooper 25 (the paratrooper value is inert until a paradrop mission exists) |
+| `capture` | String | Unit class the killer receives instead of a kill when this unit's tile is overrun (§15.21 of game-rules): worker/settler/fast_worker all carry `"worker"` — a captured settler demotes (M6 2026-07-19) |
+| `food_production` | bool | Unit is built with hammers *plus* the city's food surplus; growth freezes while it heads the queue (§15.15 of game-rules; settler/worker/fast_worker, R1 2026-07-19) |
 | `withdrawal_chance` | int | Percent chance (0–100) the unit retreats instead of dying |
 | `combat_limit` | int | Maximum damage this unit can deal to a defending unit per combat (siege collateral cap) |
 | `defensive_only` | bool | Unit may never initiate combat (B5): attack orders are refused and the AI never selects it for offense; it fights only when attacked. Carried by the Machine Gun (§29.1, shipped with C7 2026-07-12); also excluded from wild raider-stock picks |
@@ -1581,7 +1601,7 @@ appear in `units.json` and are read by the engine:
 | `unique_to` | String | Society/faction ID; restricts availability to that faction |
 | `upgrades_to` | Array | Unit IDs this type can upgrade into (requires gold + tech) |
 | `upkeep` | int | Gold per turn maintenance cost |
-| `air_range` | int | Maximum tiles an air unit can fly per mission |
+| `air_range` | int | Maximum tiles an air unit can fly per mission; also a ground/naval interceptor's interception reach from its tile (default 0 — both SAMs carry 1, §29.13) |
 
 ### 19.2 Structure / building data fields (`data/structures.json`)
 
@@ -1656,17 +1676,17 @@ and related combat code (§5.3):
 | `vs_siege` | Bonus percent strength when fighting siege-class opponents |
 | `first_strikes_bonus` | Additional first-strike rounds beyond the unit's base |
 | `chance_first_strikes_bonus` | Additional 0..N first strikes rolled per combat (§15.5 of game-rules) |
-| `collateral_damage_protection` | Percent protection against collateral/spillover damage (no engine reader yet) |
+| `collateral_damage_protection` | Percent cut of collateral/spillover damage **taken** — spillover × (100 − protection) / 100, truncating; sums across the unit's promotions (Drill II–IV carry 20 each, so Drill IV = 60); ≥ 100 is immunity (`CombatApply.spillover_taken`, wired W5 2026-07-18) |
 | `withdrawal_chance_bonus` | Additional percent added to the unit's withdrawal roll |
 | `healing_bonus` | Extra HP healed per turn (§5.6) |
-| `same_tile_heal` | HP healed per turn granted to friendly units on the same tile (no engine reader yet) |
-| `adjacent_tile_heal` | HP healed per turn granted to friendly units on adjacent tiles (no engine reader yet) |
+| `same_tile_heal` | Extra HP/turn granted to friendly units on the carrier's tile (the carrier's own value competes); a unit's heal phase adds the **single best** value across same-tile and same-landmass-adjacent sources combined — never summed across carriers (§29.16, `TurnEngine._medic_bonus`, wired W6 2026-07-18) |
+| `adjacent_tile_heal` | Extra HP/turn granted to friendly units on same-landmass adjacent tiles; same single-best rule as `same_tile_heal` (wired W6 2026-07-18) |
 | `movement_bonus` | Additional movement points |
 | `forest_movement_bonus` | Ignore terrain movement penalty in forests/jungles |
 | `ignore_terrain_cost` | All terrain costs 1 movement point |
 | `vision_bonus` | Extra sight range tiles |
-| `intercept_bonus` | Bonus when intercepting enemy air attacks (no engine reader yet) |
-| `evasion_chance` | Percent chance to evade an interception (no engine reader yet) |
+| `intercept_bonus` | Percent added to the unit's interception chance (Interception I/II +10/+20), capped at `air_intercept_chance_cap` 100 (§15.14 of game-rules, wired M3 2026-07-19) |
+| `evasion_chance` | Percent added to the unit's chance to evade an interception (Ace +25), capped at `air_evasion_cap` 90 (§15.14 of game-rules, wired M3 2026-07-19) |
 | `air_range_bonus` | Extra air-mission range tiles (no engine reader yet) |
 | `move_discount` | Terrain movement-cost reduction in points (no engine reader yet) |
 | `upgrade_discount` | Percent discount on unit upgrade cost (no engine reader yet) |
@@ -2592,18 +2612,19 @@ from the shared map RNG in fixed start order, keeping generation deterministic.
 
 ## 29. Reference-parity data (shipped)
 
-> **Shipped through §29.11; §29.12–§29.16 are sourced values awaiting wiring.**
-> Companion data for `game-rules.md` §15: every table in this section
+> **Shipped and wired throughout (2026-07-19).** Companion data for
+> `game-rules.md` §15: every table in this section
 > carries values read directly from the reference data (layered original reference,
 > highest layer wins). The parity plan (`docs/planning/directreferencegaps.md`,
 > **COMPLETE 2026-07-18**) shipped §29.1–§29.11 into `data/*.json` — each table
 > carries its own status note. §29.12–§29.16 were captured in the successor plan's
 > Phase 0 sourcing sitting (`docs/planning/directreferencegapswiring.md`, sourced
-> 2026-07-18) and ship with the wiring items named per table. Still not live
-> earlier: the non-inflation columns of 29.10 (candidates —
-> Humanish folds them into the single `ai_bonus` yield scaler) and the small inline
-> leftovers noted per table (the gold-hurry retune in 29.8, the unread
-> `victory_delay_scale` in 29.5). The discrepancy audit for pre-existing tables is
+> 2026-07-18) and were wired by that plan's items (complete 2026-07-19), noted per
+> table. Remaining exceptions, each noted inline: the §29.6 corporation spread
+> columns (parked on the plan's 0k sourcing line — the formulas do not map 1:1),
+> the §29.5 `feature-production %` column (still a candidate), and the §29.13
+> strike-cap / `air_range_bonus` keys (documented, no engine reader). The
+> discrepancy audit for pre-existing tables is
 > `docs/planning/reference-parity-audit.md`.
 
 ### 29.1 Missing units
@@ -2708,11 +2729,11 @@ columns are live as of C3 (2026-07-12): `anarchy_scale` (SimFacade anarchy on
 civic/religion switches, bounds `anarchy_min_turns` 1 / `anarchy_max_turns` 100 in
 `constants.json`), `golden_age_scale` (`GreatPeople._golden_age_duration`),
 and `wild_scale` (`WildForces._scaled_turns`) — see game-rules §15.3. The
-`victory_delay_scale` column ships as reference data but is unread since D2
-(2026-07-17): `WinConditions._cultural` now reads the pace's own legendary
-`culture_level_thresholds` entry (§29.4), and the column's reference use — the
-spaceship-arrival delay — is now spec'd (§29.14, sourced 2026-07-18) and ships
-with wiring item M4. Only the `feature-production %` column remains a candidate.
+`victory_delay_scale` column gained its reader with M4 (2026-07-19): the
+spaceship-arrival countdown (game-rules §15.16, values §29.14) — its cultural-
+victory use was superseded by D2 (2026-07-17), where `WinConditions._cultural`
+reads the pace's own legendary `culture_level_thresholds` entry (§29.4). Only
+the `feature-production %` column remains a candidate.
 
 ### 29.6 Corporation reference outputs (per input-resource instance, ×1/100)
 
@@ -2739,7 +2760,10 @@ above confirmed against the reference XML): the input lists and ×1/100 rates ar
 `maintenance_per_resource`, HQ +4/franchise is `hq_gold_per_franchise`, and the produced
 resources are `produces_resource` (granted to a member city's owner while the corporation
 operates). Only the spread columns (factor 200 / base cost 50) remain unadopted — the
-Humanish spread mechanic keeps `spread_cost` 200 / `spread_chance_base` 15.
+Humanish spread mechanic keeps `spread_cost` 200 / `spread_chance_base` 15 (the two
+models do not map 1:1; parked on the wiring plan's 0k sourcing line, T2 dispositioned
+2026-07-19 — the reference spread-probability and executive spread-cost formulas must
+be captured before adoption).
 
 ### 29.7 Per-difficulty goody rosters (selection weights)
 
@@ -2779,8 +2803,12 @@ The population row is live shipped data as of C2 (2026-07-12, game-rules §15.2)
 `rush_production_per_pop` 30, `rush_pop_anger` 1, `rush_pop_anger_turns` 10,
 `new_hurry_modifier` 50, `rush_min_population` 1 in `constants.json`; the pace
 hurry percent is the `hurry_scale` column in `paces.json` (67/100/150/300). The
-gold row remains a Humanish-tuned path (1 gold per hammer, Universal Suffrage
-gate) — its reference retune is still open.
+gold row is live as of M5 (2026-07-19, game-rules §15.2): `rush_gold_per_hammer`
+3 in `constants.json`, charged on `TurnEngine.rush_remaining_cost` in
+`SimFacade._cmd_rush_production` — always available (the Universal Suffrage
+`can_rush_with_gold` gate is retired from `policies.json`), no anger of any
+kind (the old flat 5-turn rush anger is gone), and the `new_hurry_modifier`
++50% just-queued surcharge applies to gold exactly like a whip.
 
 ### 29.9 Labor civic reference effects
 
@@ -2807,12 +2835,22 @@ uses `civic_percent_anger_divisor` 1000 (`constants.json`, the reference
 same tech — is unmodelled; wiring one without the other would double up). The
 reference has no golden-age worker effect.
 
-### 29.10 Per-difficulty AI cost/growth handicaps (candidate `difficulties.json` fields)
+### 29.10 Per-difficulty AI cost/growth handicaps (live shipped data — T1, 2026-07-19)
 
-Reference columns Humanish currently folds into the single `ai_bonus` yield scaler.
-The `inflation %` column is live shipped data as of C1 (2026-07-12):
-`inflation_percent` in `difficulties.json`, the handicap multiplier in
-`TurnEngine.inflation_rate` (game-rules §15.1). The other columns remain candidates:
+All five columns are live shipped data in `difficulties.json`. The
+`inflation %` column shipped with C1 (2026-07-12): `inflation_percent`, the
+handicap multiplier in `TurnEngine.inflation_rate` (game-rules §15.1). The four
+AI columns shipped with T1 (2026-07-19), all `is_ai`-gated:
+`ai_train_percent` / `ai_construct_percent` scale an AI player's unit /
+structure costs in `TurnEngine._item_cost` (pace scale first, then the AI
+percent, truncating, floor 1); `ai_unit_cost_percent` scales the AI's unit
+upkeep sum in `gold_upkeep`; `ai_growth_percent` scales the AI's growth
+threshold in `_settlement_growth` (game-rules §2.2). They replace the retired
+`ai_bonus` production-yield site — `ai_bonus` survives only as the residual
+research-yield scaler (game-rules §2.2, ai-design §4). Note: **no project-cost
+column exists** — projects are deliberately the only unscaled item type (the
+reference's iAICreatePercent analogue was never captured; a possible future
+sourcing line, not guessed):
 
 | Difficulty | inflation % | AI train % | AI construct % | AI unit-cost % | AI growth % |
 |---|---|---|---|---|---|
@@ -2838,11 +2876,15 @@ XP cap **5** (adopted 2026-07-08); max withdrawal probability **90** (adopted,
 `withdrawal_chance_max`); occupation turns = **50%** of population (base 3);
 conscription minimum city size **5**; nuke magnitudes in `game-rules.md` §15.7.
 
-### 29.12 Culture-rate happiness carriers (sourced 2026-07-18 — ships with wiring item M2)
+### 29.12 Culture-rate happiness carriers (sourced 2026-07-18 — implemented 2026-07-19, M2)
 
 Mechanic: `game-rules.md` §15.13 — city happiness = Σ(carrier values) × culture
-allocation % / 100, truncated once over the per-city sum; no cap. The carriers
-are the **entertainment tier** (cathedrals carry none):
+allocation % / 100, truncated once over the per-city sum; no cap. The shipped
+JSON key is **`culture_rate_happiness`** in each carrier's `effects` dictionary
+(`structures.json`), read inside `TurnEngine._update_contentment`'s standing-
+structures loop (so the obsolescence/religion `_structure_effect_active` filter
+applies per carrier). The carriers are the **entertainment tier** (cathedrals
+carry none):
 
 | Humanish structure | Value | Reads as |
 |---|---|---|
@@ -2855,7 +2897,7 @@ are the **entertainment tier** (cathedrals carry none):
 | garden *(Babylonian colosseum)* | 5 | +1 per 20% |
 | broadcast_tower | 10 | +1 per 10% |
 
-### 29.13 Air-combat values (sourced 2026-07-18 — ships with wiring item M3)
+### 29.13 Air-combat values (sourced 2026-07-18 — interception fields implemented 2026-07-19, M3)
 
 Mechanic: `game-rules.md` §15.14. Globals (`GlobalDefines.xml`): engagement
 rounds **5**, max round damage **50**, min round damage vs an air attacker
@@ -2885,7 +2927,17 @@ strike can leave on its ground target. The reference anti-tank infantry also
 carries intercept 20 but has no Humanish counterpart. SAM ranges are the
 reference `iAirRange` 1 — interception reach from the unit's tile.)
 
-### 29.14 Spaceship parts & arrival delay (sourced 2026-07-18 — ships with wiring item M4)
+**Shipped with M3 (2026-07-19)**: the Intercept % column as `intercept_chance`
+in `units.json` (replacing the dead `intercept_strength` 35/60), the Evade %
+column as `evasion_chance`, and `air_range: 1` on both SAMs — all live per
+game-rules §15.14. **Not shipped** (documented here, no engine reader): the
+strike-cap column (an air `combat_limit`); the promotion `air_range_bonus`
+(Range I/II) also remains a dead key. Paratrooper `evasion_chance` 25 ships but
+is inert until a paradrop mission exists (§15.14's paradrop leg is unbuilt);
+tactical_nuke's evasion is likewise inert — nukes use the §15.7 interception
+channel.
+
+### 29.14 Spaceship parts & arrival delay (sourced 2026-07-18 — implemented 2026-07-19, M4)
 
 Mechanic: `game-rules.md` §15.16. Base travel delay **10 turns** × the §29.5
 victory-delay % column (67/100/150/300 — its long-promised reader). Parts
@@ -2901,13 +2953,24 @@ victory-delay % column (67/100/150/300 — its long-promised reader). Parts
 | casing | 1200 | composites | 5 | 1 | — | −20% success per missing |
 | thrusters | 1200 | superconductors | 5 | 1 | 100 (+20% per missing) | — |
 
-(16 parts at full build. The shipped-but-dead `count_needed` values in
-`win_conditions.json` match the Full-count column.)
+(16 parts at full build.) Shipped keys (M4, 2026-07-19): the base travel delay
+is **`victory_delay_turns`** 10 on the `endgame_project` entry in
+`win_conditions.json` (replacing the retired flat `stages_required` stage
+count); the Delay % column is **`delay_percent`** (ss_engine 50, ss_thrusters
+100) and the arrival-risk column **`success_rate`** (ss_casing 20) in
+`projects.json`, alongside the now-live per-part `count_needed`. Mechanics:
+game-rules §15.16.
 
-### 29.15 Structure obsolescence roster (sourced 2026-07-18 — ships with wiring item M1)
+### 29.15 Structure obsolescence roster (sourced 2026-07-18 — implemented 2026-07-19, M1)
 
 Mechanic: `game-rules.md` §15.17 (all effects stop; building remains; never
-sold). The full reference roster mapped to Humanish ids:
+sold). The shipped key is the pre-existing (formerly dead) **`obsoleted_by`**
+in `structures.json`, now carried by all 23 roster entries below and read
+through `Player.structure_obsolete`. **Known doc gap:** base `monument` is
+absent from this roster while its unique variants (obelisk / stele /
+totem_pole → astronomy) are listed — the shipped data follows the roster
+exactly (no `obsoleted_by` on `monument`); a value for it would need a new
+sourcing line, not a guess. The full reference roster mapped to Humanish ids:
 
 | Structure | Obsoleted by |
 |---|---|
@@ -2922,18 +2985,24 @@ sold). The full reference roster mapped to Humanish ids:
 | kremlin | fiber_optics |
 | apostolic_palace | mass_media |
 
-### 29.16 Phase 0 point values & cross-checks (sourced 2026-07-18)
+### 29.16 Phase 0 point values & cross-checks (sourced 2026-07-18; all wired 2026-07-19)
 
-- **Great People (R2, §15.18)**: threshold base **100**; pace GP %
-  67/100/150/300; per-birth increase **50 own + 50 same-team** (= +100% of base
-  effective) × `(born ÷ 10) + 1`; pool per-city, threshold per-player;
-  remainder carries after a birth.
-- **Food-box (R1, §15.15)**: food-production units settler/worker; consumption
-  2 per pop; worker cost **60**, settler effectively **100** at normal pace
+- **Great People (R2, §15.18)**: threshold base **100** (`gp_threshold_base`);
+  pace GP % 67/100/150/300 — shipped as the new **`great_people_scale`** column
+  in `paces.json`; per-birth increase **50 own + 50 same-team**
+  (`gp_threshold_increase_percent` 50; = +100% of base effective) ×
+  `(born ÷ 10) + 1` on the **post-birth** count; pool per-city, threshold
+  per-player; remainder carries after a birth.
+- **Food-box (R1, §15.15)**: food-production units settler/worker — shipped as
+  the **`food_production`** flag on the settler/worker/fast_worker rows in
+  `units.json`; consumption 2 per pop; worker cost **60**, settler effectively
+  **100** at normal pace
   (dynamic in the reference: 67 × growth % + 22-food size-1 threshold × 150/100);
   growth delta `min(0, surplus)` while training; food joins after % modifiers.
 - **Citizen specialist (R3, §15.19)**: +1 production, no GP points, unlimited
-  (the reference default-specialist). Reference specialist vectors for
+  (the reference default-specialist) — shipped as **`is_default: true`** on the
+  `citizen` row in `specialists.json` (`is_great` doubles as the free-specialist
+  marker). Reference specialist vectors for
   cross-checks (F food / P production / G gold / R research / C culture /
   E espionage; GP-point rate in parentheses): priest 1P+1G (3), artist 1R+4C
   (3), scientist 3R (3), merchant 3G (3), engineer 2P (3), spy 1R+4E (3);
@@ -2941,10 +3010,14 @@ sold). The full reference roster mapped to Humanish ids:
   1P+6R, great merchant 1F+6G, great engineer 3P+3R, great spy 3R+12E, great
   general nothing but §15.20's +2 XP.
 - **Military instructor (R4, §15.20)**: specialist experience **2** per settled
-  Great General; conscripts get half the city's total production XP.
-- **Unit capture (M6, §15.21)**: settler → worker, worker → worker; wild forces
-  never capture; captured unit is fresh (no XP/promotions); war-weariness
-  **2** captured / **1** captor.
+  Great General — shipped as **`experience: 2`** on the `great_general` row in
+  `specialists.json` (data-driven; any specialist row may carry it);
+  conscripts get half the city's total production XP.
+- **Unit capture (M6, §15.21)**: settler → worker, worker → worker — shipped as
+  the **`capture`** key in `units.json` (all three carriers `"worker"`); wild
+  forces never capture; captured unit is fresh (no XP/promotions);
+  war-weariness **2** captured / **1** captor
+  (`war_weariness_unit_captured` / `war_weariness_captured_unit`).
 - **Cross-checks (0j)**: `collateral_damage_protection` = percentage cut of
   collateral/spillover damage **taken** — `damage × (100 − protection) / 100`,
   truncating; the drill II/III/IV values (20 each, §29.3) **sum on the unit**
