@@ -108,7 +108,17 @@ func _build() -> void:
 	var food_per: int = db.get_constant("food_per_citizen", 2)
 	var net_food: int = s.output_food - s.wellbeing_deficit - s.population * food_per
 	var growth_txt: String
-	if net_food > 0:
+	# §15.15: while a settler/worker heads the queue the food surplus feeds
+	# production instead of the (frozen) food box — say so rather than "growing".
+	var head_food_built: bool = false
+	if not s.production_queue.empty():
+		var head: Dictionary = s.production_queue[0]
+		if str(head.get("type", "unit")) == "unit":
+			head_food_built = bool(db.get_unit(str(head.get("id", ""))).get("food_production", false))
+	if head_food_built and net_food > 0:
+		growth_txt = "paused — training (+" + str(net_food) \
+			+ " food/turn feeds production, store " + str(s.food_store) + ")"
+	elif net_food > 0:
 		growth_txt = "growing (+" + str(net_food) + " food/turn, store " \
 			+ str(s.food_store) + ")"
 	elif net_food < 0:

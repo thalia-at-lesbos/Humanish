@@ -1282,3 +1282,141 @@ func test_gold_hurry_refused_when_poor_or_nothing_to_rush() -> void:
 	s.production_queue = []
 	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
 		"An empty production queue is rejected")
+
+# ── R1: settler/worker food-box build (§15.15) ───────────────────────────────
+#
+# Units flagged `food_production` (settler, worker, fast worker) are built with
+# hammers PLUS the city's food surplus: while one heads the queue the growth
+# phase diverts the positive surplus to production (joining AFTER the percent
+# modifiers, never multiplied by them) and the food box freezes — the growth
+# delta becomes min(0, surplus), so the city never grows but can still starve.
+
+func test_settler_training_diverts_food_surplus_to_production() -> void:
+	# Real growth→production order: the surplus computed by the growth phase
+	# lands in production_store instead of the food box.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.worked_tiles = [[5, 5], [5, 6], [6, 5]]   # grassland food, no hammers
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	# Pre-read the consumption inputs the engine will use (same pattern as
+	# test_angry_citizens_do_not_eat).
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var fpc: int = gs.db.get_constant("food_per_citizen", 2)
+	var net: int = s.health_rate()
+	var drain: int = -net if net < 0 else 0
+	TurnEngine._settlement_growth(gs, s, p)
+	var surplus: int = s.output_food - (s.population * fpc + drain)
+	assert_true(surplus > 0, "Fixture sanity: the city runs a food surplus")
+	assert_eq(s.food_store, 0, "Frozen food box banks nothing while training")
+	assert_eq(s.food_for_production, surplus,
+		"The whole positive surplus is diverted toward the settler")
+	TurnEngine._settlement_production(gs, s, p)
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	assert_eq(s.production_store,
+		Fixed.scale(s.output_production, build_scale) + Fixed.scale(surplus, build_scale),
+		"The diverted surplus reaches production_store")
+	assert_eq(s.food_for_production, 0, "The transient is consumed by the step")
+
+func test_food_surplus_joins_after_percent_modifiers() -> void:
+	# §15.15: progress = hammers × (100+mods)/100 + surplus — the Forge's +25%
+	# multiplies the hammer base only, never the food contribution.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.output_production = 8
+	s.structures = ["forge"]                        # production_bonus: 25
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	s.food_for_production = 5
+	TurnEngine._settlement_production(gs, s, gs.get_player(1))
+	var build_scale: int = int(gs.db.get_pace(gs.pace_id).get("build_scale", 100))
+	var expected: int = Fixed.apply_stacked_bonus(Fixed.scale(8, build_scale), 25) \
+		+ Fixed.scale(5, build_scale)
+	assert_eq(s.production_store, expected,
+		"Food joins after the +25%: 10 + 5 = 15, not (8+5)×1.25 = 16")
+
+func test_food_contribution_scales_with_build_pace() -> void:
+	# Humanish adaptation: hammer output AND item costs both carry the pace's
+	# build scale, so the food channel carries it too — its weight relative to
+	# hammers is pace-invariant.
+	var gs = make_gs(1)
+	gs.pace_id = "marathon"                          # build_scale 300
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.output_production = 0
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	s.food_for_production = 5
+	TurnEngine._settlement_production(gs, s, gs.get_player(1))
+	assert_eq(s.production_store, Fixed.scale(5, 300),
+		"5 diverted food at marathon contributes 15 progress (cost scales ×3 too)")
+
+func test_growth_frozen_even_with_banked_food_box() -> void:
+	# A box already over the threshold does not pop a citizen while a settler
+	# trains — and the banked contents stay untouched.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.worked_tiles = [[5, 5], [5, 6], [6, 5], [6, 6]]  # positive surplus
+	s.food_store = 9999
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	assert_eq(s.population, 2, "No growth while a food-built unit trains")
+	assert_eq(s.food_store, 9999, "Banked food is untouched (frozen, not drained)")
+	assert_eq(gs.pending_growth.size(), 0, "No growth record while frozen")
+
+func test_starvation_still_bites_while_training() -> void:
+	# Growth delta is min(0, surplus): a food deficit still drains the box and
+	# costs population even while the settler trains.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 2, 2, 3)
+	s.worked_tiles = []                              # no food at all
+	s.food_store = 0
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	assert_eq(s.population, 2, "Starvation shrinks the city even while training")
+	assert_eq(s.food_store, 0, "The drained box clamps at zero as usual")
+	assert_eq(s.food_for_production, 0, "A deficit diverts nothing to production")
+
+func test_food_contribution_counts_toward_completion_overflow() -> void:
+	# Completion overflow is the normal rule: the food contribution is part of
+	# the progress that crosses the cost line, and the remainder carries.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.output_production = 0
+	s.production_store = 55                          # worker costs 60
+	s.production_queue = [{"type": "unit", "id": "worker"}]
+	s.food_for_production = 10
+	var units_before: int = gs.units.size()
+	TurnEngine._settlement_production(gs, s, gs.get_player(1))
+	assert_eq(gs.units.size(), units_before + 1, "The worker completes on food")
+	assert_eq(s.production_store, 5, "55 + 10 − 60 = 5 carries over")
+
+func test_non_food_unit_leaves_growth_untouched() -> void:
+	# A warrior at the head of the queue diverts nothing: the surplus reaches
+	# the food box exactly as before.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 1)
+	s.worked_tiles = [[5, 5], [5, 6], [6, 5]]
+	s.production_queue = [{"type": "unit", "id": "warrior"}]
+	TurnEngine._update_wellbeing(gs, s, p, gs.db)
+	var fpc: int = gs.db.get_constant("food_per_citizen", 2)
+	var net: int = s.health_rate()
+	var drain: int = -net if net < 0 else 0
+	TurnEngine._settlement_growth(gs, s, p)
+	var surplus: int = s.output_food - (s.population * fpc + drain)
+	assert_eq(s.food_store, surplus, "A non-food build banks the surplus normally")
+	assert_eq(s.food_for_production, 0, "Nothing diverted for a warrior")
+
+func test_disorder_loses_diverted_food_exactly_once() -> void:
+	# A city in disorder produces nothing, so the diverted surplus is lost this
+	# turn — and it is consumed, never double-added later.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.production_queue = [{"type": "unit", "id": "settler"}]
+	s.food_for_production = 7
+	s.in_disorder = true
+	TurnEngine._settlement_production(gs, s, gs.get_player(1))
+	assert_eq(s.production_store, 0, "Disorder: no production, food included")
+	assert_eq(s.food_for_production, 0, "The diverted food is consumed regardless")
+	s.in_disorder = false
+	s.output_production = 0
+	TurnEngine._settlement_production(gs, s, gs.get_player(1))
+	assert_eq(s.production_store, 0, "The lost food never reappears next call")

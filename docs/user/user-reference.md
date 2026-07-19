@@ -144,6 +144,8 @@ An obsolete building stays in the city (buildings are never sold and give no ref
 Each turn a city accumulates **food surplus** (food output of worked tiles minus population upkeep).
 When the food store reaches the growth threshold (scales with population and era), the city gains one population point.
 
+**Settlers and Workers are built with food.** While a Settler or Worker heads the production queue, the city's food surplus is added to production toward it (on top of the normal hammers) and **growth pauses**: the stored food is kept but frozen, and the city cannot grow until the unit finishes. A starving city still loses food — and eventually population — even while training. The city screen's Growth line shows "paused — training" while this is in effect.
+
 **Disorder**: if a city is in disorder (discontented citizens ≥ effective workers), its effective workers drop to zero — no production or food surplus.  
 **Wellbeing deficit**: pollution and overcrowding reduce effective food income.
 

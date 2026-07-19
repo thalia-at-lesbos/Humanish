@@ -6,6 +6,15 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Added
+- **Settlers and Workers are built with food.** While a Settler or Worker
+  heads a city's production queue the city's food surplus is added to
+  production toward it — on top of the normal hammers, after all percentage
+  modifiers — and **growth pauses**: the food box is frozen (stored food is
+  kept, nothing new banks) until the unit finishes, though a starving city
+  still drains its store and can lose population. The city screen's Growth
+  line reads "paused — training" while in effect. Settler cost stays at the
+  reference 100 (Worker 60); both can still be whipped or gold-hurried on
+  their remaining hammer cost as before.
 - **Spaceship part counts and arrival countdown.** The Space Race now counts
   parts **per type** — SS Casing ×5, SS Thrusters ×5, SS Engine ×2, and one
   each of Cockpit, Life Support, Stasis Chamber, and Docking Bay (16 parts at
