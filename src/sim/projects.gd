@@ -14,7 +14,7 @@ class_name Projects
 # data/projects.json — the single place per-project `effects` are aggregated,
 # mirroring PolicyEffects for civics. A project entry either carries
 # `win_condition: "endgame_project"` (a spaceship stage, counted per alliance in
-# gs.endgame_project_stages — the pre-C5 model, unchanged) or is an
+# gs.endgame_project_parts — counted per part type since M4, §15.16) or is an
 # **effects project**: once built it is recorded on `Player.projects` and its
 # `effects` dictionary applies to that player for the rest of the game.
 #
@@ -27,6 +27,59 @@ class_name Projects
 # True when this projects.json entry is a spaceship stage (the endgame model).
 static func is_endgame(proj: Dictionary) -> bool:
 	return str(proj.get("win_condition", "")) == "endgame_project"
+
+# ── §15.16 spaceship parts (M4) ───────────────────────────────────────────────
+# The space race counts parts PER TYPE (gs.endgame_project_parts:
+# alliance_id -> {project_id: count}); each type is capped at its data
+# `count_needed` (casing ×5, thrusters ×5, engines ×2, four single-instance
+# parts — 16 at full build), so duplicate parts of a filled type no longer
+# advance the race. One of every type launches the ship (the reference minimum
+# threshold is 1 for all seven types); WinConditions runs the arrival countdown.
+
+# Full instances the race counts for this part type (§29.14 Full-count column).
+static func count_needed(proj: Dictionary) -> int:
+	var n: int = int(proj.get("count_needed", 1))
+	return n if n > 0 else 1
+
+# Every endgame (spaceship) project id in ascending `stage` order — the
+# deterministic iteration order for launch/delay/arrival math. (Sorted via an
+# explicit int key list: Godot 3's Array-of-Array sort() is not lexicographic.)
+static func endgame_ids(db: DataDB) -> Array:
+	var by_stage: Dictionary = {}
+	for pid in db.projects:
+		var proj: Dictionary = db.projects[pid]
+		if is_endgame(proj):
+			var st: int = int(proj.get("stage", 0))
+			if not by_stage.has(st):
+				by_stage[st] = []
+			by_stage[st].append(str(pid))
+	var stages: Array = by_stage.keys()
+	stages.sort()
+	var out: Array = []
+	for st in stages:
+		for pid in by_stage[st]:
+			out.append(pid)
+	return out
+
+# The alliance's per-type part tally ({} when it has built nothing).
+static func parts_tally(gs, alliance_id: int) -> Dictionary:
+	return gs.endgame_project_parts.get(alliance_id, {})
+
+# Count of `pid` parts the tally holds, capped at the type's full count.
+static func parts_of(db: DataDB, tally: Dictionary, pid: String) -> int:
+	var have: int = int(tally.get(pid, 0))
+	var need: int = count_needed(db.projects.get(pid, {}))
+	return have if have < need else need
+
+# Launch readiness (§15.16): every part type at its minimum threshold of one.
+static func launch_ready(db: DataDB, tally: Dictionary) -> bool:
+	var ids: Array = endgame_ids(db)
+	if ids.empty():
+		return false
+	for pid in ids:
+		if int(tally.get(pid, 0)) < 1:
+			return false
+	return true
 
 # True when `player` has completed the effects project `proj_id`.
 static func has_project(player, proj_id: String) -> bool:

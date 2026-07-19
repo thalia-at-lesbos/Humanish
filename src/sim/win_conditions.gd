@@ -102,12 +102,94 @@ static func _dominance(wc: Dictionary, game_state) -> int:
 			return aid
 	return -1
 
+# Space race (§15.16 / M4): parts tally PER TYPE (Projects/`count_needed`).
+# One of every part type launches the ship, starting an arrival countdown of
+# `victory_delay_turns` (10) × the pace `victory_delay_scale` % (67/100/150/300),
+# stretched by each optional part type still short of its full threshold
+# (`delay_percent` × missing / count_needed percent — engines +25% per missing,
+# thrusters +20%). The countdown ticks −1 per world step; at 0 an arrival roll
+# fires — success chance 100 − `success_rate` (20) × missing casings. Success
+# wins; failure loses the launch (parts remain; the ship auto-relaunches on the
+# next check). Integer truncation throughout. A chance of 100 skips the rng
+# draw (pure function of state, so seeded streams gain no draw), as does 0.
+# Losing the capital cancels the countdown (spaceship_capital_lost below).
 static func _endgame_project(wc: Dictionary, game_state) -> int:
-	var stages_req: int = int(wc.get("stages_required", 3))
-	for aid in game_state.endgame_project_stages:
-		if game_state.endgame_project_stages[aid] >= stages_req:
-			return aid
+	var db: DataDB = game_state.db
+	# Deterministic alliance order: sorted int ids across tallies + countdowns.
+	var aid_set := {}
+	for k in game_state.endgame_project_parts:
+		aid_set[int(k)] = true
+	for k in game_state.spaceship_countdown:
+		aid_set[int(k)] = true
+	var order: Array = aid_set.keys()
+	order.sort()
+	for aid in order:
+		var tally: Dictionary = Projects.parts_tally(game_state, aid)
+		if game_state.spaceship_countdown.has(aid):
+			var left: int = int(game_state.spaceship_countdown[aid]) - 1
+			if left > 0:
+				game_state.spaceship_countdown[aid] = left
+				continue
+			# Arrival: the launch is spent either way.
+			game_state.spaceship_countdown.erase(aid)
+			var chance: int = arrival_chance(db, tally)
+			if chance >= 100 \
+					or (chance > 0 and game_state.rng.rand_bool_percent(chance)):
+				return aid
+			# Failure: parts remain; a re-launch starts on the next check.
+		elif Projects.launch_ready(db, tally):
+			game_state.spaceship_countdown[aid] = launch_delay(game_state, wc, tally)
 	return -1
+
+# Post-launch travel turns (§15.16): base `victory_delay_turns` × the pace's
+# `victory_delay_scale` / 100, then × (100 + Σ per-type delay_percent × missing
+# / count_needed) / 100. Truncating integer math at each step.
+static func launch_delay(game_state, wc: Dictionary, tally: Dictionary) -> int:
+	var db: DataDB = game_state.db
+	var scale: int = int(db.get_pace(game_state.pace_id).get("victory_delay_scale", 100))
+	var turns: int = int(wc.get("victory_delay_turns", 10)) * scale / 100
+	var stretch: int = 100
+	for pid in Projects.endgame_ids(db):
+		var proj: Dictionary = db.projects[pid]
+		var dpct: int = int(proj.get("delay_percent", 0))
+		if dpct <= 0:
+			continue
+		var need: int = Projects.count_needed(proj)
+		var missing: int = need - Projects.parts_of(db, tally, pid)
+		if missing > 0:
+			stretch += dpct * missing / need
+	return turns * stretch / 100
+
+# Arrival success chance (§15.16): 100 − Σ per-type `success_rate` × missing
+# instances (casings carry 20 → −20% per missing casing). Clamped to 0..100.
+static func arrival_chance(db: DataDB, tally: Dictionary) -> int:
+	var chance: int = 100
+	for pid in Projects.endgame_ids(db):
+		var proj: Dictionary = db.projects[pid]
+		var rate: int = int(proj.get("success_rate", 0))
+		if rate <= 0:
+			continue
+		var missing: int = Projects.count_needed(proj) - Projects.parts_of(db, tally, pid)
+		if missing > 0:
+			chance -= rate * missing
+	if chance < 0:
+		chance = 0
+	return chance
+
+# §15.16: losing the capital cancels the arrival countdown — the spaceship is
+# lost and must re-launch (which the auto-launch check restarts from scratch).
+# Called by the conquest paths (SimFacade._city_falls, WildAI's raze) with the
+# city about to fall; a non-capital city, or an owner alliance with no launch
+# in flight, is a no-op. Returns true when a countdown was cancelled so the
+# caller can surface it.
+static func spaceship_capital_lost(game_state, city) -> bool:
+	if city == null or not city.has_structure("palace"):
+		return false
+	var p: Player = game_state.get_player(city.owner_player_id)
+	if p == null or not game_state.spaceship_countdown.has(p.alliance_id):
+		return false
+	game_state.spaceship_countdown.erase(p.alliance_id)
+	return true
 
 # Cultural victory: `cities_at_max_culture` settlements must each accumulate the
 # legendary-culture threshold — the top entry of the pace's

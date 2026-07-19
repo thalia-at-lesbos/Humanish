@@ -49,6 +49,8 @@
   "war_weariness_unit_killed_defending": 2,
   "war_weariness_killed_unit_attacking": 2,
   "war_weariness_killed_unit_defending": 1,
+  "war_weariness_unit_captured": 2,
+  "war_weariness_captured_unit": 1,
   "war_weariness_city_captured": 6,
   "war_weariness_hit_by_nuke": 3,
   "war_weariness_attacked_with_nuke": 12,

@@ -749,6 +749,10 @@ func _city_falls(city: Settlement, captor_pid: int) -> String:
 	# skips wild captors/owners (no player/alliance).
 	CombatApply.accrue_war_fatigue(_gs, city.owner_player_id, captor_pid,
 		"war_weariness_city_captured")
+	# §15.16 (M4): losing the capital cancels an arrival countdown in flight —
+	# the spaceship is lost (the built parts remain; a re-launch restarts).
+	if WinConditions.spaceship_capital_lost(_gs, city):
+		_add_notification("The spaceship was lost with the capital!", "major")
 	if captor_pid == -2 or (city.population <= 1 and city.peak_population <= 1):
 		_raze_city(city, captor_pid)
 		return "razed"
@@ -2678,6 +2682,13 @@ func _cmd_unload_unit(cmd: Dictionary) -> bool:
 func _apply_combat_result(attacker: Unit, defender: Unit,
 		result: Dictionary, advance: bool = true) -> void:
 	CombatApply.apply_unit_result(_gs, attacker, defender, result, advance)
+	# Unit capture (§15.21 / M6): surface the fresh unit the tile-taker received
+	# so presentation paints it like any other new unit.
+	if result.has("captured_unit_id"):
+		var cname: String = str(_db.get_unit(
+			str(result.get("captured_unit_type", ""))).get("name", "unit"))
+		_add_notification("Captured a %s!" % cname, "major")
+		emit_signal("unit_created", int(result["captured_unit_id"]))
 
 # §15.14 air interception: an inbound air strike / air bombardment may be
 # engaged over the *target* tile. Returns true if the mission is aborted (the

@@ -1134,3 +1134,95 @@ func test_has_intercepted_serializes_and_roundtrips() -> void:
 	var parsed: Dictionary = JSON.parse(JSON.print(d)).result
 	assert_true(bool(Unit.deserialize(parsed).has_intercepted),
 		"has_intercepted survives the JSON print/parse roundtrip")
+
+# ── Non-combat unit capture (§15.21 / M6) ─────────────────────────────────────
+# A unit carrying a `capture` class that dies while its tile is overrun is
+# captured, not killed: the tile-taker receives a fresh unit of the capture
+# class (settler → worker demotes). Wild forces never capture. The C8 capture
+# weariness weights (2 captured / 1 captor) replace the kill weights.
+
+func _units_of(gs, type_id, player_id) -> Array:
+	var out: Array = []
+	for u in gs.units:
+		if u.unit_type_id == type_id and u.owner_player_id == player_id:
+			out.append(u)
+	return out
+
+func test_overrun_worker_is_captured_with_ownership_flip() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var wk = make_unit(gs, "worker", 2, 5, 5)
+	wk.experience = 7
+	f._apply_combat_result(atk, wk, _dead_defender_result())
+	assert_eq(_units_of(gs, "worker", 2).size(), 0, "The loser's worker is gone")
+	var captured: Array = _units_of(gs, "worker", 1)
+	assert_eq(captured.size(), 1, "The tile-taker receives a worker instead")
+	var cu = captured[0]
+	assert_eq(cu.x, 5, "captured on the overrun tile (x)")
+	assert_eq(cu.y, 5, "captured on the overrun tile (y)")
+	assert_eq(cu.health, 100, "the captured unit is fresh — full health")
+	assert_eq(cu.experience, 0, "no XP carries over")
+	assert_eq(cu.promotions.size(), 0, "no promotions carry over")
+	assert_eq(cu.movement_left, 0, "the captured unit is spent for this turn")
+	assert_eq(atk.x, 5, "the attacker still advances onto the tile")
+	assert_eq(atk.y, 5, "the attacker still advances onto the tile (y)")
+
+func test_captured_settler_demotes_to_worker() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var st = make_unit(gs, "settler", 2, 5, 5)
+	f._apply_combat_result(atk, st, _dead_defender_result())
+	assert_eq(_units_of(gs, "settler", 1).size(), 0,
+		"No settler changes hands — the capture demotes")
+	assert_eq(_units_of(gs, "worker", 1).size(), 1,
+		"A captured settler demotes to a worker (§15.21)")
+
+func test_capture_applies_the_c8_weariness_weights() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var wk = make_unit(gs, "worker", 2, 5, 5)
+	f._apply_combat_result(atk, wk, _dead_defender_result())
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_unit_captured", 2) * mult,
+		"The losing side accrues the unit-captured weight (2), not unit-killed")
+	assert_eq(int(gs.alliances[0].war_fatigue.get(2, 0)),
+		gs.db.get_constant("war_weariness_captured_unit", 1) * mult,
+		"The capturing side accrues the captured-a-unit weight (1)")
+
+func test_wild_forces_never_capture() -> void:
+	var gs = make_gs()
+	var raider = make_warrior(gs, -2, 5, 6, true)
+	var wk = make_unit(gs, "worker", 2, 5, 5)
+	CombatApply.apply_unit_result(gs, raider, wk, _dead_defender_result())
+	assert_eq(_units_of(gs, "worker", -2).size(), 0,
+		"A wild victor captures nothing — the worker simply dies")
+	assert_eq(_units_of(gs, "worker", 2).size(), 0, "the worker is removed")
+
+func test_no_capture_when_the_tile_is_not_overrun() -> void:
+	# advance=false (a city-tile defence or an air strike): the civilian dies
+	# without changing hands — the tile was never taken.
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var wk = make_unit(gs, "worker", 2, 5, 5)
+	f._apply_combat_result(atk, wk, _dead_defender_result(), false)
+	assert_eq(_units_of(gs, "worker", 1).size(), 0,
+		"No capture without the overrun — the unit is killed outright")
+	var mult: int = gs.db.get_constant("war_weariness_multiplier", 2)
+	assert_eq(int(gs.alliances[1].war_fatigue.get(1, 0)),
+		gs.db.get_constant("war_weariness_unit_killed_defending", 2) * mult,
+		"A non-overrun death keeps the ordinary kill weights")
+
+func test_combat_units_are_never_captured() -> void:
+	var gs = make_gs()
+	var f = bare_facade(gs)
+	var atk = make_unit(gs, "warrior", 1, 5, 6)
+	var def = make_unit(gs, "warrior", 2, 5, 5)
+	var before: int = gs.units.size()
+	f._apply_combat_result(atk, def, _dead_defender_result())
+	assert_eq(gs.units.size(), before - 1,
+		"A combat unit (no capture class) dies without spawning anything")

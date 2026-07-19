@@ -965,10 +965,16 @@ static func _complete_item(gs: GameState, s: Settlement,
 		"project":
 			var proj: Dictionary = gs.db.projects.get(iid, {})
 			if Projects.is_endgame(proj):
+				# §15.16 (M4): spaceship parts tally per type, capped at the
+				# type's count_needed — a duplicate of a filled type no longer
+				# advances the race (the hammers are lost, as in the reference).
 				var alliance_id: int = player.alliance_id
-				if not gs.endgame_project_stages.has(alliance_id):
-					gs.endgame_project_stages[alliance_id] = 0
-				gs.endgame_project_stages[alliance_id] += 1
+				if not gs.endgame_project_parts.has(alliance_id):
+					gs.endgame_project_parts[alliance_id] = {}
+				var tally: Dictionary = gs.endgame_project_parts[alliance_id]
+				var have: int = int(tally.get(iid, 0))
+				if have < Projects.count_needed(proj):
+					tally[iid] = have + 1
 			elif not proj.empty() and Projects.grantable(gs, player, iid):
 				# §15.7 effects project (SDI / The Internet): record it on the
 				# player so Projects.effect_int sees it. A world-unique project

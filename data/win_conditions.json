@@ -16,8 +16,8 @@
     "id": "endgame_project",
     "type": "endgame_project",
     "name": "Space Race",
-    "stages_required": 7,
-    "notes": "Complete and launch all spaceship parts (Apollo Program required)."
+    "victory_delay_turns": 10,
+    "notes": "Build spaceship parts per type (count_needed in projects.json; 16 at full build, Apollo Program required). One of every part type launches the ship; arrival takes victory_delay_turns stretched by the pace victory_delay_scale and by missing optional parts; missing casings risk the arrival roll. Losing the capital cancels the launch."
   },
   "cultural": {
     "id": "cultural",
