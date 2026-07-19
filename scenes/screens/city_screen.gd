@@ -372,12 +372,22 @@ func _tile_grid_marker(is_center: bool, is_worked: bool, is_locked: bool) -> Str
 # Specialists: current counts and +/- buttons per assignable type, read from the
 # specialists data table (output, GP type, slot ceiling). Adding is capped by the
 # sim against the city's population and the per-type slot count (−1 = unlimited,
-# e.g. Caste System); the + button greys out at the ceiling.
+# e.g. Caste System); the + button greys out at the ceiling. Free settled greats
+# sit on top of population (§15.19) and are shown separately, as is the
+# engine-managed citizen default specialist (the auto-filled leftover citizens).
 func _build_specialists(v, s, db, owner) -> void:
-	var total := 0
+	var total: int = Specialists.population_used(db, s)
+	var def_type: String = Specialists.default_type(db)
+	var free_total := 0
 	for k in s.specialists:
-		total += int(s.specialists[k])
-	_line(v, "Assigned specialists: " + str(total) + " / pop " + str(s.population))
+		if Specialists.is_free(db, str(k)):
+			free_total += int(s.specialists[k])
+	var head: String = "Assigned specialists: " + str(total) + " / pop " + str(s.population)
+	if free_total > 0:
+		head += "    Settled (free): " + str(free_total)
+	if def_type != "" and int(s.specialists.get(def_type, 0)) > 0:
+		head += "    Citizens (auto): " + str(int(s.specialists.get(def_type, 0)))
+	_line(v, head)
 	var grid := GridContainer.new()
 	grid.columns = 4
 	for stype in Specialists.assignable_types(db):
@@ -395,6 +405,9 @@ func _build_specialists(v, s, db, owner) -> void:
 		grid.add_child(minus)
 		var plus := Button.new()
 		plus.text = "+"
+		# The population cap counts only working posts (§15.19): free settled
+		# greats and auto-filled citizens never block adding a specialist —
+		# a new post displaces a citizen specialist instead.
 		plus.disabled = (slots >= 0 and count >= slots) or total >= s.population
 		plus.connect("pressed", self, "_on_specialist", [stype, count + 1])
 		grid.add_child(plus)

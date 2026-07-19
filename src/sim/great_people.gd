@@ -42,13 +42,18 @@ static func gp_unit_for_type(db: DataDB, gen_type: String) -> String:
 	return ""
 
 # The specialist type contributing the most points in `s`, "" if none assigned.
-# Ties break on the lexicographically smallest type id for determinism.
-static func dominant_specialist(s: Settlement) -> String:
+# Ties break on the lexicographically smallest type id for determinism. Types
+# that bank no GP points — the auto-filled citizen default specialist (§15.19)
+# and the settled great_* forms — never claim dominance: only point-banking
+# working specialists direct which Great Person a city births.
+static func dominant_specialist(s: Settlement, db: DataDB) -> String:
 	var keys: Array = s.specialists.keys()
 	keys.sort()
 	var best: String = ""
 	var best_count: int = 0
 	for k in keys:
+		if int(db.get_specialist(str(k)).get("gp_points", 0)) <= 0:
+			continue
 		var c: int = int(s.specialists[k])
 		if c > best_count:
 			best_count = c
@@ -81,7 +86,7 @@ static func spawn_unit(gs: GameState, unit_type_id: String, player_id: int,
 # specialist type decides which Great Person appears at the city. Returns the new
 # unit id, or -1 if the dominant type maps to no great-person unit.
 static func birth_from_settlement(gs: GameState, s: Settlement) -> int:
-	var gen_type: String = dominant_specialist(s)
+	var gen_type: String = dominant_specialist(s, gs.db)
 	if gen_type == "":
 		return -1
 	var unit_type: String = gp_unit_for_type(gs.db, gen_type)
@@ -303,9 +308,12 @@ static func _act_join_city(gs: GameState, unit: Unit, player: Player,
 	if s == null:
 		return false
 	# Permanent super-specialist: the settled form is the matching `great_*`
-	# record in data/specialists.json (§14.1) — reference settled yields, and it
-	# banks no further GP points (gp_points 0). A Great General (generated_by
-	# "combat_xp") settles as `great_general`.
+	# record in data/specialists.json (§14.1) — reference settled yields, it
+	# banks no further GP points (gp_points 0), and it is FREE (§15.19): it sits
+	# on top of population, consuming no worker slot. A Great General
+	# (generated_by "combat_xp") settles as `great_general`, the military
+	# instructor (§15.20): zero yields, +2 XP per head to combat-capable units
+	# completed in the city (read at TurnEngine.new_unit_xp).
 	var stype: String = str(udata.get("generated_by", ""))
 	var settled: String = "great_" + stype
 	if stype == "" or stype == "combat_xp":

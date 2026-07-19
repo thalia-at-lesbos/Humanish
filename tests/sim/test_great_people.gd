@@ -41,11 +41,24 @@ func test_dominant_specialist_picks_the_largest() -> void:
 	var gs = make_gs()
 	var s = _city(gs, 1, 5, 5)
 	s.specialists = {"artist": 2, "merchant": 5, "scientist": 5}
-	assert_eq(GreatPeople.dominant_specialist(s), "merchant",
+	assert_eq(GreatPeople.dominant_specialist(s, gs.db), "merchant",
 		"ties break on the lexicographically smallest type for determinism")
 	s.specialists = {}
-	assert_eq(GreatPeople.dominant_specialist(s), "",
+	assert_eq(GreatPeople.dominant_specialist(s, gs.db), "",
 		"no specialists means no dominant type")
+
+func test_dominant_specialist_ignores_pointless_types() -> void:
+	# §15.19: the auto-filled citizen default specialist (and the settled
+	# great_* forms) bank no GP points, so they never direct a birth — a city
+	# full of idle citizens still births by its point-banking specialists.
+	var gs = make_gs()
+	var s = _city(gs, 1, 5, 5)
+	s.specialists = {"citizen": 6, "great_artist": 4, "scientist": 1}
+	assert_eq(GreatPeople.dominant_specialist(s, gs.db), "scientist",
+		"zero-GPP types (citizen, settled greats) never claim dominance")
+	s.specialists = {"citizen": 3}
+	assert_eq(GreatPeople.dominant_specialist(s, gs.db), "",
+		"citizens alone leave the city with no dominant type")
 
 func test_birth_from_settlement_spawns_typed_unit() -> void:
 	var gs = make_gs()
@@ -117,6 +130,57 @@ func test_settled_greats_bank_no_gp_points() -> void:
 	GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id})
 	assert_eq(Specialists.settlement_gp_points(gs.db, s), 0,
 		"settled Great People bank no further GP points (reference)")
+
+# ── Military instructor (§15.20 / R4) ────────────────────────────────────────
+
+func test_settled_great_general_has_no_yield_standin() -> void:
+	# R4 replaced the settled Great General's +2-production stand-in with the
+	# military-instructor model: the specialist row carries zero yields and the
+	# §15.20 experience value 2 instead.
+	var gs = make_gs()
+	var s = _city(gs, 1, 5, 5)
+	var u = make_gp(gs, "great_general", 1, 5, 5)
+	GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id})
+	var out: Dictionary = Specialists.settlement_output(gs.db, s)
+	for ch in out:
+		assert_eq(int(out[ch]), 0,
+			"a settled Great General yields nothing (%s) — the +2P stand-in is gone" % ch)
+	assert_eq(Specialists.experience(gs.db, "great_general"), 2,
+		"the great_general specialist carries the §15.20 experience value 2")
+
+func test_settled_great_general_grants_xp_to_units_built_in_city() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = _city(gs, 1, 5, 5)
+	var other = _city(gs, 1, 8, 8)
+	var u = make_gp(gs, "great_general", 1, 5, 5)
+	GreatPeople.perform_action(gs, u, "join_city", {"settlement_id": s.id})
+	TurnEngine._complete_item(gs, s, p, {"type": "unit", "id": "warrior"})
+	var trained = gs.units[gs.units.size() - 1]
+	assert_eq(trained.experience, 2,
+		"a unit completed in the instructor's city starts with +2 XP")
+	TurnEngine._complete_item(gs, other, p, {"type": "unit", "id": "warrior"})
+	var elsewhere = gs.units[gs.units.size() - 1]
+	assert_eq(elsewhere.experience, 0,
+		"the instructor teaches only in its own city")
+
+func test_military_instructors_stack_with_buildings_and_each_other() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = _city(gs, 1, 5, 5)
+	s.structures.append("barracks")  # land_xp 3
+	s.specialists = {"great_general": 2}
+	assert_eq(TurnEngine.new_unit_xp(gs, s, p, "warrior"), 3 + 2 * 2,
+		"two settled Great Generals add +2 XP each on top of the barracks")
+
+func test_military_instructor_teaches_no_civilians() -> void:
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = _city(gs, 1, 5, 5)
+	s.specialists = {"great_general": 1}
+	TurnEngine._complete_item(gs, s, p, {"type": "unit", "id": "worker"})
+	var trained = gs.units[gs.units.size() - 1]
+	assert_eq(trained.experience, 0, "a non-military unit draws no instructor XP")
 
 # ── Golden Ages ────────────────────────────────────────────────────────────────
 

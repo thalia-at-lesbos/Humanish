@@ -1678,17 +1678,23 @@ func _cmd_assign_specialist(cmd: Dictionary) -> bool:
 	var slots: int = Specialists.slots_for(_db, s, p, stype)
 	if slots >= 0 and count > slots:
 		return false
-	# Total specialists may not exceed the settlement's population.
-	var others: int = 0
-	for k in s.specialists:
-		if k != stype:
-			others += int(s.specialists[k])
-	if others + count > s.population:
-		return false
+	# Population-consuming specialists may not exceed the settlement's population
+	# (§15.19): free settled greats and the auto-managed default citizen
+	# specialist sit outside the cap — assigning a working post displaces a
+	# citizen specialist, never the other way round. Assigning the free/default
+	# types themselves is uncapped (the default's validity is unconditional).
+	if not Specialists.is_free(_db, stype) and stype != Specialists.default_type(_db):
+		var others: int = Specialists.population_used(_db, s) \
+			- int(s.specialists.get(stype, 0))
+		if others + count > s.population:
+			return false
 	if count == 0:
 		s.specialists.erase(stype)
 	else:
 		s.specialists[stype] = count
+	# Recompute worked tiles and the citizen default-specialist fill at once
+	# (§15.19), so the city screen reflects the displacement immediately.
+	TurnEngine._auto_assign_workers(_gs, p)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
@@ -2835,8 +2841,9 @@ func _cmd_draft(cmd: Dictionary) -> bool:
 	var anger: int = _db.get_constant("draft_anger_turns", 5)
 	if s.rush_anger_turns < anger:
 		s.rush_anger_turns = anger
-	# Raise the unit at the city. Drafted units come only with civic XP (no
-	# building XP), reflecting their reduced training.
+	# Raise the unit at the city. A conscript receives HALF the city's total
+	# production XP (civics + buildings + settled Great General instructors),
+	# integer-truncated (§15.20), reflecting its reduced training.
 	var u := Unit.new()
 	u.id = _gs.next_unit_id()
 	u.unit_type_id = unit_id
@@ -2846,7 +2853,7 @@ func _cmd_draft(cmd: Dictionary) -> bool:
 	u.base_strength = int(udata.get("base_strength", 5))
 	u.movement_total = int(udata.get("movement", 120))
 	u.movement_left = u.movement_total
-	u.experience = PolicyEffects.sum_int(p, _db, "new_unit_xp")
+	u.experience = TurnEngine.new_unit_xp(_gs, s, p, unit_id) / 2
 	_gs.units.append(u)
 	emit_signal("unit_created", u.id)
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
