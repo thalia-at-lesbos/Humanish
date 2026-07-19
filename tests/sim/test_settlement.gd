@@ -942,3 +942,135 @@ func test_whip_anger_duration_halved_by_sacrificial_altar() -> void:
 	assert_true(f.apply_command(Commands.rush_population(1, s.id)), "whip accepted")
 	assert_eq(int(s.timed_happiness[0]["turns_left"]), 5,
 		"halve_slavery_anger (Sacrificial Altar) halves whip-anger duration")
+
+# ── W1: standing-structure science_bonus (§15) ───────────────────────────────
+#
+# The summed per-structure `science_bonus` percentage multiplies the city's
+# research commerce share (integer truncation). Direct science yields
+# (specialists, event STRUCT_YIELD, corporations) sit outside the multiplier —
+# test_events.gd covers that a zero-commerce city's STRUCT_YIELD is unscaled.
+
+func _all_commerce_to_research(p) -> void:
+	p.slider_research = 100; p.slider_finance = 0
+	p.slider_culture = 0; p.slider_intel = 0
+
+func test_science_bonus_library_boosts_research_share_25pct() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"  # costly: never completes in one tick
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("library")      # science_bonus: 25
+	s.output_commerce = 100
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 125,
+		"A library boosts the city's 100-beaker research share by 25%")
+
+func test_science_bonus_academy_boosts_research_share_50pct() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("academy")      # science_bonus: 50
+	s.output_commerce = 100
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 150,
+		"An academy boosts the city's research share by 50%")
+
+func test_science_bonus_stacks_additively() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("library")      # 25
+	s.structures.append("university")   # 25
+	s.output_commerce = 100
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 150,
+		"Library + university sum to +50% on the city's research share")
+
+func test_science_bonus_truncates_integer_share() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("library")      # 25% of 10 = 2.5 → 2
+	s.output_commerce = 10
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 12,
+		"The 25% bonus on a 10-beaker share truncates to +2")
+
+func test_science_bonus_is_per_city() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	_all_commerce_to_research(p)
+	p.current_research_id = "plastics"
+	var with_lib = make_settlement(gs, 1, 5, 5)
+	with_lib.structures.append("library")
+	with_lib.output_commerce = 100
+	var without = make_settlement(gs, 1, 9, 9)
+	without.output_commerce = 100
+	TurnEngine._apply_research(gs, p)
+	assert_eq(p.research_store, 225,
+		"Only the library city's share is multiplied (125 + 100)")
+
+# ── W2: Three Gorges Dam unhealthy_global (§15) ──────────────────────────────
+
+func test_unhealthy_global_hits_every_city_of_the_owner() -> void:
+	var gs = make_gs(2)
+	var p1 = gs.get_player(1)
+	var cap = make_settlement(gs, 1, 5, 5)
+	var other = make_settlement(gs, 1, 9, 9)
+	TurnEngine._update_wellbeing(gs, cap, p1, gs.db)
+	TurnEngine._update_wellbeing(gs, other, p1, gs.db)
+	var cap_neg: int = cap.wellbeing_negative
+	var other_neg: int = other.wellbeing_negative
+	cap.structures.append("three_gorges_dam")  # effects.unhealthy_global: 2
+	TurnEngine._update_wellbeing(gs, cap, p1, gs.db)
+	TurnEngine._update_wellbeing(gs, other, p1, gs.db)
+	assert_eq(cap.wellbeing_negative, cap_neg + 2,
+		"The dam's own city takes the +2 global unhealthiness")
+	assert_eq(other.wellbeing_negative, other_neg + 2,
+		"Every other city of the owner takes the +2 too")
+
+func test_unhealthy_global_leaves_other_players_alone() -> void:
+	var gs = make_gs(2)
+	var p2 = gs.get_player(2)
+	var foreign = make_settlement(gs, 2, 15, 15)
+	TurnEngine._update_wellbeing(gs, foreign, p2, gs.db)
+	var foreign_neg: int = foreign.wellbeing_negative
+	var cap = make_settlement(gs, 1, 5, 5)
+	cap.structures.append("three_gorges_dam")
+	TurnEngine._update_wellbeing(gs, foreign, p2, gs.db)
+	assert_eq(foreign.wellbeing_negative, foreign_neg,
+		"A rival's dam adds no unhealthiness to another player's city")
+
+# ── W3: Hippodrome happiness_with_horse (§15) ────────────────────────────────
+
+func test_hippodrome_happy_only_with_horse_accessible() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("hippodrome")   # happiness_bonus 1 + happiness_with_horse 1
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var without_horse: int = s.positive_sentiment
+	_connect_resource(gs, "horse", 7, 7)  # owned pasture + animal_husbandry
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, without_horse + 1,
+		"Horse access adds the Hippodrome's conditional +1 happy face")
+
+func test_hippodrome_happy_lost_when_resource_lost() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("hippodrome")
+	_connect_resource(gs, "horse", 7, 7)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var with_horse: int = s.positive_sentiment
+	gs.map.get_tile(7, 7).improvement_id = ""  # pasture pillaged: access lost
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, with_horse - 1,
+		"Losing the Horse connection loses the conditional happy face")

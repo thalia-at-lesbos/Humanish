@@ -15,6 +15,10 @@ class_name TurnEngine
 # Per-player step runs for each active player.
 # Per-settlement step runs inside per-player.
 
+# Structure-effect key prefix for resource-conditional happiness (§15, e.g. the
+# Hippodrome's `happiness_with_horse`); the suffix names the resource id.
+const RES_HAPPINESS_PREFIX := "happiness_with_"
+
 # ── Whole-world step ──────────────────────────────────────────────────────────
 
 static func world_step(gs: GameState, hooks: Hooks) -> void:
@@ -510,6 +514,16 @@ static func _update_wellbeing(gs: GameState, s: Settlement, player: Player, db: 
 		var struct: Dictionary = db.get_structure(struct_id)
 		pos += int(struct.get("health_bonus", 0))
 		neg += int(struct.get("health_penalty", 0))
+	# Owner-wide standing-structure unhealthiness (§15: `unhealthy_global`, Three
+	# Gorges Dam +2): a structure anywhere in the owner's empire adds its amount
+	# to EVERY city of that owner — this one included, other players unaffected.
+	if player != null:
+		for owner_s in gs.settlements:
+			if owner_s.owner_player_id != player.id:
+				continue
+			for g_struct_id in owner_s.structures:
+				neg += int(db.get_structure(g_struct_id).get("effects", {}) \
+					.get("unhealthy_global", 0))
 	# Adopted belief wellbeing (§8)
 	if s.belief_id != "":
 		pos += int(db.beliefs.get(s.belief_id, {}).get("health_bonus", 0))
@@ -582,11 +596,25 @@ static func _update_contentment(gs: GameState, s: Settlement, player: Player, db
 	# Structures. A structure that requires the state religion (e.g. Cathedrals)
 	# only comforts the city while that religion is the player's adopted one and is
 	# present here (§8).
+	var have_res: Dictionary = {}
+	var have_res_known: bool = false
 	for struct_id in s.structures:
 		var struct: Dictionary = db.get_structure(struct_id)
 		if not _structure_effect_active(db, struct_id, s, player):
 			continue
 		pos += int(struct.get("happiness_bonus", 0))
+		# Resource-conditional comfort (§15: `happiness_with_<resource>`, e.g. the
+		# Hippodrome's +1 while Horse is accessible): counts only while the owner
+		# can access the named resource — the same availability rule units use
+		# (EconOrgs.accessible_resources), so losing the resource loses the face.
+		for fx_key in struct.get("effects", {}):
+			if not str(fx_key).begins_with(RES_HAPPINESS_PREFIX):
+				continue
+			if not have_res_known:
+				have_res = EconOrgs.accessible_resources(gs, player.id)
+				have_res_known = true
+			if have_res.has(str(fx_key).substr(RES_HAPPINESS_PREFIX.length())):
+				pos += int(struct["effects"][fx_key])
 
 	# Adopted belief comfort (§8)
 	if s.belief_id != "":
@@ -1630,7 +1658,18 @@ static func _apply_research(gs: GameState, player: Player) -> void:
 		if s.owner_player_id != player.id:
 			continue
 		var split: Array = player.split_commerce(s.output_commerce)
-		research_income += split[1]  # research
+		var beakers: int = split[1]  # research commerce share
+		# Standing-structure research multiplier (§15: `science_bonus` — library/
+		# university/observatory/laboratory 25, academy 50, seowon 35, …): the
+		# structures' percentages sum and scale the city's research commerce share
+		# only, truncating. Specialist, event and corporation science below are
+		# direct yields outside the multiplier.
+		var sci_pct: int = 0
+		for sci_struct_id in s.structures:
+			sci_pct += int(db.get_structure(sci_struct_id).get("science_bonus", 0))
+		if sci_pct > 0:
+			beakers += Fixed.scale(beakers, sci_pct)
+		research_income += beakers
 		# Scientist specialists yield science directly (§6.5), outside the commerce
 		# split (it is yield, not taxed commerce).
 		research_income += Specialists.settlement_channel(db, s, "science")

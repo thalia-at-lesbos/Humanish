@@ -222,6 +222,19 @@ static func accrue_war_fatigue(gs, side_pid: int, enemy_pid: int, key: String) -
 		* gs.db.get_constant("war_weariness_multiplier", 2)
 	if ep.alliance_id in sa.forced_wars:
 		amt = amt * (100 + gs.db.get_constant("war_weariness_forced_modifier", -50)) / 100
+	# Enemy-side amplification (§15: `enemy_war_weariness`, Statue of Zeus +100%):
+	# standing structures in the ENEMY's cities raise this side's accrual against
+	# them by the summed percentage while the war lasts (a captured or razed
+	# wonder stops counting because the scan follows city ownership). Truncates.
+	var enemy_pct: int = 0
+	for es in gs.settlements:
+		if es.owner_player_id != ep.id:
+			continue
+		for e_struct_id in es.structures:
+			enemy_pct += int(gs.db.get_structure(e_struct_id).get("effects", {}) \
+				.get("enemy_war_weariness", 0))
+	if enemy_pct > 0:
+		amt = amt * (100 + enemy_pct) / 100
 	if amt <= 0:
 		return
 	sa.war_fatigue[ep.alliance_id] = int(sa.war_fatigue.get(ep.alliance_id, 0)) + amt

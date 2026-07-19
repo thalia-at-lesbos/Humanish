@@ -107,7 +107,12 @@ docs-only.
 
 ## Phase W — dead-key wirings (values already shipped; small, independent; no Phase 0 dependency except W7's 0j check)
 
-- **W1. Per-city `science_bonus`** (plan A2 note): research income currently has
+- **W1. Per-city `science_bonus`** (plan A2 note): **DONE 2026-07-18** —
+  summed standing-structure `science_bonus` multiplies the city's research
+  commerce share in `TurnEngine._apply_research` (truncating); direct science
+  yields (specialists, STRUCT_YIELD, corporations) stay outside the multiplier.
+  Tests in `test_settlement.gd` (25/50, stacking, truncation, per-city); no
+  existing pinned totals shifted. Original item: research income currently has
   no per-city % multiplier site — the key (library/university/observatory/
   laboratory 25, academy 50, seowon 35; verified 2026-07-11) is read only by the
   PlayerAI heuristic and the encyclopedia. Wire: apply the summed standing-
@@ -117,17 +122,30 @@ docs-only.
   settlement research aggregation site), `src/sim/settlement.gd`. **Tests:**
   `tests/sim/test_settlement.gd` (25%/50% cases, stacking, truncation),
   recalibrate any pinned research totals.
-- **W2. Three Gorges Dam `unhealthy_global: 2`** (plan A2 note): global
+- **W2. Three Gorges Dam `unhealthy_global: 2`** (plan A2 note): **DONE
+  2026-07-18** — owner-wide standing-structures scan in
+  `TurnEngine._update_wellbeing` adds the summed amount to every city of the
+  owner (the dam's own city included); tests in `test_settlement.gd`. Original
+  item: global
   semantics — +2 unhealth in **every** city of the owner (that is what blocked
   folding it into per-city `health_penalty`). Wire a `PolicyEffects`-style
   standing-structures scan in `_update_contentment`/wellbeing. **Files:**
   `src/sim/turn_engine.gd`. **Tests:** `tests/sim/test_settlement.gd` (owner-wide
   effect, other players unaffected).
-- **W3. Hippodrome `happiness_with_horse: 1`** (plan A2 note): +1 happy in the
+- **W3. Hippodrome `happiness_with_horse: 1`** (plan A2 note): **DONE
+  2026-07-18** — generic `happiness_with_<resource>` effects-key read in
+  `TurnEngine._update_contentment` (prefix parse; gated on
+  `EconOrgs.accessible_resources`, so a pillaged pasture loses the face);
+  tests in `test_settlement.gd`. Original item: +1 happy in the
   city while the owner has Horse accessible (`EconOrgs.accessible_resources`).
   **Files:** `src/sim/turn_engine.gd`. **Tests:** `test_settlement.gd` (with/
   without horse, resource lost ⇒ happy lost).
-- **W4. Statue of Zeus `enemy_war_weariness`** (plan C8 note): +% war-weariness
+- **W4. Statue of Zeus `enemy_war_weariness`** (plan C8 note): **DONE
+  2026-07-18** — summed over the *enemy player's* standing structures in
+  `CombatApply.accrue_war_fatigue` (the single per-event site all accrual paths
+  share), applied as ×(100+pct)/100 after the forced-war modifier; a captured
+  statue stops counting (the scan follows city ownership). Tests in
+  `test_turn_engine.gd`. Original item: +% war-weariness
   accrual on enemies at war with the owner, summed into the C8 per-event weight
   application site. **Files:** `src/sim/turn_engine.gd` (war-weariness accrual),
   possibly `src/sim/combat_apply.gd`. **Tests:** `tests/sim/test_turn_engine.gd`
