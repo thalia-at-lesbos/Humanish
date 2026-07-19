@@ -200,6 +200,20 @@ func test_production_excludes_already_built_structures() -> void:
 		if str(opt["type"]) == "structure":
 			assert_ne(str(opt["id"]), "granary", "Built structures are not re-offered")
 
+func test_production_excludes_not_buildable_structures() -> void:
+	# M7: the Military Academy (`not_buildable`) never enters an AI queue — it
+	# is only obtainable through the Great General's build action.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var p = gs.get_player(1)
+	for tech_id in gs.db.technologies:
+		p.technologies.append(tech_id)
+	var s = make_settlement(gs, 1, 5, 5)
+	for opt in PlayerAI._sorted_options(gs, s, p):
+		if str(opt["type"]) == "structure":
+			assert_ne(str(opt["id"]), "military_academy",
+				"A not_buildable structure is never offered as production")
+
 # ── Units: garrison vs. random ─────────────────────────────────────────────────
 
 func test_garrison_unit_on_city_fortifies() -> void:

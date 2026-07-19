@@ -922,6 +922,12 @@ func _cmd_set_production(cmd: Dictionary) -> bool:
 	# (Spaceship stages keep their pre-C5 ungated queue behaviour.)
 	var qp: Player = _gs.get_player(int(cmd["player_id"]))
 	for it in incoming:
+		# A `not_buildable` structure (M7: the Military Academy) never enters a
+		# city queue — it is granted by other means only (the Great General's
+		# `build_military_academy` action, event rewards).
+		if str(it.get("type", "")) == "structure" \
+				and bool(_db.get_structure(str(it.get("id", ""))).get("not_buildable", false)):
+			return false
 		if str(it.get("type", "")) != "project":
 			continue
 		var pj: Dictionary = _db.projects.get(str(it.get("id", "")), {})
@@ -1160,6 +1166,15 @@ func _cmd_propose_permanent_alliance(cmd: Dictionary) -> bool:
 
 # Gold rush (hurry with treasury). The legacy method "population" delegates to
 # the dedicated population-rush handler (§15.2) so older callers keep working.
+# Gold hurry (§15.2/§29.8 reference retune, wiring item M5): pay
+# `rush_gold_per_hammer` (reference 3) gold per hammer still owed on the head
+# queue item. Available always — the Universal Suffrage `can_rush_with_gold`
+# gate is retired. The remaining cost comes through
+# TurnEngine.rush_remaining_cost, so an item queued this very turn carries the
+# shared `new_hurry_modifier` +50% surcharge exactly like a whip. The reference
+# gold hurry causes NO anger (the old flat 5-turn rush anger is gone; the
+# `rush_anger_turns` channel remains in use by the draft, and the population
+# whip keeps its own timed-anger path).
 func _cmd_rush_production(cmd: Dictionary) -> bool:
 	if str(cmd.get("method", "treasury")) == "population":
 		return _cmd_rush_population(cmd)
@@ -1169,20 +1184,15 @@ func _cmd_rush_production(cmd: Dictionary) -> bool:
 	var s: Settlement = _gs.get_settlement(int(cmd["settlement_id"]))
 	if s == null or s.owner_player_id != p.id:
 		return false
-	if s.production_queue.empty():
+	var gold_cost: int = TurnEngine.rush_remaining_cost(_gs, s, p) \
+		* _db.get_constant("rush_gold_per_hammer", 3)
+	if gold_cost <= 0:
+		return false  # empty queue, or nothing left to rush
+	if p.treasury < gold_cost:
 		return false
-	var item: Dictionary = s.production_queue[0]
+	p.treasury -= gold_cost
 	var pace: Dictionary = _db.get_pace(_gs.pace_id)
-	var cost: int = TurnEngine._item_cost(item, _db, p, pace)
-	var remaining: int = max(0, cost - s.production_store)
-	# Rushing with gold requires a civic that allows it (Universal Suffrage, §8).
-	if not PolicyEffects.has_flag(p, _db, "can_rush_with_gold"):
-		return false
-	if p.treasury < remaining:
-		return false
-	p.treasury -= remaining
-	s.production_store = cost
-	s.rush_anger_turns = 5
+	s.production_store = TurnEngine._item_cost(s.production_queue[0], _db, p, pace)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
@@ -1239,6 +1249,20 @@ func rush_population_cost(settlement_id: int) -> int:
 	if p == null:
 		return 0
 	return TurnEngine.rush_pop_cost(_gs, s, p)
+
+# Pure read for the city screen (§15.2, M5): gold a treasury hurry of this
+# settlement's head queue item costs right now — `rush_gold_per_hammer` per
+# hammer of the remaining cost (new-order surcharge included). 0 = nothing to
+# rush.
+func rush_gold_cost(settlement_id: int) -> int:
+	var s: Settlement = _gs.get_settlement(settlement_id)
+	if s == null:
+		return 0
+	var p: Player = _gs.get_player(s.owner_player_id)
+	if p == null:
+		return 0
+	return TurnEngine.rush_remaining_cost(_gs, s, p) \
+		* _db.get_constant("rush_gold_per_hammer", 3)
 
 # Shared legality predicate for a worker (unit_id) building improvement_id on its
 # current tile. Used by _cmd_build_improvement (defence-in-depth on the command),

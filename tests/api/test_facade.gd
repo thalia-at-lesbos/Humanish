@@ -1224,3 +1224,22 @@ func test_upgrade_blocked_without_target_resource() -> void:
 	assert_true(f.apply_command(Commands.unit_upgrade(pid, vet.id)),
 		"upgrade accepted with iron alone (any-of set)")
 	assert_eq(gs.get_unit(vet.id).unit_type_id, "axeman", "warrior upgraded to axeman")
+
+# ── M7: not_buildable structures are barred from the city queue ──────────────
+
+func test_set_production_rejects_not_buildable_structure() -> void:
+	# The Military Academy carries `not_buildable` — SET_PRODUCTION refuses it
+	# even with its tech researched (the Great General's build action is the
+	# only way to raise it).
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var f = bare_facade(gs)
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	gs.get_player(1).technologies.append("military_science")
+	assert_false(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "structure", "id": "military_academy"}])),
+		"queueing the not_buildable Military Academy is refused")
+	assert_true(s.production_queue.empty(), "the refused queue set left no items")
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "structure", "id": "granary"}])),
+		"an ordinary structure still queues normally")

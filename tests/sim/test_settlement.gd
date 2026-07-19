@@ -1160,3 +1160,125 @@ func test_obsolete_structure_output_delta_stops() -> void:
 	TurnEngine._settlement_growth(gs, s, p)
 	assert_eq(s.output_food, live_food - 3,
 		"An obsolete structure's output_delta yields nothing (§15.17)")
+
+# ── M2: culture-rate building happiness (§15.13/§29.12) ──────────────────────
+#
+# Entertainment-tier carriers (`effects.culture_rate_happiness`: theatre 10,
+# colosseum 5, hippodrome 20, broadcast tower 10, …) grant happiness scaled by
+# the owner's culture allocation rate — Σ(carrier values) × culture% / 100,
+# truncated ONCE over the per-city sum, no cap.
+
+func test_culture_rate_happiness_zero_at_zero_slider() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var base: int = s.positive_sentiment
+	s.structures.append("theatre")
+	p.slider_culture = 0
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, base,
+		"At 0% culture a carrier grants no rate happiness")
+
+func test_culture_rate_happiness_scales_with_slider() -> void:
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var base: int = s.positive_sentiment
+	s.structures.append("theatre")     # carrier 10
+	s.structures.append("colosseum")   # carrier 5 + happiness_bonus 1
+	p.slider_culture = 50
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, base + 1 + 7,
+		"50% culture: summed carriers 15 grant 15*50/100 = 7 happy")
+
+func test_culture_rate_happiness_truncates_once_over_city_sum() -> void:
+	# At 35%, truncating per building would give 10*35/100 + 5*35/100 = 3 + 1
+	# = 4; the rule truncates once over the summed 15: 15*35/100 = 5.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var base: int = s.positive_sentiment
+	s.structures.append("theatre")
+	s.structures.append("colosseum")
+	p.slider_culture = 35
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, base + 1 + 5,
+		"One truncation over the per-city carrier sum (5, not 4)")
+
+func test_culture_rate_happiness_inactive_carrier_excluded() -> void:
+	# No shipped carrier is obsoletable, so exercise the shared
+	# _structure_effect_active gate synthetically: obsolete the theatre and its
+	# carrier value must leave the sum.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5)
+	s.structures.append("theatre")
+	p.slider_culture = 50
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	var live: int = s.positive_sentiment
+	gs.db.structures["theatre"]["obsoleted_by"] = "mysticism"
+	p.technologies.append("mysticism")
+	TurnEngine._update_contentment(gs, s, p, gs.db)
+	assert_eq(s.positive_sentiment, live - 5,
+		"An obsolete carrier's 10*50/100 = 5 happy stops (§15.17)")
+
+# ── M5: gold hurry retune (§15.2/§29.8) ──────────────────────────────────────
+#
+# 3 gold per hammer of remaining cost (`rush_gold_per_hammer`), available under
+# every government (the Universal Suffrage gate is retired), the shared
+# new-order +50% surcharge kept, and NO anger of any kind.
+
+# The whip fixture's 100-hammer dummy with no permitting civic at all.
+func _gold_setup(treasury = 100000):
+	var setup = _whip_setup()
+	setup[0].get_player(1).policies = {}
+	setup[0].get_player(1).treasury = treasury
+	return setup
+
+func test_gold_hurry_costs_three_gold_per_remaining_hammer() -> void:
+	var setup = _gold_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	var p = gs.get_player(1)
+	s.production_store = 10   # 90 hammers remain
+	assert_eq(f.rush_gold_cost(s.id), 270, "3 gold per remaining hammer")
+	assert_true(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"Gold hurry accepted without any permitting civic")
+	assert_eq(p.treasury, 100000 - 270, "270 gold paid")
+	assert_eq(s.production_store, 100, "The head item is fully paid for")
+
+func test_gold_hurry_new_order_surcharge() -> void:
+	var setup = _gold_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	assert_true(f.apply_command(Commands.set_production(1, s.id,
+		[{"type": "unit", "id": "whip_dummy"}])), "queue set via command")
+	assert_eq(f.rush_gold_cost(s.id), 450,
+		"Queued this turn: (100 + 50%) hammers x 3 gold = 450")
+	s.production_queue[0]["queued_turn"] = gs.turn_number - 1
+	assert_eq(f.rush_gold_cost(s.id), 300,
+		"Queued on an earlier turn: 100 hammers x 3 gold, no surcharge")
+
+func test_gold_hurry_causes_no_anger() -> void:
+	var setup = _gold_setup()
+	var f = setup[1]; var s = setup[2]
+	assert_true(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"gold hurry accepted")
+	assert_eq(s.rush_anger_turns, 0,
+		"Reference gold hurry stirs no flat rush anger")
+	assert_eq(s.timed_happiness.size(), 0,
+		"…and stacks no timed anger either (that channel is the whip's)")
+
+func test_gold_hurry_refused_when_poor_or_nothing_to_rush() -> void:
+	var setup = _gold_setup(10)
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"Too poor: 300 gold needed, 10 held")
+	gs.get_player(1).treasury = 100000
+	s.production_store = 100
+	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"Nothing left to rush is rejected")
+	s.production_queue = []
+	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"An empty production queue is rejected")

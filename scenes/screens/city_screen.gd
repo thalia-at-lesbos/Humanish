@@ -205,14 +205,10 @@ func _build() -> void:
 	var rush_gold_cost: int = 0
 	var rush_pop_cost: int = 0
 	if not s.production_queue.empty() and owner != null:
-		var pace2 = db.get_pace(gs.pace_id)
-		var item2 = s.production_queue[0]
-		var cost2: int = TurnEngine._item_cost(item2, db, owner, pace2)
-		rush_gold_cost = cost2 - s.production_store
-		if rush_gold_cost < 0:
-			rush_gold_cost = 0
+		# Gold hurry (§15.2, M5): always available — priced by the facade at
+		# `rush_gold_per_hammer` per remaining hammer (new-order surcharge in).
+		rush_gold_cost = _facade.rush_gold_cost(_city_id)
 		can_rush_treasury = rush_gold_cost > 0 \
-			and PolicyEffects.has_flag(owner, db, "can_rush_with_gold") \
 			and owner.treasury >= rush_gold_cost
 		# Population rush (§15.2): needs a permitting civic (Slavery), a cost to
 		# cover, and enough citizens to keep the minimum city size afterwards.

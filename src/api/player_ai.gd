@@ -367,6 +367,8 @@ static func _sorted_options(gs, s, player) -> Array:
 		var st: Dictionary = db.structures[sid]
 		if bool(st.get("corporation_hq", false)):
 			continue  # HQs are granted by founding a corporation, not built (§14.6)
+		if bool(st.get("not_buildable", false)):
+			continue  # not city-buildable (M7: Military Academy — Great General only)
 		if not _tech_ok(st.get("tech_required", null), player):
 			continue
 		var item_s: Dictionary = {"type": "structure", "id": sid}

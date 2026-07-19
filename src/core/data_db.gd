@@ -276,6 +276,7 @@ func _validate() -> void:
 	_validate_belief_refs()
 	_validate_trait_refs()
 	_validate_structure_obsolete_refs()
+	_validate_structure_not_buildable()
 
 # A structure's `obsoleted_by` (§15.17) must name a real technology — a dangling
 # id would ship a structure that silently never obsoletes (or, worse, a typo'd
@@ -289,6 +290,60 @@ func _validate_structure_obsolete_refs() -> void:
 			continue
 		if not (obs is String) or obs == "" or not technologies.has(str(obs)):
 			_errors.append("Structure '%s' obsoleted_by '%s' not in technologies table" % [sid, obs])
+
+# A `not_buildable` structure (M7: the Military Academy) is barred from every
+# city production queue, so it must be a boolean and the structure must remain
+# reachable some other way — a Great Person `build_<sid>` action (the generic
+# §14 verb) or an event/quest `building` reward. Otherwise the entry would be
+# silently unobtainable.
+func _validate_structure_not_buildable() -> void:
+	for sid in structures:
+		if sid == "_comment":
+			continue
+		if not structures[sid].has("not_buildable"):
+			continue
+		var flag = structures[sid]["not_buildable"]
+		if not (flag is bool):
+			_errors.append("Structure '%s' not_buildable must be a boolean" % sid)
+			continue
+		if not flag:
+			continue
+		if not _has_grant_path(str(sid)):
+			_errors.append("Structure '%s' is not_buildable but nothing grants it" % sid)
+
+# True if some non-queue path can grant the structure: a great-person
+# `build_<sid>` action, or a `building` effect in an event or quest reward.
+func _has_grant_path(sid: String) -> bool:
+	for uid in units:
+		if uid == "_comment":
+			continue
+		if ("build_" + sid) in units[uid].get("actions", []):
+			return true
+	for eid in events:
+		if eid == "_comment":
+			continue
+		var ev: Dictionary = events[eid]
+		var pools: Array = [ev.get("effects", []), ev.get("expire_effects", [])]
+		for ch in ev.get("choices", []):
+			pools.append(ch.get("effects", []))
+		for pool in pools:
+			for fx in pool:
+				if str(fx.get("verb", "")) == "building" \
+						and str(fx.get("structure_id", "")) == sid:
+					return true
+	for qid in quests:
+		if qid == "_comment":
+			continue
+		var reward: Dictionary = quests[qid].get("reward", {})
+		var qpools: Array = [reward.get("effects", [])]
+		for ch in reward.get("choices", []):
+			qpools.append(ch.get("effects", []))
+		for pool in qpools:
+			for fx in pool:
+				if str(fx.get("verb", "")) == "building" \
+						and str(fx.get("structure_id", "")) == sid:
+					return true
+	return false
 
 # Every structure a trait grants free (`free_structures`) or builds at double
 # speed (`double_production_structures`, B4) must exist in the structures table,

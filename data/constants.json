@@ -183,6 +183,7 @@
   "rush_min_population": 1,
   "rush_pop_anger": 1,
   "rush_pop_anger_turns": 10,
+  "rush_gold_per_hammer": 3,
   "new_hurry_modifier": 50,
   "civic_percent_anger_divisor": 1000,
   "blockade_range": 2,

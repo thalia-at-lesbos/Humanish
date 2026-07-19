@@ -89,6 +89,11 @@ Adjust from the rate panel on the HUD. A **+** that would push the three rates o
 or a **−** that would drop a rate below 0 (or Science below a civic-imposed research
 minimum), is disabled.
 
+Entertainment buildings (Theatre, Colosseum, Broadcast Tower and their society-unique
+variants) also grant **happiness scaling with your Culture rate** — a Theatre reads
+"+1 happy per 10% culture rate", a Colosseum "+1 per 20%". A city sums its
+entertainment buildings' values, multiplies by the Culture rate, and rounds down once.
+
 Your expenses (unit upkeep, city maintenance, civic upkeep) are subject to
 **inflation**: from a point in the game onward — later on slower paces, and reduced on
 lower difficulties — total expenses grow by a percentage that rises every turn. The
@@ -122,7 +127,9 @@ Click a tile to lock or unlock it. Locked tiles are always worked first.
 **Specialists** — assign citizens to specialist slots in built structures (e.g. scientist, engineer, merchant, artist).
 Specialists generate Great Person points toward a Great Person of that type (see §10).
 
-**Rush production** — spend gold to instantly complete part or all of the current build queue item, if your civics allow it (Universal Suffrage).
+**Rush production** — spend gold to instantly complete the current build queue item, available under every government.
+The price is 3 gold per hammer still owed; an item queued this same turn costs 50% extra.
+Unlike the whip, hurrying with gold causes no unhappiness.
 
 **Hurry with population ("whipping")** — under the **Slavery** civic the city screen's *Hurry (Pop: N)* button sacrifices N citizens to finish the current item (each citizen is worth 30 hammers at Normal pace, scaled by game pace).
 The whip never takes more citizens than the remaining cost requires and always leaves the city at least 1 population; an item queued this same turn costs 50% extra.
@@ -424,6 +431,8 @@ Specialists in your cities generate **Great Person points** each turn. When a ci
 | Great Prophet | Priest specialists | Found a religion, build its shrine |
 | Great Spy | Spy specialists | Infiltration (a large windfall of espionage points) |
 | Great General | Combat experience (all units) | Attach to a unit as a leader, build the Military Academy |
+
+The **Military Academy** (+25% military-unit production in its city) can **only** be raised by a Great General — it never appears in a city's normal build list.
 
 Every Great Person can also permanently **join a city** as a super-specialist, and most types can **start a Golden Age**. Use a Great Person's action from the selection panel when the unit is on a suitable tile.
 
