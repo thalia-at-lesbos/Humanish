@@ -1,7 +1,14 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **IMPLEMENTATION COMPLETE 2026-07-19, except one pending-sourcing
-line and the version-bump review.** Phase W complete (2026-07-18); Phase M
+Status: **FULLY COMPLETE 2026-07-19, except sourcing line 0k.** (The phase-end
+**version-bump review** — R2 is the standing major-bump candidate — remains the
+one parked administrative step.) The **design-doc follow-up sitting is DONE
+2026-07-19** (user consent granted for the sitting): every design-doc change
+the item notes flagged is recorded — `game-data.md` §14.3/§15.6/§15.9/§19.1/
+§19.4/§29 (intro, 29.5, 29.6, 29.8, 29.10, 29.12–29.16), `game-rules.md`
+§2.2/§4.6/§6.5/§6.6/§15 (intro, 15.2, 15.3, 15.8, 15.9, 15.13–15.21), and
+`ai-design.md` §2/§4/§9/§11 + frontmatter (the T1 ai_bonus narrowing recorded).
+Phase W complete (2026-07-18); Phase M
 complete (2026-07-19); Phase R items complete (2026-07-19; the phase-end
 **version-bump review** — R2 is the standing major-bump candidate — remains
 outstanding); **Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
@@ -272,7 +279,8 @@ user-authorized session):**
   `test_intelligence.gd` (castle→economics), `test_assembly.gd` (AP→
   mass_media). NOTE: §29.15 lists the monument's unique variants (obelisk/
   stele/totem_pole) but not base `monument` itself — followed exactly;
-  flagged as a possible roster gap for a design-doc sitting. Buildability of
+  recorded in §29.15 as a known doc gap (design-doc sitting, 2026-07-19 —
+  a value would need a new sourcing line, not a guess). Buildability of
   already-obsolete structures is NOT gated (spec silent; reference blocks it —
   candidate follow-up alongside M7's `not_buildable` flag). Original item:
   per-structure `obsolete_tech`; at
@@ -289,8 +297,8 @@ user-authorized session):**
   `test_data_db.gd` shape.
 - **M2. Culture%-slider happiness** ⓪(0a — sourced; spec §15.13, values
   §29.12): **DONE 2026-07-19** — the key is `culture_rate_happiness` in each
-  carrier's `effects` dict (§29.12 named no key; flag it at the next design-doc
-  sitting): theatre/pavilion 10, hippodrome 20, colosseum/odeon/ball_court/
+  carrier's `effects` dict (key recorded in §29.12/§15.13 at the design-doc
+  sitting, 2026-07-19): theatre/pavilion 10, hippodrome 20, colosseum/odeon/ball_court/
   garden 5, broadcast_tower 10 — the full entertainment tier, nothing else.
   Read inside `_update_contentment`'s existing structures loop (so the
   `_structure_effect_active` filter — obsolescence + religion gate — applies
@@ -666,9 +674,9 @@ user-authorized session):**
   toward-zero, four-jungle −1, flood-plains single+triple, mixed-sign
   net-before-truncate, oasis whole-point, unworked-inert unchanged). Full
   run 1738 unit + 11 integration green; midgame save/load determinism
-  unchanged. Design-doc follow-up (consent needed): `game-rules.md` §4.6
-  still describes the whole-unit ±1 feature values and the
-  `health_bonus`/`health_penalty` key names. Original item: adopt by
+  unchanged. Design-doc follow-up DONE 2026-07-19: `game-rules.md` §4.6
+  now records the fractional `health_delta_centi` model (net-then-truncate,
+  per-feature centi values), and the §5.7 fallout data note follows. Original item: adopt by
   scaling city health accounting ×100 (integer centi-health, `Fixed`-style;
   **no floats** — the engine invariant stands), features carry
   `health_delta_centi` (+50/−25/−40), display rounds toward zero.
@@ -701,8 +709,10 @@ user-authorized session):**
   cost columns replace it; hammer output is now difficulty-neutral), and
   `_apply_research` is ai_bonus's only remaining site: the residual
   research-yield scaler, since no §29.10 column covers beakers. Values
-  (0/0/0/0/10/20/35/50/70) unchanged. `ai-design.md` still describes the
-  two-site ai_bonus — design-doc consent needed (flagged). Tests: the old
+  (0/0/0/0/10/20/35/50/70) unchanged. `ai-design.md` §4 (body, frontmatter,
+  §2/§9/§11 references) rewritten to the T1 model and the ai_bonus narrowing
+  decision recorded there — design-doc sitting, 2026-07-19; `game-rules.md`
+  §2.2 and `game-data.md` §15.9/§29.10 updated in the same sitting. Tests: the old
   A1 production-bonus trio in `test_turn_engine.gd` replaced by 9 T1 tests
   (train 60%/160%, construct both ways + noble neutral, project unscaled,
   end-to-end earlier completion, output-no-longer-boosted, upkeep deity/

@@ -6,9 +6,11 @@ summary: >
   SimFacade — exactly like the human UI — that drives a flagged player's whole turn
   through apply_command, drawing every random choice from the shared gs.rng. Its
   design is three orthogonal layers: a single competent Brain (how it plays), a
-  per-difficulty Handicap (how strong it is, via ai_bonus), and a per-leader Focus
+  per-difficulty Handicap (how strong it is — the four AI-only cost/growth columns
+  ai_train/ai_construct/ai_unit_cost/ai_growth_percent plus the residual ai_bonus
+  research-yield scaler), and a per-leader Focus
   (where it points its effort, via ai_focus trait weights). Direction × competence ×
-  magnitude — tune one brain plus two data columns, never a behaviour matrix. The
+  magnitude — tune one brain plus two data-column groups, never a behaviour matrix. The
   sim/world wall holds: PlayerAI lives in src/api/ and never references Node/scenes.
 audience:
   - Coding agents extending or tuning the computer player
@@ -17,10 +19,10 @@ audience:
 key_files:
   - src/api/player_ai.gd               # PlayerAI — the whole AI, pure static facade client
   - src/sim/diplomacy.gd               # Diplomacy — attitude/memory the AI reads (§5.1, §7)
-  - src/sim/turn_engine.gd             # ai_bonus handicap sites (production + research yield)
+  - src/sim/turn_engine.gd             # handicap sites: _item_cost, gold_upkeep, _settlement_growth, _apply_research
   - data/constants.json                # ai_* tuning constants (brain + focus scaling)
   - data/diplomacy.json                # attitude factors, memory kinds + decay (§5.1)
-  - data/difficulties.json             # per-difficulty ai_bonus handicap column
+  - data/difficulties.json             # per-difficulty handicap columns (ai_*_percent quartet + ai_bonus)
   - data/leaders_traits.json           # per-trait ai_focus weight blocks
   - tests/api/test_player_ai.gd        # unit coverage of every decision site
   - tests/manual/ai_full_game_smoke.gd # all-AI full-game gate (win, exit 0, zero errors)
@@ -28,7 +30,7 @@ sections:
   "§1  Position & invariants": "Facade client, src/api/, apply_command-only, gs.rng-only, sim/world wall"
   "§2  The three-layer model": "Brain × Handicap × Focus — direction × competence × magnitude"
   "§3  Turn structure":        "take_turn order: economy, research, civics, religion, diplomacy, assembly, production, units"
-  "§4  Handicap (difficulty)": "ai_bonus as an integer yield multiplier on AI production + research; is_ai gated"
+  "§4  Handicap (difficulty)": "The T1 model: ai_train/ai_construct/ai_unit_cost/ai_growth_percent cost & growth scaling + residual ai_bonus research-yield scaler; all is_ai gated"
   "§5  Brain — economy/research/civics/religion/diplomacy/assembly": "The simple, solvency-aware non-combat managers"
   "§5.1 Diplomacy — attitude/deals/war": "Diplomacy module attitude gates deal acceptance, war declaration, assembly votes (§7)"
   "§6  Brain — production":    "Role-ranked build list (defender → economy → expansion → fallback)"
@@ -42,7 +44,8 @@ editorial_rule: >
   computer player; the live code in src/api/player_ai.gd is authoritative when the two
   disagree. When adding a new decision site or tuning constant, document it in §9 and
   cover it in tests/api/test_player_ai.gd. Keep the three-layer separation: new
-  behaviour goes in the Brain, new strength scaling reuses ai_bonus, new per-leader
+  behaviour goes in the Brain, new strength scaling reuses the §4 handicap columns,
+  new per-leader
   direction reuses ai_focus — never introduce N skill levels or a behaviour matrix.
 provisional_sections:
   - "§8 Focus axis weights (ai_focus values per trait) are a first tuning pass."
@@ -85,12 +88,12 @@ three layers are orthogonal and independently testable:
 | Layer | Controls | Lever | Where |
 |---|---|---|---|
 | **Brain** | *How* the AI plays | One fixed competent strategy — never N skill levels | `player_ai.gd` (§5–§7) |
-| **Handicap** | *How strong* it is | `ai_bonus`, an integer yield multiplier per difficulty | `difficulties.json` → `turn_engine.gd` (§4) |
+| **Handicap** | *How strong* it is | The per-difficulty AI-only columns: the `ai_*_percent` cost/growth quartet + the residual `ai_bonus` research scaler | `difficulties.json` → `turn_engine.gd` (§4) |
 | **Focus** | *Where* it points effort | `ai_focus` trait weights, summed per leader | `leaders_traits.json` → `player_ai.gd` (§8) |
 
 **Direction (focus) × competence (brain) × magnitude (handicap).** You tune one
-brain plus two data columns, never a behaviour matrix — that is the maintainability
-win. A new difficulty is a number; a new leader personality is a JSON block; only a
+brain plus two data-column groups, never a behaviour matrix — that is the maintainability
+win. A new difficulty is a data row; a new leader personality is a JSON block; only a
 genuinely new *behaviour* touches code, and it touches the one brain that every
 difficulty and leader shares.
 
@@ -118,31 +121,50 @@ facade.apply_command(Commands.end_turn(player_id))
 
 ## §4  Handicap (difficulty)
 
-Difficulty scales AI **strength**, not AI behaviour, through a single data column:
-`ai_bonus` in `data/difficulties.json` (0 at Noble, ramping to 70 at Deity).
+Difficulty scales AI **strength**, not AI behaviour, through per-difficulty
+AI-only data columns in `data/difficulties.json` — since T1 (2026-07-19) the
+four reference cost/growth handicaps (game-rules §2.2, values game-data §29.10)
+plus the residual `ai_bonus` research scaler. Every read site is gated
+`if player.is_ai`, the exact mirror of the §2.2 *human-only* handicap block
+(higher difficulty makes the human weaker via `growth_bonus`/etc.; these
+columns make the AI stronger):
 
-`turn_engine.gd` reads it at two yield sites, each gated `if player.is_ai` and each
-the exact mirror of the §2.2 *human-only* handicap block (higher difficulty makes
-the human weaker via `growth_bonus`/etc.; `ai_bonus` makes the AI stronger):
+- **Unit / structure costs** — `ai_train_percent` / `ai_construct_percent`
+  scale an AI player's item costs inside `TurnEngine._item_cost` (pace scale
+  first, then the AI percent, truncating, floor 1). Every caller passes the
+  difficulty row (`_settlement_production`, `rush_remaining_cost` — so the
+  whip and the gold hurry price the discounted cost coherently — the facade
+  gold-rush store fill, `PlayerAI._sorted_options` cost ranking,
+  `city_screen.gd` display). **Projects are the only unscaled item type**:
+  §29.10 carries no project column (the reference's iAICreatePercent analogue
+  was never captured — a possible future sourcing line, not guessed).
+- **Unit upkeep** — `ai_unit_cost_percent` scales the AI's unit-upkeep sum in
+  `TurnEngine.gold_upkeep` (unit upkeep only; settlement/corporation
+  maintenance untouched).
+- **Growth** — `ai_growth_percent` scales the AI's growth threshold in
+  `_settlement_growth` (>100 slows easy-level AIs, <100 speeds hard-level
+  ones), beside the human-only `growth_bonus` block.
+- **Research** (`TurnEngine._apply_research`):
+  `research_income = Fixed.scale(research_income, 100 + ai_bonus)` —
+  **`ai_bonus`'s only remaining site**. The T1 decision, recorded here: the
+  old production-yield site is **retired** (the cost columns replace it —
+  AI hammer *output* is now difficulty-neutral), and `ai_bonus` is **kept,
+  narrowed to research only**, since no §29.10 column covers beakers. The
+  Noble→Deity ramp is unchanged: `0 / 10 / 20 / 35 / 50 / 70`.
 
-- **Production** (`turn_engine.gd:547`): `prod = Fixed.scale(prod, 100 + ai_bonus)`
-  — AI cities produce `ai_bonus`% extra hammers.
-- **Research** (`turn_engine.gd:1288`):
-  `research_income = Fixed.scale(research_income, 100 + ai_bonus)` — AI beaker
-  output scales the same way, so the bonus compounds like a real handicap.
-
-Both sites read the **same** `ai_bonus`, so there is one number to tune per
-difficulty. The handicap symmetry is a hard invariant: the AI block stays
+The handicap symmetry is a hard invariant: every AI block stays
 `if player.is_ai`, the exact complement of the human-only aid, and the two paths
 must never cross-apply.
 
-The Noble→Deity ramp is `0 / 10 / 20 / 35 / 50 / 70` (an accelerating
-+10/+10/+15/+15/+20 step). Sub-Noble difficulties (Settler/Chieftain/Warlord) keep
-`ai_bonus: 0` and instead lean on human-side advantages (`free_early_wins` and the
-city aids) — consistent with the "0 at Noble" baseline. (The related
-`wild_combat_modifier` column — successor to the retired `combat_bonus_vs_wild` —
-is a **barbarian-side** strength percent applied in `Combat.resolve` against human
-opponents, per the reference model; it ships 0 at every level.)
+The column values run settler `160/160/100/160` → noble `100/100/100/100`
+(the neutral baseline) → deity `60/60/60/80` (§29.10 table; >100 on sub-Noble
+levels actively penalizes the AI, <100 above Noble strengthens it). Sub-Noble
+difficulties keep `ai_bonus: 0` and lean on the human-side advantages
+(`free_early_wins` and the city aids) plus their >100 cost/growth columns.
+(The related `wild_combat_modifier` column — successor to the retired
+`combat_bonus_vs_wild` — is a **barbarian-side** strength percent applied in
+`Combat.resolve` against human opponents, per the reference model; it ships 0
+at every level.)
 
 ## §5  Brain — economy, research, civics, religion, diplomacy, assembly
 
@@ -352,7 +374,9 @@ Plus the attitude/memory magnitudes in `data/diplomacy.json` (attitude base/
 thresholds, factor weights, memory kinds + decay, `deal_accept_min_attitude`,
 `war_min_attitude`, `memory_cap`), read by the `Diplomacy` module the AI calls.
 
-Plus the handicap column in `data/difficulties.json`: `ai_bonus` per difficulty
+Plus the handicap columns in `data/difficulties.json`: `ai_train_percent` /
+`ai_construct_percent` / `ai_unit_cost_percent` / `ai_growth_percent` and the
+residual `ai_bonus` research scaler, per difficulty
 (§4), and the `SOLVENCY_TREASURY = 40` constant in `player_ai.gd` (the only
 in-code threshold; the treasury level that flips the economy to a finance reserve).
 
@@ -391,7 +415,8 @@ The gates, in order:
 
 ## §11  Extending it
 
-Keep the three-layer separation — new strength scaling reuses `ai_bonus`, new
+Keep the three-layer separation — new strength scaling reuses the §4 handicap
+columns, new
 per-leader direction reuses `ai_focus`, only a genuinely new *behaviour* touches the
 brain.
 
@@ -399,8 +424,9 @@ brain.
   **including an `ai_focus` block** over the four axes (`test_data_db.gd` enforces
   its presence). `_focus_profile` picks it up automatically; no code change. Wire
   any mechanical effects in the relevant sim module separately.
-- **New difficulty / re-tune the ramp** — set its `ai_bonus` in
-  `difficulties.json`. Both handicap sites read it; regenerate any AI-inclusive
+- **New difficulty / re-tune the ramp** — set its handicap columns in
+  `difficulties.json` (the `ai_*_percent` quartet and, for research, `ai_bonus`).
+  The §4 sites read them; regenerate any AI-inclusive
   determinism fixtures (the hash legitimately changes) and keep
   `./run_tests.sh` green.
 - **New tuning knob** — add the constant to `data/constants.json`, read it via
