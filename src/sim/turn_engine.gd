@@ -1744,7 +1744,8 @@ static func net_gold(gs: GameState, player: Player) -> int:
 
 static func _update_treasury(gs: GameState, player: Player) -> void:
 	var db: DataDB = gs.db
-	player.treasury += net_gold(gs, player)
+	var start_treasury: int = player.treasury
+	player.treasury = start_treasury + net_gold(gs, player)
 
 	# Insolvency (§6.1): force research down immediately; only disband units as an
 	# extreme measure once the player stays broke past the grace period. Structures
@@ -1756,8 +1757,15 @@ static func _update_treasury(gs: GameState, player: Player) -> void:
 		player.insolvent_turns += 1
 		if player.insolvent_turns > db.get_constant("insolvency_grace_turns", 1):
 			var guard: int = 0
+			# Each disband lowers the player's gold upkeep, so recompute the turn's
+			# net gold from the reduced unit set after every disband and stop the
+			# instant the treasury is back in the black. Without the recompute the
+			# loop keeps comparing each disband against the same stale negative
+			# treasury and scraps the ENTIRE army in one insolvent turn (bug: tstb8 —
+			# a player at treasury 0 lost all four units in a single turn).
 			while player.treasury < 0 and guard < 100 and _disband_for_insolvency(gs, player):
 				guard += 1
+				player.treasury = start_treasury + net_gold(gs, player)
 		if player.treasury < 0:
 			player.treasury = 0
 	else:

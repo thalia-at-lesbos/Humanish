@@ -189,3 +189,22 @@ func test_insolvency_with_no_units_clamps_treasury_at_zero() -> void:
 	assert_eq(p.treasury, 0, "Treasury clamps at 0 when there is nothing to disband")
 	assert_eq(s.structures, ["granary", "barracks"],
 		"Structures survive insolvency even with no units to disband")
+
+func test_insolvency_disbands_only_until_solvent() -> void:
+	# Regression (bug tstb8): a single insolvent turn must disband only ENOUGH
+	# units to cover upkeep, never the whole army. With no city income, 3 units of
+	# support relief, and 5 warriors (upkeep 1 each), only the 2 units beyond the
+	# relief threshold need to go — disbanding drops upkeep to 0, at which point the
+	# loop must stop with 3 units still standing. Before the fix the loop compared
+	# every disband against the same stale negative treasury and removed all 5.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.treasury = 0
+	p.insolvent_turns = 5           # past the grace period
+	p.unit_support_relief = 3       # first 3 units cost no upkeep (§9 UNIT_SUPPORT)
+	for i in range(5):
+		make_unit(gs, "warrior", 1, i, 0)
+	TurnEngine._update_treasury(gs, p)
+	assert_eq(gs.units.size(), 3,
+		"Disbands only the units beyond upkeep coverage, not the whole army")
+	assert_true(p.treasury >= 0, "Treasury is non-negative after shedding just enough")
