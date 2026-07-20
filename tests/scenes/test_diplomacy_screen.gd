@@ -121,3 +121,20 @@ func test_screen_shows_last_denial_reason() -> void:
 	assert_true(Diplomacy.denial_text(gs.db, "attitude_too_low") in text,
 		"the rival's last denial reason text is shown")
 	assert_true("turn 4" in text, "the denial is stamped with its turn")
+
+func test_civ_label_shows_civilization_and_leader() -> void:
+	# Diplomacy rows must identify each visible civ by its civilization and leader
+	# name, not the bare "Player N".
+	var facade = setup_facade(91, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var p = gs.players[0]
+	var screen = _screen(facade)
+	p.society_id = "american"
+	var label: String = screen._civ_label(p, gs)
+	assert_true("American" in label and "Washington" in label,
+		"the row shows the civilization name and leader name")
+	# A society-less player still shows something (its raw name).
+	p.society_id = ""
+	assert_eq(screen._civ_label(p, gs), p.name,
+		"falls back to the player name when no society is set")

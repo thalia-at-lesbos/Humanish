@@ -65,7 +65,7 @@ func rebuild() -> void:
 	var perm_alliances_enabled: bool = bool(gs.permanent_alliances)
 
 	var title: Label = Label.new()
-	title.text = "Diplomacy — " + my_p.name
+	title.text = "Diplomacy — " + _civ_label(my_p, gs)
 	vbox.add_child(title)
 
 	# Only show players we have met (§7 first contact): a rival appears once either
@@ -86,8 +86,8 @@ func rebuild() -> void:
 		var row: HBoxContainer = HBoxContainer.new()
 
 		var name_lbl: Label = Label.new()
-		name_lbl.text = p.name
-		name_lbl.rect_min_size = Vector2(120, 0)
+		name_lbl.text = _civ_label(p, gs)
+		name_lbl.rect_min_size = Vector2(200, 0)
 		row.add_child(name_lbl)
 
 		var at_war: bool = gs.are_at_war(my_p.id, p.id)
@@ -320,6 +320,22 @@ func _on_cancel_deal(deal_id: int) -> void:
 	var gs = _facade.get_state()
 	_facade.apply_command(Commands.cancel_deal(gs.current_player_id, deal_id))
 	rebuild()
+
+# A player's display identity: "<civilization> — <leader>", from its society
+# record. Falls back to whichever part is known, then to the raw player name, so a
+# society-less player still shows something. (Diplomacy request: list each visible
+# civ's civilization and leader name, not the bare "Player N".)
+func _civ_label(p, gs) -> String:
+	var soc: Dictionary = gs.db.get_society(p.society_id)
+	var civ: String = str(soc.get("name", ""))
+	var leader: String = str(soc.get("leader_name", ""))
+	if civ != "" and leader != "":
+		return civ + " — " + leader
+	if civ != "":
+		return civ
+	if leader != "":
+		return leader
+	return p.name
 
 func close_screen() -> void:
 	_on_close()

@@ -42,14 +42,23 @@ func init(db, on_start) -> void:
 	_building_ui = false
 
 func _build_ui() -> void:
+	# The form grows taller than the window as players are added (up to 16 rows plus
+	# the world/map/pace/difficulty options and the Start button), so host it in a
+	# ScrollContainer — otherwise the lower options and Start button slide off-screen
+	# with no way to reach them (bug: too many AI opponents pushed options off-screen).
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.anchor_right = 1.0
+	scroll.anchor_bottom = 1.0
+	scroll.margin_left = 40
+	scroll.margin_top = 40
+	scroll.margin_right = -40
+	scroll.margin_bottom = -40
+	add_child(scroll)
+
 	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.anchor_right = 1.0
-	vbox.anchor_bottom = 1.0
-	vbox.margin_left = 40
-	vbox.margin_top = 40
-	vbox.margin_right = -40
-	vbox.margin_bottom = -40
-	add_child(vbox)
+	# Fill the viewport width; the content's natural height drives vertical scrolling.
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	var title: Label = Label.new()
 	title.text = "New Game"

@@ -245,6 +245,21 @@ func _draw() -> void:
 					var rcenter: Vector2 = rect.position + Vector2(TILE_SIZE - 5, TILE_SIZE - 5) * _zoom
 					draw_circle(rcenter, 3 * _zoom, rcol)
 
+			# Goody hut / discovery site: a little hut glyph so the player can see a
+			# reward tile before a unit walks onto it (bug: huts were invisible, so a
+			# scout that popped one produced a "phantom" free unit with no on-map cue).
+			# Only drawn on currently-visible tiles — a hut is live map state (anyone
+			# can consume it) and is not part of the remembered last-seen snapshot, so
+			# it must not linger through fog.
+			if tile != null and tile.has_discovery and not in_fog:
+				var hc: Vector2 = rect.position + Vector2(TILE_SIZE, TILE_SIZE) * 0.5 * _zoom
+				var hs: float = 5.0 * _zoom
+				draw_rect(Rect2(hc + Vector2(-hs * 0.7, 0), Vector2(hs * 1.4, hs)),
+					Color(0.85, 0.72, 0.45))
+				draw_colored_polygon(PoolVector2Array([
+					hc + Vector2(-hs, 0), hc + Vector2(hs, 0), hc + Vector2(0, -hs)]),
+					Color(0.6, 0.35, 0.15))
+
 	# Draw settlements. A city the player currently SEES is drawn live; a city on a
 	# remembered-but-not-visible tile is drawn from the LAST-SEEN snapshot, so a
 	# city razed/captured out of your sight still shows as you last saw it (right
