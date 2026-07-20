@@ -4125,7 +4125,209 @@ func get_unit_actions(unit_id: int) -> Array:
 			"label": "Sleep",
 			"target_x": u.x, "target_y": u.y
 		})
+	# Missionary belief spread (§8): only when standing on a faithless city with a
+	# religion to carry and no Theocracy block — mirrors _cmd_spread_belief so the
+	# button never offers an order the command would reject.
+	_append_spread_belief_action(u, items)
+	# Executive corporation spread (§15.22): only on an eligible city tile with the
+	# treasury covering the computed cost; the label previews that cost.
+	_append_spread_corporation_action(u, items)
+	# Great Person actions (§14): one "gp" item per data `actions` verb whose
+	# GreatPeople validation would pass right now; the selection panel renders
+	# these in a second button column beside the main action column.
+	_append_gp_actions(u, items)
 	return items
+
+# Gated "spread_belief" entry for a missionary (§8). Mirrors every check in
+# _cmd_spread_belief (tag, city on tile, faithless city, a religion to carry,
+# Theocracy block) so the panel only offers a spread the command would accept.
+func _append_spread_belief_action(u: Unit, items: Array) -> void:
+	if not ("spread_religion" in _db.get_unit(u.unit_type_id).get("tags", [])):
+		return
+	var p: Player = _gs.get_player(u.owner_player_id)
+	if p == null:
+		return
+	var s: Settlement = _gs.get_settlement_at(u.x, u.y)
+	if s == null or s.belief_id != "":
+		return
+	var belief_id: String = _belief_to_spread(p)
+	if belief_id == "":
+		return
+	if Beliefs._spread_blocked(_gs, _db, s, belief_id):
+		return
+	var belief_name: String = str(_db.beliefs.get(belief_id, {}).get("name", belief_id))
+	items.append({
+		"kind": "spread_belief", "action_id": IDs.CommandType.SPREAD_BELIEF,
+		"label": "Spread " + belief_name,
+		"unit_id": u.id, "settlement_id": s.id,
+		"target_x": u.x, "target_y": u.y
+	})
+
+# Gated "spread_corporation" entry for an executive (§15.22). Mirrors every
+# check in _cmd_spread_corporation (tag, city on tile, founded corporation,
+# EconOrgs.can_spread_to, treasury covering the inflation-scaled cost); the
+# label previews the gold cost the command will charge.
+func _append_spread_corporation_action(u: Unit, items: Array) -> void:
+	if not ("spread_corporation" in _db.get_unit(u.unit_type_id).get("tags", [])):
+		return
+	var p: Player = _gs.get_player(u.owner_player_id)
+	if p == null:
+		return
+	var s: Settlement = _gs.get_settlement_at(u.x, u.y)
+	if s == null:
+		return
+	var org_id: String = EconOrgs.corporation_of_player(_gs, p.id)
+	if org_id == "" or not EconOrgs.can_spread_to(org_id, s, _gs):
+		return
+	var cost: int = EconOrgs.executive_spread_cost(
+		_gs, org_id, s, p.id, TurnEngine.inflation_rate(_gs))
+	if p.treasury < cost:
+		return
+	var org_name: String = str(_db.econ_orgs.get(org_id, {}).get("name", org_id))
+	items.append({
+		"kind": "spread_corporation", "action_id": IDs.CommandType.SPREAD_CORPORATION,
+		"label": "Spread " + org_name + " (" + str(cost) + " gold)",
+		"unit_id": u.id, "settlement_id": s.id,
+		"target_x": u.x, "target_y": u.y
+	})
+
+# Gated "gp" entries for a Great Person (§14): one item per verb in the unit's
+# data "actions" list that GreatPeople.perform_action would accept right now.
+# Each item carries the action verb (plus derived targeting where the verb
+# needs it) and a label previewing the data-driven cost/effect magnitude.
+func _append_gp_actions(u: Unit, items: Array) -> void:
+	var udata: Dictionary = _db.get_unit(u.unit_type_id)
+	if str(udata.get("classification", "")) != "great_person":
+		return
+	var p: Player = _gs.get_player(u.owner_player_id)
+	if p == null:
+		return
+	# The city under the GP, when it is the player's own (the default target of
+	# the city-scoped verbs: join/great work/hurry/build/found corporation).
+	var own_city: Settlement = _gs.get_settlement_at(u.x, u.y)
+	if own_city != null and own_city.owner_player_id != p.id:
+		own_city = null
+	for a in udata.get("actions", []):
+		var item: Dictionary = _gp_action_item(u, p, str(a), own_city)
+		if not item.empty():
+			items.append(item)
+
+# One eligibility-gated "gp" menu item for `action`, or {} when the verb would
+# be rejected. The gates mirror GreatPeople.perform_action's per-verb checks
+# (the single source of truth stays sim-side; this only pre-filters the menu).
+func _gp_action_item(u: Unit, p: Player, action: String, own_city: Settlement) -> Dictionary:
+	var label: String = ""
+	var extra: Dictionary = {}
+	if action.begins_with("build_"):
+		# build_<structure_id>: own city on the tile, structure not present, and
+		# a national wonder still unique to the player (GreatPeople gate).
+		var sid: String = action.substr(6)
+		if not _db.structures.has(sid):
+			return {}
+		if own_city == null or own_city.has_structure(sid):
+			return {}
+		var struct: Dictionary = _db.get_structure(sid)
+		if struct.get("is_wonder", false) and str(struct.get("wonder_type", "")) == "national" \
+				and GreatPeople._player_has_structure(_gs, p, sid):
+			return {}
+		label = "Build " + str(struct.get("name", sid.capitalize()))
+	elif action == "join_city":
+		if own_city == null:
+			return {}
+		label = "Join City"
+	elif action == "start_golden_age":
+		# Always accepted (a contribution short of the cost still banks the GP);
+		# the label previews the current GP cost of the next Golden Age.
+		label = "Golden Age (" + str(GreatPeople._golden_age_cost(_gs, p)) + " GP)"
+	elif action == "great_work":
+		if own_city == null:
+			return {}
+		label = "Great Work (+" \
+			+ str(_db.get_constant("gp_great_work_culture", 4000)) + " culture)"
+	elif action == "hurry_production":
+		if own_city == null:
+			return {}
+		label = "Hurry Production (+" \
+			+ str(_db.get_constant("gp_hurry_production_hammers", 500)) + " hammers)"
+	elif action == "trade_mission":
+		label = "Trade Mission (+" \
+			+ str(_db.get_constant("gp_trade_mission_gold", 2000)) + " gold)"
+	elif action == "found_corporation":
+		# Own org-free city on the tile and at least one unfounded corporation
+		# (perform_action picks the first unfounded one when no org_id is given).
+		if own_city == null or own_city.econ_org_id != "":
+			return {}
+		var any_org: bool = false
+		for oid in _db.econ_orgs:
+			if not _gs.founded_econ_orgs.has(oid):
+				any_org = true
+				break
+		if not any_org:
+			return {}
+		label = "Found Corporation"
+	elif action == "found_religion":
+		# A faithless own city to host it and an unfounded belief to found.
+		var host_found: bool = false
+		for s2 in _gs.settlements:
+			if s2.owner_player_id == p.id and s2.belief_id == "":
+				host_found = true
+				break
+		if not host_found:
+			return {}
+		var any_belief: bool = false
+		for bid in _db.beliefs:
+			if not _gs.founded_beliefs.has(bid):
+				any_belief = true
+				break
+		if not any_belief:
+			return {}
+		label = "Found Religion"
+	elif action == "discover_technology":
+		# The panel passes no tech_id, so the command falls back to the current
+		# research — gate on that tech being discoverable (GreatPeople checks).
+		var tech_id: String = p.current_research_id
+		if tech_id == "" or p.has_tech(tech_id) or not _db.technologies.has(tech_id):
+			return {}
+		if not GreatPeople._prereqs_met(p, _db, tech_id):
+			return {}
+		label = "Discover Technology"
+	elif action == "infiltration":
+		# The command needs a target alliance; the panel derives it from the
+		# foreign city under the spy (the spy-mission precedent), so the button
+		# only appears on a foreign city tile.
+		var fs: Settlement = _gs.get_settlement_at(u.x, u.y)
+		if fs == null or fs.owner_player_id == p.id:
+			return {}
+		var owner: Player = _gs.get_player(fs.owner_player_id)
+		if owner == null or owner.alliance_id == p.alliance_id:
+			return {}
+		if _gs.get_alliance(owner.alliance_id) == null:
+			return {}
+		extra["target_alliance_id"] = owner.alliance_id
+		label = "Infiltration (+" \
+			+ str(_db.get_constant("gp_infiltration_espionage", 3000)) + " EP)"
+	elif action == "attach_to_unit":
+		# At least one friendly non-civilian unit shares the tile to receive the
+		# Leader/Leadership grant (GreatPeople gate).
+		var has_recipient: bool = false
+		for u2 in _gs.units:
+			if u2.owner_player_id == p.id and u2.id != u.id \
+					and u2.x == u.x and u2.y == u.y \
+					and _db.get_unit(u2.unit_type_id).get("classification", "") != "civilian":
+				has_recipient = true
+				break
+		if not has_recipient:
+			return {}
+		label = "Attach to Unit"
+	else:
+		return {}
+	var item: Dictionary = {
+		"kind": "gp", "action": action, "label": label,
+		"unit_id": u.id, "target_x": u.x, "target_y": u.y
+	}
+	for k in extra:
+		item[k] = extra[k]
+	return item
 
 func get_flyout_menu(x: int, y: int) -> Array:
 	var items: Array = []

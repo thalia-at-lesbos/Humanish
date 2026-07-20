@@ -1243,3 +1243,139 @@ func test_set_production_rejects_not_buildable_structure() -> void:
 	assert_true(f.apply_command(Commands.set_production(1, s.id,
 		[{"type": "structure", "id": "granary"}])),
 		"an ordinary structure still queues normally")
+
+# ── Selection-panel action entries: spread + Great Person verbs (§8/§14/§15.22) ──
+
+# All items of one "kind" in a unit's action menu.
+func _items_of_kind(f, unit_id, kind) -> Array:
+	var out := []
+	for it in f.get_unit_actions(unit_id):
+		if str(it.get("kind", "")) == kind:
+			out.append(it)
+	return out
+
+func test_get_unit_actions_executive_spread_gated_with_cost_label() -> void:
+	# An executive standing in an eligible city gets a spread_corporation entry
+	# whose label previews the §15.22 cost; ineligible (treasury short, incumbent
+	# city) yields no entry — the menu never lists a rejectable order.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	p.treasury = 200
+	gs.current_player_id = 1
+	var hq_city = make_settlement(gs, 1, 5, 5, 5)
+	var target = make_settlement(gs, 1, 10, 10, 5)
+	EconOrgs.found("civilized_jewelers", hq_city, gs)
+	_connect_resource_for(gs, 1, "gold", 1, 1)  # input resource for the owner
+	var exe = make_unit(gs, "executive", 1, 10, 10)
+	var f = bare_facade(gs)
+
+	var entries = _items_of_kind(f, exe.id, "spread_corporation")
+	assert_eq(entries.size(), 1, "an eligible city tile yields one spread entry")
+	if entries.size() == 1:
+		assert_eq(str(entries[0].get("label", "")), "Spread Civilized Jewelers (50 gold)",
+			"the label previews the computed gold cost (base 50, zero inflation)")
+		assert_eq(int(entries[0].get("settlement_id", -1)), target.id,
+			"the entry targets the city under the executive")
+		assert_eq(str(entries[0].get("action_id", "")), str(IDs.CommandType.SPREAD_CORPORATION),
+			"the entry carries the SPREAD_CORPORATION command type")
+
+	# Treasury below the cost: the entry disappears.
+	p.treasury = 10
+	assert_eq(_items_of_kind(f, exe.id, "spread_corporation").size(), 0,
+		"an unaffordable spread is not offered")
+	p.treasury = 200
+
+	# The HQ city already hosts the corporation: no entry there either.
+	exe.x = 5; exe.y = 5
+	assert_eq(_items_of_kind(f, exe.id, "spread_corporation").size(), 0,
+		"a city already hosting a corporation gets no spread entry")
+
+	# And the offered command is actually accepted where the entry appeared.
+	exe.x = 10; exe.y = 10
+	assert_true(f.apply_command(Commands.spread_corporation(1, exe.id, target.id)),
+		"the offered spread command succeeds")
+
+func test_get_unit_actions_missionary_spread_gated() -> void:
+	# A missionary on a faithless city offers Spread <Belief>; a faithful city or
+	# a religionless player offers nothing (mirrors _cmd_spread_belief's gates).
+	var gs = make_gs(2)
+	var p = gs.get_player(1)
+	p.state_religion = "buddhism"
+	gs.current_player_id = 1
+	var target = make_settlement(gs, 2, 8, 8, 3)  # faithless foreign city
+	var miss = make_unit(gs, "missionary", 1, 8, 8)
+	var f = bare_facade(gs)
+
+	var entries = _items_of_kind(f, miss.id, "spread_belief")
+	assert_eq(entries.size(), 1, "a faithless city tile yields one spread entry")
+	if entries.size() == 1:
+		assert_eq(str(entries[0].get("label", "")), "Spread Buddhism",
+			"the label names the religion the missionary carries")
+		assert_eq(int(entries[0].get("settlement_id", -1)), target.id,
+			"the entry targets the city under the missionary")
+
+	target.belief_id = "christianity"
+	assert_eq(_items_of_kind(f, miss.id, "spread_belief").size(), 0,
+		"a city that already follows a religion gets no spread entry")
+
+	target.belief_id = ""
+	p.state_religion = ""
+	assert_eq(_items_of_kind(f, miss.id, "spread_belief").size(), 0,
+		"a player with no religion to carry gets no spread entry")
+
+func test_get_unit_actions_great_engineer_lists_its_data_verbs() -> void:
+	# A Great Engineer in an own city lists exactly its data "actions" (all four
+	# are eligible there), in data order, with the preview labels; on open ground
+	# only the city-independent Golden Age verb remains.
+	var gs = make_gs()
+	gs.current_player_id = 1
+	make_settlement(gs, 1, 5, 5, 3)
+	var gp = make_gp(gs, "great_engineer", 1, 5, 5)
+	var f = bare_facade(gs)
+
+	var actions := []
+	var labels := []
+	for it in _items_of_kind(f, gp.id, "gp"):
+		actions.append(str(it.get("action", "")))
+		labels.append(str(it.get("label", "")))
+	assert_eq(actions, ["hurry_production", "build_ironworks", "join_city", "start_golden_age"],
+		"the GP menu lists exactly the unit's data actions, in data order")
+	assert_true("Hurry Production (+500 hammers)" in labels,
+		"hurry_production previews its hammer magnitude")
+	assert_true("Build Ironworks" in labels, "build_<id> uses the structure name")
+	assert_true("Join City" in labels, "join_city has its plain label")
+	assert_true("Golden Age (2 GP)" in labels,
+		"start_golden_age previews the current GP cost")
+
+	# Off-city: the city-scoped verbs vanish; only Golden Age stays.
+	var lone = make_gp(gs, "great_engineer", 1, 12, 12)
+	var lone_actions := []
+	for it in _items_of_kind(f, lone.id, "gp"):
+		lone_actions.append(str(it.get("action", "")))
+	assert_eq(lone_actions, ["start_golden_age"],
+		"on open ground only the city-independent verb remains")
+
+func test_get_unit_actions_great_merchant_trade_mission_anywhere() -> void:
+	# The Great Merchant's trade mission needs no city, so it is offered on open
+	# ground with its gold preview; found_corporation needs an own org-free city.
+	var gs = make_gs()
+	gs.current_player_id = 1
+	var gp = make_gp(gs, "great_merchant", 1, 12, 12)
+	var f = bare_facade(gs)
+	var actions := []
+	var labels := []
+	for it in _items_of_kind(f, gp.id, "gp"):
+		actions.append(str(it.get("action", "")))
+		labels.append(str(it.get("label", "")))
+	assert_eq(actions, ["trade_mission", "start_golden_age"],
+		"off-city merchant offers trade mission + golden age only")
+	assert_true("Trade Mission (+2000 gold)" in labels,
+		"trade_mission previews its gold magnitude")
+
+	# On an own org-free city, Found Corporation and Join City appear too.
+	make_settlement(gs, 1, 12, 12, 3)
+	actions = []
+	for it in _items_of_kind(f, gp.id, "gp"):
+		actions.append(str(it.get("action", "")))
+	assert_eq(actions, ["trade_mission", "found_corporation", "join_city", "start_golden_age"],
+		"an own city enables the city-scoped merchant verbs")

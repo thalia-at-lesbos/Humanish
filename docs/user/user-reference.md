@@ -215,8 +215,9 @@ The selection panel shows available actions for the selected unit(s):
 | Sleep | Unit rests until you wake it; removes it from the idle-unit cycle |
 | Found City | (Settler only) Found a city on the current tile |
 | Build Improvement | (Worker) Build a farm, mine, road, etc. on the current tile (only improvements legal for that terrain are offered) |
-| Spread Belief | (Missionary) Spread your state religion to the target city |
-| Perform GP Action | (Great Person) Use the Great Person's special ability |
+| Spread Belief | (Missionary) Spread your religion to the faithless city the missionary stands in — the button appears only where the spread would succeed |
+| Spread Corporation | (Executive) Open a franchise in the city the executive stands in; the button shows the gold cost (e.g. "Spread Cereal Mills (50 gold)") and appears only in an eligible city you can afford |
+| Great Person actions | (Great Person) One button per ability the Great Person can use right now, in a second column beside the main buttons; labels preview the cost or effect (e.g. "Golden Age (2 GP)", "Trade Mission (+2000 gold)", "Build Academy"). Buttons act immediately — a consumed Great Person is spent on the spot |
 | Disband | Remove the unit permanently |
 
 ### Bombardment
@@ -435,7 +436,7 @@ Adopting a **state religion** (in your Civics) gives passive bonuses; changing i
 
 ### Economic Organisations
 
-Founded by a Great Merchant or specific Great Person action. Organisations provide per-city economic bonuses, but **unlike beliefs they never spread on their own** — they reach a new city only via an **Executive** unit (unlocked by the Corporation technology). Move the executive onto the target city and issue the spread command: the executive is consumed and the corporation opens a franchise there.
+Founded by a Great Merchant or specific Great Person action. Organisations provide per-city economic bonuses, but **unlike beliefs they never spread on their own** — they reach a new city only via an **Executive** unit (unlocked by the Corporation technology). Move the executive onto the target city and press its **Spread** button in the selection panel (it shows the gold cost): the executive is consumed and the corporation opens a franchise there.
 
 Spreading costs gold: a **base of 50**, scaled up by your current **inflation** rate, and **doubled** when the target city belongs to another player (a vassal of yours counts as domestic). The target city must have access to at least one of the organisation's **input resources**, the organisation must not be banned for the city's owner (see the civic bans below), and a city can host only **one** organisation — an incumbent blocks any newcomer. Spreading into an eligible (empty) city always succeeds.
 

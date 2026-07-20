@@ -393,3 +393,85 @@ func test_spy_panel_shows_no_espionage_actions_off_city() -> void:
 	panel.rebuild()
 	assert_false(_has_label_starting(panel, "Espionage:"),
 		"A spy not on a city tile shows no espionage actions")
+
+# Recursive variant of _count_buttons_named: the GP second-column layout nests
+# buttons inside an HBox of VBoxes, so top-level iteration cannot see them.
+func _count_buttons_named_deep(node, text):
+	var n = 0
+	for c in node.get_children():
+		if c is Button and c.text == text:
+			n += 1
+		n += _count_buttons_named_deep(c, text)
+	return n
+
+func test_gp_unit_shows_second_action_column() -> void:
+	# User-directed layout (2026-07-19): a Great Person's action verbs render in a
+	# SECOND button column beside the main action column (an HBox of two VBoxes),
+	# and a GP button acts immediately — no confirmation step.
+	var facade = setup_facade(98, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	make_settlement(gs, pid, 6, 6).name = "Cap"
+	var gp = make_gp(gs, "great_engineer", pid, 6, 6)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(gp.id)
+	panel.rebuild()
+
+	# The GP verbs are present but NOT as direct children (they sit in the
+	# second column inside the actions row).
+	assert_eq(_count_buttons_named(panel, "Join City"), 0,
+		"GP verb buttons are not direct panel children")
+	assert_eq(_count_buttons_named_deep(panel, "Join City"), 1,
+		"Join City renders in the GP action column")
+	assert_eq(_count_buttons_named_deep(panel, "Build Ironworks"), 1,
+		"Build Ironworks renders in the GP action column")
+	assert_eq(_count_buttons_named_deep(panel, "Golden Age (2 GP)"), 1,
+		"Golden Age renders with its GP-cost preview label")
+	# The main-column actions moved into the left column of the same row.
+	assert_eq(_count_buttons_named_deep(panel, "Skip Turn"), 1,
+		"the main action column still holds Skip Turn")
+
+	# Pressing a GP button acts immediately (no confirmation): the Golden Age
+	# contribution consumes the Great Person on the spot.
+	panel._on_action_pressed({"kind": "gp", "action": "start_golden_age",
+		"unit_id": gp.id})
+	assert_null(gs.get_unit(gp.id), "the GP action consumed the Great Person")
+	assert_eq(gs.get_player(pid).pending_golden_age_gp, 1,
+		"the contribution was banked toward the next Golden Age")
+
+func test_executive_panel_shows_spread_button_with_cost() -> void:
+	# An executive in an eligible city shows a Spread button whose label carries
+	# the computed gold cost; non-GP additions stay in the main (flat) column.
+	var facade = setup_facade(99, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var p = gs.get_player(pid)
+	p.treasury = 200
+	var hq_city = make_settlement(gs, pid, 5, 5, 5)
+	make_settlement(gs, pid, 10, 10, 5)
+	EconOrgs.found("civilized_jewelers", hq_city, gs)
+	# Connect an input resource (gold) for the owner.
+	var res = gs.db.get_resource("gold")
+	var t = gs.map.get_tile(1, 1)
+	t.owner_player_id = pid
+	t.resource_id = "gold"
+	t.improvement_id = str(res.get("improvement_required", ""))
+	var reveal = str(res.get("tech_required", ""))
+	if reveal != "" and not p.has_tech(reveal):
+		p.technologies.append(reveal)
+	var exe = make_unit(gs, "executive", pid, 10, 10)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(exe.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Spread Civilized Jewelers (50 gold)"), 1,
+		"the executive's Spread button sits in the main column with its cost label")

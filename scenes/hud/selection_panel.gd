@@ -190,10 +190,41 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 	# left-justified within the same region between the state info above and the
 	# terrain readout below.
 	var menu: Array = _facade.get_unit_actions(u.id)
+	var main_items: Array = []
+	var gp_items: Array = []
 	for item in menu:
-		var btn: Button = _left_button(str(item.get("label", "")))
-		btn.connect("pressed", self, "_on_action_pressed", [item])
-		add_child(btn)
+		if str(item.get("kind", "")) == "gp":
+			gp_items.append(item)
+		else:
+			main_items.append(item)
+	if gp_items.empty():
+		# No Great Person verbs: keep the flat single-column layout.
+		for item in main_items:
+			var btn: Button = _left_button(str(item.get("label", "")))
+			btn.connect("pressed", self, "_on_action_pressed", [item])
+			add_child(btn)
+	else:
+		# User-directed layout (2026-07-19): the Great Person action verbs form a
+		# SECOND button column to the right of the main action column, so a
+		# multi-verb Great Person does not stretch the main column. An HBox of two
+		# VBoxes, itself shrink-to-content and left-anchored (size flags 0) like
+		# the natural-width buttons it holds, so the panel's left-aligned,
+		# scroll-not-overflow properties are preserved.
+		var action_row: HBoxContainer = HBoxContainer.new()
+		action_row.size_flags_horizontal = 0
+		var main_col: VBoxContainer = VBoxContainer.new()
+		var gp_col: VBoxContainer = VBoxContainer.new()
+		action_row.add_child(main_col)
+		action_row.add_child(gp_col)
+		for item in main_items:
+			var mbtn: Button = _left_button(str(item.get("label", "")))
+			mbtn.connect("pressed", self, "_on_action_pressed", [item])
+			main_col.add_child(mbtn)
+		for item in gp_items:
+			var gbtn: Button = _left_button(str(item.get("label", "")))
+			gbtn.connect("pressed", self, "_on_action_pressed", [item])
+			gp_col.add_child(gbtn)
+		add_child(action_row)
 
 	# Spy espionage actions (§7.1): only a spy standing on a foreign city tile with
 	# full movement gets any rows, and the list is pre-filtered to missions whose gate
@@ -339,6 +370,21 @@ func _on_action_pressed(item: Dictionary) -> void:
 	elif kind == "cmd" and aid == IDs.UnitCmd.WAKE:
 		for id in sel.selected_unit_ids:
 			_facade.apply_command(Commands.unit_wake(pid, id))
+	elif kind == "spread_belief":
+		_facade.apply_command(Commands.spread_belief(
+			pid, int(item.get("unit_id", uid)), int(item.get("settlement_id", -1))))
+	elif kind == "spread_corporation":
+		_facade.apply_command(Commands.spread_corporation(
+			pid, int(item.get("unit_id", uid)), int(item.get("settlement_id", -1))))
+	elif kind == "gp":
+		# Great Person verb (§14): acts immediately, no confirmation (user
+		# decision 2026-07-19). The facade prepared any derived targeting
+		# (e.g. infiltration's target alliance) on the item.
+		var params: Dictionary = {}
+		if item.has("target_alliance_id"):
+			params["target_alliance_id"] = int(item["target_alliance_id"])
+		_facade.apply_command(Commands.gp_action(
+			pid, int(item.get("unit_id", uid)), str(item.get("action", "")), params))
 	rebuild()
 
 func _on_select_stack_member(unit_id: int) -> void:

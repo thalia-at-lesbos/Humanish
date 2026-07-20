@@ -43,6 +43,7 @@ sections:
   "§8.1 Facade signals":         "All 14 SimFacade signals with parameter types (provisional)"
   "§9  Help text":               "Centralized tooltip/breakdown/encyclopedia text generation (src/api/text_gen.gd)"
   "§10 Display-gating queries":  "End-turn states, HUD visibility, capability gates, tile/flyout presentation"
+  "§10.1 Selection-panel action buttons": "GP second column, preview-on-label, no-confirmation (user-directed 2026-07-19)"
   "§11 Standard screens":        "Full screen inventory with per-screen functional description; §11.1 HUD advisor bar"
   "§12 Reconstruction checklist":"11-step checklist for reimplementing the full UI contract"
 editorial_rule: >
@@ -490,6 +491,19 @@ boolean/enumeration queries each frame. Functional set:
   Once revealed by tech, resources are further filtered by `TOGGLE_RESOURCES`. The
   `tech_required` check mirrors the same field used by `TileOutput.compute` to gate
   output — a resource the player cannot see is also a resource they cannot work.
+
+### 10.1 Selection-panel action buttons (user-directed, 2026-07-19)
+
+The selection panel's per-unit action list is eligibility-gated: it never offers an
+order the command would reject (the sim-side checks are the single source of truth).
+Three user-directed conventions govern the buttons: **(1)** a Great Person's action
+verbs render in a **second button column** to the right of the main action column, so
+a multi-verb Great Person does not stretch the main column (spread-belief and
+spread-corporation entries stay in the main column); **(2)** labels carry a
+**cost/effect preview** where the data provides magnitudes — e.g. "Spread
+\<Corporation\> (N gold)", "Golden Age (2 GP)", "Trade Mission (+2000 gold)";
+**(3)** every button — including one that consumes a Great Person — acts
+**immediately, with no confirmation step**.
 
 ---
 
