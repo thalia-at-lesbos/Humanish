@@ -5,6 +5,8 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-07-19 "beta 1"
+
 ### Added
 - **Selection-panel buttons for Spread Belief, Spread Corporation, and Great
   Person actions.** Three command families that previously existed only in the
