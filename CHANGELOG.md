@@ -5,6 +5,35 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+- **Insolvency no longer scraps a player's whole army in one turn.** When a
+  player went broke past the grace period, the disband loop compared every
+  disband against the same stale negative treasury and never recomputed upkeep,
+  so a single insolvent turn disbanded *every* unit the player owned. It now
+  recomputes net gold from the reduced unit set after each disband and stops the
+  instant the player is solvent again — shedding only as many units as upkeep
+  requires.
+- **A city founded on barren terrain now produces.** The city-centre tile was
+  given no minimum yield, so a city on grassland (2 food / 0 production) made 0
+  hammers. The centre is now floored to the reference minimum of 2 food /
+  1 production / 1 commerce.
+- **Mines can be built on flat-land resources.** Iron and copper can sit on
+  plains/grassland but the connecting Mine was hills-only, leaving the resource
+  permanently unimprovable. A landform-restricted improvement is now allowed on a
+  tile whose resource requires exactly that improvement.
+- **"Open City" now works with a non-city unit selected.** Pressing Open City
+  while a scout (or any unit) stood on one of your cities did nothing, because the
+  city id was discarded and the screen resolved the wrong (empty) selection. The
+  city is now selected first so the advisor opens.
+- **The Diplomacy screen shows civilization and leader names** for each met civ,
+  instead of the bare "Player N".
+- **The new-game setup screen scrolls.** With many players configured the form
+  overflowed the window and pushed the lower options and Start button off-screen;
+  it is now hosted in a scroll container.
+- **Goody huts are drawn on the map.** Discovery sites rendered nothing, so a
+  scout that walked onto one produced a "free" unit with no visible cause. A hut
+  glyph now marks visible discovery tiles.
+
 ## [0.6.1] - 2026-07-19 "beta 1"
 
 ### Added
