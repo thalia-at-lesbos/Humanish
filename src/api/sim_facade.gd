@@ -2777,11 +2777,16 @@ func _belief_to_spread(p: Player) -> String:
 			return s.belief_id
 	return ""
 
-# Spread a corporation to a city with an executive unit (§14.6). The executive
-# must be the player's, carry the `spread_corporation` tag, and sit on the target
-# city's tile. It spreads the corporation the player founded into a city that has
-# none (and whose owner does not ban corporations), charging the spread cost. The
-# executive is consumed on success.
+# Spread a corporation to a city with an executive unit (§14.6 / §15.22). The
+# executive must be the player's, carry the `spread_corporation` tag, and sit on
+# the target city's tile. It spreads the corporation the player founded into an
+# eligible city (no incumbent, owner's civics allow corporations, the city has
+# an input resource — EconOrgs.can_spread_to). The cost is the §15.22 formula
+# (base × inflation, ×2 foreign non-vassal, ×3 per competing incumbent) and the
+# spread rolls the executive's spread strength through gs.rng — under
+# one-corporation-per-city every eligible target is an empty city, which lands
+# on exactly 100%, so no draw is made (§15.5 no-pointless-draws). The cost is
+# charged and the executive consumed even on a failed roll.
 func _cmd_spread_corporation(cmd: Dictionary) -> bool:
 	var p: Player = _gs.get_player(int(cmd["player_id"]))
 	if p == null:
@@ -2797,17 +2802,23 @@ func _cmd_spread_corporation(cmd: Dictionary) -> bool:
 	var org_id: String = EconOrgs.corporation_of_player(_gs, p.id)
 	if org_id == "":
 		return false
-	var cost: int = _db.get_constant("corporation_executive_spread_cost", 100)
+	if not EconOrgs.can_spread_to(org_id, s, _gs):
+		return false
+	var infl: int = TurnEngine.inflation_rate(_gs)
+	var cost: int = EconOrgs.executive_spread_cost(_gs, org_id, s, p.id, infl)
 	if p.treasury < cost:
 		return false
-	if not EconOrgs.spread_to(org_id, s, _gs):
-		return false
-	p.treasury -= cost
+	# From here the attempt happens: gold and the executive are spent whether or
+	# not the roll succeeds (§15.22).
+	var result: Dictionary = EconOrgs.attempt_executive_spread(_gs, org_id, s, p.id, infl)
 	Stack.remove_unit(_gs.units, u.id)
 	if _selection != null:
 		_selection.selected_unit_ids.erase(u.id)
 	var org_name: String = str(_db.econ_orgs.get(org_id, {}).get("name", org_id))
-	_add_notification(org_name + " spread to " + s.name + ".", "info")
+	if bool(result.get("success", false)):
+		_add_notification(org_name + " spread to " + s.name + ".", "info")
+	else:
+		_add_notification(org_name + " failed to take root in " + s.name + ".", "info")
 	_dirty.set_dirty(IDs.DirtyRegion.WORLD)
 	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true

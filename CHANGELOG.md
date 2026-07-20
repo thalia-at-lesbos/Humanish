@@ -3,6 +3,22 @@
 All notable changes to Humanish are recorded here. Versions follow
 [semantic versioning](https://semver.org).
 
+## [Unreleased]
+
+### Changed
+- **Corporations no longer spread on their own.** The passive
+  religion-style spread channel is removed (the reference model has no
+  organic corporation spread): a corporation now reaches a new city only
+  via the deliberate **Executive** action, at founding, or with a captured
+  city. The executive's price follows the reference formula — base **50**
+  gold scaled by the current inflation rate, **doubled** into a foreign
+  (non-vassal) city — replacing the old flat 100-gold fee, and the target
+  city must have access to at least one of the corporation's input
+  resources. Spreading into an empty city always succeeds; a city already
+  hosting a corporation refuses another (one corporation per city, as
+  before). The founder's treasury is no longer silently drained by
+  automatic spread.
+
 ## [0.6.0] - 2026-07-19 "Reference Wiring"
 
 Completes the direct-reference-gaps wiring plan (Phases W, M, R, T).

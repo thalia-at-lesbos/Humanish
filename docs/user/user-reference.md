@@ -435,7 +435,11 @@ Adopting a **state religion** (in your Civics) gives passive bonuses; changing i
 
 ### Economic Organisations
 
-Founded by a Great Merchant or specific Great Person action. Like beliefs, organisations spread and provide per-city economic bonuses. Each organisation consumes a set of **input resources**: its per-city output (food, production, gold, research, or culture) scales with how many copies of those resources you can access — every connected tile and every trade-deal import counts. Some organisations also **provide a strategic resource** (Standard Ethanol supplies Oil; Aluminum Co. supplies Aluminum) to any player hosting them. Maintaining an organisation costs treasury each turn, also scaling with the resources consumed; the founder's headquarters earns gold for every member city worldwide.
+Founded by a Great Merchant or specific Great Person action. Organisations provide per-city economic bonuses, but **unlike beliefs they never spread on their own** — they reach a new city only via an **Executive** unit (unlocked by the Corporation technology). Move the executive onto the target city and issue the spread command: the executive is consumed and the corporation opens a franchise there.
+
+Spreading costs gold: a **base of 50**, scaled up by your current **inflation** rate, and **doubled** when the target city belongs to another player (a vassal of yours counts as domestic). The target city must have access to at least one of the organisation's **input resources**, its owner must not be running a corporation-banning civic (Mercantilism or State Property), and a city can host only **one** organisation — an incumbent blocks any newcomer. Spreading into an eligible (empty) city always succeeds.
+
+Each organisation consumes a set of **input resources**: its per-city output (food, production, gold, research, or culture) scales with how many copies of those resources you can access — every connected tile and every trade-deal import counts. Some organisations also **provide a strategic resource** (Standard Ethanol supplies Oil; Aluminum Co. supplies Aluminum) to any player hosting them. Maintaining an organisation costs treasury each turn, also scaling with the resources consumed; the founder's headquarters earns gold for every member city worldwide.
 
 ---
 

@@ -37,9 +37,10 @@ static func world_step(gs: GameState, hooks: Hooks) -> void:
 	# bookkeeping, independent of the per-phase hook.
 	_detect_sight_contact(gs)
 
-	# Economic organizations spread across settlements (§8). Cheap; runs each
-	# world step independent of the per-phase hooks.
-	EconOrgs.spread_all(gs, gs.rng)
+	# Corporations have NO organic/passive spread (§15.22): they enter cities
+	# only via the deliberate executive action (SimFacade._cmd_spread_corporation),
+	# founding, or city transfer. The religion-style per-turn spread channel that
+	# used to run here was a Humanish invention and was removed at wiring item T2.
 
 	# Tributaries pay tribute to their overlords (§7).
 	_collect_tribute(gs)
