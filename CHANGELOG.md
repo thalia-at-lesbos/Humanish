@@ -5,6 +5,21 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Added
+- **Selection-panel buttons for Spread Belief, Spread Corporation, and Great
+  Person actions.** Three command families that previously existed only in the
+  API now have clickable buttons on the selected unit's panel, each shown only
+  when the order would actually succeed: a **Missionary** on a faithless city
+  offers *Spread \<Religion\>*; an **Executive** on an eligible city offers
+  *Spread \<Corporation\> (N gold)* with the computed cost on the label (and
+  only while you can afford it); a **Great Person** offers one button per
+  ability it can use right now, with cost/effect previews on the labels —
+  e.g. *Golden Age (2 GP)*, *Trade Mission (+2000 gold)*, *Hurry Production
+  (+500 hammers)*, *Great Work (+4000 culture)*, *Build Academy*. Great
+  Person buttons sit in a second column beside the main action buttons, act
+  immediately (no confirmation), and a Great Spy's *Infiltration (+3000 EP)*
+  targets the foreign city it stands in.
+
 ### Changed
 - **Mercantilism now bans only foreign corporations.** The two
   corporation-banning civics are split: **State Property** still shuts down
