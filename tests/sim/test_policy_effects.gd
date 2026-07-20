@@ -40,6 +40,23 @@ func test_has_flag_reads_bare_and_nested() -> void:
 	assert_false(PolicyEffects.has_flag(p, gs.db, "pop_rush"),
 		"has_flag is false when no active civic carries the flag")
 
+func test_corporation_ban_flags_split() -> void:
+	# §15.22 flag split: State Property carries the full `corporations_disabled`
+	# ban; Mercantilism carries only `foreign_corporations_disabled` (banning
+	# corporations whose HQ city the player does not own) — never both.
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.policies = {"economic": "state_property"}
+	assert_true(PolicyEffects.has_flag(p, gs.db, "corporations_disabled"),
+		"State Property sets the full corporation ban")
+	assert_false(PolicyEffects.has_flag(p, gs.db, "foreign_corporations_disabled"),
+		"State Property does not carry the foreign-HQ-only flag")
+	p.policies = {"economic": "mercantilism"}
+	assert_false(PolicyEffects.has_flag(p, gs.db, "corporations_disabled"),
+		"Mercantilism no longer carries the full ban")
+	assert_true(PolicyEffects.has_flag(p, gs.db, "foreign_corporations_disabled"),
+		"Mercantilism sets the foreign-HQ-only ban")
+
 func test_largest_city_ids_orders_by_population() -> void:
 	var gs = make_gs(1)
 	make_settlement(gs, 1, 1, 1, 2)

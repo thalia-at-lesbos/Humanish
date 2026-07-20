@@ -6,6 +6,16 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Changed
+- **Mercantilism now bans only foreign corporations.** The two
+  corporation-banning civics are split: **State Property** still shuts down
+  every corporation, while **Mercantilism** now suspends only corporations
+  whose **headquarters city you do not own** — your own-HQ corporation keeps
+  operating and its executives can still open franchises in your cities. The
+  ownership test is strict: an ally's or vassal's headquarters still counts
+  as foreign. A banned corporation's franchises are not removed — they go
+  **dormant** (no yields, no upkeep, no produced resource, no headquarters
+  gold) and resume automatically when you change civics; executives cannot
+  spread a corporation into a city where it would sit dormant.
 - **Corporations no longer spread on their own.** The passive
   religion-style spread channel is removed (the reference model has no
   organic corporation spread): a corporation now reaches a new city only

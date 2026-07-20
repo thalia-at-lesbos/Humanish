@@ -763,11 +763,16 @@ own user-authorized session):**
   (`units.json`), `corporation_foreign_spread_cost_percent` 200 in
   `constants.json` (replacing the flat `corporation_executive_spread_cost`
   100); the total-corporations denominator is `db.econ_orgs.size()` (7 as
-  shipped), not a constant. NOT adopted (still reference-divergent, flagged
-  for a future design-doc sitting): the Mercantilism own-HQ exemption (both
-  banning civics stay full `corporations_disabled` bans) and the
-  founding-best-city placement score (§15.22 rule 1 — Humanish founds in the
-  Great Merchant's city). Tests: `test_econ_orgs.gd` reworked to 24 tests
+  shipped), not a constant. Follow-up shipped 2026-07-19 (post-T2, user
+  decision): the Mercantilism own-HQ exemption is **adopted** — Mercantilism
+  now carries `foreign_corporations_disabled` (banned unless the player owns
+  the corporation's HQ city, strictly player-owned, no alliance/vassal
+  exemption; `EconOrgs.banned_for`/`hq_owner`) while State Property keeps the
+  full `corporations_disabled` ban; banned franchises go dormant (yields and
+  maintenance stop symmetrically, nothing evicted, spread ineligible) and
+  resume on the civic change. Still NOT adopted (reference-divergent, flagged
+  for a future design-doc sitting): the founding-best-city placement score
+  (§15.22 rule 1 — Humanish founds in the Great Merchant's city). Tests: `test_econ_orgs.gd` reworked to 24 tests
   (cost×inflation/foreign/vassal/surcharge, chance worked values 100/91/88,
   no-organic-spread, no-draw-at-100, resource/incumbent/ban gates,
   failure-still-charges seed sweep).

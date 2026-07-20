@@ -34,8 +34,14 @@ class_name EconOrgs
 #     owning a member city gains access to it while the corporation operates;
 #   * a per-member-city maintenance cost scaling with the same instance count
 #     (`maintenance_per_resource`, ×1/100; halved by the Free Market civic);
-#   * civic bans (Mercantilism / State Property set `corporations_disabled`, under
-#     which a player's corporations produce nothing and cost no maintenance).
+#   * civic bans (§15.22): State Property sets `corporations_disabled` (every
+#     corporation banned); Mercantilism sets `foreign_corporations_disabled`
+#     (only corporations whose HQ city the player does not own — strictly
+#     player-owned, with no alliance or vassalage exemption). A banned
+#     corporation's franchises go DORMANT, symmetrically: they stay in place
+#     (nothing is evicted, HQ included) but produce no output, grant no
+#     produced resource, pay no HQ gold, and cost no maintenance; executives
+#     cannot spread into them. Everything resumes when the civic changes.
 #
 # Pure static; the single reader of the `data/econ_orgs.json` table, called from
 # TurnEngine (output, maintenance, HQ gold) and SimFacade (executive spread).
@@ -56,10 +62,35 @@ static func found(org_id: String, settlement: Settlement, game_state) -> bool:
 		settlement.structures.append(hq)
 	return true
 
-# True if `player` runs a civic that bans corporations (Mercantilism / State
-# Property): their corporations produce no output and cost no maintenance.
-static func corporations_banned(player: Player, db: DataDB) -> bool:
-	return player != null and PolicyEffects.has_flag(player, db, "corporations_disabled")
+# The player id owning `org_id`'s headquarters CITY (the settlement carrying its
+# `hq_structure` — the HQ moves with the city on conquest), or -1 while no such
+# city stands (never founded, or the HQ city was razed).
+static func hq_owner(game_state, org_id: String) -> int:
+	var hq: String = str(game_state.db.econ_orgs.get(org_id, {}).get("hq_structure", ""))
+	if hq == "":
+		return -1
+	for s in game_state.settlements:
+		if s.has_structure(hq):
+			return s.owner_player_id
+	return -1
+
+# §15.22 civic ban, per corporation: true if `org_id` is banned — dormant — for
+# `player`. Either the full `corporations_disabled` ban (State Property), or the
+# `foreign_corporations_disabled` ban (Mercantilism), which bans a corporation
+# whose HQ city is not owned by this player — strictly player-owned: an ally's,
+# master's, or vassal's HQ still counts as foreign (no exemption of any kind).
+# While banned, the player's franchises persist but yield nothing, cost no
+# maintenance, and cannot be spread into; all of it resumes automatically when
+# the civic changes.
+static func banned_for(game_state, org_id: String, player: Player) -> bool:
+	if player == null:
+		return false
+	var db: DataDB = game_state.db
+	if PolicyEffects.has_flag(player, db, "corporations_disabled"):
+		return true
+	if PolicyEffects.has_flag(player, db, "foreign_corporations_disabled"):
+		return hq_owner(game_state, org_id) != player.id
+	return false
 
 # ── §15.22 executive spread (the only spread channel) ─────────────────────────
 
@@ -163,7 +194,7 @@ static func can_spread_to(org_id: String, settlement: Settlement, game_state) ->
 		return false
 	if settlement.econ_org_id != "":
 		return false
-	if corporations_banned(game_state.get_player(settlement.owner_player_id), game_state.db):
+	if banned_for(game_state, org_id, game_state.get_player(settlement.owner_player_id)):
 		return false
 	var org: Dictionary = game_state.db.econ_orgs.get(org_id, {})
 	return accessible_input_count(game_state, org, settlement.owner_player_id) > 0
@@ -200,7 +231,7 @@ static func spread_to(org_id: String, settlement: Settlement, game_state) -> boo
 		return false
 	if settlement.econ_org_id != "":
 		return false
-	if corporations_banned(game_state.get_player(settlement.owner_player_id), game_state.db):
+	if banned_for(game_state, org_id, game_state.get_player(settlement.owner_player_id)):
 		return false
 	settlement.econ_org_id = org_id
 	return true
@@ -294,18 +325,20 @@ static func accessible_resource_counts(game_state, player_id: int) -> Dictionary
 			out[str(r)] = int(out.get(str(r), 0)) + 1
 	# Corporation-produced resources (§15.10): one instance per operating
 	# corporation the player hosts, regardless of how many member cities they own.
-	if not corporations_banned(player, db):
-		var seen_orgs: Dictionary = {}
-		for s in game_state.settlements:
-			if s.owner_player_id != player_id or s.econ_org_id == "":
-				continue
-			if seen_orgs.has(s.econ_org_id):
-				continue
-			seen_orgs[s.econ_org_id] = true
-			var produced: String = str(db.econ_orgs.get(s.econ_org_id, {}).get(
-				"produces_resource", ""))
-			if produced != "":
-				out[produced] = int(out.get(produced, 0)) + 1
+	# A corporation dormant under a civic ban (§15.22) grants nothing.
+	var seen_orgs: Dictionary = {}
+	for s in game_state.settlements:
+		if s.owner_player_id != player_id or s.econ_org_id == "":
+			continue
+		if seen_orgs.has(s.econ_org_id):
+			continue
+		seen_orgs[s.econ_org_id] = true
+		if banned_for(game_state, s.econ_org_id, player):
+			continue
+		var produced: String = str(db.econ_orgs.get(s.econ_org_id, {}).get(
+			"produces_resource", ""))
+		if produced != "":
+			out[produced] = int(out.get(produced, 0)) + 1
 	return out
 
 # Per-city corporation output on one channel ("food" / "production" / "commerce" /
@@ -320,7 +353,8 @@ static func settlement_channel(game_state, settlement: Settlement, channel: Stri
 	var rate: int = int(org.get("output_per_resource", {}).get(channel, 0))
 	if rate == 0:
 		return 0
-	if corporations_banned(game_state.get_player(settlement.owner_player_id), db):
+	if banned_for(game_state, settlement.econ_org_id,
+			game_state.get_player(settlement.owner_player_id)):
 		return 0
 	return rate * accessible_input_instances(game_state, org, settlement.owner_player_id) / 100
 
@@ -336,7 +370,8 @@ static func get_output_delta(game_state, settlement: Settlement) -> Array:
 	var per: Dictionary = org.get("output_per_resource", {})
 	if per.empty():
 		return [0, 0, 0]
-	if corporations_banned(game_state.get_player(settlement.owner_player_id), db):
+	if banned_for(game_state, settlement.econ_org_id,
+			game_state.get_player(settlement.owner_player_id)):
 		return [0, 0, 0]
 	var n: int = accessible_input_instances(game_state, org, settlement.owner_player_id)
 	return [
@@ -348,15 +383,16 @@ static func get_output_delta(game_state, settlement: Settlement) -> Array:
 # Total corporation maintenance a player owes this turn: each member city they own
 # charges `maintenance_per_resource × accessible input instances / 100` (reference
 # 100 = 1 gold per resource instance per franchise, §15.10), reduced by the Free
-# Market civic's `corporation_maintenance_reduction` percent. Cities whose owner
-# bans corporations (and thus get no output) owe nothing.
+# Market civic's `corporation_maintenance_reduction` percent. A franchise dormant
+# under a civic ban (§15.22 — and thus yielding no output) owes nothing: the
+# yield and maintenance cutoffs are symmetric.
 static func maintenance_for(game_state, db: DataDB, player: Player) -> int:
-	if corporations_banned(player, db):
-		return 0
 	var total: int = 0
 	var instances: Dictionary = {}  # org_id → the player's input-instance count
 	for s in game_state.settlements:
 		if s.owner_player_id != player.id or s.econ_org_id == "":
+			continue
+		if banned_for(game_state, s.econ_org_id, player):
 			continue
 		var org: Dictionary = db.econ_orgs.get(s.econ_org_id, {})
 		var rate: int = int(org.get("maintenance_per_resource", 0))
@@ -371,8 +407,8 @@ static func maintenance_for(game_state, db: DataDB, player: Player) -> int:
 	return total if total >= 0 else 0
 
 # Gold the founder earns from the HQ this turn: `hq_gold_per_franchise` per member
-# city worldwide (reference +4 gold per franchise, §15.10). Cities whose owner bans
-# corporations are not operating franchises and pay nothing.
+# city worldwide (reference +4 gold per franchise, §15.10). A franchise dormant
+# under its owner's civic ban (§15.22) is not operating and pays nothing.
 static func hq_gold_for(game_state, db: DataDB, player: Player) -> int:
 	var gold: int = 0
 	for org_id in game_state.founded_econ_orgs:
@@ -385,7 +421,7 @@ static func hq_gold_for(game_state, db: DataDB, player: Player) -> int:
 		for s in game_state.settlements:
 			if s.econ_org_id != org_id:
 				continue
-			if corporations_banned(game_state.get_player(s.owner_player_id), db):
+			if banned_for(game_state, org_id, game_state.get_player(s.owner_player_id)):
 				continue
 			gold += per_franchise
 	return gold
