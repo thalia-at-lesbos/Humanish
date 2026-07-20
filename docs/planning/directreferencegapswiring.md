@@ -770,9 +770,16 @@ own user-authorized session):**
   exemption; `EconOrgs.banned_for`/`hq_owner`) while State Property keeps the
   full `corporations_disabled` ban; banned franchises go dormant (yields and
   maintenance stop symmetrically, nothing evicted, spread ineligible) and
-  resume on the civic change. Still NOT adopted (reference-divergent, flagged
-  for a future design-doc sitting): the founding-best-city placement score
-  (§15.22 rule 1 — Humanish founds in the Great Merchant's city). Tests: `test_econ_orgs.gd` reworked to 24 tests
+  resume on the civic change. Founding-placement follow-up **closed by the
+  2026-07-19 founding-sourcing sitting**: the founding path was re-verified
+  end-to-end in the reference — the best-city scoring loop exists only in a
+  player-level function whose two callers are gated on a per-corporation
+  prereq tech that no shipped corporation has (**dead code**); the live
+  reference founds by the Great Person erecting the HQ structure in the city
+  it stands in, exactly as Humanish does. Nothing to adopt: Humanish is
+  already reference-faithful, and the adoption question now rests on a solid
+  factual base (§15.22 rule 1 corrected + verified, §29.17 row re-annotated).
+  Tests: `test_econ_orgs.gd` reworked to 24 tests
   (cost×inflation/foreign/vassal/surcharge, chance worked values 100/91/88,
   no-organic-spread, no-draw-at-100, resource/incumbent/ban gates,
   failure-still-charges seed sweep).

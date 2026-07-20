@@ -2191,8 +2191,8 @@ resources). Shared fields on every corporation:
 | `executive_unit` | `executive` | The spreader unit that establishes the corp in a new city. |
 | `maintenance_per_resource` | 100 | ×1/100 gold/turn per input instance per member city (= 1 gpt each). |
 | `hq_gold_per_franchise` | 4 | Gold to the founder per member city worldwide. |
-| `spread_cost` | 200 | Production/gold cost for an executive to spread the corp. |
-| `spread_chance_base` | 15 | Base % chance an AI/auto spread succeeds. |
+| `spread_base_cost` | 50 | Base of the executive spread-cost formula (× inflation ×2 foreign; §15.22 / §29.17). |
+| `spread_factor` | 200 | Competition surcharge on the spread cost (×3 per competing incumbent; vacuous under one-corp-per-city). |
 
 **Reference parity:** the reference's `GameCorporationInfo.xml` defines 7 corporations,
 each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project
@@ -2780,13 +2780,12 @@ above confirmed against the reference XML): the input lists and ×1/100 rates ar
 `input_resources`/`output_per_resource` in `econ_orgs.json`, maintenance 100 is
 `maintenance_per_resource`, HQ +4/franchise is `hq_gold_per_franchise`, and the produced
 resources are `produces_resource` (granted to a member city's owner while the corporation
-operates). Only the spread columns (factor 200 / base cost 50) remain unadopted — the
-Humanish spread mechanic keeps `spread_cost` 200 / `spread_chance_base` 15 (the two
-models do not map 1:1). The reference spread semantics are now **sourced** (0k sitting,
-2026-07-19): both columns belong to the *executive* action — the factor is a
+operates). The spread columns (factor 200 / base cost 50) are **adopted** too (wiring
+item T2, 2026-07-19): both belong to the *executive* action — the factor is a
 competition cost surcharge, the base cost the inflation-scaled action price; there is
-no organic spread in the reference at all. Formulas: `game-rules.md` §15.22, values
-§29.17; adoption is wiring item T2 (docs-only from here).
+no organic spread in the reference at all, and the former Humanish organic keys
+(`spread_cost` 200 / `spread_chance_base` 15) are deleted. Formulas: `game-rules.md`
+§15.22, values §29.17.
 
 ### 29.7 Per-difficulty goody rosters (selection weights)
 
@@ -3068,7 +3067,7 @@ source at its read site:
 | Executive spread strength | 40 | Per-executive **unit** value (all 7 executives, own corporation only): the success-roll base; halved in a foreign city, then interpolated toward 100 by open corporation slots. |
 | Total corporations | 7 | The interpolation denominator (§15.22 success roll). |
 | Input-resource slots | 5 | Loop bound for the prereq-resource and competition tests. |
-| Founding-city random term | 10 | Adjacent constant: the random term in the founder's best-city score at founding (not part of either spread formula). |
+| Founding-city random term | 10 | Adjacent constant: the random term in the reference's best-city founding score — **dead code as shipped** (re-verified 2026-07-19: the scoring loop's only callers are gated on a per-corporation prereq tech no shipped corporation has; the live game founds in the acting Great Person's city, §15.22 rule 1). Kept for the record only. |
 
 Worked success-roll examples (spread strength 40, 7 corporations): empty target
 city **100%** — own-team *or* foreign — so failure is possible only against
