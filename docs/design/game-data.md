@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json and wired (2026-07-19): units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (spread columns sourced 2026-07-19 → 29.17, adoption pending T2), goody rosters, hurry types (gold hurry live, M5), labor civic effects, AI cost/growth handicaps (29.10, T1), culture-rate happiness carriers (29.12, M2), air-combat values (29.13, M3; strike cap & air_range_bonus still readerless), spaceship parts & arrival delay (29.14, M4), obsolescence roster (29.15, M1; base monument a noted gap), Phase 0 point values & cross-checks (29.16), corporation spread values (29.17, sourced 2026-07-19 — executive-only model, pending T2)"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json and wired (2026-07-19): units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (spread columns sourced 2026-07-19 → 29.17, adopted via T2), goody rosters, hurry types (gold hurry live, M5), labor civic effects, AI cost/growth handicaps (29.10, T1), culture-rate happiness carriers (29.12, M2), air-combat values (29.13, M3; strike cap & air_range_bonus still readerless), spaceship parts & arrival delay (29.14, M4), obsolescence roster (29.15, M1; base monument a noted gap), Phase 0 point values & cross-checks (29.16), corporation spread values (29.17, sourced 2026-07-19 — executive-only model, wired via T2)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -2184,10 +2184,10 @@ resources). Shared fields on every corporation:
 **Reference parity:** the reference's `GameCorporationInfo.xml` defines 7 corporations,
 each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project
 ships the same 7 with the full per-resource model (§29.6 rates, confirmed against the
-reference XML). The reference's spread factor 200 / spread base cost 50 remain Humanish-tuned
-(`spread_cost` 200 / `spread_chance_base` 15) — the spread mechanic itself differs: the
-reference spreads via executives only (no organic channel; formulas sourced 2026-07-19,
-`game-rules.md` §15.22 / §29.17, adoption pending wiring item T2).
+reference XML). The reference executive-only spread model is **adopted** (wiring item T2,
+2026-07-19): the organic channel and its `spread_cost` 200 / `spread_chance_base` 15
+keys are gone; executives spread per the sourced formulas (`game-rules.md` §15.22 /
+§29.17 — `spread_base_cost` 50, foreign ×2, spread strength 40).
 
 ---
 
@@ -3034,7 +3034,7 @@ sourcing line, not a guess. The full reference roster mapped to Humanish ids:
   — never summed, and not best-of-each-category either; promotion values do sum
   on one carrier unit.
 
-### 29.17 Corporation spread values (sourced 2026-07-19 — pending wiring item T2)
+### 29.17 Corporation spread values (sourced 2026-07-19; wired 2026-07-19, wiring item T2)
 
 Mechanic: `game-rules.md` §15.22 (executive-only; the reference has **no**
 organic/passive corporation spread). Expansion-reference layer only — the base

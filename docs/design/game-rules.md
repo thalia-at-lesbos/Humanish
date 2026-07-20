@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Reference-adopted mechanics, implemented except 15.22: inflation (15.1), hurry — whipping + gold (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12), culture-rate happiness (15.13), air interception (15.14), settler food-box (15.15), spaceship arrival delay (15.16), structure obsolescence (15.17), per-player GP threshold (15.18), citizen default specialist (15.19), military instructor (15.20), unit capture (15.21), corporation executive spread (15.22, sourced 2026-07-19 — pending wiring item T2, not yet implemented) — 15.13–15.21 wired 2026-07-19 (directreferencegapswiring.md) with as-built notes per subsection"
+  "§15 Reference-parity mechanics": "Reference-adopted mechanics, implemented except 15.22: inflation (15.1), hurry — whipping + gold (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12), culture-rate happiness (15.13), air interception (15.14), settler food-box (15.15), spaceship arrival delay (15.16), structure obsolescence (15.17), per-player GP threshold (15.18), citizen default specialist (15.19), military instructor (15.20), unit capture (15.21), corporation executive spread (15.22) — 15.13–15.22 wired 2026-07-19 (directreferencegapswiring.md) with as-built notes per subsection"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -1570,14 +1570,13 @@ supplies the values they read. A faithful implementation must reproduce both.
 
 ## 15. Reference-parity mechanics (implemented — reference values)
 
-> **Implemented throughout (§15.1–§15.21; §15.22 is sourced but not yet
-> implemented — pending wiring item T2).**
+> **Implemented throughout (§15.1–§15.22).**
 > Every subsection below specifies a mechanic (or a rule-level correction) adopted
 > from the reference game. The parity plan (`docs/planning/directreferencegaps.md`,
 > **COMPLETE 2026-07-18**) shipped §15.1–§15.12 — each subsection carries its own
 > implementation note (§15.11 via the per-difficulty `goody_weights` overrides).
-> §15.13–§15.21 were captured in the successor plan's Phase 0 sourcing sitting
-> (`docs/planning/directreferencegapswiring.md`, sourced 2026-07-18) and were
+> §15.13–§15.22 were captured in the successor plan's sourcing sittings
+> (`docs/planning/directreferencegapswiring.md`, sourced 2026-07-18/19) and were
 > **implemented by that plan's wiring items (complete 2026-07-19)** — each names
 > its item and carries as-built notes where the build deviated from or narrowed
 > the sourced spec. Values are taken directly from the reference XML/SDK (layered
@@ -2192,7 +2191,17 @@ case is **vacuous in Humanish**, because strength-0 civilians are picked as
 defenders first, so a city can never fall while a capturable unit still
 garrisons it.
 
-### 15.22 Corporation spread — executive-only *(sourced 2026-07-19 — pending wiring item T2, not yet implemented)*
+### 15.22 Corporation spread — executive-only *(sourced 2026-07-19; wired 2026-07-19, wiring item T2)*
+
+> **As-built (T2, 2026-07-19):** the Humanish organic spread channel is deleted
+> and the executive model below is live, with these narrowings — Humanish keeps
+> **one corporation per city** (rule 4's eviction and the step-3 competition
+> surcharge are implemented faithfully in structure but vacuous at runtime); the
+> city-level input-resource gate is collapsed to **owner-level** access
+> (consistent with the §15.10 owner-wide model); the no-foreign-corporations
+> civic exemption and the rule-1 best-city founding placement were **not**
+> adopted at T2 (both civic bans remained full `corporations_disabled`; founding
+> stays in the acting Great Person's city) — parked as follow-ups.
 
 Corporations are an **expansion-reference** feature; the base layer defines no
 corporation data, so every value below comes from the expansion layer (verified
