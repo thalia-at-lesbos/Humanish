@@ -101,6 +101,21 @@ func test_worker_cannot_build_mine_on_flat() -> void:
 	assert_false(facade.apply_command(Commands.build_improvement(1, wp.id, "mine")),
 		"Worker should not build a mine on plains (flat)")
 
+func test_worker_can_build_mine_on_flat_resource() -> void:
+	# A mine-requiring resource (iron/copper) may sit on flat land; the Mine must be
+	# buildable there so the resource can be connected, even though a bare Mine wants
+	# hills (bug tstb7: iron on plains/grassland was otherwise unimprovable).
+	var gs = make_gs(1)
+	gs.get_player(1).technologies = gs.db.technologies.keys().duplicate()
+	var facade = bare_facade(gs)
+	gs.current_player_id = 1
+	var w = make_unit(gs, "worker", 1, 5, 5)
+	var t = gs.map.get_tile(5, 5)
+	t.terrain_id = "plains"      # flat
+	t.resource_id = "iron"       # requires a mine
+	assert_true(facade.apply_command(Commands.build_improvement(1, w.id, "mine")),
+		"Worker can mine flat-land iron to connect it")
+
 # ── Worker build completion (Jun 9 bug report) ───────────────────────────────
 
 func test_worker_build_completes_and_places_improvement() -> void:

@@ -242,15 +242,17 @@ func test_set_tile_worked_rejects_mountain() -> void:
 	assert_eq(s.locked_tiles.size(), 0, "No lock is recorded")
 
 func test_river_tile_adds_commerce_to_city_output() -> void:
-	# A5 (reference): a worked grassland river tile yields +1 commerce. The centre
-	# tile is given a river border; output is compared against a river-less twin.
+	# A5 (reference): a worked grassland river tile yields +1 commerce. The river is
+	# applied to a NON-centre worked tile — the centre carries a guaranteed minimum
+	# yield (§tstc1: min 1 commerce) that would otherwise mask the +1 at the floor.
 	var gs = make_gs(1)
 	var s = make_settlement(gs, 1, 5, 5, 1)
 	s.manage_citizens_auto = false
-	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	# Free centre plus one worked grassland neighbour.
+	s.worked_tiles = [[5, 5], [6, 5]]
 	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
 	var dry: int = s.output_commerce
-	gs.map.get_tile(5, 5).river_n = true
+	gs.map.get_tile(6, 5).river_n = true
 	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
 	assert_eq(s.output_commerce, dry + 1,
 		"A river border on a worked grassland tile adds +1 commerce")

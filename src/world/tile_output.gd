@@ -85,6 +85,25 @@ static func compute(tile: Tile, db: DataDB, known_techs: Array, has_river: bool 
 
 	return out
 
+# The city-centre tile's output. A city never sits on a tile that produces
+# nothing: its centre is guaranteed a minimum yield (the reference "city plot"
+# floor). Computes the normal tile output, then raises each channel to at least
+# its data-driven floor (city_center_min_*). Applied to the settlement tile by the
+# growth pipeline and the city-screen work grid so both agree. (bug tstc1: a city
+# founded on grassland — 2 food / 0 production — produced 0 hammers.)
+static func compute_city_center(tile: Tile, db: DataDB, known_techs: Array, has_river: bool = false) -> Array:
+	var out: Array = compute(tile, db, known_techs, has_river)
+	var min_f: int = int(db.get_constant("city_center_min_food", 2))
+	var min_p: int = int(db.get_constant("city_center_min_production", 1))
+	var min_c: int = int(db.get_constant("city_center_min_commerce", 1))
+	if out[IDs.Output.FOOD] < min_f:
+		out[IDs.Output.FOOD] = min_f
+	if out[IDs.Output.PRODUCTION] < min_p:
+		out[IDs.Output.PRODUCTION] = min_p
+	if out[IDs.Output.COMMERCE] < min_c:
+		out[IDs.Output.COMMERCE] = min_c
+	return out
+
 # Whether a settlement's citizens can work this tile at all. Terrains flagged
 # `unworkable` (mountain peaks, reference) can never be assigned a worker —
 # shared by the sim's auto-assign, the SET_TILE_WORKED command gate, and the

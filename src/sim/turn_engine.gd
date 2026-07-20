@@ -360,8 +360,15 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 		var tile: Tile = gs.map.get_tile(int(wt[0]), int(wt[1]))
 		if tile == null:
 			continue
-		var out: Array = TileOutput.compute(tile, db, player.technologies,
-			gs.map.tile_has_river(tile.x, tile.y))
+		# The city-centre tile is guaranteed the reference minimum yield so a city
+		# on a barren tile (e.g. grassland: 0 production) still works (§tstc1).
+		var out: Array
+		if tile.x == s.x and tile.y == s.y:
+			out = TileOutput.compute_city_center(tile, db, player.technologies,
+				gs.map.tile_has_river(tile.x, tile.y))
+		else:
+			out = TileOutput.compute(tile, db, player.technologies,
+				gs.map.tile_has_river(tile.x, tile.y))
 		total_food     += out[IDs.Output.FOOD]
 		total_prod     += out[IDs.Output.PRODUCTION]
 		total_commerce += out[IDs.Output.COMMERCE]
