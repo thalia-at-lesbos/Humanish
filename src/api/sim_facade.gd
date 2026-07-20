@@ -1302,7 +1302,13 @@ func can_build_improvement(player_id: int, unit_id: int, imp_id: String) -> bool
 	var landform: String = str(ter.get("landform", "flat"))
 	var allowed: Array = imp.get("allowed_landforms", [])
 	if not allowed.empty() and not (landform in allowed):
-		return false
+		# A landform-restricted improvement is still valid on a tile carrying a
+		# resource that requires exactly that improvement — you can build a Mine on
+		# flat-land iron/copper even though a bare Mine wants hills (bug tstb7: iron
+		# on plains/grassland was otherwise unimprovable, so the resource could never
+		# be connected).
+		if not _tile_offers_resource_improvement(tile, imp_id, p):
+			return false
 	# Validate the tech requirement.
 	var tech_req = imp.get("tech_required", null)
 	if tech_req != null and str(tech_req) != "" and not p.has_tech(str(tech_req)):

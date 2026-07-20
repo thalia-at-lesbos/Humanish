@@ -28,6 +28,28 @@ func test_grassland_base_output() -> void:
 	assert_eq(out[IDs.Output.FOOD], 2, "Grassland: 2 food")
 	assert_eq(out[IDs.Output.PRODUCTION], 0, "Grassland: 0 production (reference)")
 
+func test_city_center_floors_barren_terrain() -> void:
+	# A city never sits on a tile that produces nothing: its centre is raised to the
+	# reference minimum 2 food / 1 production / 1 commerce (bug tstc1: a city founded
+	# on grassland — 2/0/0 — produced 0 hammers).
+	var db = _db()
+	var g = TileOutput.compute_city_center(_tile("grassland"), db, [])
+	assert_eq(g[IDs.Output.FOOD], 2, "grassland centre keeps 2 food")
+	assert_eq(g[IDs.Output.PRODUCTION], 1, "grassland centre floored to 1 production")
+	assert_eq(g[IDs.Output.COMMERCE], 1, "grassland centre floored to 1 commerce")
+	var d = TileOutput.compute_city_center(_tile("desert"), db, [])
+	assert_eq(d[IDs.Output.FOOD], 2, "desert centre floored to 2 food")
+	assert_eq(d[IDs.Output.PRODUCTION], 1, "desert centre floored to 1 production")
+	assert_eq(d[IDs.Output.COMMERCE], 1, "desert centre floored to 1 commerce")
+
+func test_city_center_keeps_richer_natural_yield() -> void:
+	# The floor only raises a channel, never lowers one: a coast centre (1/0/2)
+	# keeps its 2 commerce while food/production are floored up.
+	var c = TileOutput.compute_city_center(_tile("coast"), _db(), [])
+	assert_eq(c[IDs.Output.FOOD], 2, "coast centre floored up to 2 food")
+	assert_eq(c[IDs.Output.PRODUCTION], 1, "coast centre floored up to 1 production")
+	assert_eq(c[IDs.Output.COMMERCE], 2, "coast centre keeps its 2 commerce (above floor)")
+
 func test_river_commerce_bonus_on_river_tiles() -> void:
 	# A5 (reference): grass/plains/desert/tundra river tiles yield +1 commerce;
 	# the bonus only applies when the caller reports a river border.

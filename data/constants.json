@@ -252,5 +252,8 @@
   "ai_deal_eval_turns": 10,
   "ai_trade_tech_value": 200,
   "ai_war_power_margin": 40,
-  "corporation_foreign_spread_cost_percent": 200
+  "corporation_foreign_spread_cost_percent": 200,
+  "city_center_min_food": 2,
+  "city_center_min_production": 1,
+  "city_center_min_commerce": 1
 }

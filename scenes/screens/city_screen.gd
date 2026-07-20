@@ -334,8 +334,12 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 			var is_center: bool = (tile.x == s.x and tile.y == s.y)
 			# The centre tile is worked for free even if not listed in worked_tiles.
 			var is_worked: bool = worked.has(key) or is_center
-			var out = TileOutput.compute(tile, db, techs,
-				gs.map.tile_has_river(tile.x, tile.y))
+			# The centre tile shows its guaranteed minimum yield (§tstc1) so the grid
+			# matches what the growth pipeline actually credits the city.
+			var out = TileOutput.compute_city_center(tile, db, techs,
+					gs.map.tile_has_river(tile.x, tile.y)) if is_center \
+				else TileOutput.compute(tile, db, techs,
+					gs.map.tile_has_river(tile.x, tile.y))
 			var btn := Button.new()
 			var mark: String = _tile_grid_marker(is_center, is_worked, locked.has(key))
 			btn.text = mark + tile.terrain_id.left(4) \
