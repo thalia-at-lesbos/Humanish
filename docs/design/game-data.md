@@ -64,7 +64,7 @@ sections:
   "§26  Diplomacy attitude & memory": "diplomacy.json: AI attitude levels, live factors, decaying memory kinds, deal gates, and the denial-reason table (complete)"
   "§27  Score victory":          "win_conditions.json score condition: absolute-threshold immediate win and its scoring formula"
   "§28  Map start-fairness":     "MapGen normalize pass and constants for capital-surroundings fairness (complete — all 9 reference steps + BonusBalancer)"
-  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json and wired (2026-07-19): units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (spread columns parked on sourcing line 0k), goody rosters, hurry types (gold hurry live, M5), labor civic effects, AI cost/growth handicaps (29.10, T1), culture-rate happiness carriers (29.12, M2), air-combat values (29.13, M3; strike cap & air_range_bonus still readerless), spaceship parts & arrival delay (29.14, M4), obsolescence roster (29.15, M1; base monument a noted gap), Phase 0 point values & cross-checks (29.16)"
+  "§29  Reference-parity data":  "Reference values (companion to game-rules §15) — shipped into data/*.json and wired (2026-07-19): units/projects, chance first strikes, culture levels, pace/handicap extras, corporation outputs (spread columns sourced 2026-07-19 → 29.17, adoption pending T2), goody rosters, hurry types (gold hurry live, M5), labor civic effects, AI cost/growth handicaps (29.10, T1), culture-rate happiness carriers (29.12, M2), air-combat values (29.13, M3; strike cap & air_range_bonus still readerless), spaceship parts & arrival delay (29.14, M4), obsolescence roster (29.15, M1; base monument a noted gap), Phase 0 point values & cross-checks (29.16), corporation spread values (29.17, sourced 2026-07-19 — executive-only model, pending T2)"
 editorial_rule: >
   Modify only with explicit user consent. The JSON tables in data/ are the
   authoritative numeric values; this document describes design intent. When adding
@@ -2185,7 +2185,9 @@ resources). Shared fields on every corporation:
 each paired with a `BUILDING_CORPORATION_n` HQ and an `EXECUTIVE_n` unit. The project
 ships the same 7 with the full per-resource model (§29.6 rates, confirmed against the
 reference XML). The reference's spread factor 200 / spread base cost 50 remain Humanish-tuned
-(`spread_cost` 200 / `spread_chance_base` 15) — the spread mechanic itself differs.
+(`spread_cost` 200 / `spread_chance_base` 15) — the spread mechanic itself differs: the
+reference spreads via executives only (no organic channel; formulas sourced 2026-07-19,
+`game-rules.md` §15.22 / §29.17, adoption pending wiring item T2).
 
 ---
 
@@ -2761,9 +2763,11 @@ above confirmed against the reference XML): the input lists and ×1/100 rates ar
 resources are `produces_resource` (granted to a member city's owner while the corporation
 operates). Only the spread columns (factor 200 / base cost 50) remain unadopted — the
 Humanish spread mechanic keeps `spread_cost` 200 / `spread_chance_base` 15 (the two
-models do not map 1:1; parked on the wiring plan's 0k sourcing line, T2 dispositioned
-2026-07-19 — the reference spread-probability and executive spread-cost formulas must
-be captured before adoption).
+models do not map 1:1). The reference spread semantics are now **sourced** (0k sitting,
+2026-07-19): both columns belong to the *executive* action — the factor is a
+competition cost surcharge, the base cost the inflation-scaled action price; there is
+no organic spread in the reference at all. Formulas: `game-rules.md` §15.22, values
+§29.17; adoption is wiring item T2 (docs-only from here).
 
 ### 29.7 Per-difficulty goody rosters (selection weights)
 
@@ -3029,3 +3033,33 @@ sourcing line, not a guess. The full reference roster mapped to Humanish ids:
   competes) and same-landmass-adjacent-tile friendly units' `adjacent_tile_heal`
   — never summed, and not best-of-each-category either; promotion values do sum
   on one carrier unit.
+
+### 29.17 Corporation spread values (sourced 2026-07-19 — pending wiring item T2)
+
+Mechanic: `game-rules.md` §15.22 (executive-only; the reference has **no**
+organic/passive corporation spread). Expansion-reference layer only — the base
+layer defines no corporation data. Every value verified in the reference engine
+source at its read site:
+
+| Value | Reference | Where it acts |
+|---|---:|---|
+| Spread base cost | 50 | Base of the executive spread-cost formula (× inflation; §15.22 step 1). Per-corporation column, identical on all 7. |
+| Spread factor | 200 | **Competition surcharge only**: cost × (100+200)/100 = ×3 per competing incumbent in the target city. Never read by any probability formula. |
+| Foreign spread cost percent | 200 | Global define: cost ×2 in a foreign, non-vassal city. |
+| Executive spread strength | 40 | Per-executive **unit** value (all 7 executives, own corporation only): the success-roll base; halved in a foreign city, then interpolated toward 100 by open corporation slots. |
+| Total corporations | 7 | The interpolation denominator (§15.22 success roll). |
+| Input-resource slots | 5 | Loop bound for the prereq-resource and competition tests. |
+| Founding-city random term | 10 | Adjacent constant: the random term in the founder's best-city score at founding (not part of either spread formula). |
+
+Worked success-roll examples (spread strength 40, 7 corporations): empty target
+city **100%** — own-team *or* foreign — so failure is possible only against
+incumbents; own-team city with 1 incumbent 91%, with 2 incumbents ~82%; foreign
+city with 1 incumbent 88%. The cost is paid and the executive consumed **even
+on a failed roll**. No passive-spread constant exists for corporations (the
+religions' passive-spread rand 1000 has no corporation analogue — corroborating
+the §15.22 no-organic-spread finding).
+
+Humanish stands unchanged until T2: `spread_cost` 200 / `spread_chance_base` 15
+(`econ_orgs.json`, the organic channel the reference lacks) and
+`corporation_executive_spread_cost` 100 (`constants.json`, the flat executive
+price). The §15.22 mapping note records what replaces what.
