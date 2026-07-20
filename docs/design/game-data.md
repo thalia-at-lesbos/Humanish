@@ -785,10 +785,21 @@ and formulas in §29.9 and game-rules §15.9.)*
 | Civic | Tech | Upkeep | Effects |
 |-------|------|--------|---------|
 | Decentralization | — | Low | Default; no effects |
-| Mercantilism | Banking | Medium | +1 free specialist per city; no foreign trade routes; corporations have no effect |
+| Mercantilism | Banking | Medium | +1 free specialist per city; no foreign trade routes; foreign-HQ corporations dormant |
 | Free Market | Economics | Medium | +1 Trade Route per city; −50% Corporation maintenance |
-| State Property | Communism | Low | No distance maintenance penalty; +1 Production from Watermill/Farm; corporations have no effect |
+| State Property | Communism | Low | No distance maintenance penalty; +1 Production from Watermill/Farm; all corporations dormant |
 | Environmentalism | Medicine | Medium | +6 Health empire-wide; +1 Happiness per Forest/Jungle tile; +1 Commerce from Windmills |
+
+*(Corporation bans — the §15.22 flag split, adopted 2026-07-19: State Property
+carries `corporations_disabled` (every corporation banned); Mercantilism carries
+`foreign_corporations_disabled`, banning only corporations whose **headquarters
+city the player does not own** — strictly player-owned, with **no alliance or
+vassalage exemption** of any kind. A banned corporation's franchises go
+**dormant, symmetrically**: they persist — nothing is evicted, HQ included —
+but yields stop AND maintenance stops together, the produced resource lapses,
+the HQ collects no franchise gold from them, and executives cannot spread into
+them; everything resumes automatically when the civic changes. Read via
+`PolicyEffects.has_flag` in `EconOrgs.banned_for`.)*
 
 ### Religion
 
@@ -1191,8 +1202,10 @@ the corporation to a new city for a treasury cost (the corporate missionary), th
 **input-resource set** whose accessible **instance count** scales the per-city output
 (every connected copy counts — owned connected tiles, deal imports, and
 corporation-produced resources), a **per-resource-instance maintenance** cost, an optional
-**produced strategic resource**, and civic interactions (e.g. a state-property economy
-bans corporations). Output rates are ×1/100 fixed integers per instance (game-rules
+**produced strategic resource**, and civic interactions (State Property's
+`corporations_disabled` makes every corporation dormant; Mercantilism's
+`foreign_corporations_disabled` only those whose HQ city the player does not own —
+see the §8 Economy civics note). Output rates are ×1/100 fixed integers per instance (game-rules
 §15.10, implemented 2026-07-17); the full rate table is §29.6.
 
 | Corporation | Input Resources | Output per resource instance | Produces |
@@ -2187,7 +2200,13 @@ ships the same 7 with the full per-resource model (§29.6 rates, confirmed again
 reference XML). The reference executive-only spread model is **adopted** (wiring item T2,
 2026-07-19): the organic channel and its `spread_cost` 200 / `spread_chance_base` 15
 keys are gone; executives spread per the sourced formulas (`game-rules.md` §15.22 /
-§29.17 — `spread_base_cost` 50, foreign ×2, spread strength 40).
+§29.17 — `spread_base_cost` 50, foreign ×2, spread strength 40). The reference's
+no-foreign-corporations civic is adopted too (2026-07-19, the T2 parked follow-up):
+Mercantilism's `foreign_corporations_disabled` bans corporations whose HQ city the
+player does not own (strictly player-owned, no alliance/vassal exemption) while State
+Property keeps the full `corporations_disabled` ban; banned franchises go dormant —
+yields and maintenance stop symmetrically, nothing is evicted — and resume on the
+civic change (dormancy details: the §8 Economy civics note).
 
 ---
 
@@ -3063,3 +3082,13 @@ Humanish stands unchanged until T2: `spread_cost` 200 / `spread_chance_base` 15
 (`econ_orgs.json`, the organic channel the reference lacks) and
 `corporation_executive_spread_cost` 100 (`constants.json`, the flat executive
 price). The §15.22 mapping note records what replaces what.
+
+The §15.22 no-foreign-corporations eligibility clause is adopted post-T2
+(2026-07-19) as the Mercantilism civic effect `foreign_corporations_disabled`
+(`policies.json`; State Property keeps the full `corporations_disabled`): the
+HQ-ownership test is **strictly player-owned** — no alliance or vassalage
+exemption, unlike the spread-cost foreignness above — and a banned
+corporation's franchises are dormant (yields and maintenance cut
+symmetrically), so an executive cannot spread into a city where the franchise
+would be dormant. Semantics: the §8 Economy civics note; mechanics:
+`game-rules.md` §15.22 as-built note.

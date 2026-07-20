@@ -2199,9 +2199,15 @@ garrisons it.
 > surcharge are implemented faithfully in structure but vacuous at runtime); the
 > city-level input-resource gate is collapsed to **owner-level** access
 > (consistent with the §15.10 owner-wide model); the no-foreign-corporations
-> civic exemption and the rule-1 best-city founding placement were **not**
-> adopted at T2 (both civic bans remained full `corporations_disabled`; founding
-> stays in the acting Great Person's city) — parked as follow-ups.
+> civic exemption, not adopted at T2, was **adopted 2026-07-19**: Mercantilism
+> now carries `foreign_corporations_disabled` — a corporation is banned for the
+> player unless they own its **HQ city**, strictly player-owned with **no
+> alliance or vassalage exemption** — while State Property keeps the full
+> `corporations_disabled` ban; under either flag the player's franchises go
+> dormant (they persist, but yields and maintenance stop symmetrically, and
+> spread into them is ineligible) and resume when the civic changes. The rule-1
+> best-city founding placement was **not** adopted (founding stays in the
+> acting Great Person's city) — still parked as a follow-up.
 
 Corporations are an **expansion-reference** feature; the base layer defines no
 corporation data, so every value below comes from the expansion layer (verified

@@ -219,6 +219,10 @@ func test_hq_pays_founder_per_franchise() -> void:
 		"Every member city worldwide is a paying franchise")
 
 func test_banning_civic_disables_corporations() -> void:
+	# §15.22 full ban (State Property `corporations_disabled`): the franchise
+	# goes DORMANT — it persists (nothing evicted, HQ included) while yields AND
+	# maintenance stop together (the symmetric cutoff) and the HQ pays nothing;
+	# everything resumes automatically when the civic changes.
 	var gs = make_gs()
 	var p = gs.get_player(1)
 	var s = make_settlement(gs, 1, 5, 5, 5)
@@ -226,11 +230,103 @@ func test_banning_civic_disables_corporations() -> void:
 	_give_resource(gs, 1, 1, 1, "iron")
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 1, 0],
 		"the corporation produces before the ban")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 1,
+		"one franchise × 1 instance × 100 / 100 = 1 gold before the ban")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 4,
+		"the HQ pays 4 per operating franchise before the ban")
 	p.policies["economic"] = "state_property"  # corporations_disabled
 	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 0, 0],
 		"A state-property economy yields no corporation output")
 	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 0,
-		"A banning civic charges no corporation maintenance")
+		"A banning civic charges no corporation maintenance (symmetric with yields)")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 0,
+		"a dormant franchise pays no HQ gold either")
+	assert_eq(s.econ_org_id, "mining_inc",
+		"the dormant franchise persists — nothing is evicted")
+	assert_true(s.has_structure("mining_inc_hq"),
+		"the HQ structure stays through the ban")
+	p.policies.erase("economic")
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 1, 0],
+		"output resumes automatically when the civic changes")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 1,
+		"maintenance resumes with the output")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 4,
+		"HQ gold resumes with the franchise")
+
+func test_mercantilism_own_hq_corporation_stays_active() -> void:
+	# §15.22 flag split: Mercantilism (`foreign_corporations_disabled`) bans only
+	# corporations whose HQ city the player does not own — an own-HQ corporation
+	# keeps producing and paying maintenance as before.
+	var gs = make_gs()
+	var p = gs.get_player(1)
+	var s = make_settlement(gs, 1, 5, 5, 5)
+	EconOrgs.found("mining_inc", s, gs)  # HQ city owned by player 1
+	_give_resource(gs, 1, 1, 1, "iron")
+	p.policies["economic"] = "mercantilism"  # foreign_corporations_disabled
+	assert_eq(EconOrgs.get_output_delta(gs, s), [0, 1, 0],
+		"an own-HQ corporation stays fully active under Mercantilism")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p), 1,
+		"an active franchise still pays maintenance under Mercantilism")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p), 4,
+		"the own HQ still pays its founder under Mercantilism")
+
+func test_mercantilism_foreign_hq_corporation_goes_dormant() -> void:
+	# Mercantilism bans a corporation headquartered in a city the player does
+	# not own: the franchise persists but goes dormant (no yields, no
+	# maintenance, no HQ gold to the founder) and resumes on the civic change.
+	var gs = make_gs()
+	var p1 = gs.get_player(1)
+	var p2 = gs.get_player(2)
+	var s1 = make_settlement(gs, 1, 5, 5, 5)
+	var s2 = make_settlement(gs, 2, 10, 10, 5)
+	EconOrgs.found("mining_inc", s1, gs)  # HQ city owned by player 1
+	EconOrgs.spread_to("mining_inc", s2, gs)
+	_give_resource(gs, 1, 1, 1, "iron")
+	_give_resource(gs, 2, 2, 1, "iron")
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 1, 0],
+		"the foreign franchise produces before the civic")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p1), 8,
+		"two operating franchises pay the founder before the civic")
+	p2.policies["economic"] = "mercantilism"
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 0, 0],
+		"a foreign-HQ corporation yields nothing under Mercantilism")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p2), 0,
+		"the dormant franchise costs no maintenance (symmetric cutoff)")
+	assert_eq(s2.econ_org_id, "mining_inc",
+		"the dormant franchise persists in the city")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p1), 4,
+		"the founder loses only the dormant franchise's HQ gold")
+	assert_eq(EconOrgs.get_output_delta(gs, s1), [0, 1, 0],
+		"the founder's own city is untouched by the rival's civic")
+	p2.policies.erase("economic")
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 1, 0],
+		"the franchise resumes when the civic changes")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p2), 1,
+		"maintenance resumes with the yields")
+	assert_eq(EconOrgs.hq_gold_for(gs, gs.db, p1), 8,
+		"the founder's HQ gold resumes too")
+
+func test_mercantilism_ally_hq_still_foreign() -> void:
+	# The Mercantilism ban is strictly player-owned-HQ: an ally's, master's, or
+	# vassal's HQ still counts as foreign — no alliance or vassalage exemption
+	# of any kind (unlike the §15.22 spread-cost foreignness test).
+	var gs = make_gs()
+	var p2 = gs.get_player(2)
+	var s1 = make_settlement(gs, 1, 5, 5, 5)
+	var s2 = make_settlement(gs, 2, 10, 10, 5)
+	EconOrgs.found("mining_inc", s1, gs)  # HQ city owned by player 1
+	EconOrgs.spread_to("mining_inc", s2, gs)
+	_give_resource(gs, 2, 2, 1, "iron")
+	p2.policies["economic"] = "mercantilism"
+	gs.get_alliance(2).is_subordinate_to = 1  # player 2 is player 1's vassal
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 0, 0],
+		"the master's HQ is still foreign for Mercantilism — no vassal exemption")
+	gs.get_alliance(2).is_subordinate_to = -1
+	p2.alliance_id = 1  # same alliance as the HQ owner
+	assert_eq(EconOrgs.get_output_delta(gs, s2), [0, 0, 0],
+		"an ally's HQ is still foreign for Mercantilism — no alliance exemption")
+	assert_eq(EconOrgs.maintenance_for(gs, gs.db, p2), 0,
+		"the ally-HQ franchise is dormant, so it costs nothing")
 
 # ── §15.22 executive spread: cost formula, success roll, eligibility ──────────
 
@@ -421,3 +517,29 @@ func test_executive_spread_blocked_under_ban() -> void:
 	var ok = f.apply_command(Commands.spread_corporation(1, exe.id, s2.id))
 	assert_false(ok, "An executive cannot spread a corporation under a banning civic")
 	assert_eq(s2.econ_org_id, "", "The city stays free of the corporation")
+
+func test_executive_spread_refused_where_franchise_would_be_dormant() -> void:
+	# §15.22 eligibility under the flag split: a spread that would create a
+	# dormant franchise is refused — the target city's owner runs Mercantilism
+	# and does not own this corporation's HQ city.
+	var parts = _spread_setup(true, 2)  # target city owned by player 2; HQ is player 1's
+	var gs = parts[0]; var p = parts[1]; var s2 = parts[2]; var exe = parts[3]
+	gs.get_player(2).policies["economic"] = "mercantilism"
+	var f = bare_facade(gs)
+	assert_false(f.apply_command(Commands.spread_corporation(1, exe.id, s2.id)),
+		"no spread into a Mercantilism city where the corporation would be dormant")
+	assert_eq(s2.econ_org_id, "", "the city stays free of the corporation")
+	assert_eq(p.treasury, 200, "a refused spread charges nothing")
+	assert_not_null(gs.get_unit(exe.id), "a refused spread keeps the executive")
+
+func test_executive_spread_allowed_own_hq_under_mercantilism() -> void:
+	# The own-HQ corporation is exempt from Mercantilism, so its executive may
+	# still spread it into the player's own cities.
+	var parts = _spread_setup()  # target city owned by player 1, who owns the HQ
+	var gs = parts[0]; var p = parts[1]; var s2 = parts[2]; var exe = parts[3]
+	p.policies["economic"] = "mercantilism"
+	var f = bare_facade(gs)
+	assert_true(f.apply_command(Commands.spread_corporation(1, exe.id, s2.id)),
+		"Mercantilism does not block spreading the player's own-HQ corporation")
+	assert_eq(s2.econ_org_id, "civilized_jewelers", "the franchise opens and operates")
+	assert_eq(p.treasury, 150, "the normal §15.22 cost is charged")
