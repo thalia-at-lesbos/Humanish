@@ -2206,8 +2206,10 @@ garrisons it.
 > `corporations_disabled` ban; under either flag the player's franchises go
 > dormant (they persist, but yields and maintenance stop symmetrically, and
 > spread into them is ineligible) and resume when the civic changes. The rule-1
-> best-city founding placement was **not** adopted (founding stays in the
-> acting Great Person's city) — still parked as a follow-up.
+> founding placement was re-verified end-to-end 2026-07-19: the reference
+> **also** founds in the acting Great Person's city (the best-city score is
+> dead code there — see rule 1), so the as-built placement is
+> reference-faithful and the parked follow-up is closed with nothing to adopt.
 
 Corporations are an **expansion-reference** feature; the base layer defines no
 corporation data, so every value below comes from the expansion layer (verified
@@ -2220,11 +2222,28 @@ model has **no per-turn spread phase** — the per-corporation "spread factor"
 *competition surcharge on the executive spread cost* (step 3 below). A
 corporation enters a city in exactly four ways:
 
-1. **Founding.** The founding Great Person is consumed; the game places the
-   headquarters in the founder's best city — scored `10 + population + 10 ×
+1. **Founding** *(corrected — re-verified end-to-end 2026-07-19)*. The
+   founding Great Person is consumed and the headquarters lands **in the city
+   the Great Person is standing in**: in the reference, founding *is* the
+   Great Person erecting the corporation's HQ structure in its current city,
+   and placing that structure is what seats the headquarters — so the
+   eligibility site and the HQ site are the same city by construction, and
+   the HQ city becomes the first franchise. Eligibility (all must hold): an
+   own-team city; the corporation not yet founded anywhere; the city is not
+   the headquarters of a competing corporation; the owner is not running the
+   no-corporations civic; the **city itself** holds at least one of the
+   corporation's input resources; and the HQ structure's prereq tech is
+   researched (the tech gate lives on the HQ structure, not on the
+   corporation record). A best-city scoring loop — `10 + population + 10 ×
    (input-resource copies in the city) + rand(founding-city random term 10)`,
-   divided by `(corporations already in the city + 1)` — and the HQ city
-   becomes the first franchise.
+   divided by `(corporations already in the city + 1)`, floor 1 — does exist
+   in the reference engine's player-level founding function, but with the
+   shipped data it is **dead code**: its only two callers (first-to-discover
+   founding and a per-turn auto-founding world step) are gated on a
+   per-corporation prereq tech, and no shipped corporation carries one. The
+   pre-correction §15.22 text sourced the scored-pick claim from that dead
+   function; the live game never scores — the HQ is always the acting Great
+   Person's city.
 2. **Executive spread** — the deliberate action specified below.
 3. **City transfer.** A conquered or traded city keeps its franchises, and a
    transferred HQ moves with the city.
