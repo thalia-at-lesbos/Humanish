@@ -195,3 +195,18 @@ func test_ai_toggle_flows_into_player_is_ai() -> void:
 	var expected = ["settler", escort]; expected.sort()
 	assert_eq(p1_types, expected,
 		"Player 1 (society %s) starts with settler + %s" % [sid, escort])
+
+func test_form_hosted_in_scroll_container() -> void:
+	# Regression: the form overflows the window once many players are added, so it
+	# must be hosted in a ScrollContainer or the lower options and Start button slide
+	# off-screen with no way to reach them.
+	var screen = load("res://scenes/setup/setup_screen.gd").new()
+	screen.anchor_right = 1.0
+	screen.anchor_bottom = 1.0
+	add_child_autofree(screen)
+	screen.init(make_db(), funcref(self, "_on_start"))
+	var has_scroll := false
+	for c in screen.get_children():
+		if c is ScrollContainer:
+			has_scroll = true
+	assert_true(has_scroll, "The setup form is hosted in a ScrollContainer")

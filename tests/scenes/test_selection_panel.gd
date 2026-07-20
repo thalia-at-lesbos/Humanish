@@ -475,3 +475,23 @@ func test_executive_panel_shows_spread_button_with_cost() -> void:
 	panel.rebuild()
 	assert_eq(_count_buttons_named(panel, "Spread Civilized Jewelers (50 gold)"), 1,
 		"the executive's Spread button sits in the main column with its cost label")
+
+func test_open_city_selects_city_under_a_unit() -> void:
+	# Regression (bug tstd2): pressing Open City while a non-city unit (a scout) is
+	# selected on a city tile must open THAT city. _on_open_city selects the city so
+	# the OPEN_CITY_SCREEN handler resolves it via head_city() — before the fix the
+	# id was discarded and head_city() was -1, so the advisor never opened.
+	var facade = setup_facade(91, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var city = make_settlement(gs, pid, 4, 4, 2)
+	var scout = make_unit(gs, "scout", pid, 4, 4)
+	facade.select_unit(scout.id)
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	panel._on_open_city(city.id)
+	assert_eq(facade.get_selection().head_city(), city.id,
+		"Open City selects the city under the unit so the advisor can resolve it")

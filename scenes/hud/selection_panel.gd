@@ -403,7 +403,12 @@ func _owned_units_on_tile(tx: int, ty: int, gs) -> Array:
 			out.append(u)
 	return out
 
-func _on_open_city(_city_id: int) -> void:
+func _on_open_city(city_id: int) -> void:
+	# Select the city first so the screen resolves it even when a non-city unit is
+	# what's currently selected — e.g. a scout standing on the city. Without this the
+	# OPEN_CITY_SCREEN control falls back to the selected city (none), so the advisor
+	# never opens (bug tstd2).
+	_facade.select_city(city_id)
 	_facade.apply_command(Commands.do_control(
 		_facade.get_state().current_player_id, IDs.ControlType.OPEN_CITY_SCREEN))
 
