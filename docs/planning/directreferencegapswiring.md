@@ -1,6 +1,8 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **FULLY COMPLETE 2026-07-19, except sourcing line 0k.** The phase-end
+Status: **FULLY COMPLETE 2026-07-19, except item T2 — now unblocked and
+docs-only (sourcing line 0k SOURCED 2026-07-19; that authorization is closed
+again).** The phase-end
 **version-bump review is RESOLVED 2026-07-19**: the user ruled the R2
 save-format break ships as a **minor** bump (v0.6.0), not the major bump
 CLAUDE.md prescribes, because the project is still alpha — pre-1.0,
@@ -15,11 +17,12 @@ complete (2026-07-19); Phase R items complete (2026-07-19; version-bump
 review resolved — minor, v0.6.0, per the alpha versioning ruling above);
 **Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
 implemented — the §29.6 spread columns do not map 1:1 onto the Humanish
-spread model, so it is parked on the new pending 0k sourcing line below (the
-Phase 0 authorization is closed; a future user-authorized sitting must
-capture the reference spread formulas first). Phase 0 itself: **COMPLETE
-2026-07-18** — every 0a–0j value is recorded in `game-rules.md` §15.13–§15.21
-and `game-data.md` §29.12–§29.16 (all tagged "sourced 2026-07-18") and the
+spread model, so it was parked on the 0k sourcing line below. **0k SOURCED
+2026-07-19** (a second user-authorized session-scoped sitting): the reference
+spread formulas are recorded in `game-rules.md` §15.22 and `game-data.md`
+§29.17, so T2 is now unblocked and docs-only. Phase 0 itself: **COMPLETE
+2026-07-18** (0a–0j → §15.13–§15.21 / §29.12–§29.16, tagged "sourced
+2026-07-18"; 0k → §15.22 / §29.17, tagged "sourced 2026-07-19") and every
 XML/SDK authorization is **closed again** — everything proceeds docs-only.
 Successor to
 `directreferencegaps.md` (COMPLETE 2026-07-18): that plan reached full parity in
@@ -120,24 +123,30 @@ Exit criterion: every value above recorded in §15/§29 with a "sourced 2026-MM-
 note; the authorization is then closed again and implementation phases proceed
 docs-only.
 
-**⚠️ PENDING SOURCING (added after the sitting closed — needs a NEW
-user-authorized session):**
+**Late sourcing line (added after the 0a–0j sitting closed; captured in its
+own user-authorized session):**
 
-- **0k. Corporation spread formulas** (from T2, added 2026-07-19): §29.6
-  records only the raw reference column values — spread factor 200 / spread
-  base cost 50 — but neither formula. The two models do not map 1:1: the
-  reference "spread factor" is a weight inside its religion-style
-  spread-influence formula (NOT a flat percent chance, so it cannot replace
-  the Humanish `spread_chance_base` 15 per-candidate roll), and "spread base
-  cost" 50 is the base of the reference's *executive* spread-cost formula (a
-  scaling price for the deliberate spread action — a different actor and
-  mechanic from the Humanish `spread_cost` 200, a flat founder-treasury
-  charge per *organic* spread; the Humanish executive price is the separate
-  `corporation_executive_spread_cost` 100 in `constants.json`). Capture into
-  §15/§29: the reference spread-probability formula (how the factor, distance,
-  and franchise count combine), and the executive spread-cost formula (base,
-  scaling terms, rounding). Until then `econ_orgs.json` keeps
-  `spread_cost` 200 / `spread_chance_base` 15 — no engine change.
+- **0k. Corporation spread formulas** (from T2, added 2026-07-19): **SOURCED
+  2026-07-19** — recorded as `game-rules.md` §15.22 (rule spec + mapping
+  note) and `game-data.md` §29.17 (value table); §29.6's closing note and
+  §23 updated to point there; the authorization is **closed again**.
+  Findings that corrected this line's own assumptions: the reference has
+  **NO organic/passive corporation spread at all** (no religion-style
+  spread-influence formula exists for corporations — the whole Humanish
+  organic channel is an invention, not a mistuning); the "spread factor"
+  200 is read by exactly one formula site, the *competition surcharge* on
+  the executive spread cost (×3 per competing incumbent in the target
+  city, competing = sharing an input resource) — it is not a probability
+  weight anywhere; the actual spread probability lives on the *executive
+  unit* (spread strength 40, halved foreign, interpolated toward 100 by
+  the city's open corporation slots — an empty city is a guaranteed
+  spread), a value the plan never had a name for; and "spread base cost"
+  50 scales only with §15.1 inflation (plus foreign ×2 and the competition
+  surcharge) — the cost is charged and the executive consumed even on a
+  failed roll. Original ask (superseded): capture the spread-probability
+  formula and the executive spread-cost formula into §15/§29.
+  `econ_orgs.json` keeps `spread_cost` 200 / `spread_chance_base` 15 until
+  T2 — no engine change was made at this sitting.
 
 ---
 
@@ -727,18 +736,26 @@ user-authorized session):**
   `data/difficulties.json`, `src/sim/turn_engine.gd`, `src/api/player_ai.gd`,
   `src/api/sim_facade.gd`, `scenes/screens/city_screen.gd`.
 - **T2. Corporation spread columns** (§29.6 note): **NOT IMPLEMENTED —
-  PENDING SOURCING (dispositioned 2026-07-19)**. The semantics do not map
-  1:1 (see the 0k line in Phase 0 above): the reference spread factor is a
-  formula weight, not a percent chance, and the base cost 50 prices the
-  *executive* action via an undocumented scaling formula, not the Humanish
-  founder-side organic charge. Per the item's own instruction, a 0-line
-  (0k) was added instead of guessing; `data/econ_orgs.json` /
-  `src/sim/econ_orgs.gd` are untouched (`spread_cost` 200 /
-  `spread_chance_base` 15 stand). Original item: adopt spread factor 200 /
-  base cost 50 over the Humanish `spread_cost` 200 / `spread_chance_base` 15
-  once the semantics are mapped (the two models differ in shape — if they do
-  not map 1:1, add a 0-line to the Phase 0 sitting instead of guessing).
-  **Files:** `data/econ_orgs.json`, `src/sim/econ_orgs.gd`. **Tests:**
+  UNBLOCKED, docs-only (0k sourced 2026-07-19; spec §15.22, values §29.17)**.
+  The sourced model is executive-only: the reference has no organic spread
+  channel, the spread factor 200 is a competition cost surcharge (not a
+  probability), the success probability is the executive unit's spread
+  strength 40 (halved foreign, interpolated toward 100 by open corporation
+  slots — guaranteed into an empty city), and the base cost 50 scales with
+  §15.1 inflation ×2 foreign ×3 per competing incumbent, charged even on a
+  failed roll (executive consumed either way). Implementation decisions the
+  §15.22 mapping note flags: whether to delete the Humanish organic channel
+  (`spread_all`, `spread_cost` 200, `spread_chance_base` 15 — the reference
+  has no counterpart) or keep it as a Humanish extension; whether to adopt
+  multi-corporation cities with competition eviction (Humanish is one-per-
+  city, under which the competition surcharge collapses); and whether to add
+  the city-level input-resource spread gate. Replace the flat
+  `corporation_executive_spread_cost` 100 with the §15.22 formula + success
+  roll (via `gs.rng`, pipeline order). Original item: adopt spread factor
+  200 / base cost 50 over the Humanish `spread_cost` 200 /
+  `spread_chance_base` 15 once the semantics are mapped.
+  **Files:** `data/econ_orgs.json`, `src/sim/econ_orgs.gd`,
+  `src/api/sim_facade.gd`, `data/constants.json`. **Tests:**
   `tests/sim/test_econ_orgs.gd`.
 
 ---
@@ -758,7 +775,8 @@ user-authorized session):**
    full integration gate + midgame save/load determinism after each, version
    review at phase end).
 5. **Phase T** whenever convenient after Phase 0 (T1/T2 are data + small reads)
-   — **dispositioned 2026-07-19**: T1 done, T2 pending the 0k sourcing line.
+   — **dispositioned 2026-07-19**: T1 done; T2 unblocked by the 0k sourcing
+   sitting (2026-07-19) and now docs-only (§15.22/§29.17).
 
 Every item lands via the standard workflow: work-type branch, suites green
 (`./run_tests.sh`), doc-tier updates (design docs only with consent), merge to

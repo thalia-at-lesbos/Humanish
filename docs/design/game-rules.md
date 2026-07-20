@@ -44,7 +44,7 @@ sections:
   "§12 Configurable data":     "Data-driven constants — what lives in JSON, not in code"
   "§13 Checklist":             "Minimum viable implementation checklist"
   "§14 Great People":          "Types, GP points, thresholds, Golden Ages, specialist slots, corporations"
-  "§15 Reference-parity mechanics": "Reference-adopted mechanics, all implemented: inflation (15.1), hurry — whipping + gold (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12), culture-rate happiness (15.13), air interception (15.14), settler food-box (15.15), spaceship arrival delay (15.16), structure obsolescence (15.17), per-player GP threshold (15.18), citizen default specialist (15.19), military instructor (15.20), unit capture (15.21) — 15.13–15.21 wired 2026-07-19 (directreferencegapswiring.md) with as-built notes per subsection"
+  "§15 Reference-parity mechanics": "Reference-adopted mechanics, implemented except 15.22: inflation (15.1), hurry — whipping + gold (15.2), pace scaling (15.3), culture levels & culture-level city defence (15.4), chance first strikes (15.5), siege caps (15.6), SDI/Internet/nuke retune (15.7), war weariness per-event weights (15.8), worker-speed/serfdom/emancipation civic effects (15.9), per-resource corporations (15.10), discovery-site rewards (15.11, via per-difficulty goody_weights), compound prereqs (15.12), culture-rate happiness (15.13), air interception (15.14), settler food-box (15.15), spaceship arrival delay (15.16), structure obsolescence (15.17), per-player GP threshold (15.18), citizen default specialist (15.19), military instructor (15.20), unit capture (15.21), corporation executive spread (15.22, sourced 2026-07-19 — pending wiring item T2, not yet implemented) — 15.13–15.21 wired 2026-07-19 (directreferencegapswiring.md) with as-built notes per subsection"
 provisional_sections:
   - "§2.1  Eras — growth scaling and revolt-era term (placeholder constants)"
   - "§4.9  Cultural revolt / city flipping — all constants placeholder"
@@ -1570,7 +1570,8 @@ supplies the values they read. A faithful implementation must reproduce both.
 
 ## 15. Reference-parity mechanics (implemented — reference values)
 
-> **Implemented throughout (§15.1–§15.21).**
+> **Implemented throughout (§15.1–§15.21; §15.22 is sourced but not yet
+> implemented — pending wiring item T2).**
 > Every subsection below specifies a mechanic (or a rule-level correction) adopted
 > from the reference game. The parity plan (`docs/planning/directreferencegaps.md`,
 > **COMPLETE 2026-07-18**) shipped §15.1–§15.12 — each subsection carries its own
@@ -1581,8 +1582,9 @@ supplies the values they read. A faithful implementation must reproduce both.
 > its item and carries as-built notes where the build deviated from or narrowed
 > the sourced spec. Values are taken directly from the reference XML/SDK (layered
 > original reference, highest layer wins) and are recorded here so no access to
-> the reference install is needed — both XML-sourcing authorizations were
-> session-scoped and have ended; these tables are now the source.
+> the reference install is needed — every XML/SDK-sourcing authorization
+> (latest: the 0k sitting, 2026-07-19, which sourced §15.22) was session-scoped
+> and has ended; these tables are now the source.
 > The raw comparison lives in `docs/planning/reference-parity-audit.md`; companion
 > data tables: `game-data.md` §29. Small parked follow-ups are recorded in the
 > plan's item notes.
@@ -2189,3 +2191,92 @@ strike, is killed, not captured; and the reference's capture-with-the-city
 case is **vacuous in Humanish**, because strength-0 civilians are picked as
 defenders first, so a city can never fall while a capturable unit still
 garrisons it.
+
+### 15.22 Corporation spread — executive-only *(sourced 2026-07-19 — pending wiring item T2, not yet implemented)*
+
+Corporations are an **expansion-reference** feature; the base layer defines no
+corporation data, so every value below comes from the expansion layer (verified
+in the reference engine source against the code that reads it). The headline
+finding, correcting the wiring plan's 0k assumption: **the reference has no
+organic/passive corporation spread at all.** Religions spread passively each
+city turn using their spread factor as a probability weight; the corporation
+model has **no per-turn spread phase** — the per-corporation "spread factor"
+(200) is never read by any probability formula. Its **only** formula site is a
+*competition surcharge on the executive spread cost* (step 3 below). A
+corporation enters a city in exactly four ways:
+
+1. **Founding.** The founding Great Person is consumed; the game places the
+   headquarters in the founder's best city — scored `10 + population + 10 ×
+   (input-resource copies in the city) + rand(founding-city random term 10)`,
+   divided by `(corporations already in the city + 1)` — and the HQ city
+   becomes the first franchise.
+2. **Executive spread** — the deliberate action specified below.
+3. **City transfer.** A conquered or traded city keeps its franchises, and a
+   transferred HQ moves with the city.
+4. **Competition replacement.** A corporation arriving in a city **evicts any
+   competing corporation** from that city (two corporations *compete* iff they
+   share at least one input resource). If the evicted competitor was
+   headquartered there, the incoming corporation replaces it **game-wide** —
+   unreachable via the executive path, which cannot target a competing HQ.
+
+**Executive spread eligibility** (all must hold): the corporation is founded
+and is the executive's own (the spread strength is a per-*unit*, per-corporation
+value, positive only for the executive's own corporation); the target tile is a
+city not already hosting this corporation; the executive can enter the
+territory; the **city owner** has the corporation active — not running the
+no-corporations civic (the State-Property analogue), and if running the
+no-foreign-corporations civic (the Mercantilism analogue), owning this
+corporation's HQ; the city is not the headquarters of a competing corporation;
+the **city itself** has at least one of the corporation's input resources
+(city-level resource access, not owner-wide); and the owner's treasury covers
+the spread cost.
+
+**Executive spread-cost formula** (integer division after every step):
+
+1. `cost = max(0, spread_base_cost × (100 + inflation%)) / 100` — spread base
+   cost **50** (identical on all seven corporations; the §29.6 column);
+   `inflation%` is the executive owner's current economy-wide inflation rate
+   (the §15.1 mechanic — the same multiplier the reference applies to all
+   expenses). This is the **only** game-speed/turn scaling on the cost: pace
+   enters solely through the inflation curve's per-pace rate and start offset.
+2. **Foreign city** (city team ≠ executive's team, and the city's team is not
+   the executive team's vassal): `× 200 / 100` — the foreign-spread-cost
+   global define; the price doubles.
+3. **Per competing corporation already active in the city**:
+   `× (100 + that corporation's spread factor) / 100` — with the shipped
+   factor 200, each competing incumbent **triples** the price.
+
+**Success roll** — the cost is charged and the executive consumed **whether or
+not the roll succeeds**:
+
+- `prob = the executive's corporation-spread strength` — **40** for all seven
+  executives (a unit-data value, *not* a corporation field);
+- foreign city: `prob /= 2` (→ 20);
+- `prob += (total_corporations − corporations_in_city) × (100 − prob) /
+  total_corporations` — interpolation toward 100 by the fraction of the seven
+  corporation slots the city has open. A city with **no** corporation lands on
+  exactly **100** (own *and* foreign — guaranteed spread); each incumbent
+  lowers it (own-team with 1 incumbent: 91; foreign with 1: 88; …);
+- one uniform 0–99 draw `< prob` → the city gains the franchise (and any
+  competing incumbent is evicted, rule 4 above); on failure the gold and the
+  executive are still spent.
+
+Values and worked examples: `game-data.md` §29.17.
+
+**Mapping to the Humanish model** (the T2 decision aid): the Humanish organic
+channel (`EconOrgs.spread_all` — per-turn `spread_chance_base` 15% adjacency
+roll within distance 4 of a member city, `spread_cost` 200 charged to the
+*founder's* treasury per organic spread) has **no reference counterpart**;
+adopting the reference means *deleting* that channel (both keys), not retuning
+it. The Humanish executive action (`SimFacade._cmd_spread_corporation` — flat
+`corporation_executive_spread_cost` 100, always succeeds, executive consumed)
+is the analogue of the whole formula above: base 50 × inflation (§15.1 is
+already implemented, so the term is adoptable) ×2 foreign ×3 per competing
+incumbent, plus the 40-based success roll. Two semantic gaps to decide at T2:
+(a) the reference lets **non-competing corporations coexist** in one city and
+evicts only same-input competitors, while Humanish enforces one corporation per
+city outright — under one-per-city both the competition surcharge and the
+eviction rule collapse (every incumbent blocks instead of surcharging);
+(b) the reference gates spread on the *city* having an input resource,
+while Humanish has no spread-time resource gate (output merely scales with the
+owner's accessible instances, §15.10).
