@@ -10,16 +10,23 @@
 
 class_name EconOrgs
 
-# §8 / §14.6 Corporations (economic organizations).
+# §8 / §14.6 / §15.22 Corporations (economic organizations).
 #
 # Founded by a Great Merchant (see GreatPeople._act_found_corporation), a
 # corporation lives in member settlements and consumes a set of input resources
-# to produce a per-city output bonus. The reference corporation model adds, on top
-# of the lighter "spreads-like-a-religion" base:
+# to produce a per-city output bonus. The reference corporation model:
 #   * a headquarters structure built once in the founding city (`hq_structure`),
 #     earning the founder gold per franchise (member city) worldwide;
 #   * an executive unit (`spread_corporation` tag) that spreads the corporation to
-#     a new city for a treasury cost (handled in SimFacade);
+#     a new city — the ONLY spread channel (§15.22: the reference has no
+#     organic/passive corporation spread; the religion-style channel Humanish
+#     used to run each world step was an invention and was removed at T2).
+#     The executive pays `spread_base_cost` × (100 + inflation)/100, doubled
+#     into a foreign non-vassal city and ×(100 + `spread_factor`)/100 per
+#     competing incumbent, then rolls the executive unit's
+#     `corporation_spread_strength` (halved foreign, interpolated toward 100
+#     by the city's open corporation slots — an empty city is guaranteed).
+#     The cost is charged and the executive consumed even on a failed roll;
 #   * per-city output that scales with the COUNT of input-resource INSTANCES the
 #     city owner can access — every connected copy counts, at a ×1/100 fixed rate
 #     per resource (§15.10; e.g. food 75 = +0.75 food per instance, truncating);
@@ -31,8 +38,10 @@ class_name EconOrgs
 #     which a player's corporations produce nothing and cost no maintenance).
 #
 # Pure static; the single reader of the `data/econ_orgs.json` table, called from
-# TurnEngine (output, maintenance, HQ gold, organic spread) and SimFacade
-# (executive spread). No signals, no RNG except the organic `spread_all` roll.
+# TurnEngine (output, maintenance, HQ gold) and SimFacade (executive spread).
+# No signals; the only RNG is the §15.22 executive success roll in
+# attempt_executive_spread (drawn from gs.rng, and skipped entirely at chance
+# 100 or 0 per the §15.5 no-pointless-draws discipline).
 
 # Found a corporation in `settlement`, recording its founder and erecting the HQ
 # structure in the founding city. Returns false if it already exists.
@@ -52,35 +61,135 @@ static func found(org_id: String, settlement: Settlement, game_state) -> bool:
 static func corporations_banned(player: Player, db: DataDB) -> bool:
 	return player != null and PolicyEffects.has_flag(player, db, "corporations_disabled")
 
-# Spread corporations organically across settlements each turn (costs treasury).
-# A corporation may not enter a city already hosting one, nor a city whose owner
-# bans corporations.
-static func spread_all(game_state, rng: RNG) -> void:
+# ── §15.22 executive spread (the only spread channel) ─────────────────────────
+
+# Number of corporation types in the data table (the reference "total
+# corporations", 7 as shipped): the interpolation denominator of the §15.22
+# success roll — each corporation the city already hosts closes one slot.
+static func total_corporations(db: DataDB) -> int:
+	var n: int = 0
+	for org_id in db.econ_orgs:
+		if str(org_id) != "_comment":
+			n += 1
+	return n
+
+# Whether `settlement` is foreign for §15.22 spread pricing/odds: owned by a
+# player of another alliance (the Humanish "team") that is not a vassal of the
+# spreader's alliance. A vassal's city prices and rolls as domestic.
+static func is_foreign_for_spread(game_state, settlement: Settlement, spreader_player_id: int) -> bool:
+	if settlement.owner_player_id == spreader_player_id:
+		return false
+	var mine: Alliance = game_state.get_player_alliance(spreader_player_id)
+	var theirs: Alliance = game_state.get_player_alliance(settlement.owner_player_id)
+	if mine == null or theirs == null:
+		return true
+	if mine.id == theirs.id:
+		return false
+	return theirs.is_subordinate_to != mine.id
+
+# Two corporations compete iff they share at least one input resource (§15.22).
+static func competes_with(db: DataDB, a_id: String, b_id: String) -> bool:
+	var a_inputs: Array = db.econ_orgs.get(a_id, {}).get("input_resources", [])
+	var b_inputs: Array = db.econ_orgs.get(b_id, {}).get("input_resources", [])
+	for res_id in a_inputs:
+		if res_id in b_inputs:
+			return true
+	return false
+
+# Corporations active in `settlement` that compete with `org_id` (share an input
+# resource). Under Humanish's one-corporation-per-city model a city hosts at
+# most one, and an incumbent blocks spread outright (can_spread_to), so at
+# runtime this is always empty on an eligible target — the §15.22 competition
+# surcharge is implemented faithfully in structure but vacuous in play.
+static func competing_incumbents(game_state, org_id: String, settlement: Settlement) -> Array:
+	var out: Array = []
+	var inc: String = settlement.econ_org_id
+	if inc != "" and inc != org_id and competes_with(game_state.db, org_id, inc):
+		out.append(inc)
+	return out
+
+# §15.22 executive spread cost (integer division after every step):
+#   1. spread_base_cost × (100 + inflation%) / 100   (clamped at 0 first)
+#   2. foreign non-vassal city: × foreign-spread-cost percent / 100 (×2)
+#   3. per competing incumbent: × (100 + its spread_factor) / 100 (×3 each —
+#      vacuous under one-corporation-per-city, see competing_incumbents).
+# `inflation_pct` is the §15.1 economy-wide rate (TurnEngine.inflation_rate),
+# passed in by the caller so this module stays free of TurnEngine references.
+static func executive_spread_cost(game_state, org_id: String, settlement: Settlement,
+		spreader_player_id: int, inflation_pct: int) -> int:
 	var db: DataDB = game_state.db
-	for org_id in game_state.founded_econ_orgs:
-		var org: Dictionary = db.econ_orgs.get(org_id, {})
-		var spread_chance: int = int(org.get("spread_chance_base", 15))
-		var spread_cost: int = int(org.get("spread_cost", 200))
-		var owner_player_id: int = game_state.founded_econ_orgs[org_id]
-		var owner: Player = game_state.get_player(owner_player_id)
-		if owner == null or owner.treasury < spread_cost:
-			continue
-		for s in game_state.settlements:
-			if s.econ_org_id == org_id:
-				continue
-			if s.econ_org_id != "":
-				continue  # competing orgs cannot coexist
-			if corporations_banned(game_state.get_player(s.owner_player_id), db):
-				continue
-			# Check adjacency to an existing member of this corporation.
-			for other in game_state.settlements:
-				if other.econ_org_id != org_id:
-					continue
-				var dist: int = game_state.map.distance(s.x, s.y, other.x, other.y)
-				if dist <= 4 and rng.rand_bool_percent(spread_chance):
-					s.econ_org_id = org_id
-					owner.treasury -= spread_cost
-					break
+	var org: Dictionary = db.econ_orgs.get(org_id, {})
+	var scaled: int = int(org.get("spread_base_cost", 50)) * (100 + inflation_pct)
+	scaled = scaled if scaled > 0 else 0
+	var cost: int = scaled / 100
+	if is_foreign_for_spread(game_state, settlement, spreader_player_id):
+		cost = cost * db.get_constant("corporation_foreign_spread_cost_percent", 200) / 100
+	for inc_id in competing_incumbents(game_state, org_id, settlement):
+		var factor: int = int(db.econ_orgs.get(inc_id, {}).get("spread_factor", 200))
+		cost = cost * (100 + factor) / 100
+	return cost
+
+# §15.22 success chance in percent: the executive unit's
+# `corporation_spread_strength` (40), halved in a foreign city, then topped up
+# by (total − corporations_in_city) × (100 − prob) / total — the fraction of
+# the corporation slots the city has open. An empty city lands on exactly 100
+# (own or foreign — guaranteed spread); each incumbent lowers it (own-team with
+# one incumbent 91, foreign 88). Under one-corporation-per-city every eligible
+# target is empty, so in play the chance is always 100 and no draw is made.
+static func executive_spread_chance(game_state, org_id: String, settlement: Settlement,
+		spreader_player_id: int) -> int:
+	var db: DataDB = game_state.db
+	var org: Dictionary = db.econ_orgs.get(org_id, {})
+	var exe_unit: Dictionary = db.get_unit(str(org.get("executive_unit", "")))
+	var prob: int = int(exe_unit.get("corporation_spread_strength", 40))
+	if is_foreign_for_spread(game_state, settlement, spreader_player_id):
+		prob = prob / 2
+	var total: int = total_corporations(db)
+	var in_city: int = 1 if settlement.econ_org_id != "" else 0
+	if total > 0:
+		prob += (total - in_city) * (100 - prob) / total
+	return prob
+
+# §15.22 executive spread eligibility (treasury and unit checks are the
+# caller's): the corporation is founded; the target city hosts no corporation
+# (Humanish's one-per-city rule — it also covers the reference "not already
+# hosting this corporation" and "not a competing HQ" clauses); the city owner's
+# civics allow corporations; and the city has at least one of the corporation's
+# input resources. The reference resource gate is city-level; Humanish resource
+# access is owner-wide (§15.10), so it collapses to the CITY OWNER having ≥1
+# accessible input resource of this corporation.
+static func can_spread_to(org_id: String, settlement: Settlement, game_state) -> bool:
+	if not game_state.founded_econ_orgs.has(org_id):
+		return false
+	if settlement.econ_org_id != "":
+		return false
+	if corporations_banned(game_state.get_player(settlement.owner_player_id), game_state.db):
+		return false
+	var org: Dictionary = game_state.db.econ_orgs.get(org_id, {})
+	return accessible_input_count(game_state, org, settlement.owner_player_id) > 0
+
+# Run one §15.22 executive spread attempt against `settlement`: charge the full
+# cost, then roll the success chance through the shared gs.rng (skipping the
+# draw at chance 100 or 0 — the §15.5 no-pointless-draws discipline) and stamp
+# the city on success. THE COST IS CHARGED EVEN ON FAILURE (the executive is
+# consumed by the caller either way). Assumes can_spread_to and the treasury
+# check already passed. Returns {"cost": int, "chance": int, "success": bool}.
+static func attempt_executive_spread(game_state, org_id: String, settlement: Settlement,
+		spreader_player_id: int, inflation_pct: int) -> Dictionary:
+	var cost: int = executive_spread_cost(
+		game_state, org_id, settlement, spreader_player_id, inflation_pct)
+	var player: Player = game_state.get_player(spreader_player_id)
+	if player != null:
+		player.treasury -= cost
+	var chance: int = executive_spread_chance(game_state, org_id, settlement, spreader_player_id)
+	var success: bool = true
+	if chance <= 0:
+		success = false
+	elif chance < 100:
+		success = game_state.rng.rand_bool_percent(chance)
+	if success:
+		settlement.econ_org_id = org_id
+	return {"cost": cost, "chance": chance, "success": success}
 
 # Deliberately spread `org_id` into `settlement` (executive unit). Caller checks
 # the unit, tile, and treasury; this only validates the corporation rules and

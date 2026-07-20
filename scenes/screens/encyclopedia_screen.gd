@@ -776,8 +776,8 @@ func _detail_belief_org(vbox: VBoxContainer, d: Dictionary) -> void:
 		var inputs = d.get("input_resources", []) as Array
 		if not inputs.empty():
 			_lbl(vbox, "Input resources: " + _join(inputs))
-		_lbl(vbox, "Spread cost: %d gold" % [d.get("spread_cost", 0)])
-		_lbl(vbox, "Base spread chance: %d%%" % [d.get("spread_chance_base", 0)])
+		_lbl(vbox, "Spread: Executive action only — base cost %d gold" % [d.get("spread_base_cost", 50)])
+		_lbl(vbox, "(cost scales with inflation; doubled into foreign cities)")
 		var per = d.get("output_per_resource", {}) as Dictionary
 		var bonuses = PoolStringArray()
 		for k in ["food", "production", "commerce", "gold", "research", "culture"]:
@@ -1134,7 +1134,10 @@ func _guide_sections() -> Array:
 			"",
 			"Economic Organisations",
 			"Founded by a Great Merchant or specific Great Person action.",
-			"Like beliefs, organisations spread and provide per-city economic bonuses.",
+			"Unlike beliefs, organisations never spread on their own: an Executive",
+			"unit must carry them to a new city, for a gold cost that scales with",
+			"inflation and doubles into foreign cities. The target city must have",
+			"access to one of the organisation's input resources.",
 			"Maintaining an organisation costs treasury each turn.",
 		]],
 		["Great People", [

@@ -252,5 +252,5 @@
   "ai_deal_eval_turns": 10,
   "ai_trade_tech_value": 200,
   "ai_war_power_margin": 40,
-  "corporation_executive_spread_cost": 100
+  "corporation_foreign_spread_cost_percent": 200
 }

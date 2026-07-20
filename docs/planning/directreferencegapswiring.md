@@ -1,8 +1,8 @@
 # Direct Reference Gaps — wiring plan (parked follow-ups)
 
-Status: **FULLY COMPLETE 2026-07-19, except item T2 — now unblocked and
-docs-only (sourcing line 0k SOURCED 2026-07-19; that authorization is closed
-again).** The phase-end
+Status: **FULLY COMPLETE 2026-07-19 — every item, including T2 (implemented
+2026-07-19 from the 0k-sourced §15.22/§29.17; this closes the plan).** The
+phase-end
 **version-bump review is RESOLVED 2026-07-19**: the user ruled the R2
 save-format break ships as a **minor** bump (v0.6.0), not the major bump
 CLAUDE.md prescribes, because the project is still alpha — pre-1.0,
@@ -15,12 +15,13 @@ the item notes flagged is recorded — `game-data.md` §14.3/§15.6/§15.9/§19.
 Phase W complete (2026-07-18); Phase M
 complete (2026-07-19); Phase R items complete (2026-07-19; version-bump
 review resolved — minor, v0.6.0, per the alpha versioning ruling above);
-**Phase T dispositioned 2026-07-19**: T1 done; T2 NOT
-implemented — the §29.6 spread columns do not map 1:1 onto the Humanish
-spread model, so it was parked on the 0k sourcing line below. **0k SOURCED
+**Phase T complete 2026-07-19**: T1 done; T2 done
+(the §29.6 spread columns did not map 1:1 onto the Humanish spread model, so
+it was parked on the 0k sourcing line below, then implemented the same day
+from the sourced spec — see the T2 item's as-built notes). **0k SOURCED
 2026-07-19** (a second user-authorized session-scoped sitting): the reference
 spread formulas are recorded in `game-rules.md` §15.22 and `game-data.md`
-§29.17, so T2 is now unblocked and docs-only. Phase 0 itself: **COMPLETE
+§29.17. Phase 0 itself: **COMPLETE
 2026-07-18** (0a–0j → §15.13–§15.21 / §29.12–§29.16, tagged "sourced
 2026-07-18"; 0k → §15.22 / §29.17, tagged "sourced 2026-07-19") and every
 XML/SDK authorization is **closed again** — everything proceeds docs-only.
@@ -735,9 +736,43 @@ own user-authorized session):**
   scaling at fixture-default prince preserves order). **Files:**
   `data/difficulties.json`, `src/sim/turn_engine.gd`, `src/api/player_ai.gd`,
   `src/api/sim_facade.gd`, `scenes/screens/city_screen.gd`.
-- **T2. Corporation spread columns** (§29.6 note): **NOT IMPLEMENTED —
-  UNBLOCKED, docs-only (0k sourced 2026-07-19; spec §15.22, values §29.17)**.
-  The sourced model is executive-only: the reference has no organic spread
+- **T2. Corporation spread columns** (§29.6 note): **DONE 2026-07-19** —
+  the §15.22 executive-only model is implemented. As built: (1) the Humanish
+  organic channel is **deleted** (`EconOrgs.spread_all` gone, its
+  `TurnEngine.world_step` call removed — the step was never hook-gated, so no
+  `IDs.Phase` or hook impact — and the `spread_cost` 200 /
+  `spread_chance_base` 15 keys dropped from `econ_orgs.json`); no serialized
+  state was involved, so **no save-format impact** (old saves load unchanged).
+  (2) One-corporation-per-city is **kept** (no multi-corp cities, no
+  competition eviction): an incumbent blocks spread outright, under which the
+  ×3 competing-incumbent surcharge and the sub-100 success roll are
+  implemented faithfully in structure (`executive_spread_cost` /
+  `executive_spread_chance` compute the full §15.22 formulas and are
+  unit-tested at nonzero incumbent counts) but vacuous in play — every
+  eligible target is an empty city, which lands on exactly 100%, so the
+  command never draws `gs.rng` (§15.5 no-pointless-draws) and the
+  charged-even-on-failure rule is exercised only via
+  `EconOrgs.attempt_executive_spread` directly (which charges before rolling).
+  (3) The city-level input-resource gate is **added**, collapsed to
+  owner-level (`accessible_input_count ≥ 1` for the target city's owner) since
+  Humanish resource access is owner-wide (§15.10). (4) Foreignness for the ×2
+  cost and the halved strength is alliance-based with the vassal exemption
+  (`is_foreign_for_spread`: other alliance, not `is_subordinate_to` the
+  spreader's). Data: `spread_base_cost` 50 + `spread_factor` 200 per
+  corporation row, `corporation_spread_strength` 40 on the executive unit
+  (`units.json`), `corporation_foreign_spread_cost_percent` 200 in
+  `constants.json` (replacing the flat `corporation_executive_spread_cost`
+  100); the total-corporations denominator is `db.econ_orgs.size()` (7 as
+  shipped), not a constant. NOT adopted (still reference-divergent, flagged
+  for a future design-doc sitting): the Mercantilism own-HQ exemption (both
+  banning civics stay full `corporations_disabled` bans) and the
+  founding-best-city placement score (§15.22 rule 1 — Humanish founds in the
+  Great Merchant's city). Tests: `test_econ_orgs.gd` reworked to 24 tests
+  (cost×inflation/foreign/vassal/surcharge, chance worked values 100/91/88,
+  no-organic-spread, no-draw-at-100, resource/incumbent/ban gates,
+  failure-still-charges seed sweep).
+  Original item text follows. The sourced model is executive-only: the
+  reference has no organic spread
   channel, the spread factor 200 is a competition cost surcharge (not a
   probability), the success probability is the executive unit's spread
   strength 40 (halved foreign, interpolated toward 100 by open corporation
@@ -775,8 +810,9 @@ own user-authorized session):**
    full integration gate + midgame save/load determinism after each, version
    review at phase end).
 5. **Phase T** whenever convenient after Phase 0 (T1/T2 are data + small reads)
-   — **dispositioned 2026-07-19**: T1 done; T2 unblocked by the 0k sourcing
-   sitting (2026-07-19) and now docs-only (§15.22/§29.17).
+   — **complete 2026-07-19**: T1 done; T2 done (implemented from the 0k
+   sourcing sitting's §15.22/§29.17). **This was the plan's last open item —
+   the plan is closed.**
 
 Every item lands via the standard workflow: work-type branch, suites green
 (`./run_tests.sh`), doc-tier updates (design docs only with consent), merge to
