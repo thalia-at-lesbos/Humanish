@@ -41,7 +41,7 @@ func test_fog_state_brightness_ordering() -> void:
 # After the border-vision refactor the fog layer reads its current-visible set
 # straight from SimFacade.player_visible_tiles, so an owned cultural-border tile
 # (with no unit/city nearby) now lifts the fog.
-func _mini_facade_with_owned_tile():
+func _mini_facade_owning(ox: int, oy: int):
 	var gs = load("res://src/sim/game_state.gd").new()
 	gs.db = load("res://src/core/data_db.gd").new()
 	gs.db.load_all()
@@ -55,13 +55,16 @@ func _mini_facade_with_owned_tile():
 	p.id = 1
 	p.alliance_id = 1
 	gs.players.append(p)
-	gs.map.get_tile(10, 10).owner_player_id = 1
+	gs.map.get_tile(ox, oy).owner_player_id = 1
 	var f = load("res://src/api/sim_facade.gd").new()
 	f._gs = gs
 	f._db = gs.db
 	f._dirty = load("res://src/api/dirty_flags.gd").new()
 	f._hooks = load("res://src/sim/hooks.gd").new()
 	return f
+
+func _mini_facade_with_owned_tile():
+	return _mini_facade_owning(10, 10)
 
 func test_fog_rebuild_reflects_owned_territory() -> void:
 	var f = _mini_facade_with_owned_tile()
@@ -72,4 +75,29 @@ func test_fog_rebuild_reflects_owned_territory() -> void:
 	assert_true(seen.has("10,10"), "Fog lifts over an owned cultural-border tile")
 	assert_true(seen.has("11,10"), "…and over the one-ring fringe beyond it")
 	assert_false(seen.has("13,10"), "…but not two rings beyond the border")
+	fog.free()
+
+# In-game load leak guard: rebuild() only auto-clears the explored cache when the
+# active player id CHANGES, so loading a game whose active player equals the
+# pre-load one (e.g. both player 1) would keep the previous game's explored tiles.
+# reset_memory() drops that session-only cache so the next rebuild reseeds clean.
+func test_reset_memory_drops_stale_explored_before_reseed() -> void:
+	var fog = load("res://scenes/world/fog_layer.gd").new()
+	# Game A: player 1 owns tile 10,10 → fog lifts and remembers it.
+	var a = _mini_facade_owning(10, 10)
+	fog.init(a)
+	fog.rebuild(1)
+	assert_true(fog.get_explored_tiles().has("10,10"), "A: 10,10 is explored")
+	# Load a DIFFERENT game B (same active player id 1, owns a far tile 2,2). Without
+	# reset_memory the same-id rebuild would retain game A's 10,10 → stale fog.
+	var b = _mini_facade_owning(2, 2)
+	fog.init(b)
+	fog.reset_memory()
+	assert_eq(fog._explored_owner, -999, "reset_memory sets the reseed sentinel")
+	assert_true(fog.get_explored_tiles().empty(), "reset_memory clears the explored cache")
+	fog.rebuild(1)
+	assert_false(fog.get_explored_tiles().has("10,10"),
+		"after reset, game A's tile is gone (no stale-fog leak across the load)")
+	assert_true(fog.get_explored_tiles().has("2,2"),
+		"…and the reseed reflects only game B's own territory")
 	fog.free()

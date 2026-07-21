@@ -5,6 +5,17 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+- **In-game load no longer leaks the previous game's fog.** Loading a save from
+  the pause menu, the Save/Load screen, or F9 quick-load reuses the live
+  `FogLayer` node, whose session-only `_explored_tiles` cache is not part of the
+  save. `FogLayer.rebuild()` only clears that cache when the active player id
+  changes, so loading a game whose active player matched the pre-load one (e.g.
+  both player 1) kept the old map's revealed regions and painted them over the
+  new map. The load path now calls a new `FogLayer.reset_memory()` before the
+  repaint so the fog reseeds cleanly from the loaded save's own `seen_memory`;
+  the minimap, which reads the same cache, repaints clean too.
+
 ### Added
 - **Disband button for units.** The selection panel now shows a "Disband" button
   for the selected owned unit, so a player can voluntarily disband a unit at any

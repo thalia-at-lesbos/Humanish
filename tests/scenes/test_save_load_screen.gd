@@ -123,6 +123,35 @@ func test_file_list_shows_load_and_delete() -> void:
 	assert_not_null(_find_button(sl, "Load"), "Each save row should have a Load button")
 	Directory.new().remove(sl.SAVE_DIR + "del_check.sav")
 
+func test_load_resets_wired_fog_memory() -> void:
+	# In-game load must clear the live FogLayer's session-only explored cache so a
+	# loaded game does not inherit the previous game's revealed regions. Both the
+	# Load button and F9 quick-load funnel through _load_file, so exercising it here
+	# covers both paths.
+	var f = setup_facade(77)
+	var sl = _screen(f)
+	var fog = load("res://scenes/world/fog_layer.gd").new()
+	add_child_autofree(fog)
+	fog.init(f)
+	# Seed a session-only explored cache as if a previous game had revealed tiles,
+	# owned by the same active player id so rebuild() would NOT auto-clear it.
+	fog._explored_tiles = {"5,5": true, "6,6": true}
+	fog._explored_owner = f.get_state().current_player_id
+	assert_false(fog.get_explored_tiles().empty(),
+		"precondition: fog holds accumulated explored tiles before the load")
+	sl.set_fog_layer(fog)
+	# Write a save then load it back through the in-game load path.
+	sl.show_screen()
+	sl._name_edit.text = "fog_reset"
+	sl._on_save_named()
+	yield(get_tree(), "idle_frame")
+	assert_true(sl._load_file("fog_reset.sav"), "load succeeds")
+	assert_eq(fog._explored_owner, -999,
+		"the load reset the fog's explored owner to the reseed sentinel")
+	assert_true(fog.get_explored_tiles().empty(),
+		"the load cleared the fog's session explored cache (reseeds clean on next rebuild)")
+	Directory.new().remove(sl.SAVE_DIR + "fog_reset.sav")
+
 func test_script_compiles() -> void:
 	# Canary: GUT reports a suite green even when a scene script fails to parse, so
 	# guard the compile state explicitly (the sort helpers added a static method).
