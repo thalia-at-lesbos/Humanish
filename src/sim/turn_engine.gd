@@ -2209,6 +2209,93 @@ static func _worker_candidate_better(a: Array, b: Array) -> bool:
 		return a[1] > b[1]
 	return a[2] > b[2]
 
+# The city's manual worker budget (§4/§15.19): worked-tile slots available to
+# citizens = non-angry population minus the citizens already posted as assigned
+# specialists (free settled greats and the default citizen specialist never count).
+static func worker_budget(db: DataDB, s: Settlement) -> int:
+	var b: int = s.effective_workers() - Specialists.population_used(db, s)
+	return b if b > 0 else 0
+
+# Count of currently-worked NON-centre tiles (the centre is worked for free).
+static func _worked_noncentre_count(s: Settlement) -> int:
+	var n: int = 0
+	for wt in s.worked_tiles:
+		if int(wt[0]) == s.x and int(wt[1]) == s.y:
+			continue
+		n += 1
+	return n
+
+# §15.19 leftover-citizen bookkeeping: every citizen with no worked tile and no
+# assigned specialist post lands as one default (citizen) specialist. Recomputed
+# from the current worked-tile count so opening or closing a tile immediately pulls
+# a citizen in or out of the default pool (mirrors _auto_assign_workers' tail).
+static func _refresh_default_specialist(db: DataDB, s: Settlement) -> void:
+	var def_type: String = Specialists.default_type(db)
+	if def_type == "":
+		return
+	var excess: int = worker_budget(db, s) - _worked_noncentre_count(s)
+	if excess > 0:
+		s.specialists[def_type] = excess
+	else:
+		s.specialists.erase(def_type)
+
+# Directly work / unwork one tile for the city screen (§11), WITHOUT running the
+# auto-assign backfill. This is the swap-free, immediate model the manual grid
+# needs: working a tile at full worker capacity is rejected (no other tile is
+# unworked); unworking a tile removes it and frees a slot right away, so the live
+# output recomputed from worked_tiles reflects the change immediately. Keeps
+# locked_tiles in sync (the persistent preference) and refreshes the §15.19 default
+# specialist. Returns false only when a work request is refused at capacity.
+static func set_manual_worked_tile(gs: GameState, s: Settlement,
+		tx: int, ty: int, worked: bool) -> bool:
+	var db: DataDB = gs.db
+	# The city centre is always worked for free — guarantee it is present so the
+	# worked-tile count and the recomputed output include it.
+	if gs.map.is_valid(s.x, s.y) and not _has_worked_tile(s, s.x, s.y):
+		s.worked_tiles.append([s.x, s.y])
+	var is_worked_now: bool = _has_worked_tile(s, tx, ty)
+	var lock_idx: int = _locked_index(s, tx, ty)
+	if worked:
+		if is_worked_now:
+			# Already worked: just make sure the preference persists as a lock.
+			if lock_idx < 0:
+				s.locked_tiles.append([tx, ty])
+			return true
+		# Reject at capacity — no swap, no other tile is unworked.
+		if _worked_noncentre_count(s) >= worker_budget(db, s):
+			return false
+		s.worked_tiles.append([tx, ty])
+		if lock_idx < 0:
+			s.locked_tiles.append([tx, ty])
+	else:
+		if not is_worked_now:
+			if lock_idx >= 0:
+				s.locked_tiles.remove(lock_idx)
+			return true
+		_erase_worked_tile(s, tx, ty)
+		if lock_idx >= 0:
+			s.locked_tiles.remove(lock_idx)
+	_refresh_default_specialist(db, s)
+	return true
+
+static func _has_worked_tile(s: Settlement, tx: int, ty: int) -> bool:
+	for wt in s.worked_tiles:
+		if int(wt[0]) == tx and int(wt[1]) == ty:
+			return true
+	return false
+
+static func _erase_worked_tile(s: Settlement, tx: int, ty: int) -> void:
+	for i in range(s.worked_tiles.size()):
+		if int(s.worked_tiles[i][0]) == tx and int(s.worked_tiles[i][1]) == ty:
+			s.worked_tiles.remove(i)
+			return
+
+static func _locked_index(s: Settlement, tx: int, ty: int) -> int:
+	for i in range(s.locked_tiles.size()):
+		if int(s.locked_tiles[i][0]) == tx and int(s.locked_tiles[i][1]) == ty:
+			return i
+	return -1
+
 static func _resolve_trades(gs: GameState) -> void:
 	for alliance in gs.alliances:
 		var expired := []

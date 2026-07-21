@@ -6,6 +6,14 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- **City-screen worked-tile toggles now take effect immediately and never
+  swap.** Toggling a tile went through `SET_TILE_WORKED`, which re-ran the
+  citizen auto-assign — so in automated cities a *deselect* was silently
+  backfilled (the Output totals never moved) and working a new tile at full
+  capacity swapped out an auto-worked tile. Manual toggles now edit
+  `worked_tiles` directly via `TurnEngine.set_manual_worked_tile` (no
+  auto-backfill): deselecting frees a slot and drops the live output at once,
+  and working a tile at capacity is simply rejected with no other tile unworked.
 - **In-game load no longer leaks the previous game's fog.** Loading a save from
   the pause menu, the Save/Load screen, or F9 quick-load reuses the live
   `FogLayer` node, whose session-only `_explored_tiles` cache is not part of the

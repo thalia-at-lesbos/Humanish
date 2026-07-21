@@ -1780,33 +1780,15 @@ func _cmd_set_tile_worked(cmd: Dictionary) -> bool:
 	# Defense-in-depth behind the grid, which renders the centre button inert.
 	if tx == s.x and ty == s.y:
 		return worked
-	var idx: int = -1
-	for i in range(s.locked_tiles.size()):
-		if int(s.locked_tiles[i][0]) == tx and int(s.locked_tiles[i][1]) == ty:
-			idx = i
-			break
-	if worked and idx < 0:
-		# Reject a lock that would push the worked set past the city's worker budget
-		# (§4/§15.19): population minus discontented, minus assigned specialists. At
-		# the cap, working a new tile is a no-op — the player must first free a slot
-		# (unlock a tile or drop a specialist). Unlocks are always allowed below.
-		var spec_count: int = Specialists.population_used(_db, s)
-		var budget: int = s.effective_workers() - spec_count
-		if budget < 0:
-			budget = 0
-		var locked_noncentre: int = 0
-		for lt in s.locked_tiles:
-			if int(lt[0]) == s.x and int(lt[1]) == s.y:
-				continue
-			locked_noncentre += 1
-		if locked_noncentre >= budget:
-			return false
-		s.locked_tiles.append([tx, ty])
-	elif not worked and idx >= 0:
-		s.locked_tiles.remove(idx)
-	TurnEngine._auto_assign_workers(_gs, p)
-	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
-	return true
+	# Direct, swap-free manipulation of worked_tiles (§11): working a tile at full
+	# worker capacity is rejected outright (no other tile is unworked), and
+	# unworking a tile frees its slot immediately so the live output recomputed by
+	# settlement_output/compute_settlement_output changes at once — no auto-assign
+	# backfill runs, which is what previously masked a deselect and swapped tiles.
+	var ok: bool = TurnEngine.set_manual_worked_tile(_gs, s, tx, ty, worked)
+	if ok:
+		_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	return ok
 
 # Toggle a city's automatic citizen management (§11 city screen). When off, only
 # the player's locked tiles are worked; when on, unlocked worker slots auto-fill.
