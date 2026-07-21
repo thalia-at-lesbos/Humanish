@@ -915,6 +915,10 @@ func _cmd_set_sliders(cmd: Dictionary) -> bool:
 	p.slider_finance = f; p.slider_research = r
 	p.slider_culture = c; p.slider_intel = i
 	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+	# The commerce split changes the net gold-per-turn readout, which lives in the
+	# TurnScoreBar (a DATA_PANES panel) — so a slider change must also dirty that
+	# region or the gold/turn figure stays stale until the next unrelated repaint.
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
 	return true
 
 func _cmd_set_production(cmd: Dictionary) -> bool:

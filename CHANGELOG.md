@@ -13,6 +13,12 @@ All notable changes to Humanish are recorded here. Versions follow
   lines, and an "Ambush!" variant for the wounding/raider goodies.
 
 ### Fixed
+- **The economy sliders now live-update the gold-per-turn readout.** Moving
+  commerce into Finance raises gold income, but the HUD's net gold/turn figure
+  (in the turn/score bar) stayed stale until an unrelated repaint because the
+  `SET_SLIDERS` command only marked the `HUD_GROUPS` dirty region, not the
+  `DATA_PANES` region the gold readout repaints on. A slider change now dirties
+  both, so the gold/turn display updates immediately.
 - **Insolvency disbands are no longer silent.** When a bankrupt player's unit was
   disbanded to relieve upkeep it vanished with no log entry (a confusing "my units
   disappeared" report). The disband now surfaces a clear notification —

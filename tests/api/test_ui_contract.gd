@@ -39,6 +39,10 @@ func test_dirty_flags_set_by_set_sliders() -> void:
 	gs.current_player_id = gs.players[0].id
 	f.apply_command(Commands.set_sliders(gs.players[0].id, 30, 10, 10))
 	assert_true(f.get_dirty().is_dirty(IDs.DirtyRegion.HUD_GROUPS), "set_sliders must dirty HUD_GROUPS")
+	# The gold-per-turn readout lives in the TurnScoreBar (a DATA_PANES panel); a
+	# slider change alters the commerce split, so it must repaint live too.
+	assert_true(f.get_dirty().is_dirty(IDs.DirtyRegion.DATA_PANES),
+		"set_sliders must dirty DATA_PANES so the gold/turn readout updates live")
 
 func test_dirty_flags_clear_after_read() -> void:
 	var f = setup_facade(3)
