@@ -180,6 +180,13 @@ var pending_era_advances: Array = []  # [{player_id, from, to}]
 # Each entry is {"kind": "combat"/"captured"/"razed", ...payload}.
 var pending_wild_events: Array = []
 
+# Transient insolvency-disband records produced by TurnEngine._disband_for_insolvency
+# during a player step (§6.1), drained by SimFacade into notifications. Not
+# serialized: it is produced and drained within the same end-of-turn cycle, exactly
+# like pending_wild_events — it never survives past the turn that produced it.
+# Each entry is {"player_id": int, "unit_type_id": String, "x": int, "y": int}.
+var pending_disband_events: Array = []
+
 # Transient first-contact records produced by TurnEngine._ensure_mutual_contact
 # the first time two players meet (§7), drained by SimFacade into notifications +
 # the first_contact signal. Not serialized: contact established this world step is

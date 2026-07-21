@@ -160,6 +160,22 @@ func test_insolvency_disbands_units() -> void:
 	assert_true(gs.units.size() < before, "Insolvency disbands units to cover upkeep")
 	assert_true(p.treasury >= 0, "Treasury is non-negative after insolvency handling")
 
+func test_insolvency_disband_records_pending_event() -> void:
+	# A disband must leave a breadcrumb on gs.pending_disband_events so the facade
+	# can surface it — otherwise the unit vanishes silently (confusing bug report).
+	var gs = make_gs(1)
+	var p = gs.get_player(1)
+	p.treasury = 0; p.insolvent_turns = 5
+	for i in range(10):
+		make_unit(gs, "warrior", 1, i, 0)
+	assert_true(gs.pending_disband_events.empty(), "Queue starts empty")
+	TurnEngine._update_treasury(gs, p)
+	assert_true(gs.pending_disband_events.size() > 0,
+		"Insolvency disband records at least one pending event")
+	var e = gs.pending_disband_events[0]
+	assert_eq(int(e["player_id"]), 1, "Event names the bankrupt player")
+	assert_eq(str(e["unit_type_id"]), "warrior", "Event names the disbanded unit type")
+
 func test_insolvency_never_sells_structures() -> void:
 	# Buildings and their invested costs are always retained: prolonged
 	# insolvency may only disband units, never sell a structure.
