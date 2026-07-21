@@ -1000,6 +1000,34 @@ func test_insolvency_disband_surfaces_notification() -> void:
 	assert_true(joined.find("Bankruptcy") != -1, "the notification mentions bankruptcy")
 	assert_true(joined.find("Warrior") != -1, "the notification names the disbanded unit type")
 
+# ── Voluntary unit disband (§4) ─────────────────────────────────────────────
+
+func test_unit_disband_removes_own_unit_and_clears_selection() -> void:
+	# setup_facade (not bare_facade) so the real selection state is wired.
+	var f = setup_facade(4711, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = f.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var u = make_unit(gs, "warrior", pid, 4, 4)
+	f.select_unit(u.id)
+	assert_true(u.id in f.get_selection().selected_unit_ids, "unit is selected before disband")
+	assert_true(f.apply_command(Commands.unit_disband(pid, u.id)), "own-unit disband accepted")
+	assert_null(gs.get_unit(u.id), "the disbanded unit is removed from the game")
+	assert_false(u.id in f.get_selection().selected_unit_ids,
+		"the disbanded unit is cleared from the selection")
+
+func test_unit_disband_rejects_foreign_unit() -> void:
+	var gs = make_gs(2)
+	var owner = gs.players[0].id
+	var other = gs.players[1].id
+	var u = make_unit(gs, "warrior", owner, 4, 4)
+	var f = bare_facade(gs)
+	gs.current_player_id = other
+	assert_false(f.apply_command(Commands.unit_disband(other, u.id)),
+		"disbanding another player's unit is rejected")
+	assert_not_null(gs.get_unit(u.id), "the foreign unit survives the rejected disband")
+
 # ── Cultural-border vision: player_visible_tiles (border-vision feature) ──────
 
 func test_player_visible_tiles_includes_owned_territory_and_one_ring() -> void:

@@ -142,6 +142,28 @@ func test_unit_panel_omits_open_city_off_city_tile() -> void:
 	assert_eq(_count_buttons_named(panel, "Open City"), 0,
 		"A unit not on a city tile shows no Open City button")
 
+func test_unit_panel_shows_disband_button_and_removes_unit() -> void:
+	# Every owned selected unit gets a Disband button (§4); pressing it issues the
+	# UNIT_DISBAND command, which removes the unit from the game.
+	var facade = setup_facade(84, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var w = make_unit(gs, "warrior", pid, 6, 6)
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(w.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Disband"), 1,
+		"An owned selected unit shows a Disband button")
+
+	# Press it: the unit is removed.
+	panel._on_disband_unit(w.id)
+	assert_null(gs.get_unit(w.id), "Pressing Disband removes the unit from the game")
+
 func test_capital_panel_hides_disband_button() -> void:
 	# The capital (the city holding the Palace) cannot be disbanded, so its panel
 	# must not offer a Disband button; a non-capital city still does.
