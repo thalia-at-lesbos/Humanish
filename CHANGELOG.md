@@ -21,6 +21,13 @@ All notable changes to Humanish are recorded here. Versions follow
   plains/grassland but the connecting Mine was hills-only, leaving the resource
   permanently unimprovable. A landform-restricted improvement is now allowed on a
   tile whose resource requires exactly that improvement.
+- **The "Build Mine" button now actually appears on flat-land resources.** The
+  earlier flat-land mine fix corrected the build command, but the HUD worker
+  panel still pre-filtered its candidate improvements by raw landform, so it
+  silently dropped Mine on flat iron/copper before the resource-aware legality
+  check ever ran and the button never showed. The panel now delegates every
+  improvement's legality to the facade's `can_build_improvement` predicate, so
+  its offered list can no longer diverge from what the command accepts.
 - **"Open City" now works with a non-city unit selected.** Pressing Open City
   while a scout (or any unit) stood on one of your cities did nothing, because the
   city id was discarded and the screen resolved the wrong (empty) selection. The

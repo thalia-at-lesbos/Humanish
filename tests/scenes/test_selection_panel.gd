@@ -60,6 +60,38 @@ func test_worker_shows_build_action_buttons() -> void:
 	assert_eq(_count_buttons_named(panel, "Build Farm"), 1,
 		"A worker on a flat tile with Agriculture offers Build Farm")
 
+func test_worker_offers_mine_on_flat_iron() -> void:
+	# Regression (tstb7): a worker standing on FLAT (plains/grassland) terrain that
+	# carries an iron resource must be offered a "Build Mine" button, even though a
+	# bare Mine's allowed_landforms is hills-only. Iron's improvement_required is
+	# "mine", so the resource-aware landform gate in can_build_improvement permits
+	# it — the panel must delegate to that predicate rather than pre-filtering the
+	# candidate list by landform (which previously discarded Mine on flat land).
+	var facade = setup_facade(93, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.get_player(pid).technologies = ["mining"]   # reveals & enables the mine
+	var tile = gs.map.get_tile(3, 3)
+	tile.terrain_id = "plains"             # flat landform (Mine wants hills)
+	tile.improvement_id = ""
+	tile.feature_id = ""
+	tile.resource_id = "iron"
+	var worker = make_unit(gs, "worker", pid, 3, 3)
+
+	# Sanity: the authoritative predicate agrees the mine is legal here.
+	assert_true(facade.can_build_improvement(pid, worker.id, "mine"),
+		"can_build_improvement must permit a Mine on flat iron with Mining")
+
+	var panel = load("res://scenes/hud/selection_panel.gd").new()
+	add_child_autofree(panel)
+	panel.init(facade, null)
+	facade.select_unit(worker.id)
+	panel.rebuild()
+	assert_eq(_count_buttons_named(panel, "Build Mine"), 1,
+		"A worker on flat iron with Mining is offered Build Mine")
+
 func test_unit_panel_shows_open_city_on_own_city_tile() -> void:
 	# Issue 2: when a selected unit shares its tile with the player's own city, the
 	# panel surfaces an Open City button (above the on-tile stack list) so the city
