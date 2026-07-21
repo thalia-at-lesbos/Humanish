@@ -5,6 +5,8 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-07-20 "beta 2"
+
 ### Fixed
 - **City-screen worked-tile toggles now take effect immediately and never
   swap.** Toggling a tile went through `SET_TILE_WORKED`, which re-ran the
