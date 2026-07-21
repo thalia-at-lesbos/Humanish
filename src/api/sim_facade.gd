@@ -484,6 +484,7 @@ func _cmd_end_turn(player_id: int) -> bool:
 	_drain_productions()
 	_drain_growth_events()
 	_drain_improvement_completions()
+	_drain_disband_events()
 	_drain_events()
 	_drain_quest_events()
 
@@ -657,7 +658,7 @@ func _cmd_move_stack(cmd: Dictionary) -> bool:
 			# presentation paints them like any other new unit.
 			for wid in reward.get("spawned_unit_ids", []):
 				emit_signal("unit_created", int(wid))
-			_add_notification("Discovery: " + str(reward.get("type", "")), "major")
+			_add_notification(_goody_message(reward, lead), "major")
 			emit_signal("event_emitted", reward)
 			emit_signal("goody_received", reward)
 
@@ -4445,6 +4446,48 @@ func _alliance_label(alliance_id: int) -> String:
 	var p: Player = _gs.get_player(int(a.member_player_ids[0]))
 	return p.name if p != null else "another power"
 
+# Build a human-readable log line for a goody-hut / discovery reward (§9/§24). The
+# reward Dictionary's fields vary by type (amount, unit_type, tech_id, damage,
+# spawned_unit_ids); `finder` is the discovering unit (named for the XP/heal lines).
+func _goody_message(reward: Dictionary, finder: Unit) -> String:
+	var finder_name: String = "explorer"
+	if finder != null:
+		finder_name = str(_db.get_unit(finder.unit_type_id).get("name", "explorer"))
+	match str(reward.get("type", "")):
+		"treasury":
+			return "Discovery! Found " + str(int(reward.get("amount", 0))) + " gold."
+		"experience":
+			return "Discovery! Your " + finder_name + " gained " \
+				+ str(int(reward.get("amount", 0))) + " XP."
+		"heal":
+			return "Discovery! A healing spring restored your " + finder_name \
+				+ " to full health."
+		"map":
+			return "Discovery! A map fragment reveals the surrounding lands."
+		"unit":
+			var utype: String = str(reward.get("unit_type", ""))
+			var uname: String = str(_db.get_unit(utype).get("name", utype))
+			return "Discovery! A wandering " + uname + " joins your " + finder_name + "."
+		"tech":
+			var tid: String = str(reward.get("tech_id", ""))
+			var tname: String = str(_db.get_technology(tid).get("name", tid))
+			if tname == "":
+				return "Discovery! Ancient knowledge advances your research."
+			return "Discovery! Learned " + tname + "."
+		"ambush":
+			var hurt: bool = int(reward.get("damage", 0)) > 0
+			var raiders: bool = not reward.get("spawned_unit_ids", []).empty()
+			if raiders and hurt:
+				return "Ambush! Your " + finder_name \
+					+ " was wounded and hostile raiders appeared."
+			if raiders:
+				return "Ambush! Hostile raiders lay in wait at the site."
+			if hurt:
+				return "Ambush! Your " + finder_name + " was wounded at the site."
+			return "Ambush! The site was a trap."
+		_:
+			return "Discovery! The site held nothing of value."
+
 func _add_notification(text: String, category: String = "info") -> void:
 	_notifications.append({"text": text, "category": category, "turn": _gs.turn_number})
 	if _notifications.size() > 100:
@@ -4487,6 +4530,21 @@ func _drain_era_advances() -> void:
 # Surface any wild-forces combat/conquest records WildAI produced this world step
 # (§9): each fight re-emits combat_resolved; each razed city clears a stale
 # selection, notifies, and emits city_razed. Then clear the queue.
+# Surface any units the §6.1 insolvency handler disbanded this player step: one
+# notification per lost unit (naming its type), then clear the queue. Without this
+# a bankrupt player's units vanish silently (confusing "units disappeared" report).
+func _drain_disband_events() -> void:
+	if _gs.pending_disband_events.empty():
+		return
+	for e in _gs.pending_disband_events:
+		var type_id: String = str(e.get("unit_type_id", ""))
+		var type_name: String = str(_db.get_unit(type_id).get("name", type_id))
+		_add_notification("Bankruptcy: your " + type_name
+			+ " was disbanded (treasury empty).", "major")
+	_gs.pending_disband_events = []
+	_dirty.set_dirty(IDs.DirtyRegion.DATA_PANES)
+	_dirty.set_dirty(IDs.DirtyRegion.HUD_GROUPS)
+
 func _drain_wild_events() -> void:
 	if _gs.pending_wild_events.empty():
 		return

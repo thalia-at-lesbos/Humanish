@@ -962,6 +962,44 @@ func test_goody_ambush_spawns_wild_raiders_and_surfaces_them() -> void:
 		"each ambush raider is surfaced via unit_created")
 	assert_signal_emitted(facade, "goody_received", "the ambush emits goody_received")
 
+func test_goody_message_names_the_reward() -> void:
+	# The discovery notification must describe the actual reward, not the terse
+	# "Discovery: <type>" it used to print.
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 0}], ["time"])
+	var gs = facade.get_state()
+	for tile in gs.map.all_tiles():
+		tile.terrain_id = "grassland"
+	gs.db.goodies = {"goodies": [{"id": "gold", "type": "treasury", "weight": 10, "min": 45, "max": 45}]}
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	gs.map.get_tile(3, 2).has_discovery = true
+	make_warrior(gs, pid, 2, 2)
+
+	assert_true(facade.apply_command(Commands.move_stack(pid, 2, 2, 3, 2)),
+		"Moving onto a goody hut succeeds")
+	var joined: String = ""
+	for n in facade.get_notification_queue():
+		joined += str(n.get("text", "")) + " | "
+	assert_true(joined.find("Discovery!") != -1, "the log line is a Discovery message")
+	assert_true(joined.find("45 gold") != -1, "the message names the gold amount")
+
+func test_insolvency_disband_surfaces_notification() -> void:
+	# A disband breadcrumb on gs.pending_disband_events must drain into a clear,
+	# player-facing notification naming the unit type.
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 0}], ["time"])
+	var gs = facade.get_state()
+	gs.pending_disband_events.append(
+		{"player_id": gs.players[0].id, "unit_type_id": "warrior", "x": 2, "y": 2})
+	facade._drain_disband_events()
+	assert_true(gs.pending_disband_events.empty(), "Queue cleared after draining")
+	var joined: String = ""
+	for n in facade.get_notification_queue():
+		joined += str(n.get("text", "")) + " | "
+	assert_true(joined.find("Bankruptcy") != -1, "the notification mentions bankruptcy")
+	assert_true(joined.find("Warrior") != -1, "the notification names the disbanded unit type")
+
 # ── Cultural-border vision: player_visible_tiles (border-vision feature) ──────
 
 func test_player_visible_tiles_includes_owned_territory_and_one_ring() -> void:

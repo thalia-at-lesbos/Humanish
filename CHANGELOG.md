@@ -5,7 +5,18 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Changed
+- **Goody-hut discovery messages now name the actual reward.** The terse
+  "Discovery: unit" log line is replaced by a descriptive message per reward
+  type — "Discovery! A wandering Warrior joins your explorer.", "Discovery!
+  Found 45 gold.", "Discovery! Learned Pottery.", the XP / map-reveal / heal
+  lines, and an "Ambush!" variant for the wounding/raider goodies.
+
 ### Fixed
+- **Insolvency disbands are no longer silent.** When a bankrupt player's unit was
+  disbanded to relieve upkeep it vanished with no log entry (a confusing "my units
+  disappeared" report). The disband now surfaces a clear notification —
+  "Bankruptcy: your Warrior was disbanded (treasury empty)."
 - **The City screen's Output totals are now live and correct.** Food /
   Production / Commerce showed the values last computed by the turn pipeline, so
   locking or unlocking a worked tile left the totals stale. The output-summation

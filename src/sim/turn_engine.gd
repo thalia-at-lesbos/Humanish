@@ -1863,6 +1863,13 @@ static func _ensure_capital_palace(gs: GameState, player_id: int) -> void:
 static func _disband_for_insolvency(gs: GameState, player: Player) -> bool:
 	for u in gs.units:
 		if u.owner_player_id == player.id:
+			# Record the loss so the facade can surface it — a disband is otherwise
+			# silent and the unit appears to vanish (confusing bug report).
+			gs.pending_disband_events.append({
+				"player_id": player.id,
+				"unit_type_id": u.unit_type_id,
+				"x": u.x, "y": u.y,
+			})
 			Stack.remove_unit(gs.units, u.id)
 			return true
 	return false
