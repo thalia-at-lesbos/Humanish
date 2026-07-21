@@ -2816,7 +2816,7 @@ per-difficulty `goody_weights` overrides in `difficulties.json` carry the
 
 | Type | Gold per hammer | Hammers per pop | Anger | Gate |
 |---|---|---|---|---|
-| gold | 3 | — | — | always |
+| gold | 3 | — | — | Universal Suffrage civic |
 | population | — | 30 (× pace hurry %) | +1 for 10 turns per rush | Slavery civic |
 
 Plus `NEW_HURRY_MODIFIER` 50 (+50% cost hurrying an item queued this turn).
@@ -2827,10 +2827,12 @@ The population row is live shipped data as of C2 (2026-07-12, game-rules §15.2)
 hurry percent is the `hurry_scale` column in `paces.json` (67/100/150/300). The
 gold row is live as of M5 (2026-07-19, game-rules §15.2): `rush_gold_per_hammer`
 3 in `constants.json`, charged on `TurnEngine.rush_remaining_cost` in
-`SimFacade._cmd_rush_production` — always available (the Universal Suffrage
-`can_rush_with_gold` gate is retired from `policies.json`), no anger of any
-kind (the old flat 5-turn rush anger is gone), and the `new_hurry_modifier`
-+50% just-queued surcharge applies to gold exactly like a whip.
+`SimFacade._cmd_rush_production` — gated on the Universal Suffrage civic's
+`can_rush_with_gold` flag in `policies.json` (read via `PolicyEffects.has_flag`,
+enforced in both `_cmd_rush_production` and the `can_rush_gold` predicate), no
+anger of any kind (the old flat 5-turn rush anger is gone), and the
+`new_hurry_modifier` +50% just-queued surcharge applies to gold exactly like a
+whip.
 
 ### 29.9 Labor civic reference effects
 

@@ -377,8 +377,8 @@ func test_playthrough_debug_console_unlocks_lategame_condition() -> void:
 	# Universal Suffrage requires Democracy (cost ~2800 — hundreds of turns to
 	# research in a fixture). Granting just that prerequisite through the real
 	# DebugConsole is the one justified value-mod: it lets us adopt a late-game
-	# civic and drive a gold rush through the same slice. (The gold hurry itself
-	# is ungated since M5 — the adoption exercises the civic path, not a gate.)
+	# civic and drive a gold rush through the same slice. (The gold hurry is
+	# gated on Universal Suffrage — §15.2 — so the adoption is what permits it.)
 	console.execute("tech " + str(pid) + " democracy")
 	assert_true(gs.get_player(pid).has_tech("democracy"), "debug console granted the prereq tech")
 
@@ -387,7 +387,7 @@ func test_playthrough_debug_console_unlocks_lategame_condition() -> void:
 	assert_true(f.apply_command(Commands.set_production(pid, city.id,
 		[{"type": "unit", "id": "warrior"}])), "production queued")
 	assert_true(f.apply_command(Commands.rush_production(pid, city.id, "treasury")),
-		"gold rush accepted (always available since the M5 retune)")
+		"gold rush accepted once Universal Suffrage is active (§15.2)")
 
 	var before = gs.units.size()
 	_end_turn(f, gs, pid)

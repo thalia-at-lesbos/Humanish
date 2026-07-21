@@ -1493,6 +1493,8 @@ func test_can_rush_gold_predicate() -> void:
 	var gs = make_gs(1)
 	gs.current_player_id = 1
 	var s = make_settlement(gs, 1, 5, 5, 3)
+	# The Universal Suffrage civic (§15.2) permits gold-hurry.
+	gs.get_player(1).policies = {"government": "universal_suffrage"}
 	var f = bare_facade(gs)
 	assert_false(f.can_rush_gold(s.id), "no queued item → nothing to gold-rush")
 	s.production_queue = [{"type": "unit", "id": "warrior"}]
@@ -1501,3 +1503,18 @@ func test_can_rush_gold_predicate() -> void:
 	gs.get_player(1).treasury = 100000
 	assert_true(f.can_rush_gold(s.id),
 		"a queued item plus an affording treasury permits the gold rush")
+
+func test_can_rush_gold_requires_universal_suffrage() -> void:
+	# §15.2: can_rush_gold is false without the Universal Suffrage civic and
+	# true once it is active (all other conditions held constant).
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.production_queue = [{"type": "unit", "id": "warrior"}]
+	gs.get_player(1).treasury = 100000
+	var f = bare_facade(gs)
+	assert_false(f.can_rush_gold(s.id),
+		"gold-rush blocked with no permitting civic despite affordable queue")
+	gs.get_player(1).policies = {"government": "universal_suffrage"}
+	assert_true(f.can_rush_gold(s.id),
+		"Universal Suffrage permits the gold rush")

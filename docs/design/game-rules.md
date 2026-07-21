@@ -1619,7 +1619,7 @@ The reference has **two** hurry types:
 
 | Hurry type | Conversion | Side effect | Enabled by |
 |---|---|---|---|
-| Gold | 3 gold per hammer of remaining cost | none | always (Humanish: implemented) |
+| Gold | 3 gold per hammer of remaining cost | none | **Universal Suffrage** civic (government) |
 | Population | 30 hammers per population point sacrificed | +1 anger for 10 turns per rush (stacking) | **Slavery** civic (labor) |
 
 Reference constants: `iProductionPerPopulation` 30, `iGoldPerProduction` 3,
@@ -1646,14 +1646,16 @@ data) halves that duration. All constants in `data/constants.json`.
 The gold row is implemented as of M5 (2026-07-19): `SimFacade
 ._cmd_rush_production` charges `TurnEngine.rush_remaining_cost ×
 rush_gold_per_hammer` (3, `constants.json` — the reference
-`iGoldPerProduction`). It is available **always** — the old Universal Suffrage
-`can_rush_with_gold` gate is retired from `policies.json` (the civic keeps
-`town_production`) — and, per the reference, causes **no anger of any kind**
-(the old flat 5-turn rush anger is deleted; pop-whip anger is the separate path
-above, and the draft keeps its own use of the `rush_anger_turns` channel).
-Routing through `rush_remaining_cost` means the `new_hurry_modifier` +50%
-just-queued surcharge applies to gold identically to the whip. Companion table:
-`game-data.md` §29.8.
+`iGoldPerProduction`). It **requires the Universal Suffrage civic** to be
+active — the Civ IV convention — gated on the `can_rush_with_gold` flag that
+civic carries in `policies.json` (read via `PolicyEffects.has_flag`), enforced
+in both `_cmd_rush_production` and the `can_rush_gold` predicate that drives the
+City screen's Hurry (Gold) button. Per the reference, the gold hurry itself
+causes **no anger of any kind** (the old flat 5-turn rush anger is deleted;
+pop-whip anger is the separate path above, and the draft keeps its own use of
+the `rush_anger_turns` channel). Routing through `rush_remaining_cost` means the
+`new_hurry_modifier` +50% just-queued surcharge applies to gold identically to
+the whip. Companion table: `game-data.md` §29.8.
 
 ### 15.3 Pace scaling for anarchy, golden ages, victory delay, and wild timing
 
