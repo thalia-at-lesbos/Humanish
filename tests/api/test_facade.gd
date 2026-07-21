@@ -1098,6 +1098,24 @@ func test_gold_rate_unknown_player_is_zero() -> void:
 	var f = setup_facade(4244)
 	assert_eq(f.get_player_gold_rate(999), 0, "Unknown player has a 0 gold rate")
 
+func test_gold_rate_tracks_finance_slider_change() -> void:
+	# Moving commerce into Finance raises the gold-per-turn rate, and the facade's
+	# previewed rate must reflect the new slider share immediately after the
+	# set_sliders command (the HUD live-update contract). A settlement with commerce
+	# gives the split something to work on.
+	var gs = make_gs(2)
+	var p = gs.get_player(gs.players[0].id)
+	var s = make_settlement(gs, p.id, 5, 5, 2)
+	s.output_commerce = 100
+	var f = bare_facade(gs)
+	gs.current_player_id = p.id
+	f.apply_command(Commands.set_sliders(p.id, 100, 0, 0))  # 0% finance
+	var low = f.get_player_gold_rate(p.id)
+	f.apply_command(Commands.set_sliders(p.id, 0, 0, 0))    # 100% finance
+	var high = f.get_player_gold_rate(p.id)
+	assert_true(high > low,
+		"Shifting commerce into Finance raises the previewed gold rate (%d -> %d)" % [low, high])
+
 # ── Unit strength display (Issue 4) ─────────────────────────────────────────────
 
 # Net effective strength delegates to Unit.effective_strength (defender role) on
