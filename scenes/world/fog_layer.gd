@@ -51,6 +51,20 @@ var fog_disabled: bool = false
 func init(facade) -> void:
 	_facade = facade
 
+# Clear the live remembered/visible caches so the NEXT rebuild reseeds from
+# scratch. Called on an in-game load: _explored_tiles is a session-only cache
+# (NOT part of the save — persistence rides on gs.seen_memory), and rebuild()
+# only auto-clears it when the active player id changes. Loading a game whose
+# active player id equals the pre-load one (very common — e.g. both player 1)
+# would otherwise keep the previous game's explored tiles and paint stale
+# revealed regions over the new map. Forcing _explored_owner to a sentinel makes
+# the following rebuild reseed cleanly from the loaded save's seen-memory.
+func reset_memory() -> void:
+	_explored_tiles = {}
+	_visible_tiles = {}
+	_explored_owner = -999
+	update()
+
 # Debug helper: disable/enable fog rendering globally (session-only, not saved).
 func set_fog_disabled(disabled: bool) -> void:
 	fog_disabled = disabled

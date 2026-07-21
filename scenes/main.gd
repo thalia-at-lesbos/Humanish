@@ -96,6 +96,14 @@ func _ready() -> void:
 		var save_load = screens.get_node_or_null("SaveLoadScreen")
 		if pause != null and save_load != null and pause.has_method("set_save_load_screen"):
 			pause.set_save_load_screen(save_load)
+		# Hand the save/load screen the live FogLayer so an in-game load (Load button
+		# or F9 quick-load, both via _load_file) resets its session-only explored
+		# cache — otherwise loading a game whose active player id matches the current
+		# one leaks the previous game's revealed regions onto the new map.
+		if save_load != null and save_load.has_method("set_fog_layer") and world_view != null:
+			var sl_fog = world_view.get_node_or_null("FogLayer")
+			if sl_fog != null:
+				save_load.set_fog_layer(sl_fog)
 		# Stand up the simple read-only advisor/info screens (§3.1) programmatically
 		# so they need no .tscn nodes; each is keyed by the control that opens it.
 		_init_extra_screens(screens)

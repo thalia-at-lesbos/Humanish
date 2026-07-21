@@ -17,6 +17,7 @@ const QUICK_SAVE_NAME: String = "quicksave.sav"
 
 var _facade
 var _name_edit: LineEdit = null   # custom save filename field (rebuilt each show)
+var _fog_layer = null   # live FogLayer node; reset on load so stale fog can't leak
 
 func init(facade) -> void:
 	_facade = facade
@@ -28,6 +29,13 @@ func init(facade) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	_ensure_dir()
+
+# Hand the live FogLayer node (owned by WorldView) so an in-game load can clear
+# its session-only explored-tile cache before the loaded state repaints. Wired by
+# main.gd. Both the Load button and F9 quick-load funnel through _load_file(), so
+# this one hook covers every in-game load path.
+func set_fog_layer(fog) -> void:
+	_fog_layer = fog
 
 func _ensure_dir() -> void:
 	var dir: Directory = Directory.new()
@@ -213,6 +221,12 @@ func _load_file(filename: String) -> bool:
 		var json_str: String = file.get_as_text()
 		file.close()
 		if _facade.load_save(json_str):
+			# Drop the FogLayer's session-only explored-tile cache so the loaded
+			# game's fog reseeds cleanly from its own seen-memory instead of leaking
+			# the previous game's revealed regions (rebuild() only auto-clears when
+			# the active player id changes, which a load often does not).
+			if _fog_layer != null and _fog_layer.has_method("reset_memory"):
+				_fog_layer.reset_memory()
 			_facade.get_dirty().mark_all()
 			return true
 	return false
