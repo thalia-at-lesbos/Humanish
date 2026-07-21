@@ -442,19 +442,6 @@ func _add_worker_buttons(unit, gs) -> void:
 	# improvement or chop buttons there.
 	if gs.get_settlement_at(unit.x, unit.y) != null:
 		return
-	var ter: Dictionary = db.get_terrain(tile.terrain_id)
-	var landform: String = str(ter.get("landform", "flat"))
-	# A tile has a river if its north or west border is a river edge, or if
-	# the tile to the south/east has a north/west river edge bordering this tile.
-	var has_river: bool = tile.river_n or tile.river_w
-	if not has_river:
-		var south = gs.map.get_tile(tile.x, tile.y + 1)
-		if south != null and south.river_n:
-			has_river = true
-	if not has_river:
-		var east = gs.map.get_tile(tile.x + 1, tile.y)
-		if east != null and east.river_w:
-			has_river = true
 	var feature_id: String = tile.feature_id
 	var current_imp: String = tile.improvement_id
 
@@ -469,30 +456,12 @@ func _add_worker_buttons(unit, gs) -> void:
 		# Skip if already built on this tile.
 		if imp_id == current_imp:
 			continue
-		# Check landform compatibility.
-		var allowed: Array = imp.get("allowed_landforms", [])
-		if not (landform in allowed):
-			continue
-		# Check river requirement.
-		if bool(imp.get("requires_river", false)) and not has_river:
-			continue
-		# Check feature requirement.
-		var req_feat: String = str(imp.get("requires_feature", ""))
-		if req_feat != "" and feature_id != req_feat:
-			continue
-		# Check tech requirement.
-		var tech_req = imp.get("tech_required", null)
-		if tech_req != null and tech_req != "" and not player.has_tech(str(tech_req)):
-			continue
-		# Check resource requirement: a resource-bound improvement (pasture,
-		# plantation, fishing boats, …) only shows on a tile with a matching
-		# resource the player can already see (its reveal tech researched).
-		if bool(imp.get("requires_resource", false)) \
-				and not _facade._tile_offers_resource_improvement(tile, imp_id, player):
-			continue
-		# Check food requirement (cottage needs a non-zero-food tile, §5): share
-		# the facade's authoritative legality predicate so the panel never offers
-		# a build the command would reject.
+		# Legality (landform, river, feature, tech, resource, food) is delegated
+		# wholesale to the facade's authoritative predicate so the panel can never
+		# diverge from what the build command accepts. In particular the landform
+		# gate there is resource-aware — a Mine is offered on flat iron/copper even
+		# though a bare Mine wants hills (bug tstb7) — which a local landform
+		# pre-filter here would have wrongly discarded before this check ran.
 		if not _facade.can_build_improvement(player.id, unit.id, imp_id):
 			continue
 		# All checks passed: show a button for this improvement.
