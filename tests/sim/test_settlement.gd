@@ -291,6 +291,95 @@ func test_set_tile_worked_enforces_worked_cap() -> void:
 		"With a slot freed, a new tile can now be worked")
 	assert_eq(s.locked_tiles.size(), 2, "Still at the cap, not over it")
 
+# ── Immediate, swap-free manual toggle (tstc1 follow-up) ──────────────────────
+
+func _grassland_ring(gs, cx, cy) -> void:
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			if gs.map.is_valid(cx + dx, cy + dy):
+				gs.map.get_tile(cx + dx, cy + dy).terrain_id = "grassland"
+
+func test_deselect_updates_worked_tiles_immediately_in_auto_mode() -> void:
+	# ISSUE 1: in AUTO mode a deselect must remove the tile from worked_tiles right
+	# away and NOT be silently backfilled — the live output changes at once.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.discontented = 0
+	s.manage_citizens_auto = true
+	_grassland_ring(gs, 5, 5)
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	var before: int = s.worked_tiles.size()
+	assert_eq(before, 4, "auto-fills 3 worker slots plus the free centre")
+	var f = bare_facade(gs)
+	var tgt = null
+	for wt in s.worked_tiles:
+		if not (int(wt[0]) == 5 and int(wt[1]) == 5):
+			tgt = wt
+			break
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id,
+		int(tgt[0]), int(tgt[1]), false)), "deselect accepted")
+	assert_eq(s.worked_tiles.size(), before - 1,
+		"the deselected tile is removed and NOT auto-backfilled")
+	assert_false(TurnEngine._has_worked_tile(s, int(tgt[0]), int(tgt[1])),
+		"the specific tile is no longer worked")
+
+func test_work_at_capacity_is_rejected_without_swapping() -> void:
+	# ISSUE 2: at full worker capacity, working a new tile must be a no-op — no other
+	# worked tile is unworked (no swap).
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.discontented = 0
+	s.manage_citizens_auto = true
+	_grassland_ring(gs, 5, 5)
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	var f = bare_facade(gs)
+	# Find an in-range, workable, currently-unworked non-centre tile.
+	var free_tile = null
+	for tile in gs.map.tiles_in_range(5, 5, s.culture_ring):
+		if tile.x == 5 and tile.y == 5:
+			continue
+		if not TurnEngine._has_worked_tile(s, tile.x, tile.y):
+			free_tile = tile
+			break
+	assert_not_null(free_tile, "there is an unworked in-range tile to attempt")
+	var snapshot: Array = s.worked_tiles.duplicate(true)
+	assert_false(f.apply_command(Commands.set_tile_worked(1, s.id,
+		free_tile.x, free_tile.y, true)),
+		"working a new tile at capacity is rejected")
+	assert_eq(s.worked_tiles, snapshot,
+		"no worked tile was swapped out — the set is unchanged")
+
+func test_deselect_frees_a_slot_for_a_new_tile() -> void:
+	# The two issues together: deselecting first, THEN working a new tile succeeds.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	s.discontented = 0
+	s.manage_citizens_auto = true
+	_grassland_ring(gs, 5, 5)
+	TurnEngine._auto_assign_workers(gs, gs.get_player(1))
+	var f = bare_facade(gs)
+	var worked_tile = null
+	var free_tile = null
+	for tile in gs.map.tiles_in_range(5, 5, s.culture_ring):
+		if tile.x == 5 and tile.y == 5:
+			continue
+		if TurnEngine._has_worked_tile(s, tile.x, tile.y):
+			if worked_tile == null:
+				worked_tile = tile
+		elif free_tile == null:
+			free_tile = tile
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id,
+		worked_tile.x, worked_tile.y, false)), "free a slot by deselecting")
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id,
+		free_tile.x, free_tile.y, true)), "now a new tile can be worked")
+	assert_true(TurnEngine._has_worked_tile(s, free_tile.x, free_tile.y),
+		"the newly chosen tile is worked")
+	assert_false(TurnEngine._has_worked_tile(s, worked_tile.x, worked_tile.y),
+		"the deselected tile stayed unworked (no revert)")
+
 func test_river_tile_adds_commerce_to_city_output() -> void:
 	# A5 (reference): a worked grassland river tile yields +1 commerce. The river is
 	# applied to a NON-centre worked tile — the centre carries a guaranteed minimum

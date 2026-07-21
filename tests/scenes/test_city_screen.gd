@@ -138,6 +138,37 @@ func test_output_line_shows_live_not_stale_totals() -> void:
 	assert_true(("Food +" + str(live[0])) in text,
 		"the Output line shows the live recomputed food total")
 
+func test_output_line_live_updates_when_a_tile_is_deselected() -> void:
+	# ISSUE 1 (screen level): deselecting a worked tile must immediately change the
+	# Output line — no auto-backfill masks the change.
+	var facade = setup_facade(79, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 3)
+	s.discontented = 0
+	s.manage_citizens_auto = false
+	for dx in range(-1, 2):
+		for dy in range(-1, 2):
+			gs.map.get_tile(5 + dx, 5 + dy).terrain_id = "grassland"
+	s.worked_tiles = [[5, 5], [6, 5], [4, 5], [5, 6]]   # centre + 3
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var food_before: int = facade.settlement_output(s.id)[0]
+	assert_true(("Food +" + str(food_before)) in _all_text(screen),
+		"the Output line shows the live food total before the deselect")
+	# Deselect one worked grassland tile through the same command the grid issues.
+	facade.apply_command(Commands.set_tile_worked(pid, s.id, 6, 5, false))
+	screen._build()
+	var food_after: int = facade.settlement_output(s.id)[0]
+	assert_true(food_after < food_before,
+		"deselecting a worked food tile drops the live food total")
+	assert_true(("Food +" + str(food_after)) in _all_text(screen),
+		"the rebuilt Output line shows the new, lower food total")
+
 func test_hurry_gold_button_not_offered_without_queue() -> void:
 	# With nothing queued there is nothing to gold-rush, so the Hurry (Gold) button
 	# is not offered at all (§15.2 gold hurry is otherwise ungated by civic).
