@@ -44,6 +44,7 @@
       "slider_increment": 10,
       "anger_modifier": -5,
       "transition_turns": 5,
+      "can_rush_with_gold": true,
       "effects": { "town_production": 1 }
     },
     "representation": {

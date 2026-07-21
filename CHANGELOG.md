@@ -12,6 +12,11 @@ All notable changes to Humanish are recorded here. Versions follow
   the vanished unit from the selection.
 
 ### Changed
+- **Gold-hurry now requires the Universal Suffrage civic** (§15.2, the Civ IV
+  convention), reversing the earlier "available always" retune. The civic carries
+  a `can_rush_with_gold` flag in `policies.json`, enforced in both
+  `SimFacade._cmd_rush_production` and the `can_rush_gold` predicate that
+  drives the City screen's Hurry (Gold) button. The population whip is unchanged.
 - **Goody-hut discovery messages now name the actual reward.** The terse
   "Discovery: unit" log line is replaced by a descriptive message per reward
   type — "Discovery! A wandering Warrior joins your explorer.", "Discovery!

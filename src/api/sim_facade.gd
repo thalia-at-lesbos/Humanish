@@ -1175,10 +1175,10 @@ func _cmd_propose_permanent_alliance(cmd: Dictionary) -> bool:
 
 # Gold rush (hurry with treasury). The legacy method "population" delegates to
 # the dedicated population-rush handler (§15.2) so older callers keep working.
-# Gold hurry (§15.2/§29.8 reference retune, wiring item M5): pay
-# `rush_gold_per_hammer` (reference 3) gold per hammer still owed on the head
-# queue item. Available always — the Universal Suffrage `can_rush_with_gold`
-# gate is retired. The remaining cost comes through
+# Gold hurry (§15.2/§29.8): pay `rush_gold_per_hammer` (reference 3) gold per
+# hammer still owed on the head queue item. Gated on a civic carrying the
+# `can_rush_with_gold` flag (Universal Suffrage, §8) — the Civ IV convention.
+# The remaining cost comes through
 # TurnEngine.rush_remaining_cost, so an item queued this very turn carries the
 # shared `new_hurry_modifier` +50% surcharge exactly like a whip. The reference
 # gold hurry causes NO anger (the old flat 5-turn rush anger is gone; the
@@ -1193,6 +1193,8 @@ func _cmd_rush_production(cmd: Dictionary) -> bool:
 	var s: Settlement = _gs.get_settlement(int(cmd["settlement_id"]))
 	if s == null or s.owner_player_id != p.id:
 		return false
+	if not PolicyEffects.has_flag(p, _db, "can_rush_with_gold"):
+		return false  # gold hurry requires the Universal Suffrage civic (§15.2)
 	var gold_cost: int = TurnEngine.rush_remaining_cost(_gs, s, p) \
 		* _db.get_constant("rush_gold_per_hammer", 3)
 	if gold_cost <= 0:
@@ -1294,8 +1296,8 @@ func settlement_output(settlement_id: int) -> Array:
 # settlement's head queue item can be performed right now — there is something left
 # to rush (cost > 0) and the owner's treasury covers it. The single source of truth
 # the screen uses to gate the Hurry (Gold) button, matching _cmd_rush_production's
-# own acceptance test. (Gold hurry itself is ungated by civic since the M5 retune,
-# §15.2 — this predicate is affordability + a rushable item, not a tech/civic gate.)
+# own acceptance test. (Gold hurry requires the Universal Suffrage civic — the
+# `can_rush_with_gold` flag, §15.2 — in addition to affordability + a rushable item.)
 func can_rush_gold(settlement_id: int) -> bool:
 	var cost: int = rush_gold_cost(settlement_id)
 	if cost <= 0:
@@ -1304,7 +1306,11 @@ func can_rush_gold(settlement_id: int) -> bool:
 	if s == null:
 		return false
 	var p: Player = _gs.get_player(s.owner_player_id)
-	return p != null and p.treasury >= cost
+	if p == null:
+		return false
+	if not PolicyEffects.has_flag(p, _db, "can_rush_with_gold"):
+		return false  # gold hurry requires the Universal Suffrage civic (§15.2)
+	return p.treasury >= cost
 
 # Shared legality predicate for a worker (unit_id) building improvement_id on its
 # current tile. Used by _cmd_build_improvement (defence-in-depth on the command),

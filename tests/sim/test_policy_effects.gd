@@ -388,13 +388,16 @@ func _rush_setup():
 	gs.get_player(1).treasury = 100000
 	return [gs, f, s]
 
-func test_gold_rush_needs_no_permitting_civic() -> void:
-	# M5 (§15.2/§29.8): the Universal Suffrage `can_rush_with_gold` gate is
-	# retired — the gold hurry is available under every government.
+func test_gold_rush_requires_universal_suffrage() -> void:
+	# §15.2/§29.8: the gold hurry requires the Universal Suffrage civic
+	# (`can_rush_with_gold` flag). Rejected under any other government.
 	var setup = _rush_setup()
 	var gs = setup[0]; var f = setup[1]
+	assert_false(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "treasury")),
+		"Gold rush rejected with no permitting civic adopted")
+	gs.get_player(1).policies = {"government": "universal_suffrage"}
 	assert_true(f.apply_command(Commands.rush_production(1, gs.settlements[0].id, "treasury")),
-		"Gold rush accepted with no civics adopted at all")
+		"Universal Suffrage permits a gold rush")
 
 func test_pop_rush_requires_slavery() -> void:
 	var setup = _rush_setup()

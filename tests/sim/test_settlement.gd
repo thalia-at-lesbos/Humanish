@@ -1379,16 +1379,17 @@ func test_culture_rate_happiness_inactive_carrier_excluded() -> void:
 	assert_eq(s.positive_sentiment, live - 5,
 		"An obsolete carrier's 10*50/100 = 5 happy stops (§15.17)")
 
-# ── M5: gold hurry retune (§15.2/§29.8) ──────────────────────────────────────
+# ── M5: gold hurry (§15.2/§29.8) ─────────────────────────────────────────────
 #
-# 3 gold per hammer of remaining cost (`rush_gold_per_hammer`), available under
-# every government (the Universal Suffrage gate is retired), the shared
-# new-order +50% surcharge kept, and NO anger of any kind.
+# 3 gold per hammer of remaining cost (`rush_gold_per_hammer`), gated on the
+# Universal Suffrage civic's `can_rush_with_gold` flag, the shared new-order
+# +50% surcharge kept, and NO anger of any kind.
 
-# The whip fixture's 100-hammer dummy with no permitting civic at all.
+# The whip fixture's 100-hammer dummy running Universal Suffrage (the permitting
+# civic for the gold hurry, §15.2).
 func _gold_setup(treasury = 100000):
 	var setup = _whip_setup()
-	setup[0].get_player(1).policies = {}
+	setup[0].get_player(1).policies = {"government": "universal_suffrage"}
 	setup[0].get_player(1).treasury = treasury
 	return setup
 
@@ -1399,7 +1400,7 @@ func test_gold_hurry_costs_three_gold_per_remaining_hammer() -> void:
 	s.production_store = 10   # 90 hammers remain
 	assert_eq(f.rush_gold_cost(s.id), 270, "3 gold per remaining hammer")
 	assert_true(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
-		"Gold hurry accepted without any permitting civic")
+		"Gold hurry accepted under Universal Suffrage")
 	assert_eq(p.treasury, 100000 - 270, "270 gold paid")
 	assert_eq(s.production_store, 100, "The head item is fully paid for")
 
@@ -1436,6 +1437,18 @@ func test_gold_hurry_refused_when_poor_or_nothing_to_rush() -> void:
 	s.production_queue = []
 	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
 		"An empty production queue is rejected")
+
+func test_gold_hurry_requires_universal_suffrage_civic() -> void:
+	# §15.2: the gold hurry is gated on the Universal Suffrage civic
+	# (`can_rush_with_gold`); an affluent city under any other government cannot.
+	var setup = _gold_setup()
+	var gs = setup[0]; var f = setup[1]; var s = setup[2]
+	gs.get_player(1).policies = {}
+	assert_false(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"Gold hurry rejected without Universal Suffrage")
+	gs.get_player(1).policies = {"government": "universal_suffrage"}
+	assert_true(f.apply_command(Commands.rush_production(1, s.id, "treasury")),
+		"Gold hurry accepted once Universal Suffrage is active")
 
 # ── R1: settler/worker food-box build (§15.15) ───────────────────────────────
 #
