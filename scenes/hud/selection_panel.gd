@@ -278,6 +278,14 @@ func _build_unit_panel(unit_id: int, gs) -> void:
 			fort_btn.connect("pressed", self, "_on_fortify_until_healed", [u.id])
 			add_child(fort_btn)
 
+	# Disband (§4): a player may voluntarily disband one of their own units at any
+	# time. Mirrors the city Disband button (no confirmation dialog) and is gated on
+	# ownership so a read-only foreign subject shows no Disband control.
+	if u.owner_player_id == gs.current_player_id:
+		var disband_btn: Button = _left_button("Disband")
+		disband_btn.connect("pressed", self, "_on_disband_unit", [u.id])
+		add_child(disband_btn)
+
 	# Underlying tile terrain readout, so a selected unit also shows the terrain
 	# data of the tile it stands on (not just an inspected empty tile).
 	_append_tile_terrain(u.x, u.y)
@@ -415,6 +423,14 @@ func _on_open_city(city_id: int) -> void:
 func _on_disband_city(city_id: int) -> void:
 	_facade.apply_command(Commands.disband_city(
 		_facade.get_state().current_player_id, city_id))
+
+# Voluntarily disband the selected owned unit (§4). Mirrors the city-disband UX
+# (no confirmation dialog); the command removes the unit and clears it from the
+# selection, so rebuild the (now unit-less) panel.
+func _on_disband_unit(unit_id: int) -> void:
+	_facade.apply_command(Commands.unit_disband(
+		_facade.get_state().current_player_id, unit_id))
+	rebuild()
 
 func _on_sleep_until_healed(unit_id: int) -> void:
 	_facade.apply_command(Commands.mission_sleep_until_healed(

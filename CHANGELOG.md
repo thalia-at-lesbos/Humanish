@@ -5,6 +5,12 @@ All notable changes to Humanish are recorded here. Versions follow
 
 ## [Unreleased]
 
+### Added
+- **Disband button for units.** The selection panel now shows a "Disband" button
+  for the selected owned unit, so a player can voluntarily disband a unit at any
+  time (§4). It issues the existing `UNIT_DISBAND` command, which now also clears
+  the vanished unit from the selection.
+
 ### Changed
 - **Goody-hut discovery messages now name the actual reward.** The terse
   "Discovery: unit" log line is replaced by a descriptive message per reward

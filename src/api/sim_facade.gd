@@ -3106,6 +3106,10 @@ func _cmd_unit_command(cmd: Dictionary) -> bool:
 			u.movement_left = u.movement_total
 		IDs.CommandType.UNIT_DISBAND:
 			Stack.remove_unit(_gs.units, unit_id)
+			# Drop the vanished unit from the selection so the panel doesn't try to
+			# rebuild against a dead id (mirrors the UNIT_GIFT hand-off below).
+			if _selection != null:
+				_selection.selected_unit_ids.erase(unit_id)
 		IDs.CommandType.UNIT_PROMOTE:
 			var promo_id: String = str(cmd.get("promotion_id", ""))
 			if promo_id == "" or promo_id in u.promotions:
