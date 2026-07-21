@@ -241,6 +241,56 @@ func test_set_tile_worked_rejects_mountain() -> void:
 	assert_false(ok, "Locking a mountain tile is rejected")
 	assert_eq(s.locked_tiles.size(), 0, "No lock is recorded")
 
+# ── City-advisor bugfixes (tstc1) ────────────────────────────────────────────
+
+func test_compute_settlement_output_matches_growth() -> void:
+	# The extracted pure helper returns exactly what _settlement_growth credits to
+	# s.output_* — so the city screen's live display can never drift from the pipeline.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.manage_citizens_auto = false
+	s.worked_tiles = [[5, 5], [6, 5], [4, 5]]
+	var player = gs.get_player(1)
+	TurnEngine._settlement_growth(gs, s, player)
+	var live = TurnEngine.compute_settlement_output(gs, s, player)
+	assert_eq(live, [s.output_food, s.output_production, s.output_commerce],
+		"compute_settlement_output equals the pipeline-credited output")
+
+func test_set_tile_worked_centre_never_unworkable() -> void:
+	# The city-centre tile is worked for free (§4.1): a lock request is a no-op that
+	# records nothing, and an unwork request is rejected outright.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	var f = bare_facade(gs)
+	assert_false(f.apply_command(Commands.set_tile_worked(1, s.id, 5, 5, false)),
+		"Unworking the city centre is rejected")
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id, 5, 5, true)),
+		"Working the city centre is an accepted no-op")
+	assert_eq(s.locked_tiles.size(), 0, "The centre is never recorded as a manual lock")
+
+func test_set_tile_worked_enforces_worked_cap() -> void:
+	# At the worker budget (population − discontented − specialists), working a new
+	# tile is rejected; unworking a tile frees a slot so a new one can be taken.
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.discontented = 0
+	s.manage_citizens_auto = false
+	var f = bare_facade(gs)
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id, 6, 5, true)),
+		"First lock accepted (0 < budget 2)")
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id, 4, 5, true)),
+		"Second lock accepted (1 < budget 2)")
+	assert_false(f.apply_command(Commands.set_tile_worked(1, s.id, 5, 6, true)),
+		"Third lock rejected — the worked cap (2) is reached")
+	assert_eq(s.locked_tiles.size(), 2, "The over-cap lock is not recorded")
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id, 6, 5, false)),
+		"Unworking a locked tile is always allowed and frees a slot")
+	assert_true(f.apply_command(Commands.set_tile_worked(1, s.id, 5, 6, true)),
+		"With a slot freed, a new tile can now be worked")
+	assert_eq(s.locked_tiles.size(), 2, "Still at the cap, not over it")
+
 func test_river_tile_adds_commerce_to_city_output() -> void:
 	# A5 (reference): a worked grassland river tile yields +1 commerce. The river is
 	# applied to a NON-centre worked tile — the centre carries a guaranteed minimum

@@ -90,7 +90,12 @@ func test_city_screen_shows_health_and_growth() -> void:
 	gs.current_player_id = pid
 	var s = make_settlement(gs, pid, 5, 5, 3)
 	s.name = "Healthville"
-	s.output_food = 10      # net food: 10 - 0 - 3*2 = +4 → growing
+	# The Growth line reads LIVE output now, so stage a real food surplus: four
+	# worked grassland tiles (2 food each = 8) less 3-pop consumption (6) → +2.
+	s.manage_citizens_auto = false
+	for pair in [[5, 5], [6, 5], [4, 5], [5, 6]]:
+		gs.map.get_tile(pair[0], pair[1]).terrain_id = "grassland"
+	s.worked_tiles = [[5, 5], [6, 5], [4, 5], [5, 6]]
 	s.wellbeing_deficit = 0
 	s.health = 5            # below max → "recovering"
 	var screen = _screen(facade)
@@ -102,6 +107,56 @@ func test_city_screen_shows_health_and_growth() -> void:
 	assert_true("Growth:" in text, "City screen must show a Growth line")
 	assert_true("growing" in text,
 		"A city with a positive food surplus must report it is growing")
+
+# Collect every Button in a subtree (for asserting enabled/offered state).
+func _all_buttons(node, acc) -> void:
+	if node is Button:
+		acc.append(node)
+	for c in node.get_children():
+		_all_buttons(c, acc)
+
+func test_output_line_shows_live_not_stale_totals() -> void:
+	# The Output section must reflect the LIVE recomputed output for the current
+	# worked tiles, not the stale s.output_* left by last turn's pipeline.
+	var facade = setup_facade(77, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 1)
+	s.manage_citizens_auto = false
+	gs.map.get_tile(5, 5).terrain_id = "grassland"
+	s.worked_tiles = [[5, 5]]           # centre only → a small, known live food
+	s.output_food = 999                 # bogus stale value must NOT be shown
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var text := _all_text(screen)
+	assert_false("Food +999" in text, "the stale s.output_food must not be displayed")
+	var live = facade.settlement_output(s.id)
+	assert_true(("Food +" + str(live[0])) in text,
+		"the Output line shows the live recomputed food total")
+
+func test_hurry_gold_button_not_offered_without_queue() -> void:
+	# With nothing queued there is nothing to gold-rush, so the Hurry (Gold) button
+	# is not offered at all (§15.2 gold hurry is otherwise ungated by civic).
+	var facade = setup_facade(78, "small",
+		[{"name": "A", "leader_id": "", "traits": [], "starting_gold": 50}], ["time"])
+	var gs = facade.get_state()
+	var pid = gs.players[0].id
+	gs.current_player_id = pid
+	var s = make_settlement(gs, pid, 5, 5, 2)
+	s.production_queue = []              # nothing to rush
+	var screen = _screen(facade)
+	screen._city_id = s.id
+	screen.visible = true
+	screen._build()
+	var btns := []
+	_all_buttons(screen, btns)
+	for b in btns:
+		assert_false("Hurry (Gold" in str(b.text),
+			"no Hurry (Gold) button when there is nothing to rush")
 
 func test_work_boat_offered_only_when_coastal_and_teched() -> void:
 	var facade = setup_facade(76, "small",

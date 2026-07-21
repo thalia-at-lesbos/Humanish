@@ -50,6 +50,14 @@ func _build() -> void:
 	var owner = gs.get_player(s.owner_player_id)
 	var techs = owner.technologies if owner != null else []
 
+	# LIVE output for the currently worked tiles / specialists — recomputed on
+	# demand (the screen rebuilds after every tile toggle) so the totals shown match
+	# exactly what the turn pipeline credits, not the stale s.output_* from last turn.
+	var live_out = _facade.settlement_output(_city_id)
+	var live_food: int = int(live_out[0]) if live_out.size() == 3 else s.output_food
+	var live_prod: int = int(live_out[1]) if live_out.size() == 3 else s.output_production
+	var live_comm: int = int(live_out[2]) if live_out.size() == 3 else s.output_commerce
+
 	# Opaque backdrop so the map is not visible behind the screen.
 	var bg := ColorRect.new()
 	bg.anchor_right = 1.0
@@ -106,7 +114,7 @@ func _build() -> void:
 	# Net food per turn = raw food output, less the wellbeing deficit, less what the
 	# population eats (mirrors TurnEngine._settlement_growth's surplus calculation).
 	var food_per: int = db.get_constant("food_per_citizen", 2)
-	var net_food: int = s.output_food - s.wellbeing_deficit - s.population * food_per
+	var net_food: int = live_food - s.wellbeing_deficit - s.population * food_per
 	var growth_txt: String
 	# §15.15: while a settler/worker heads the queue the food surplus feeds
 	# production instead of the (frozen) food box — say so rather than "growing".
@@ -129,10 +137,10 @@ func _build() -> void:
 
 	# ── Output ────────────────────────────────────────────────────────────────
 	_header(v, "Output")
-	_line(v, "Food " + _sgn(s.output_food) + "    Production " + _sgn(s.output_production) \
-		+ "    Commerce " + _sgn(s.output_commerce))
+	_line(v, "Food " + _sgn(live_food) + "    Production " + _sgn(live_prod) \
+		+ "    Commerce " + _sgn(live_comm))
 	if owner != null:
-		var split = owner.split_commerce(s.output_commerce)
+		var split = owner.split_commerce(live_comm)
 		_line(v, "Commerce split →  Finance " + str(split[0]) + "   Research " + str(split[1]) \
 			+ "   Culture " + str(split[2]) + "   Intel " + str(split[3]))
 	# Culture level (§15.4 / D2): the level name plus the border ring it grants;
@@ -216,11 +224,12 @@ func _build() -> void:
 	var rush_gold_cost: int = 0
 	var rush_pop_cost: int = 0
 	if not s.production_queue.empty() and owner != null:
-		# Gold hurry (§15.2, M5): always available — priced by the facade at
-		# `rush_gold_per_hammer` per remaining hammer (new-order surcharge in).
+		# Gold hurry (§15.2, M5): priced by the facade at `rush_gold_per_hammer` per
+		# remaining hammer (new-order surcharge in). The single-source-of-truth
+		# `can_rush_gold` predicate (rushable item + treasury covers it) decides
+		# whether the button is offered/enabled — matching _cmd_rush_production.
 		rush_gold_cost = _facade.rush_gold_cost(_city_id)
-		can_rush_treasury = rush_gold_cost > 0 \
-			and owner.treasury >= rush_gold_cost
+		can_rush_treasury = _facade.can_rush_gold(_city_id)
 		# Population rush (§15.2): needs a permitting civic (Slavery), a cost to
 		# cover, and enough citizens to keep the minimum city size afterwards.
 		rush_pop_cost = _facade.rush_population_cost(_city_id)
@@ -228,11 +237,14 @@ func _build() -> void:
 		can_rush_pop = PolicyEffects.has_flag(owner, db, "pop_rush") \
 			and rush_pop_cost > 0 \
 			and s.population - rush_pop_cost >= min_pop
-	var rush_gold_btn := Button.new()
-	rush_gold_btn.text = "Hurry (Gold: " + str(rush_gold_cost) + ")"
-	rush_gold_btn.disabled = not can_rush_treasury
-	rush_gold_btn.connect("pressed", self, "_on_rush", ["treasury"])
-	action_row.add_child(rush_gold_btn)
+	# Only offer the Hurry (Gold) button when there is actually something to rush
+	# (a queued item with hammers still owed); otherwise it is not shown at all.
+	if rush_gold_cost > 0:
+		var rush_gold_btn := Button.new()
+		rush_gold_btn.text = "Hurry (Gold: " + str(rush_gold_cost) + ")"
+		rush_gold_btn.disabled = not can_rush_treasury
+		rush_gold_btn.connect("pressed", self, "_on_rush", ["treasury"])
+		action_row.add_child(rush_gold_btn)
 	var rush_pop_btn := Button.new()
 	rush_pop_btn.text = "Hurry (Pop: " + str(rush_pop_cost) + ")"
 	rush_pop_btn.disabled = not can_rush_pop
@@ -344,8 +356,13 @@ func _build_citizen_management(v, s, gs, db, techs) -> void:
 			var mark: String = _tile_grid_marker(is_center, is_worked, locked.has(key))
 			btn.text = mark + tile.terrain_id.left(4) \
 				+ " F" + str(out[0]) + "P" + str(out[1]) + "C" + str(out[2])
-			btn.connect("pressed", self, "_on_toggle_tile",
-				[tile.x, tile.y, not locked.has(key)])
+			if is_center:
+				# The city centre is worked for free (§4.1) and can never be
+				# unworked — render it inert so it is not offered as a toggle.
+				btn.disabled = true
+			else:
+				btn.connect("pressed", self, "_on_toggle_tile",
+					[tile.x, tile.y, not locked.has(key)])
 			grid.add_child(btn)
 	v.add_child(grid)
 

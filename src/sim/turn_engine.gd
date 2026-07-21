@@ -338,7 +338,13 @@ static func settlement_step(gs: GameState, s: Settlement,
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
-static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> void:
+# §4/§6 pure output summation: the total [food, production, commerce] a settlement
+# produces right now from its worked tiles, structures, econ orgs, specialists,
+# civics, trade routes, Golden Age, capital bonuses, blockade and anarchy. Extracted
+# from _settlement_growth so the city screen can display the LIVE total (via
+# SimFacade.settlement_output) that is byte-identical to what the turn pipeline
+# credits the city each turn. Pure — no state mutation.
+static func compute_settlement_output(gs: GameState, s: Settlement, player: Player) -> Array:
 	var db: DataDB = gs.db
 
 	# Compute output from worked tiles
@@ -450,9 +456,18 @@ static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> 
 	if player != null and player.transition_turns > 0:
 		total_commerce = 0
 
-	s.output_food       = total_food
-	s.output_production = total_prod
-	s.output_commerce   = total_commerce
+	return [total_food, total_prod, total_commerce]
+
+# §4.2 growth step: credits the settlement's live output (compute_settlement_output)
+# to s.output_* then runs the food box and growth threshold. Split from the pure
+# summation above so the turn pipeline and the city-screen display can never diverge.
+static func _settlement_growth(gs: GameState, s: Settlement, player: Player) -> void:
+	var db: DataDB = gs.db
+	var out_totals: Array = compute_settlement_output(gs, s, player)
+	var total_food: int = out_totals[0]
+	s.output_food       = out_totals[0]
+	s.output_production = out_totals[1]
+	s.output_commerce   = out_totals[2]
 
 	# Food box (§4.2): consumption is over non-angry citizens only, plus net
 	# unhealthiness as a drain. _update_wellbeing populates the health figures read

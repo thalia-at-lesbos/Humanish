@@ -1269,6 +1269,38 @@ func rush_gold_cost(settlement_id: int) -> int:
 	return TurnEngine.rush_remaining_cost(_gs, s, p) \
 		* _db.get_constant("rush_gold_per_hammer", 3)
 
+# Pure read for the city screen (§11): the settlement's LIVE output as
+# [food, production, commerce] for its currently worked tiles / specialists —
+# recomputed on demand (e.g. after a SET_TILE_WORKED toggle) so the displayed
+# total is byte-identical to what the turn pipeline credits. Delegates to the same
+# TurnEngine.compute_settlement_output the growth step uses. Empty array = no city.
+func settlement_output(settlement_id: int) -> Array:
+	var s: Settlement = _gs.get_settlement(settlement_id)
+	if s == null:
+		return []
+	# A city in revolt (§4.8) produces nothing until order is restored — mirror the
+	# settlement_step early-out so the screen shows the same zeros the pipeline sets.
+	if s.revolt_turns > 0:
+		return [0, 0, 0]
+	var p: Player = _gs.get_player(s.owner_player_id)
+	return TurnEngine.compute_settlement_output(_gs, s, p)
+
+# Pure read for the city screen (§15.2, M5): whether a treasury (gold) hurry of this
+# settlement's head queue item can be performed right now — there is something left
+# to rush (cost > 0) and the owner's treasury covers it. The single source of truth
+# the screen uses to gate the Hurry (Gold) button, matching _cmd_rush_production's
+# own acceptance test. (Gold hurry itself is ungated by civic since the M5 retune,
+# §15.2 — this predicate is affordability + a rushable item, not a tech/civic gate.)
+func can_rush_gold(settlement_id: int) -> bool:
+	var cost: int = rush_gold_cost(settlement_id)
+	if cost <= 0:
+		return false
+	var s: Settlement = _gs.get_settlement(settlement_id)
+	if s == null:
+		return false
+	var p: Player = _gs.get_player(s.owner_player_id)
+	return p != null and p.treasury >= cost
+
 # Shared legality predicate for a worker (unit_id) building improvement_id on its
 # current tile. Used by _cmd_build_improvement (defence-in-depth on the command),
 # the HUD worker-action panel, and the AI worker logic so all three agree on what
@@ -1732,12 +1764,32 @@ func _cmd_set_tile_worked(cmd: Dictionary) -> bool:
 	if not in_range:
 		return false
 	var worked: bool = bool(cmd.get("worked", true))
+	# The city-centre tile is worked for free (§4.1) and can never be toggled off: a
+	# lock request on it is a harmless accepted no-op, an unwork request is rejected.
+	# Defense-in-depth behind the grid, which renders the centre button inert.
+	if tx == s.x and ty == s.y:
+		return worked
 	var idx: int = -1
 	for i in range(s.locked_tiles.size()):
 		if int(s.locked_tiles[i][0]) == tx and int(s.locked_tiles[i][1]) == ty:
 			idx = i
 			break
 	if worked and idx < 0:
+		# Reject a lock that would push the worked set past the city's worker budget
+		# (§4/§15.19): population minus discontented, minus assigned specialists. At
+		# the cap, working a new tile is a no-op — the player must first free a slot
+		# (unlock a tile or drop a specialist). Unlocks are always allowed below.
+		var spec_count: int = Specialists.population_used(_db, s)
+		var budget: int = s.effective_workers() - spec_count
+		if budget < 0:
+			budget = 0
+		var locked_noncentre: int = 0
+		for lt in s.locked_tiles:
+			if int(lt[0]) == s.x and int(lt[1]) == s.y:
+				continue
+			locked_noncentre += 1
+		if locked_noncentre >= budget:
+			return false
 		s.locked_tiles.append([tx, ty])
 	elif not worked and idx >= 0:
 		s.locked_tiles.remove(idx)

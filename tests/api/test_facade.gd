@@ -1379,3 +1379,41 @@ func test_get_unit_actions_great_merchant_trade_mission_anywhere() -> void:
 		actions.append(str(it.get("action", "")))
 	assert_eq(actions, ["trade_mission", "found_corporation", "join_city", "start_golden_age"],
 		"an own city enables the city-scoped merchant verbs")
+
+# ── City-advisor reads (tstc1) ───────────────────────────────────────────────
+
+func test_settlement_output_is_live_and_matches_pipeline() -> void:
+	# The facade read recomputes output live from the current worked tiles and
+	# equals exactly what the growth pipeline credits to s.output_*.
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.manage_citizens_auto = false
+	s.worked_tiles = [[5, 5], [6, 5], [4, 5]]
+	var f = bare_facade(gs)
+	TurnEngine._settlement_growth(gs, s, gs.get_player(1))
+	assert_eq(f.settlement_output(s.id),
+		[s.output_food, s.output_production, s.output_commerce],
+		"settlement_output equals the pipeline-credited output")
+	assert_eq(f.settlement_output(-999), [], "missing settlement yields an empty array")
+
+func test_settlement_output_zero_in_revolt() -> void:
+	var gs = make_gs(1)
+	var s = make_settlement(gs, 1, 5, 5, 2)
+	s.worked_tiles = [[5, 5], [6, 5]]
+	s.revolt_turns = 3
+	var f = bare_facade(gs)
+	assert_eq(f.settlement_output(s.id), [0, 0, 0],
+		"a city in revolt produces nothing")
+
+func test_can_rush_gold_predicate() -> void:
+	var gs = make_gs(1)
+	gs.current_player_id = 1
+	var s = make_settlement(gs, 1, 5, 5, 3)
+	var f = bare_facade(gs)
+	assert_false(f.can_rush_gold(s.id), "no queued item → nothing to gold-rush")
+	s.production_queue = [{"type": "unit", "id": "warrior"}]
+	gs.get_player(1).treasury = 0
+	assert_false(f.can_rush_gold(s.id), "cannot gold-rush with an empty treasury")
+	gs.get_player(1).treasury = 100000
+	assert_true(f.can_rush_gold(s.id),
+		"a queued item plus an affording treasury permits the gold rush")

@@ -6,6 +6,23 @@ All notable changes to Humanish are recorded here. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- **The City screen's Output totals are now live and correct.** Food /
+  Production / Commerce showed the values last computed by the turn pipeline, so
+  locking or unlocking a worked tile left the totals stale. The output-summation
+  is now a pure shared helper (`TurnEngine.compute_settlement_output`) that the
+  growth pipeline and the screen (via `SimFacade.settlement_output`) both use, so
+  the displayed total always equals what the city is actually credited.
+- **The city-centre tile can no longer be un-worked.** The centre is worked for
+  free; its work-grid button is now inert and the `SET_TILE_WORKED` command
+  rejects any attempt to un-work the centre (defense-in-depth).
+- **Working a new tile at the worker cap is now a no-op.** `SET_TILE_WORKED`
+  rejects a lock that would exceed the city's worker budget (population minus
+  discontented and specialists); a slot must first be freed by un-working a tile.
+- **The City screen's "Hurry (Gold)" button is only offered when it can be
+  used.** It is now gated through a single facade predicate
+  (`SimFacade.can_rush_gold`) — a queued item with hammers still owed and a
+  treasury that covers the cost — and hidden entirely when there is nothing to
+  rush.
 - **Insolvency no longer scraps a player's whole army in one turn.** When a
   player went broke past the grace period, the disband loop compared every
   disband against the same stale negative treasury and never recomputed upkeep,
